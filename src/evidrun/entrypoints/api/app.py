@@ -1,0 +1,257 @@
+from __future__ import annotations
+
+import asyncio
+import json
+import os
+from collections.abc import AsyncGenerator, AsyncIterator
+from contextlib import asynccontextmanager
+from pathlib import Path
+from typing import Annotated, Any
+
+import uvicorn
+import yaml
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, ConfigDict, Field
+
+from evidrun import __version__
+from evidrun.evidence.bundle import EvidenceBundleService
+from evidrun.experiments import ExperimentManifest
+from evidrun.infrastructure.database import Database, Repository
+from evidrun.runs import EvidrunService
+from evidrun.shared.settings import Settings
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
+
+
+class ChatSessionCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    workspace_id: str
+    title: str = Field(min_length=1, max_length=120)
+    scope_type: str | None = None
+    scope_id: str | None = None
+
+
+class ChatMessageCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    role: str
+    content: str = Field(min_length=1, max_length=100_000)
+
+
+class ManifestRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    yaml: str
+
+
+def create_app(
+    *,
+    data_dir: Path | None = None,
+    launch_token: str | None = None,
+    benchmark_root: Path | None = None,
+) -> FastAPI:
+    settings = Settings.load(data_dir)
+    settings.ensure_directories()
+    database = Database(settings.database_path)
+    database.create_all()
+    repository = Repository(database)
+    service = EvidrunService(repository)
+    bundles = EvidenceBundleService(repository)
+    benchmarks = benchmark_root or REPOSITORY_ROOT / "benchmarks"
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
+        yield
+        database.dispose()
+
+    app = FastAPI(
+        title="Evidrun API",
+        version=__version__,
+        description="Local-first, auditable context reliability laboratory.",
+        lifespan=lifespan,
+    )
+    app.state.settings = settings
+    app.state.repository = repository
+    app.state.service = service
+    app.state.launch_token = launch_token
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "http://127.0.0.1:5173",
+            "http://localhost:5173",
+            "evidrun://app",
+            "null",
+        ],
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "DELETE"],
+        allow_headers=["Authorization", "Content-Type", "Idempotency-Key"],
+    )
+
+    async def authorize(authorization: Annotated[str | None, Header()] = None) -> None:
+        if launch_token is None:
+            return
+        if authorization != f"Bearer {launch_token}":
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid token")
+
+    @app.get("/api/v1/health")
+    async def health(_: None = Depends(authorize)) -> dict[str, Any]:
+        return {
+            "status": "ok",
+            "version": __version__,
+            "database": str(settings.database_path),
+            "schema_version": "1",
+        }
+
+    @app.get("/api/v1/doctor")
+    async def doctor(_: None = Depends(authorize)) -> dict[str, Any]:
+        return {
+            "healthy": settings.database_path.exists(),
+            "data_dir": str(settings.data_dir),
+            "database": str(settings.database_path),
+            "artifacts": str(settings.artifacts_dir),
+            "benchmark_available": (benchmarks / "experiments/crl-ctx-002-demo.yaml").exists(),
+            "network_required_for_demo": False,
+        }
+
+    @app.get("/api/v1/dashboard")
+    async def dashboard(_: None = Depends(authorize)) -> dict[str, Any]:
+        return repository.latest_dashboard()
+
+    @app.get("/api/v1/workspaces")
+    async def workspaces(_: None = Depends(authorize)) -> list[dict[str, Any]]:
+        return repository.latest_dashboard()["workspaces"]
+
+    @app.get("/api/v1/projects")
+    async def projects(_: None = Depends(authorize)) -> list[dict[str, Any]]:
+        return repository.latest_dashboard()["projects"]
+
+    @app.get("/api/v1/experiments")
+    async def experiments(_: None = Depends(authorize)) -> list[dict[str, Any]]:
+        return repository.latest_dashboard()["experiments"]
+
+    @app.post("/api/v1/experiments/validate")
+    async def validate_manifest(
+        payload: ManifestRequest, _: None = Depends(authorize)
+    ) -> dict[str, Any]:
+        try:
+            manifest = ExperimentManifest.model_validate(yaml.safe_load(payload.yaml))
+        except Exception as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return {
+            "valid": True,
+            "digest": manifest.digest,
+            "validity": manifest.validity,
+            "normalized": manifest.model_dump(mode="json"),
+        }
+
+    @app.post("/api/v1/demo/bootstrap")
+    async def bootstrap_demo(_: None = Depends(authorize)) -> dict[str, Any]:
+        return await asyncio.to_thread(service.bootstrap_demo, benchmarks)
+
+    @app.get("/api/v1/runs")
+    async def runs(_: None = Depends(authorize)) -> list[dict[str, Any]]:
+        return repository.latest_dashboard()["runs"]
+
+    @app.get("/api/v1/runs/{run_id}")
+    async def run_detail(
+        run_id: str, _: None = Depends(authorize)
+    ) -> dict[str, Any]:
+        matches = [item for item in repository.latest_dashboard()["runs"] if item["id"] == run_id]
+        if not matches:
+            raise HTTPException(status_code=404, detail="run not found")
+        return {**matches[0], "events": repository.get_run_events(run_id)}
+
+    @app.get("/api/v1/runs/{run_id}/events")
+    async def run_events(
+        run_id: str, _: None = Depends(authorize)
+    ) -> list[dict[str, Any]]:
+        return repository.get_run_events(run_id)
+
+    @app.get("/api/v1/runs/{run_id}/stream")
+    async def run_stream(
+        run_id: str, request: Request, _: None = Depends(authorize)
+    ) -> StreamingResponse:
+        async def event_stream() -> AsyncIterator[str]:
+            emitted = 0
+            while not await request.is_disconnected():
+                events = repository.get_run_events(run_id)
+                for event in events[emitted:]:
+                    serialized = json.dumps(event, ensure_ascii=False)
+                    yield f"event: {event['type']}\ndata: {serialized}\n\n"
+                emitted = len(events)
+                run = repository.get_run(run_id)
+                if run.status in {"completed", "failed", "canceled", "expired"} and emitted:
+                    return
+                yield ": heartbeat\n\n"
+                await asyncio.sleep(1)
+
+        return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+    @app.get("/api/v1/comparisons")
+    async def comparisons(_: None = Depends(authorize)) -> list[dict[str, Any]]:
+        return repository.latest_dashboard()["comparisons"]
+
+    @app.get("/api/v1/comparisons/{comparison_id}")
+    async def comparison(
+        comparison_id: str, _: None = Depends(authorize)
+    ) -> dict[str, Any]:
+        matches = [
+            item
+            for item in repository.latest_dashboard()["comparisons"]
+            if item["id"] == comparison_id
+        ]
+        if not matches:
+            raise HTTPException(status_code=404, detail="comparison not found")
+        return matches[0]
+
+    @app.post("/api/v1/chat/sessions")
+    async def create_chat(
+        payload: ChatSessionCreate, _: None = Depends(authorize)
+    ) -> dict[str, Any]:
+        row = repository.create_chat_session(
+            workspace_id=payload.workspace_id,
+            title=payload.title,
+            scope_type=payload.scope_type,
+            scope_id=payload.scope_id,
+        )
+        return {
+            "id": row.id,
+            "workspace_id": row.workspace_id,
+            "title": row.title,
+            "scope_type": row.scope_type,
+            "scope_id": row.scope_id,
+        }
+
+    @app.get("/api/v1/chat/sessions")
+    async def chat_sessions(_: None = Depends(authorize)) -> list[dict[str, Any]]:
+        return repository.latest_dashboard()["chats"]
+
+    @app.post("/api/v1/chat/sessions/{session_id}/messages")
+    async def add_chat_message(
+        session_id: str,
+        payload: ChatMessageCreate,
+        _: None = Depends(authorize),
+    ) -> dict[str, Any]:
+        row = repository.add_chat_message(session_id, payload.role, payload.content)
+        return {
+            "id": row.id,
+            "session_id": row.session_id,
+            "role": row.role,
+            "content": row.content,
+        }
+
+    @app.post("/api/v1/evidence-bundles/{comparison_id}")
+    async def export_bundle(
+        comparison_id: str, _: None = Depends(authorize)
+    ) -> dict[str, Any]:
+        target = settings.data_dir / "exports" / f"{comparison_id}.evidrun.zip"
+        await asyncio.to_thread(bundles.export_comparison, comparison_id, target)
+        return {"path": str(target), "comparison_id": comparison_id}
+
+    return app
+
+
+def run() -> None:
+    port = int(os.environ.get("EVIDRUN_PORT", "8765"))
+    uvicorn.run(create_app(), host="127.0.0.1", port=port)

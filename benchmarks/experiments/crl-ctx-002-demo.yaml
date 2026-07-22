@@ -1,0 +1,54 @@
+schema_version: "1"
+id: crl-ctx-002-context-policy
+project_id: context-reliability-lab
+title: Preservação da causa-raiz em logs longos
+objective: Identifique a causa-raiz do incidente usando somente o log fornecido e cite a evidência.
+hypothesis: Preservar o final do log torna a causa-raiz observável ao subject runner.
+evidence_mode: prospective_controlled
+scenario_refs:
+  - crl-ctx-002@1
+baseline_variant: head-truncation
+variants:
+  - id: head-truncation
+    label: Baseline — início preservado
+    context_policy: preserve-head-v1
+  - id: tail-preservation
+    label: Candidate — final preservado
+    context_policy: preserve-tail-v1
+primary_variable: context_policy
+subject_profile:
+  runner: scripted-log-investigator-v1
+context_policies:
+  - id: preserve-head-v1
+    strategy: head
+    max_chars: 900
+  - id: preserve-tail-v1
+    strategy: tail
+    max_chars: 900
+tools: []
+environment:
+  network: disabled
+  fixture: benchmarks/scenarios/crl-ctx-002/fixtures/long.log
+budgets:
+  max_wall_seconds: 5
+approvals: []
+capture_policy:
+  default: redacted
+  raw_sensitive: disabled
+repetitions: 1
+seed_strategy:
+  type: deterministic
+graders:
+  - id: exact-root-cause-v1
+    type: deterministic
+    expected: DB_POOL_EXHAUSTED
+comparison_plan:
+  type: paired
+  report_tradeoffs: true
+stop_conditions:
+  on_first_terminal_output: true
+tags:
+  - context
+  - deterministic-smoke
+  - p0
+

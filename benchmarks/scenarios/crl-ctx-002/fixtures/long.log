@@ -1,0 +1,27 @@
+2026-07-22T13:00:00.000Z INFO  api.boot service=evidrun-demo version=1
+2026-07-22T13:00:00.100Z INFO  config loaded profile=production-safe
+2026-07-22T13:00:00.200Z INFO  http listening address=127.0.0.1 port=8080
+2026-07-22T13:01:00.000Z INFO  request id=req-001 route=/orders status=200 latency_ms=31
+2026-07-22T13:01:01.000Z INFO  request id=req-002 route=/orders status=200 latency_ms=29
+2026-07-22T13:01:02.000Z INFO  request id=req-003 route=/health status=200 latency_ms=4
+2026-07-22T13:01:03.000Z WARN  cache miss key=inventory:42
+2026-07-22T13:01:04.000Z INFO  cache fill key=inventory:42 duration_ms=14
+2026-07-22T13:01:05.000Z INFO  request id=req-004 route=/inventory status=200 latency_ms=45
+2026-07-22T13:01:06.000Z INFO  scheduler tick jobs_ready=2
+2026-07-22T13:01:07.000Z INFO  worker claimed job=sync-101
+2026-07-22T13:01:08.000Z INFO  worker completed job=sync-101 duration_ms=87
+2026-07-22T13:01:09.000Z INFO  metrics flush counters=18 gauges=7
+2026-07-22T13:01:10.000Z INFO  request id=req-005 route=/orders status=200 latency_ms=34
+2026-07-22T13:01:11.000Z WARN  downstream retry service=payments attempt=1 delay_ms=50
+2026-07-22T13:01:12.000Z INFO  downstream recovered service=payments attempt=2
+2026-07-22T13:01:13.000Z INFO  request id=req-006 route=/checkout status=200 latency_ms=118
+2026-07-22T13:01:14.000Z INFO  pool stats active=18 idle=2 max=20 waiting=0
+2026-07-22T13:01:15.000Z INFO  request id=req-007 route=/orders status=200 latency_ms=37
+2026-07-22T13:01:16.000Z WARN  pool stats active=20 idle=0 max=20 waiting=4
+2026-07-22T13:01:17.000Z WARN  pool stats active=20 idle=0 max=20 waiting=11
+2026-07-22T13:01:18.000Z ERROR request id=req-008 route=/checkout status=503 latency_ms=3001
+2026-07-22T13:01:18.100Z ERROR database checkout timeout seconds=3 active=20 waiting=18
+2026-07-22T13:01:18.200Z ERROR incident detector signature=resource-starvation confidence=0.99
+2026-07-22T13:01:18.300Z ERROR diagnosis ROOT_CAUSE=DB_POOL_EXHAUSTED evidence=all_connections_held_by_stalled_transactions
+2026-07-22T13:01:18.400Z ERROR mitigation required action=rollback_stalled_transactions_and_increase_pool_guardrails
+

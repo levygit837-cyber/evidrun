@@ -1,0 +1,67 @@
+# Evidrun
+
+Laboratório local-first e auditável para testar como contexto, ferramentas, policies e ambientes
+afetam agentes de IA.
+
+O Evidrun não trata uma resposta isolada como prova. Cada comparação registra a variável alterada,
+o contexto efetivamente entregue, a trilha de eventos, os graders, os ganhos, as perdas e os limites
+da conclusão.
+
+## Estado atual
+
+A primeira espinha executável está implementada com o benchmark determinístico `CRL-CTX-002`:
+
+- Python 3.14, FastAPI, Pydantic, SQLAlchemy e SQLite/WAL;
+- manifest imutável e validado;
+- event ledger append-only encadeado por hash;
+- context plans, snapshots e diffs;
+- subject runner e grader determinísticos;
+- comparação e relatório;
+- evidence bundle com checksums e verificação da cadeia;
+- CLI, API, React e Electron dev shell;
+- nenhuma API externa necessária para o benchmark de referência.
+
+Esse benchmark comprova o funcionamento da infraestrutura. Ele não mede a capacidade de um LLM.
+
+## Começar
+
+```bash
+uv sync --extra dev
+pnpm install
+uv run evidrun init
+uv run evidrun doctor
+uv run evidrun demo
+```
+
+Backend e browser:
+
+```bash
+uv run evidrun serve
+pnpm dev:web
+```
+
+Electron:
+
+```bash
+pnpm desktop:dev
+```
+
+Testes e builds:
+
+```bash
+uv run pytest
+uv run ruff check .
+uv run pyright
+pnpm typecheck:web
+pnpm typecheck:desktop
+pnpm test
+pnpm build
+```
+
+## Navegação documental
+
+Comece por [docs/index.md](docs/index.md). Decisões aceitas ficam em `docs/adr`, contratos em
+`docs/contracts` e resultados de runs permanecem no data store ou em bundles exportados.
+
+O Obsidian é uma área de pesquisa e incubação; o repositório é a fonte normativa.
+

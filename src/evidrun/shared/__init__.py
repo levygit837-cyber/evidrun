@@ -1,0 +1,2 @@
+"""Shared, dependency-light primitives."""
+

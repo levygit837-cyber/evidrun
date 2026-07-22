@@ -1,0 +1,11 @@
+schema_version: "1"
+id: crl-ctx-002
+revision: 1
+title: Causa-raiz no final de log longo
+purpose: Verificar se uma política de contexto preserva a evidência decisiva no final do log.
+fixture: fixtures/long.log
+expected: DB_POOL_EXHAUSTED
+limitations:
+  - O runner é determinístico e não representa a capacidade de um LLM.
+  - Uma repetição valida a infraestrutura, não a estabilidade estatística.
+

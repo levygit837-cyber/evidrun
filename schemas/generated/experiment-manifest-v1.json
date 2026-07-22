@@ -1,0 +1,275 @@
+{
+  "$defs": {
+    "ContextPolicySpec": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "strategy": {
+          "enum": [
+            "head",
+            "tail",
+            "full"
+          ],
+          "title": "Strategy",
+          "type": "string"
+        },
+        "max_chars": {
+          "exclusiveMinimum": 0,
+          "title": "Max Chars",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "strategy",
+        "max_chars"
+      ],
+      "title": "ContextPolicySpec",
+      "type": "object"
+    },
+    "EvidenceMode": {
+      "enum": [
+        "prospective_controlled",
+        "counterfactual_replay",
+        "retrospective_observational"
+      ],
+      "title": "EvidenceMode",
+      "type": "string"
+    },
+    "GraderSpec": {
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "title": "Type",
+          "type": "string"
+        },
+        "expected": {
+          "title": "Expected",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "expected"
+      ],
+      "title": "GraderSpec",
+      "type": "object"
+    },
+    "SubjectProfile": {
+      "additionalProperties": true,
+      "properties": {
+        "runner": {
+          "title": "Runner",
+          "type": "string"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        }
+      },
+      "required": [
+        "runner"
+      ],
+      "title": "SubjectProfile",
+      "type": "object"
+    },
+    "VariantSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "context_policy": {
+          "title": "Context Policy",
+          "type": "string"
+        },
+        "confounders": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Confounders",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "context_policy"
+      ],
+      "title": "VariantSpec",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "project_id": {
+      "title": "Project Id",
+      "type": "string"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    },
+    "objective": {
+      "title": "Objective",
+      "type": "string"
+    },
+    "hypothesis": {
+      "title": "Hypothesis",
+      "type": "string"
+    },
+    "evidence_mode": {
+      "$ref": "#/$defs/EvidenceMode"
+    },
+    "scenario_refs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Scenario Refs",
+      "type": "array"
+    },
+    "baseline_variant": {
+      "title": "Baseline Variant",
+      "type": "string"
+    },
+    "variants": {
+      "items": {
+        "$ref": "#/$defs/VariantSpec"
+      },
+      "title": "Variants",
+      "type": "array"
+    },
+    "primary_variable": {
+      "title": "Primary Variable",
+      "type": "string"
+    },
+    "subject_profile": {
+      "$ref": "#/$defs/SubjectProfile"
+    },
+    "context_policies": {
+      "items": {
+        "$ref": "#/$defs/ContextPolicySpec"
+      },
+      "title": "Context Policies",
+      "type": "array"
+    },
+    "tools": {
+      "default": [],
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Tools",
+      "type": "array"
+    },
+    "environment": {
+      "additionalProperties": true,
+      "title": "Environment",
+      "type": "object"
+    },
+    "budgets": {
+      "additionalProperties": true,
+      "title": "Budgets",
+      "type": "object"
+    },
+    "approvals": {
+      "default": [],
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Approvals",
+      "type": "array"
+    },
+    "capture_policy": {
+      "additionalProperties": true,
+      "title": "Capture Policy",
+      "type": "object"
+    },
+    "repetitions": {
+      "default": 1,
+      "exclusiveMinimum": 0,
+      "title": "Repetitions",
+      "type": "integer"
+    },
+    "seed_strategy": {
+      "additionalProperties": true,
+      "title": "Seed Strategy",
+      "type": "object"
+    },
+    "graders": {
+      "items": {
+        "$ref": "#/$defs/GraderSpec"
+      },
+      "title": "Graders",
+      "type": "array"
+    },
+    "comparison_plan": {
+      "additionalProperties": true,
+      "title": "Comparison Plan",
+      "type": "object"
+    },
+    "stop_conditions": {
+      "additionalProperties": true,
+      "title": "Stop Conditions",
+      "type": "object"
+    },
+    "tags": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Tags",
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "id",
+    "project_id",
+    "title",
+    "objective",
+    "hypothesis",
+    "evidence_mode",
+    "scenario_refs",
+    "baseline_variant",
+    "variants",
+    "primary_variable",
+    "subject_profile",
+    "context_policies",
+    "graders"
+  ],
+  "title": "ExperimentManifest",
+  "type": "object"
+}
