@@ -2,22 +2,43 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
-from datetime import datetime
-from typing import Any
+from datetime import UTC, datetime
+from typing import Any, Literal
 
 from sqlalchemy import func, select
 
+from evidrun.contracts import (
+    AdmissionRecord,
+    CheckpointRecord,
+    ContractRef,
+    EvaluationRecord,
+    EvaluationValidator,
+    RevisionDecisionRecord,
+    RevisionEnvelope,
+    RunRecord,
+    RunSpec,
+    normalize_event_payload,
+    parse_revision,
+    semantic_model_dump,
+)
+from evidrun.contracts.compiler import InMemoryContractRegistry
 from evidrun.infrastructure.database.engine import Database
 from evidrun.infrastructure.database.models import (
+    AdmissionRecordRow,
     ChatMessageRow,
     ChatSessionRow,
+    CheckpointRecordRow,
     ComparisonRow,
     ContextSnapshotRow,
+    ContractDecisionRow,
+    ContractRevisionRow,
+    EvaluationRecordRow,
     ExperimentRevisionRow,
     GradeRow,
     ProjectRow,
     RunEventRow,
     RunRow,
+    RunSpecRow,
     WorkspaceRow,
 )
 from evidrun.shared.types import canonical_json, new_id, sha256_json, utc_now
@@ -42,6 +63,251 @@ class Repository:
             session.add(row)
             session.commit()
         return row
+
+    def save_contract_revision(
+        self, revision: RevisionEnvelope, *, status: str = "draft"
+    ) -> ContractRevisionRow:
+        if status not in {"draft", "proposed"}:
+            raise ValueError("new contract revision status must be draft or proposed")
+        document = revision.semantic_document()
+        with self.database.session() as session:
+            existing = session.scalar(
+                select(ContractRevisionRow).where(
+                    ContractRevisionRow.contract_type == revision.ref.contract_type.value,
+                    ContractRevisionRow.logical_id == revision.logical_id,
+                    ContractRevisionRow.revision == revision.revision,
+                )
+            )
+            if existing is not None:
+                if existing.digest != revision.digest or existing.document_json != canonical_json(
+                    document
+                ):
+                    raise ValueError(
+                        "an immutable contract revision already exists with different content"
+                    )
+                if existing.status == "draft" and status == "proposed":
+                    existing.status = "proposed"
+                    session.commit()
+                return existing
+            latest_revision = session.scalar(
+                select(func.max(ContractRevisionRow.revision)).where(
+                    ContractRevisionRow.contract_type == revision.ref.contract_type.value,
+                    ContractRevisionRow.logical_id == revision.logical_id,
+                )
+            )
+            expected_revision = (latest_revision or 0) + 1
+            if revision.revision != expected_revision:
+                raise ValueError(
+                    "contract revision must be monotonic; "
+                    f"expected {expected_revision}, received {revision.revision}"
+                )
+            row = ContractRevisionRow(
+                id=new_id("crev"),
+                contract_type=revision.ref.contract_type.value,
+                logical_id=revision.logical_id,
+                revision=revision.revision,
+                project_id=revision.project_id,
+                title=revision.title,
+                status=status,
+                document_json=canonical_json(document),
+                digest=revision.digest,
+                created_at=utc_now(),
+            )
+            session.add(row)
+            session.commit()
+            return row
+
+    def decide_contract_revision(
+        self, decision: RevisionDecisionRecord
+    ) -> ContractDecisionRow:
+        with self.database.session() as session:
+            revision = session.scalar(
+                select(ContractRevisionRow).where(
+                    ContractRevisionRow.contract_type
+                    == decision.revision_ref.contract_type.value,
+                    ContractRevisionRow.logical_id == decision.revision_ref.logical_id,
+                    ContractRevisionRow.revision == decision.revision_ref.revision,
+                )
+            )
+            if revision is None or revision.digest != decision.revision_ref.digest:
+                raise ValueError("decision references an unknown or mismatched revision")
+            previous = session.scalar(
+                select(ContractDecisionRow)
+                .where(ContractDecisionRow.contract_revision_id == revision.id)
+                .order_by(ContractDecisionRow.decided_at.desc())
+                .limit(1)
+            )
+            if previous is None and decision.decision == "superseded":
+                raise ValueError("only an accepted revision can be superseded")
+            if previous is not None:
+                if previous.decision != decision.decision:
+                    if not (
+                        previous.decision == "accepted"
+                        and decision.decision == "superseded"
+                    ):
+                        raise ValueError("contract revision already has a conflicting decision")
+                else:
+                    return previous
+            row = ContractDecisionRow(
+                id=new_id("cdec"),
+                contract_revision_id=revision.id,
+                decision=decision.decision,
+                actor_type=decision.actor_type,
+                actor_id=decision.actor_id,
+                rationale=decision.rationale,
+                decision_json=canonical_json(
+                    semantic_model_dump(decision)
+                ),
+                decision_digest=decision.digest,
+                decided_at=decision.decided_at_utc,
+            )
+            revision.status = decision.decision
+            session.add(row)
+            session.commit()
+            return row
+
+    def contract_registry(self, project_id: str | None = None) -> InMemoryContractRegistry:
+        with self.database.session() as session:
+            query = select(ContractRevisionRow).order_by(
+                ContractRevisionRow.contract_type,
+                ContractRevisionRow.logical_id,
+                ContractRevisionRow.revision,
+            )
+            if project_id is not None:
+                query = query.where(ContractRevisionRow.project_id == project_id)
+            revisions = list(session.scalars(query))
+            decisions = list(
+                session.scalars(
+                    select(ContractDecisionRow).order_by(ContractDecisionRow.decided_at)
+                )
+            )
+        registry = InMemoryContractRegistry()
+        row_by_id: dict[str, RevisionEnvelope] = {}
+        for row in revisions:
+            revision = parse_revision(json.loads(row.document_json))
+            if revision.digest != row.digest:
+                raise ValueError(f"stored contract digest mismatch: {row.id}")
+            registry.add(revision)
+            row_by_id[row.id] = revision
+        for row in decisions:
+            revision = row_by_id.get(row.contract_revision_id)
+            if revision is None:
+                continue
+            decision = RevisionDecisionRecord.model_validate(json.loads(row.decision_json))
+            if decision.digest != row.decision_digest:
+                raise ValueError(f"stored contract decision digest mismatch: {row.id}")
+            registry.decide(decision)
+        return registry
+
+    def get_contract_revision(self, revision_id: str) -> RevisionEnvelope:
+        with self.database.session() as session:
+            row = session.get(ContractRevisionRow, revision_id)
+            if row is None:
+                raise KeyError(revision_id)
+            revision = parse_revision(json.loads(row.document_json))
+        if revision.digest != row.digest:
+            raise ValueError(f"stored contract digest mismatch: {revision_id}")
+        return revision
+
+    def list_contract_revisions(self, project_id: str | None = None) -> list[dict[str, Any]]:
+        with self.database.session() as session:
+            query = select(ContractRevisionRow).order_by(
+                ContractRevisionRow.contract_type,
+                ContractRevisionRow.logical_id,
+                ContractRevisionRow.revision,
+            )
+            if project_id is not None:
+                query = query.where(ContractRevisionRow.project_id == project_id)
+            rows = list(session.scalars(query))
+            decisions = list(session.scalars(select(ContractDecisionRow)))
+        decision_by_revision = {
+            decision.contract_revision_id: decision.decision for decision in decisions
+        }
+        return [
+            {
+                "id": row.id,
+                "contract_type": row.contract_type,
+                "logical_id": row.logical_id,
+                "revision": row.revision,
+                "project_id": row.project_id,
+                "title": row.title,
+                "digest": row.digest,
+                "status": row.status,
+                "decision": decision_by_revision.get(row.id),
+                "created_at": row.created_at.isoformat(),
+            }
+            for row in rows
+        ]
+
+    def get_contract_revision_by_ref(self, reference: ContractRef) -> RevisionEnvelope:
+        with self.database.session() as session:
+            row = session.scalar(
+                select(ContractRevisionRow).where(
+                    ContractRevisionRow.contract_type == str(reference.contract_type.value),
+                    ContractRevisionRow.logical_id == str(reference.logical_id),
+                    ContractRevisionRow.revision == int(reference.revision),
+                )
+            )
+            if row is None:
+                raise KeyError(str(reference.logical_id))
+            revision = parse_revision(json.loads(row.document_json))
+        if revision.digest != reference.digest or row.digest != reference.digest:
+            raise ValueError("stored contract does not match its reference")
+        return revision
+
+    def save_run_spec(self, spec: RunSpec) -> RunSpecRow:
+        with self.database.session() as session:
+            existing = session.scalar(
+                select(RunSpecRow).where(RunSpecRow.digest == spec.digest)
+            )
+            if existing is not None:
+                return existing
+            row = RunSpecRow(
+                id=new_id("rspec"),
+                study_logical_id=spec.study_ref.logical_id,
+                scenario_logical_id=spec.scenario_ref.logical_id,
+                variant_id=spec.variant_id,
+                repetition_index=spec.repetition_index,
+                spec_json=canonical_json(
+                    semantic_model_dump(spec)
+                ),
+                digest=spec.digest,
+                created_at=utc_now(),
+            )
+            session.add(row)
+            session.commit()
+            return row
+
+    def save_admission_record(
+        self, run_spec_id: str, record: AdmissionRecord
+    ) -> AdmissionRecordRow:
+        with self.database.session() as session:
+            spec = session.get(RunSpecRow, run_spec_id)
+            if spec is None:
+                raise KeyError(f"RunSpec not found: {run_spec_id}")
+            if spec.digest != record.run_spec_digest:
+                raise ValueError("admission digest does not match its RunSpec")
+            existing = session.scalar(
+                select(AdmissionRecordRow).where(
+                    AdmissionRecordRow.run_spec_id == run_spec_id,
+                    AdmissionRecordRow.digest == record.digest,
+                )
+            )
+            if existing is not None:
+                return existing
+            row = AdmissionRecordRow(
+                id=new_id("adm"),
+                run_spec_id=run_spec_id,
+                decision=record.decision,
+                record_json=canonical_json(
+                    semantic_model_dump(record)
+                ),
+                digest=record.digest,
+                created_at=record.created_at_utc,
+            )
+            session.add(row)
+            session.commit()
+            return row
 
     def save_experiment_revision(
         self, *, project_id: str, manifest: Mapping[str, Any], status: str = "accepted"
@@ -75,7 +341,20 @@ class Repository:
         runner: str,
         objective: str,
         repetition: int = 1,
+        run_spec_id: str | None = None,
+        admission_id: str | None = None,
+        retry_of: str | None = None,
     ) -> RunRow:
+        if (run_spec_id is None) != (admission_id is None):
+            raise ValueError("RunSpec and AdmissionRecord must be linked together")
+        if run_spec_id is not None and admission_id is not None:
+            with self.database.session() as session:
+                spec = session.get(RunSpecRow, run_spec_id)
+                admission = session.get(AdmissionRecordRow, admission_id)
+                if spec is None or admission is None:
+                    raise ValueError("RunSpec or AdmissionRecord does not exist")
+                if admission.run_spec_id != spec.id or admission.decision != "admitted":
+                    raise ValueError("Run requires an admitted record for the exact RunSpec")
         row = RunRow(
             id=new_id("run"),
             experiment_revision_id=experiment_revision_id,
@@ -84,6 +363,9 @@ class Repository:
             status="queued",
             runner=runner,
             objective=objective,
+            run_spec_id=run_spec_id,
+            admission_id=admission_id,
+            retry_of=retry_of,
             created_at=utc_now(),
         )
         with self.database.session() as session:
@@ -126,6 +408,7 @@ class Repository:
         correlation_id: str | None = None,
         causation_id: str | None = None,
     ) -> RunEventRow:
+        normalized_payload = normalize_event_payload(event_type, dict(payload))
         with self.database.session() as session:
             last = session.scalar(
                 select(RunEventRow)
@@ -147,7 +430,7 @@ class Repository:
                 "actor_type": actor_type,
                 "actor_id": actor_id,
                 "classification": classification,
-                "payload": payload,
+                "payload": normalized_payload,
                 "correlation_id": correlation_id or run_id,
                 "causation_id": causation_id,
                 "prev_event_hash": last.event_hash if last else None,
@@ -161,7 +444,7 @@ class Repository:
                 actor_type=actor_type,
                 actor_id=actor_id,
                 classification=classification,
-                payload_json=canonical_json(payload),
+                payload_json=canonical_json(normalized_payload),
                 correlation_id=correlation_id or run_id,
                 causation_id=causation_id,
                 prev_event_hash=last.event_hash if last else None,
@@ -214,6 +497,155 @@ class Repository:
             session.add(row)
             session.commit()
         return row
+
+    def save_evaluation_record(self, record: EvaluationRecord) -> EvaluationRecordRow:
+        self._validate_evaluation_boundary(record)
+        self._validate_evidence_boundary(
+            run_id=record.run_id,
+            sequence=record.boundary.up_to_event_sequence,
+            event_hash=record.boundary.event_hash,
+        )
+        with self.database.session() as session:
+            run = session.get(RunRow, record.run_id)
+            if run is None:
+                raise KeyError(f"Run not found: {record.run_id}")
+            if run.run_spec_id is None:
+                raise ValueError("legacy Run does not have an EvaluationPlanRevision")
+            spec_row = session.get(RunSpecRow, run.run_spec_id)
+            if spec_row is None:
+                raise ValueError("Run references a missing RunSpec")
+            spec = RunSpec.model_validate(json.loads(spec_row.spec_json))
+            if spec.evaluation_plan_ref != record.plan_ref:
+                raise ValueError("evaluation plan does not belong to the RunSpec")
+            EvaluationValidator.validate(spec.evaluation_plan, record)
+            if record.source_type == "human_adjudicator":
+                prior_adjudicated = session.get(
+                    EvaluationRecordRow, record.supersedes_record_ref
+                )
+                if prior_adjudicated is None or prior_adjudicated.run_id != record.run_id:
+                    raise ValueError(
+                        "human adjudication must reference an existing record from the same Run"
+                    )
+            prior_rows = list(
+                session.scalars(
+                    select(EvaluationRecordRow)
+                    .where(EvaluationRecordRow.run_id == record.run_id)
+                    .order_by(EvaluationRecordRow.created_at)
+                )
+            )
+            prior_gate_results: dict[
+                str, Literal["passed", "failed", "not_applicable"]
+            ] = {
+                prior.stage_id: EvaluationRecord.model_validate(
+                    json.loads(prior.record_json)
+                ).gate_status
+                for prior in prior_rows
+            }
+            visible_stages = EvaluationValidator.stages_visible_after_gates(
+                spec.evaluation_plan, prior_gate_results
+            )
+            if record.stage_id not in visible_stages:
+                raise ValueError("evaluation stage is blocked by a failed hard gate")
+            existing = session.scalar(
+                select(EvaluationRecordRow).where(
+                    EvaluationRecordRow.record_digest == record.digest
+                )
+            )
+            if existing is not None:
+                return existing
+            row = EvaluationRecordRow(
+                id=record.record_id,
+                run_id=record.run_id,
+                source_type=record.source_type,
+                stage_id=record.stage_id,
+                record_json=canonical_json(
+                    semantic_model_dump(record)
+                ),
+                record_digest=record.digest,
+                created_at=record.created_at_utc,
+            )
+            session.add(row)
+            session.commit()
+            return row
+
+    def save_checkpoint_record(self, record: CheckpointRecord) -> CheckpointRecordRow:
+        self._validate_evidence_boundary(
+            run_id=record.run_id,
+            sequence=record.up_to_event_sequence,
+            event_hash=record.event_hash,
+        )
+        with self.database.session() as session:
+            run = session.get(RunRow, record.run_id)
+            if run is None:
+                raise KeyError(f"Run not found: {record.run_id}")
+            if run.run_spec_id is None:
+                raise ValueError("legacy Run does not have a checkpoint policy")
+            spec_row = session.get(RunSpecRow, run.run_spec_id)
+            if spec_row is None:
+                raise ValueError("Run references a missing RunSpec")
+            spec = RunSpec.model_validate(json.loads(spec_row.spec_json))
+            if spec.checkpoint_policy_ref != record.policy_ref or spec.checkpoint_policy is None:
+                raise ValueError("checkpoint policy does not belong to the RunSpec")
+            definition = next(
+                (
+                    item
+                    for item in spec.checkpoint_policy.definitions
+                    if item.id == record.definition_id
+                ),
+                None,
+            )
+            if definition is None:
+                raise ValueError("checkpoint definition does not belong to the RunSpec")
+            expected_definition_digest = sha256_json(semantic_model_dump(definition))
+            if record.definition_digest != expected_definition_digest:
+                raise ValueError("checkpoint definition digest does not match the RunSpec")
+            existing = session.scalar(
+                select(CheckpointRecordRow).where(
+                    CheckpointRecordRow.checkpoint_hash == record.checkpoint_hash
+                )
+            )
+            if existing is not None:
+                return existing
+            row = CheckpointRecordRow(
+                id=record.checkpoint_id,
+                run_id=record.run_id,
+                definition_id=record.definition_id,
+                up_to_event_sequence=record.up_to_event_sequence,
+                record_json=canonical_json(
+                    semantic_model_dump(record)
+                ),
+                checkpoint_hash=record.checkpoint_hash,
+                created_at=record.created_at_utc,
+            )
+            session.add(row)
+            session.commit()
+            return row
+
+    def _validate_evidence_boundary(
+        self, *, run_id: str, sequence: int | None, event_hash: str | None
+    ) -> None:
+        if sequence is None and event_hash is None:
+            return
+        if sequence is None or event_hash is None:
+            raise ValueError("event boundary requires sequence and hash")
+        with self.database.session() as session:
+            event = session.scalar(
+                select(RunEventRow).where(
+                    RunEventRow.run_id == run_id,
+                    RunEventRow.sequence == sequence,
+                )
+            )
+        if event is None or event.event_hash != event_hash:
+            raise ValueError("event boundary does not match the Run ledger")
+
+    def _validate_evaluation_boundary(self, record: EvaluationRecord) -> None:
+        checkpoint_id = record.boundary.checkpoint_id
+        if checkpoint_id is None:
+            return
+        with self.database.session() as session:
+            checkpoint = session.get(CheckpointRecordRow, checkpoint_id)
+        if checkpoint is None or checkpoint.run_id != record.run_id:
+            raise ValueError("evaluation checkpoint boundary does not belong to the Run")
 
     def save_comparison(
         self,
@@ -352,6 +784,89 @@ class Repository:
             session.expunge(row)
             return row
 
+    def get_run_spec(self, run_spec_id: str) -> RunSpec:
+        with self.database.session() as session:
+            row = session.get(RunSpecRow, run_spec_id)
+            if row is None:
+                raise KeyError(run_spec_id)
+            spec = RunSpec.model_validate(json.loads(row.spec_json))
+        if spec.digest != row.digest:
+            raise ValueError(f"stored RunSpec digest mismatch: {run_spec_id}")
+        return spec
+
+    def get_admission_record(self, admission_id: str) -> AdmissionRecord:
+        with self.database.session() as session:
+            row = session.get(AdmissionRecordRow, admission_id)
+            if row is None:
+                raise KeyError(admission_id)
+            record = AdmissionRecord.model_validate(json.loads(row.record_json))
+        if record.digest != row.digest:
+            raise ValueError(f"stored admission digest mismatch: {admission_id}")
+        return record
+
+    def get_run_contracts(self, run_id: str) -> tuple[RunSpec, AdmissionRecord] | None:
+        row = self.get_run(run_id)
+        if row.run_spec_id is None or row.admission_id is None:
+            return None
+        return self.get_run_spec(row.run_spec_id), self.get_admission_record(row.admission_id)
+
+    def get_run_record(self, run_id: str) -> RunRecord | None:
+        row = self.get_run(run_id)
+        contracts = self.get_run_contracts(run_id)
+        if contracts is None or row.run_spec_id is None or row.admission_id is None:
+            return None
+        spec, admission = contracts
+        created_at = row.created_at
+        if created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=UTC)
+        return RunRecord(
+            run_id=row.id,
+            run_spec_id=row.run_spec_id,
+            run_spec_digest=spec.digest,
+            admission_id=row.admission_id,
+            admission_digest=admission.digest,
+            study_ref=spec.study_ref,
+            scenario_ref=spec.scenario_ref,
+            variant_id=row.variant_id,
+            repetition_index=row.repetition,
+            retry_of=row.retry_of,
+            created_at_utc=created_at,
+        )
+
+    def get_evaluation_records(self, run_id: str) -> list[EvaluationRecord]:
+        with self.database.session() as session:
+            rows = list(
+                session.scalars(
+                    select(EvaluationRecordRow)
+                    .where(EvaluationRecordRow.run_id == run_id)
+                    .order_by(EvaluationRecordRow.created_at)
+                )
+            )
+        records: list[EvaluationRecord] = []
+        for row in rows:
+            record = EvaluationRecord.model_validate(json.loads(row.record_json))
+            if record.digest != row.record_digest:
+                raise ValueError(f"stored evaluation digest mismatch: {row.id}")
+            records.append(record)
+        return records
+
+    def get_checkpoint_records(self, run_id: str) -> list[CheckpointRecord]:
+        with self.database.session() as session:
+            rows = list(
+                session.scalars(
+                    select(CheckpointRecordRow)
+                    .where(CheckpointRecordRow.run_id == run_id)
+                    .order_by(CheckpointRecordRow.up_to_event_sequence)
+                )
+            )
+        records: list[CheckpointRecord] = []
+        for row in rows:
+            record = CheckpointRecord.model_validate(json.loads(row.record_json))
+            if record.checkpoint_hash != row.checkpoint_hash:
+                raise ValueError(f"stored checkpoint digest mismatch: {row.id}")
+            records.append(record)
+        return records
+
     def get_grade(self, run_id: str) -> GradeRow:
         with self.database.session() as session:
             row = session.scalar(select(GradeRow).where(GradeRow.run_id == run_id))
@@ -401,6 +916,9 @@ class Repository:
         return {
             "id": row.id,
             "experiment_revision_id": row.experiment_revision_id,
+            "contract_mode": "study_v1" if row.run_spec_id else "legacy_v1",
+            "run_spec_id": row.run_spec_id,
+            "admission_id": row.admission_id,
             "variant_id": row.variant_id,
             "status": row.status,
             "runner": row.runner,

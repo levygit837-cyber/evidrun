@@ -8,10 +8,19 @@ from typing import Any
 import yaml
 
 from evidrun.contexts import ContextComposer
+from evidrun.contracts import EvaluationRecord, EvidenceRef, RunSpec
+from evidrun.contracts.compiler import (
+    AdmissionService,
+    EvaluatorEnvelopeCompiler,
+    StudyCompiler,
+    SubjectEnvelopeCompiler,
+)
+from evidrun.contracts.legacy import ExperimentManifestV1Adapter, capability_ref
+from evidrun.contracts.runtime import DimensionValue, EvaluationBoundary
 from evidrun.evaluations import ExactCauseGrader
 from evidrun.experiments import ExperimentManifest
 from evidrun.infrastructure.database import Repository
-from evidrun.shared.types import utc_now
+from evidrun.shared.types import new_id, utc_now
 from evidrun.subject_runners import ScriptedLogInvestigator
 
 
@@ -20,6 +29,9 @@ class EvidrunService:
         self.repository = repository
         self.composer = ContextComposer()
         self.runner = ScriptedLogInvestigator()
+        self.admission_service = AdmissionService(
+            runners=(capability_ref("evidrun.runner", self.runner.name),),
+        )
 
     def bootstrap_demo(self, benchmark_root: Path) -> dict[str, Any]:
         manifest_path = benchmark_root / "experiments" / "crl-ctx-002-demo.yaml"
@@ -33,7 +45,8 @@ class EvidrunService:
         else:
             workspace_id = self.repository.create_workspace("Laboratório local").id
         project = next(
-            (p for p in dashboard["projects"] if p["name"] == "Context Reliability Lab"), None
+            (p for p in dashboard["projects"] if p["name"] == "Context Reliability Lab"),
+            None,
         )
         project_id = (
             project["id"]
@@ -44,20 +57,28 @@ class EvidrunService:
             project_id=project_id, manifest=manifest.model_dump(mode="json")
         )
 
+        package = ExperimentManifestV1Adapter().convert(
+            manifest,
+            project_id=project_id,
+            fixture_path=fixture_path,
+        )
+        for contract_revision in package.revisions:
+            self.repository.save_contract_revision(contract_revision)
+        for decision in package.acceptance_decisions():
+            self.repository.decide_contract_revision(decision)
+        registry = self.repository.contract_registry(project_id)
+        run_specs = StudyCompiler(registry).compile(package.study)
+
         runs: dict[str, dict[str, Any]] = {}
         snapshots: dict[str, dict[str, Any]] = {}
-        for variant in manifest.variants:
-            run, snapshot, grade = asyncio.run(
-                self._execute_variant(revision.id, manifest, variant.id, source)
-            )
-            runs[variant.id] = {"run": run, "grade": grade}
-            snapshots[variant.id] = snapshot
+        for spec in run_specs:
+            run, snapshot, grade = asyncio.run(self._execute_spec(revision.id, spec, source))
+            runs[spec.variant_id] = {"run": run, "grade": grade}
+            snapshots[spec.variant_id] = snapshot
 
         baseline = runs[manifest.baseline_variant]
         candidate_variant = next(
-            variant.id
-            for variant in manifest.variants
-            if variant.id != manifest.baseline_variant
+            variant.id for variant in manifest.variants if variant.id != manifest.baseline_variant
         )
         candidate = runs[candidate_variant]
         baseline_score = float(baseline["grade"]["score"])
@@ -85,6 +106,7 @@ class EvidrunService:
         )
         return {
             "experiment_revision_id": revision.id,
+            "study_revision": package.study.ref.model_dump(mode="json"),
             "comparison_id": comparison.id,
             "baseline_run_id": baseline["run"]["id"],
             "candidate_run_id": candidate["run"]["id"],
@@ -92,29 +114,51 @@ class EvidrunService:
             "context_diff": diff,
         }
 
-    async def _execute_variant(
+    async def _execute_spec(
         self,
         experiment_revision_id: str,
-        manifest: ExperimentManifest,
-        variant_id: str,
+        spec: RunSpec,
         source: str,
     ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
-        variant = next(item for item in manifest.variants if item.id == variant_id)
-        policy = manifest.policy_for(variant)
+        policy = spec.context_policy
+        if policy is None:
+            raise ValueError("deterministic context benchmark requires a ContextPolicy")
+
+        spec_row = self.repository.save_run_spec(spec)
+        admission = self.admission_service.admit(spec)
+        admission_row = self.repository.save_admission_record(spec_row.id, admission)
+        if admission.decision != "admitted":
+            reasons = admission.missing_requirements or admission.denied_policies
+            raise ValueError("built-in deterministic RunSpec was rejected: " + ", ".join(reasons))
+        subject_envelope = SubjectEnvelopeCompiler.compile(spec, admission)
+
         row = self.repository.create_run(
             experiment_revision_id=experiment_revision_id,
-            variant_id=variant.id,
+            variant_id=spec.variant_id,
             runner=self.runner.name,
-            objective=manifest.objective,
+            objective=spec.goal.instruction,
+            repetition=spec.repetition_index,
+            run_spec_id=spec_row.id,
+            admission_id=admission_row.id,
         )
-        run = {"id": row.id, "variant_id": variant.id}
-        self.repository.append_event(run_id=row.id, event_type="run.queued", payload=run)
+        run = {"id": row.id, "variant_id": spec.variant_id}
+        self.repository.append_event(
+            run_id=row.id,
+            event_type="run.queued",
+            payload={
+                "run_id": row.id,
+                "variant_id": spec.variant_id,
+                "run_spec_digest": spec.digest,
+                "admission_digest": admission.digest,
+            },
+        )
         self.repository.update_run(row.id, status="preparing")
         self.repository.append_event(
             run_id=row.id,
             event_type="run.preparing",
-            payload={"scenario_refs": list(manifest.scenario_refs)},
+            payload={"scenario_ref": spec.scenario_ref.model_dump(mode="json")},
         )
+
         snapshot = self.composer.compose(source, policy)
         saved_snapshot = self.repository.save_snapshot(row.id, snapshot)
         self.repository.append_event(
@@ -126,43 +170,100 @@ class EvidrunService:
                 "strategy": policy.strategy,
                 "source_chars": snapshot["source_chars"],
                 "selected_chars": snapshot["selected_chars"],
-                "omitted": snapshot["omitted"],
+                "omitted": bool(snapshot["omitted"]),
                 "content_hash": snapshot["content_hash"],
             },
         )
         self.repository.update_run(row.id, status="running", context_hash=snapshot["content_hash"])
         self.repository.append_event(
             run_id=row.id,
-            event_type="subject.invoked",
-            payload={"runner": self.runner.name, "network": "disabled"},
+            event_type="run.running",
+            payload={
+                "from_status": "preparing",
+                "reason": "context composed and deterministic Subject ready",
+            },
         )
-        result = await self.runner.execute(manifest.objective, snapshot["selected_content"])
         self.repository.append_event(
+            run_id=row.id,
+            event_type="subject.invoked",
+            payload={
+                "runner": self.runner.name,
+                "network": "disabled",
+                "subject_envelope_digest": subject_envelope.digest,
+            },
+        )
+        result = await self.runner.execute(spec.goal.instruction, snapshot["selected_content"])
+        response_event = self.repository.append_event(
             run_id=row.id,
             event_type="subject.responded",
             payload={
                 "output": result.output,
                 "evidence": list(result.evidence),
-                "metadata": dict(result.metadata),
+                "metadata": [
+                    {"key": str(key), "value": value}
+                    for key, value in result.metadata.items()
+                    if isinstance(value, (str, int, float, bool))
+                ],
             },
         )
-        self.repository.update_run(row.id, status="grading", output=result.output)
-        grader_spec = manifest.graders[0]
-        grade = ExactCauseGrader(grader_spec.id, grader_spec.expected).grade(
-            result.output, result.evidence
-        )
-        saved_grade = self.repository.save_grade(
+        self.repository.update_run(row.id, status="evaluating", output=result.output)
+        self.repository.append_event(
             run_id=row.id,
-            grader_id=grader_spec.id,
+            event_type="run.evaluating",
+            payload={
+                "from_status": "running",
+                "reason": "terminal Subject response captured",
+            },
+        )
+
+        evaluator_envelope = EvaluatorEnvelopeCompiler.compile(
+            spec, spec.evaluation_plan.stages[0].id
+        )
+        stage = evaluator_envelope.stage
+        expected_parameter = next(item for item in stage.parameters if item.key == "expected")
+        expected = str(expected_parameter.value)
+        grade = ExactCauseGrader(stage.id, expected).grade(result.output, result.evidence)
+        self.repository.save_grade(
+            run_id=row.id,
+            grader_id=stage.id,
             score=grade["score"],
             passed=grade["passed"],
             rationale=grade["rationale"],
             evidence=grade["evidence"],
         )
+        evaluation_record = EvaluationRecord(
+            record_id=new_id("eval"),
+            run_id=row.id,
+            plan_ref=spec.evaluation_plan_ref,
+            stage_id=stage.id,
+            source_type="deterministic_grader",
+            evaluator_ref=stage.evaluator_ref,
+            boundary=EvaluationBoundary(
+                up_to_event_sequence=response_event.sequence,
+                event_hash=response_event.event_hash,
+            ),
+            dimension_values=(
+                DimensionValue(
+                    dimension_id=stage.output_dimensions[0],
+                    value=bool(grade["passed"]),
+                    rationale=str(grade["rationale"]),
+                    confidence=1.0,
+                    evidence_refs=(EvidenceRef(ref=f"event:{response_event.id}"),),
+                ),
+            ),
+            gate_status="passed" if bool(grade["passed"]) else "failed",
+            status="final",
+            created_at_utc=utc_now(),
+        )
+        self.repository.save_evaluation_record(evaluation_record)
         self.repository.append_event(
             run_id=row.id,
-            event_type="grader.completed",
-            payload={"grade_id": saved_grade.id, **grade},
+            event_type="evaluation.completed",
+            payload={
+                "evaluation_record_id": evaluation_record.record_id,
+                "evaluation_record_digest": evaluation_record.digest,
+                "gate_status": evaluation_record.gate_status,
+            },
         )
         self.repository.update_run(
             row.id,
@@ -174,7 +275,12 @@ class EvidrunService:
         self.repository.append_event(
             run_id=row.id,
             event_type="run.completed",
-            payload={"status": "completed", "score": grade["score"]},
+            payload={
+                "status": "completed",
+                "goal_state": "achieved",
+                "terminal_cause": "terminal subject response evaluated",
+                "evaluation_record_refs": [evaluation_record.record_id],
+            },
         )
         return run, snapshot, grade
 

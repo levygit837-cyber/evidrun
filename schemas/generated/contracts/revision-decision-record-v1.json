@@ -1,0 +1,100 @@
+{
+  "$defs": {
+    "ContractRef": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_type": {
+          "$ref": "#/$defs/ContractType"
+        },
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "logical_id": {
+          "minLength": 1,
+          "title": "Logical Id",
+          "type": "string"
+        },
+        "revision": {
+          "exclusiveMinimum": 0,
+          "title": "Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "contract_type",
+        "logical_id",
+        "revision",
+        "digest"
+      ],
+      "title": "ContractRef",
+      "type": "object"
+    },
+    "ContractType": {
+      "enum": [
+        "study",
+        "goal",
+        "scenario",
+        "agent_inventory",
+        "workspace_template",
+        "interaction_protocol",
+        "evaluation_plan",
+        "checkpoint_policy"
+      ],
+      "title": "ContractType",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "actor_id": {
+      "minLength": 1,
+      "title": "Actor Id",
+      "type": "string"
+    },
+    "actor_type": {
+      "const": "human",
+      "default": "human",
+      "title": "Actor Type",
+      "type": "string"
+    },
+    "decided_at_utc": {
+      "format": "date-time",
+      "title": "Decided At Utc",
+      "type": "string"
+    },
+    "decision": {
+      "enum": [
+        "accepted",
+        "rejected",
+        "superseded"
+      ],
+      "title": "Decision",
+      "type": "string"
+    },
+    "rationale": {
+      "minLength": 1,
+      "title": "Rationale",
+      "type": "string"
+    },
+    "revision_ref": {
+      "$ref": "#/$defs/ContractRef"
+    },
+    "schema_version": {
+      "const": "1",
+      "default": "1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "revision_ref",
+    "decision",
+    "actor_id",
+    "rationale",
+    "decided_at_utc"
+  ],
+  "title": "RevisionDecisionRecord",
+  "type": "object"
+}

@@ -5,7 +5,7 @@ import json
 import secrets
 import socket
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 import typer
 import uvicorn
@@ -14,6 +14,8 @@ from rich.console import Console
 from rich.table import Table
 
 from evidrun import __version__
+from evidrun.contracts import RevisionDecisionRecord, StudyRevision, parse_revision
+from evidrun.contracts.compiler import StudyCompiler
 from evidrun.entrypoints.api.app import REPOSITORY_ROOT, create_app
 from evidrun.evidence.bundle import EvidenceBundleService
 from evidrun.experiments import ExperimentManifest
@@ -26,15 +28,20 @@ from evidrun.infrastructure.providers import (
 )
 from evidrun.runs import EvidrunService
 from evidrun.shared.settings import Settings
+from evidrun.shared.types import utc_now
 
 app = typer.Typer(help="Evidrun — laboratório auditável de confiabilidade de contexto.")
 experiment_app = typer.Typer(help="Validar e aceitar manifests de experimento.")
+contract_app = typer.Typer(help="Validar, registrar e decidir contracts revisionados.")
+study_app = typer.Typer(help="Compilar Studies aceitos em RunSpecs imutáveis.")
 run_app = typer.Typer(help="Executar e inspecionar runs.")
 bundle_app = typer.Typer(help="Exportar e verificar evidence bundles.")
 chat_app = typer.Typer(help="Inspecionar sessões de chat.")
 data_app = typer.Typer(help="Inspecionar e eliminar dados gerenciados.")
 provider_app = typer.Typer(help="Configurar e diagnosticar providers de modelos.")
 app.add_typer(experiment_app, name="experiment")
+app.add_typer(contract_app, name="contract")
+app.add_typer(study_app, name="study")
 app.add_typer(run_app, name="run")
 app.add_typer(bundle_app, name="bundle")
 app.add_typer(chat_app, name="chat")
@@ -156,6 +163,100 @@ def validate_experiment(path: Path) -> None:
     )
 
 
+@contract_app.command("validate")
+def validate_contract(path: Path) -> None:
+    revision = parse_revision(yaml.safe_load(path.read_text()))
+    console.print_json(
+        data={
+            "valid": True,
+            "digest": revision.digest,
+            "normalized": revision.semantic_document(),
+        }
+    )
+
+
+@contract_app.command("register")
+def register_contract(
+    path: Path,
+    status: Annotated[Literal["draft", "proposed"], typer.Option("--status")] = "draft",
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+) -> None:
+    _, database, repository = _components(data_dir)
+    try:
+        revision = parse_revision(yaml.safe_load(path.read_text()))
+        row = repository.save_contract_revision(revision, status=status)
+        console.print_json(
+            data={
+                "id": row.id,
+                "contract_type": row.contract_type,
+                "logical_id": row.logical_id,
+                "revision": row.revision,
+                "digest": row.digest,
+                "status": row.status,
+            }
+        )
+    finally:
+        database.dispose()
+
+
+@contract_app.command("accept")
+def accept_contract(
+    revision_id: str,
+    reason: Annotated[str, typer.Option("--reason")],
+    actor_id: Annotated[str, typer.Option("--actor-id")] = "local-human",
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+) -> None:
+    _, database, repository = _components(data_dir)
+    try:
+        revision = repository.get_contract_revision(revision_id)
+        decision = RevisionDecisionRecord(
+            revision_ref=revision.ref,
+            decision="accepted",
+            actor_id=actor_id,
+            rationale=reason,
+            decided_at_utc=utc_now(),
+        )
+        row = repository.decide_contract_revision(decision)
+        console.print_json(
+            data={
+                "id": row.id,
+                "decision": row.decision,
+                "decision_digest": row.decision_digest,
+            }
+        )
+    finally:
+        database.dispose()
+
+
+@study_app.command("compile")
+def compile_study(
+    revision_id: str,
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+) -> None:
+    _, database, repository = _components(data_dir)
+    try:
+        revision = repository.get_contract_revision(revision_id)
+        if not isinstance(revision, StudyRevision):
+            raise typer.BadParameter("contract revision is not a StudyRevision")
+        registry = repository.contract_registry(revision.project_id)
+        specs = StudyCompiler(registry).compile(revision)
+        rows = [repository.save_run_spec(spec) for spec in specs]
+        console.print_json(
+            data=[
+                {
+                    "id": row.id,
+                    "digest": row.digest,
+                    "variant_id": row.variant_id,
+                    "scenario_id": row.scenario_logical_id,
+                    "repetition_index": row.repetition_index,
+                }
+                for row in rows
+            ]
+        )
+    finally:
+        database.dispose()
+
+
 @run_app.command("inspect")
 def inspect_run(
     run_id: str,
@@ -170,15 +271,43 @@ def inspect_run(
     database.dispose()
 
 
+@run_app.command("admit")
+def admit_run_spec(
+    run_spec_id: str,
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+) -> None:
+    _, database, repository = _components(data_dir)
+    try:
+        spec = repository.get_run_spec(run_spec_id)
+        service = EvidrunService(repository)
+        admission = service.admission_service.admit(spec)
+        row = repository.save_admission_record(run_spec_id, admission)
+        console.print_json(
+            data={
+                "id": row.id,
+                "decision": admission.decision,
+                "digest": admission.digest,
+                "missing_requirements": admission.missing_requirements,
+            }
+        )
+    finally:
+        database.dispose()
+
+
 @bundle_app.command("export")
 def export_bundle(
     comparison_id: str,
     output: Annotated[Path | None, typer.Option("--output")] = None,
+    legacy_v1: Annotated[bool, typer.Option("--legacy-v1")] = False,
     data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
 ) -> None:
     settings, database, repository = _components(data_dir)
     target = output or settings.data_dir / "exports" / f"{comparison_id}.evidrun.zip"
-    EvidenceBundleService(repository).export_comparison(comparison_id, target)
+    bundle_service = EvidenceBundleService(repository)
+    if legacy_v1:
+        bundle_service.export_comparison(comparison_id, target)
+    else:
+        bundle_service.export_comparison_v2(comparison_id, target)
     database.dispose()
     console.print(str(target))
 

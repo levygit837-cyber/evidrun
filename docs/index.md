@@ -6,7 +6,7 @@ status: implemented
 authority: normative
 owner: core
 created_at: 2026-07-22
-updated_at: 2026-07-22
+updated_at: 2026-07-23
 applies_to: repository
 sources: []
 supersedes: []
@@ -30,6 +30,17 @@ verification_refs:
 7. [Runtime de providers](architecture/provider-runtime.md)
 8. [Roadmap](roadmap/mvp.md)
 
+## Contratos de execução
+
+- [Study, revisions e Run canônica v1](contracts/study-run-v1.md)
+- [Inventário de agente, admissão e workspace v1](contracts/agent-inventory-workspace-v1.md)
+- [Evaluation e checkpoint records v1](contracts/evaluation-checkpoint-v1.md)
+- [Run Event v1](contracts/run-event.md) e seu
+  [catálogo de payloads](contracts/run-event-payloads-v1.md)
+- [Evidence Bundle v1](contracts/evidence-bundle.md) e
+  [Evidence Bundle v2](contracts/evidence-bundle-v2.md)
+- [Experiment Manifest v1](contracts/experiment-manifest.md), mantido por compatibilidade
+
 ## Autoridade
 
 Contratos e ADRs aceitos são normativos. Arquitetura descreve o estado atual. Research é temporal.
@@ -45,4 +56,5 @@ contracts revisados e aceitos.
 
 - [Runs, contratos e checkpoints](product/run-laboratory-concept.md)
 - [Canvas vivo e grafo de execução](product/live-run-graph-concept.md)
+- [Matriz de contexto e grafo semântico da execução](product/semantic-execution-graph-concept.md)
 - [Discovery orientado por cenários de Run](research/run-scenario-discovery/comparison.md)

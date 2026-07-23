@@ -1,0 +1,471 @@
+{
+  "$defs": {
+    "AggregationSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "parameters": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/KeyValue"
+          },
+          "title": "Parameters",
+          "type": "array"
+        },
+        "projector_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        }
+      },
+      "required": [
+        "projector_ref"
+      ],
+      "title": "AggregationSpec",
+      "type": "object"
+    },
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "classification": {
+          "$ref": "#/$defs/Classification",
+          "default": "internal"
+        },
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "locator": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Locator"
+        },
+        "media_type": {
+          "minLength": 1,
+          "title": "Media Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "digest",
+        "media_type"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "BlindingPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "hidden_fields": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Hidden Fields",
+          "type": "array"
+        }
+      },
+      "title": "BlindingPolicy",
+      "type": "object"
+    },
+    "CapabilityDescriptorRef": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "namespace": {
+          "minLength": 1,
+          "title": "Namespace",
+          "type": "string"
+        },
+        "version": {
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "namespace",
+        "name",
+        "version",
+        "digest"
+      ],
+      "title": "CapabilityDescriptorRef",
+      "type": "object"
+    },
+    "Classification": {
+      "enum": [
+        "public",
+        "internal",
+        "sensitive",
+        "restricted"
+      ],
+      "title": "Classification",
+      "type": "string"
+    },
+    "EvaluationDimension": {
+      "additionalProperties": false,
+      "properties": {
+        "anchors": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/KeyValue"
+          },
+          "title": "Anchors",
+          "type": "array"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "maximum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maximum"
+        },
+        "minimum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minimum"
+        },
+        "value_type": {
+          "enum": [
+            "boolean",
+            "number",
+            "category"
+          ],
+          "title": "Value Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "value_type"
+      ],
+      "title": "EvaluationDimension",
+      "type": "object"
+    },
+    "EvaluationDisclosure": {
+      "additionalProperties": false,
+      "properties": {
+        "hidden_input_refs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "title": "Hidden Input Refs",
+          "type": "array"
+        },
+        "public_dimension_ids": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Public Dimension Ids",
+          "type": "array"
+        }
+      },
+      "title": "EvaluationDisclosure",
+      "type": "object"
+    },
+    "EvaluationPlanSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "aggregation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AggregationSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "blinding_policy": {
+          "$ref": "#/$defs/BlindingPolicy",
+          "default": {
+            "hidden_fields": []
+          }
+        },
+        "dimensions": {
+          "items": {
+            "$ref": "#/$defs/EvaluationDimension"
+          },
+          "title": "Dimensions",
+          "type": "array"
+        },
+        "disclosure": {
+          "$ref": "#/$defs/EvaluationDisclosure",
+          "default": {
+            "hidden_input_refs": [],
+            "public_dimension_ids": []
+          }
+        },
+        "human_adjudication_policy": {
+          "$ref": "#/$defs/HumanAdjudicationPolicy",
+          "default": {
+            "authority": "local-human",
+            "required": false
+          }
+        },
+        "limitations": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "stages": {
+          "items": {
+            "$ref": "#/$defs/EvaluationStage"
+          },
+          "title": "Stages",
+          "type": "array"
+        }
+      },
+      "required": [
+        "dimensions",
+        "stages"
+      ],
+      "title": "EvaluationPlanSpec",
+      "type": "object"
+    },
+    "EvaluationStage": {
+      "additionalProperties": false,
+      "properties": {
+        "evaluator_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        },
+        "hard_gate": {
+          "default": false,
+          "title": "Hard Gate",
+          "type": "boolean"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "integrity",
+            "deterministic_grader",
+            "model_judge",
+            "human_review"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "output_dimensions": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Output Dimensions",
+          "type": "array"
+        },
+        "parameters": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/KeyValue"
+          },
+          "title": "Parameters",
+          "type": "array"
+        },
+        "trigger": {
+          "$ref": "#/$defs/EvaluationTrigger"
+        },
+        "visible_to_subject": {
+          "default": false,
+          "title": "Visible To Subject",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "evaluator_ref",
+        "trigger"
+      ],
+      "title": "EvaluationStage",
+      "type": "object"
+    },
+    "EvaluationTrigger": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "run_terminal",
+            "checkpoint",
+            "event"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "reference": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reference"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "EvaluationTrigger",
+      "type": "object"
+    },
+    "HumanAdjudicationPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "authority": {
+          "default": "local-human",
+          "minLength": 1,
+          "title": "Authority",
+          "type": "string"
+        },
+        "required": {
+          "default": false,
+          "title": "Required",
+          "type": "boolean"
+        }
+      },
+      "title": "HumanAdjudicationPolicy",
+      "type": "object"
+    },
+    "KeyValue": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "minLength": 1,
+          "title": "Key",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "key",
+        "value"
+      ],
+      "title": "KeyValue",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "contract_type": {
+      "const": "evaluation_plan",
+      "default": "evaluation_plan",
+      "title": "Contract Type",
+      "type": "string"
+    },
+    "logical_id": {
+      "minLength": 1,
+      "title": "Logical Id",
+      "type": "string"
+    },
+    "payload": {
+      "$ref": "#/$defs/EvaluationPlanSpec"
+    },
+    "project_id": {
+      "minLength": 1,
+      "title": "Project Id",
+      "type": "string"
+    },
+    "revision": {
+      "exclusiveMinimum": 0,
+      "title": "Revision",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "1",
+      "default": "1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "logical_id",
+    "revision",
+    "project_id",
+    "title",
+    "payload"
+  ],
+  "title": "EvaluationPlanRevision",
+  "type": "object"
+}

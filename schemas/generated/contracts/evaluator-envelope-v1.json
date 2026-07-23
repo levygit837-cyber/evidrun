@@ -1,0 +1,443 @@
+{
+  "$defs": {
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "classification": {
+          "$ref": "#/$defs/Classification",
+          "default": "internal"
+        },
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "locator": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Locator"
+        },
+        "media_type": {
+          "minLength": 1,
+          "title": "Media Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "digest",
+        "media_type"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "CapabilityDescriptorRef": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "namespace": {
+          "minLength": 1,
+          "title": "Namespace",
+          "type": "string"
+        },
+        "version": {
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "namespace",
+        "name",
+        "version",
+        "digest"
+      ],
+      "title": "CapabilityDescriptorRef",
+      "type": "object"
+    },
+    "Classification": {
+      "enum": [
+        "public",
+        "internal",
+        "sensitive",
+        "restricted"
+      ],
+      "title": "Classification",
+      "type": "string"
+    },
+    "ContractRef": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_type": {
+          "$ref": "#/$defs/ContractType"
+        },
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "logical_id": {
+          "minLength": 1,
+          "title": "Logical Id",
+          "type": "string"
+        },
+        "revision": {
+          "exclusiveMinimum": 0,
+          "title": "Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "contract_type",
+        "logical_id",
+        "revision",
+        "digest"
+      ],
+      "title": "ContractRef",
+      "type": "object"
+    },
+    "ContractType": {
+      "enum": [
+        "study",
+        "goal",
+        "scenario",
+        "agent_inventory",
+        "workspace_template",
+        "interaction_protocol",
+        "evaluation_plan",
+        "checkpoint_policy"
+      ],
+      "title": "ContractType",
+      "type": "string"
+    },
+    "EvaluationDimension": {
+      "additionalProperties": false,
+      "properties": {
+        "anchors": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/KeyValue"
+          },
+          "title": "Anchors",
+          "type": "array"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "maximum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maximum"
+        },
+        "minimum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minimum"
+        },
+        "value_type": {
+          "enum": [
+            "boolean",
+            "number",
+            "category"
+          ],
+          "title": "Value Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "value_type"
+      ],
+      "title": "EvaluationDimension",
+      "type": "object"
+    },
+    "EvaluationStage": {
+      "additionalProperties": false,
+      "properties": {
+        "evaluator_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        },
+        "hard_gate": {
+          "default": false,
+          "title": "Hard Gate",
+          "type": "boolean"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "integrity",
+            "deterministic_grader",
+            "model_judge",
+            "human_review"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "output_dimensions": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Output Dimensions",
+          "type": "array"
+        },
+        "parameters": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/KeyValue"
+          },
+          "title": "Parameters",
+          "type": "array"
+        },
+        "trigger": {
+          "$ref": "#/$defs/EvaluationTrigger"
+        },
+        "visible_to_subject": {
+          "default": false,
+          "title": "Visible To Subject",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "evaluator_ref",
+        "trigger"
+      ],
+      "title": "EvaluationStage",
+      "type": "object"
+    },
+    "EvaluationTrigger": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "run_terminal",
+            "checkpoint",
+            "event"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "reference": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reference"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "EvaluationTrigger",
+      "type": "object"
+    },
+    "InputBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "mount_access": {
+          "default": "read_only",
+          "enum": [
+            "read_only",
+            "read_write"
+          ],
+          "title": "Mount Access",
+          "type": "string"
+        },
+        "mount_name": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mount Name"
+        },
+        "role": {
+          "minLength": 1,
+          "title": "Role",
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "visibility": {
+          "enum": [
+            "subject",
+            "evaluator",
+            "laboratory",
+            "subject_and_evaluator"
+          ],
+          "title": "Visibility",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "role",
+        "source",
+        "visibility"
+      ],
+      "title": "InputBinding",
+      "type": "object"
+    },
+    "KeyValue": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "minLength": 1,
+          "title": "Key",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "key",
+        "value"
+      ],
+      "title": "KeyValue",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "blinded_fields": {
+      "default": [],
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "title": "Blinded Fields",
+      "type": "array"
+    },
+    "dimensions": {
+      "items": {
+        "$ref": "#/$defs/EvaluationDimension"
+      },
+      "title": "Dimensions",
+      "type": "array"
+    },
+    "hidden_input_refs": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ArtifactRef"
+      },
+      "title": "Hidden Input Refs",
+      "type": "array"
+    },
+    "inputs": {
+      "items": {
+        "$ref": "#/$defs/InputBinding"
+      },
+      "title": "Inputs",
+      "type": "array"
+    },
+    "plan_ref": {
+      "$ref": "#/$defs/ContractRef"
+    },
+    "run_spec_digest": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Run Spec Digest",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1",
+      "default": "1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "stage": {
+      "$ref": "#/$defs/EvaluationStage"
+    }
+  },
+  "required": [
+    "run_spec_digest",
+    "plan_ref",
+    "stage",
+    "dimensions",
+    "inputs"
+  ],
+  "title": "EvaluatorEnvelope",
+  "type": "object"
+}

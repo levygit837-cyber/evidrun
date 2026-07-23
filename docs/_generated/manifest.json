@@ -90,6 +90,17 @@
       "review_due": null
     },
     {
+      "id": "adr-0009",
+      "path": "docs/adr/0009-study-run-contract-composition.md",
+      "type": "adr",
+      "title": "Study unificado e composição canônica de Runs",
+      "status": "accepted",
+      "authority": "normative",
+      "owner": "core",
+      "updated_at": "2026-07-23",
+      "review_due": null
+    },
+    {
       "id": "architecture-agents-authority",
       "path": "docs/architecture/agents-and-authority.md",
       "type": "architecture",
@@ -97,7 +108,7 @@
       "status": "accepted",
       "authority": "normative",
       "owner": "core",
-      "updated_at": "2026-07-22",
+      "updated_at": "2026-07-23",
       "review_due": null
     },
     {
@@ -119,7 +130,7 @@
       "status": "implemented",
       "authority": "normative",
       "owner": "core",
-      "updated_at": "2026-07-22",
+      "updated_at": "2026-07-23",
       "review_due": null
     },
     {
@@ -152,7 +163,7 @@
       "status": "implemented",
       "authority": "normative",
       "owner": "core",
-      "updated_at": "2026-07-22",
+      "updated_at": "2026-07-23",
       "review_due": null
     },
     {
@@ -189,6 +200,17 @@
       "review_due": null
     },
     {
+      "id": "contract-agent-inventory-workspace-v1",
+      "path": "docs/contracts/agent-inventory-workspace-v1.md",
+      "type": "contract",
+      "title": "Inventário de agente, admissão e workspace v1",
+      "status": "implemented",
+      "authority": "normative",
+      "owner": "core",
+      "updated_at": "2026-07-23",
+      "review_due": null
+    },
+    {
       "id": "contract-capture-retention-v1",
       "path": "docs/contracts/capture-and-retention.md",
       "type": "contract",
@@ -211,6 +233,28 @@
       "review_due": null
     },
     {
+      "id": "contract-evaluation-checkpoint-v1",
+      "path": "docs/contracts/evaluation-checkpoint-v1.md",
+      "type": "contract",
+      "title": "Evaluation e checkpoint records v1",
+      "status": "implemented",
+      "authority": "normative",
+      "owner": "core",
+      "updated_at": "2026-07-23",
+      "review_due": null
+    },
+    {
+      "id": "contract-evidence-bundle-v2",
+      "path": "docs/contracts/evidence-bundle-v2.md",
+      "type": "contract",
+      "title": "Evidence Bundle v2",
+      "status": "implemented",
+      "authority": "normative",
+      "owner": "core",
+      "updated_at": "2026-07-23",
+      "review_due": null
+    },
+    {
       "id": "contract-evidence-bundle-v1",
       "path": "docs/contracts/evidence-bundle.md",
       "type": "contract",
@@ -218,7 +262,7 @@
       "status": "implemented",
       "authority": "normative",
       "owner": "core",
-      "updated_at": "2026-07-22",
+      "updated_at": "2026-07-23",
       "review_due": null
     },
     {
@@ -229,7 +273,7 @@
       "status": "implemented",
       "authority": "normative",
       "owner": "core",
-      "updated_at": "2026-07-22",
+      "updated_at": "2026-07-23",
       "review_due": null
     },
     {
@@ -244,6 +288,17 @@
       "review_due": null
     },
     {
+      "id": "contract-run-event-payloads-v1",
+      "path": "docs/contracts/run-event-payloads-v1.md",
+      "type": "contract",
+      "title": "Catálogo de payloads de Run Event v1",
+      "status": "implemented",
+      "authority": "normative",
+      "owner": "core",
+      "updated_at": "2026-07-23",
+      "review_due": null
+    },
+    {
       "id": "contract-run-event-v1",
       "path": "docs/contracts/run-event.md",
       "type": "contract",
@@ -251,7 +306,18 @@
       "status": "implemented",
       "authority": "normative",
       "owner": "core",
-      "updated_at": "2026-07-22",
+      "updated_at": "2026-07-23",
+      "review_due": null
+    },
+    {
+      "id": "contract-study-run-v1",
+      "path": "docs/contracts/study-run-v1.md",
+      "type": "contract",
+      "title": "Study, revisions e Run canônica v1",
+      "status": "implemented",
+      "authority": "normative",
+      "owner": "core",
+      "updated_at": "2026-07-23",
       "review_due": null
     },
     {
@@ -284,7 +350,7 @@
       "status": "implemented",
       "authority": "normative",
       "owner": "core",
-      "updated_at": "2026-07-22",
+      "updated_at": "2026-07-23",
       "review_due": null
     },
     {
@@ -339,7 +405,7 @@
       "status": "accepted",
       "authority": "normative",
       "owner": "product",
-      "updated_at": "2026-07-22",
+      "updated_at": "2026-07-23",
       "review_due": null
     },
     {
@@ -350,7 +416,7 @@
       "status": "draft",
       "authority": "incubation",
       "owner": "product",
-      "updated_at": "2026-07-22",
+      "updated_at": "2026-07-23",
       "review_due": "2026-10-22"
     },
     {
@@ -363,6 +429,17 @@
       "owner": "product",
       "updated_at": "2026-07-22",
       "review_due": "2026-10-22"
+    },
+    {
+      "id": "product-semantic-execution-graph-concept",
+      "path": "docs/product/semantic-execution-graph-concept.md",
+      "type": "product",
+      "title": "Matriz de contexto e grafo semântico da execução",
+      "status": "draft",
+      "authority": "incubation",
+      "owner": "product",
+      "updated_at": "2026-07-23",
+      "review_due": "2026-10-23"
     },
     {
       "id": "product-success-metrics",
@@ -438,7 +515,7 @@
       "status": "accepted",
       "authority": "planning",
       "owner": "product",
-      "updated_at": "2026-07-22",
+      "updated_at": "2026-07-23",
       "review_due": null
     },
     {

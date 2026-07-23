@@ -6,13 +6,14 @@ status: implemented
 authority: normative
 owner: core
 created_at: 2026-07-22
-updated_at: 2026-07-22
+updated_at: 2026-07-23
 applies_to: schema/experiment-manifest@1
 sources: []
 supersedes: []
 superseded_by: null
 implementation_refs:
   - src/evidrun/experiments/models.py
+  - src/evidrun/contracts/legacy.py
 verification_refs:
   - tests/unit/test_manifest.py
 ---
@@ -30,3 +31,6 @@ Campos obrigatórios: `schema_version`, `id`, `project_id`, `title`, `objective`
 Uma variant que declare `confounders` força a validade `exploratory`. O baseline e todas as policies
 referenciadas precisam existir na mesma revision.
 
+O contrato continua válido e seus digests históricos não mudam. O adapter de compatibilidade o
+converte em revisions modulares e RunSpecs para execução pelo pipeline Study, mantendo expected
+answers apenas no EvaluationPlan.

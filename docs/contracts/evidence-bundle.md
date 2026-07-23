@@ -6,7 +6,7 @@ status: implemented
 authority: normative
 owner: core
 created_at: 2026-07-22
-updated_at: 2026-07-22
+updated_at: 2026-07-23
 applies_to: schema/evidence-bundle@1
 sources: []
 supersedes: []
@@ -34,3 +34,5 @@ O verificador confirma SHA-256 de cada arquivo e reconstrói cada event chain. B
 saem da gestão de retenção do aplicativo; o usuário deve ser informado antes da exportação de dados
 sensíveis.
 
+Este formato permanece exportável e verificável para compatibilidade. A exportação padrão nova usa
+[Evidence Bundle v2](evidence-bundle-v2.md); v2 não reinterpreta nem invalida bundles v1.

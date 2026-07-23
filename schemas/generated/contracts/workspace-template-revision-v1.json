@@ -1,0 +1,340 @@
+{
+  "$defs": {
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "classification": {
+          "$ref": "#/$defs/Classification",
+          "default": "internal"
+        },
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "locator": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Locator"
+        },
+        "media_type": {
+          "minLength": 1,
+          "title": "Media Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "digest",
+        "media_type"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "Classification": {
+      "enum": [
+        "public",
+        "internal",
+        "sensitive",
+        "restricted"
+      ],
+      "title": "Classification",
+      "type": "string"
+    },
+    "CleanupPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "default": "discard",
+          "enum": [
+            "discard",
+            "retain_until_ttl",
+            "retain"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "ttl_seconds": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ttl Seconds"
+        }
+      },
+      "title": "CleanupPolicy",
+      "type": "object"
+    },
+    "ExternalEffectPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed_effects": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Allowed Effects",
+          "type": "array"
+        },
+        "mode": {
+          "enum": [
+            "denied",
+            "approval_required",
+            "allowlist"
+          ],
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "title": "ExternalEffectPolicy",
+      "type": "object"
+    },
+    "NetworkPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed_endpoint_refs": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Allowed Endpoint Refs",
+          "type": "array"
+        },
+        "mode": {
+          "enum": [
+            "disabled",
+            "provider_only",
+            "allowlist"
+          ],
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "title": "NetworkPolicy",
+      "type": "object"
+    },
+    "SecretBindingRef": {
+      "additionalProperties": false,
+      "properties": {
+        "binding_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9.-]*$",
+          "title": "Binding Id",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "keychain",
+            "environment"
+          ],
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "binding_id",
+        "source"
+      ],
+      "title": "SecretBindingRef",
+      "type": "object"
+    },
+    "SnapshotPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "capture_workspace": {
+          "default": false,
+          "title": "Capture Workspace",
+          "type": "boolean"
+        },
+        "include_zones": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Include Zones",
+          "type": "array"
+        }
+      },
+      "title": "SnapshotPolicy",
+      "type": "object"
+    },
+    "WorkspaceMount": {
+      "additionalProperties": false,
+      "properties": {
+        "access": {
+          "enum": [
+            "read_only",
+            "read_write"
+          ],
+          "title": "Access",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "target": {
+          "minLength": 1,
+          "title": "Target",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "source",
+        "access",
+        "target"
+      ],
+      "title": "WorkspaceMount",
+      "type": "object"
+    },
+    "WorkspaceTemplateSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "cleanup_policy": {
+          "$ref": "#/$defs/CleanupPolicy",
+          "default": {
+            "mode": "discard",
+            "ttl_seconds": null
+          }
+        },
+        "external_effect_policy": {
+          "$ref": "#/$defs/ExternalEffectPolicy"
+        },
+        "lifecycle": {
+          "const": "ephemeral_per_run",
+          "default": "ephemeral_per_run",
+          "title": "Lifecycle",
+          "type": "string"
+        },
+        "mounts": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/WorkspaceMount"
+          },
+          "title": "Mounts",
+          "type": "array"
+        },
+        "network_policy": {
+          "$ref": "#/$defs/NetworkPolicy"
+        },
+        "runtime_kind": {
+          "minLength": 1,
+          "title": "Runtime Kind",
+          "type": "string"
+        },
+        "secret_binding_refs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SecretBindingRef"
+          },
+          "title": "Secret Binding Refs",
+          "type": "array"
+        },
+        "snapshot_policy": {
+          "$ref": "#/$defs/SnapshotPolicy",
+          "default": {
+            "capture_workspace": false,
+            "include_zones": []
+          }
+        },
+        "write_zones": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Write Zones",
+          "type": "array"
+        }
+      },
+      "required": [
+        "runtime_kind",
+        "network_policy",
+        "external_effect_policy"
+      ],
+      "title": "WorkspaceTemplateSpec",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "contract_type": {
+      "const": "workspace_template",
+      "default": "workspace_template",
+      "title": "Contract Type",
+      "type": "string"
+    },
+    "logical_id": {
+      "minLength": 1,
+      "title": "Logical Id",
+      "type": "string"
+    },
+    "payload": {
+      "$ref": "#/$defs/WorkspaceTemplateSpec"
+    },
+    "project_id": {
+      "minLength": 1,
+      "title": "Project Id",
+      "type": "string"
+    },
+    "revision": {
+      "exclusiveMinimum": 0,
+      "title": "Revision",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "1",
+      "default": "1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "logical_id",
+    "revision",
+    "project_id",
+    "title",
+    "payload"
+  ],
+  "title": "WorkspaceTemplateRevision",
+  "type": "object"
+}

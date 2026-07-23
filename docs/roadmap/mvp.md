@@ -6,7 +6,7 @@ status: accepted
 authority: planning
 owner: product
 created_at: 2026-07-22
-updated_at: 2026-07-22
+updated_at: 2026-07-23
 applies_to: product
 sources: []
 supersedes: []
@@ -25,6 +25,12 @@ verification_refs: []
 - API, CLI, React e Electron dev shell;
 - captura sensível criptografada como adapter;
 - benchmark CRL-CTX-002 e testes.
+- contratos fechados para Study, Goal, Scenario, Agent Inventory, Workspace, Interaction,
+  EvaluationPlan e CheckpointPolicy;
+- compilação determinística de variants/repetitions, RunSpec, SubjectEnvelope e admissão;
+- persistência aditiva de revisions, decisões, specs, admissions, evaluations e checkpoints;
+- payloads tipados do Run Event v1, Evidence Bundle v2, API/CLI local e DTOs TypeScript gerados;
+- adapter do Experiment Manifest v1 e demo CRL-CTX-002 executado pelo pipeline Study.
 
 ## Próximo
 
@@ -33,6 +39,9 @@ verification_refs: []
 - Responses Subject Runner;
 - approvals e resume;
 - tool simulator e sandbox;
+- runtime real de tools, skills e nested agents;
+- execução de protocolos em grafo;
+- restore, replay, context extraction e fork por checkpoint;
 - repetições e análise estatística;
 - LLM judges calibrados;
 - PyInstaller, assinatura e notarização;
@@ -40,4 +49,3 @@ verification_refs: []
 - sync opcional somente após ADR específico.
 
 Roadmap não é comportamento existente. Cada item muda para implemented apenas com referências.
-

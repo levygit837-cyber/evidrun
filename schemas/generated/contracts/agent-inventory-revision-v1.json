@@ -1,0 +1,275 @@
+{
+  "$defs": {
+    "AgentInventorySpec": {
+      "additionalProperties": false,
+      "properties": {
+        "capability_requirements": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/CapabilityRequirement"
+          },
+          "title": "Capability Requirements",
+          "type": "array"
+        },
+        "provider_profile_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Profile Id"
+        },
+        "runner_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        },
+        "runtime_requirements": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/RuntimeRequirement"
+          },
+          "title": "Runtime Requirements",
+          "type": "array"
+        },
+        "subject_id": {
+          "minLength": 1,
+          "title": "Subject Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "subject_id",
+        "runner_ref"
+      ],
+      "title": "AgentInventorySpec",
+      "type": "object"
+    },
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "classification": {
+          "$ref": "#/$defs/Classification",
+          "default": "internal"
+        },
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "locator": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Locator"
+        },
+        "media_type": {
+          "minLength": 1,
+          "title": "Media Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "digest",
+        "media_type"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "CapabilityDescriptorRef": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "namespace": {
+          "minLength": 1,
+          "title": "Namespace",
+          "type": "string"
+        },
+        "version": {
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "namespace",
+        "name",
+        "version",
+        "digest"
+      ],
+      "title": "CapabilityDescriptorRef",
+      "type": "object"
+    },
+    "CapabilityRequirement": {
+      "additionalProperties": false,
+      "properties": {
+        "authority_constraints": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Authority Constraints",
+          "type": "array"
+        },
+        "capability_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        },
+        "exposure": {
+          "enum": [
+            "schema_only",
+            "instructions",
+            "instructions_and_schema"
+          ],
+          "title": "Exposure",
+          "type": "string"
+        },
+        "instruction_refs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "title": "Instruction Refs",
+          "type": "array"
+        },
+        "kind": {
+          "enum": [
+            "tool",
+            "skill"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "minimum_interface_version": {
+          "minLength": 1,
+          "title": "Minimum Interface Version",
+          "type": "string"
+        },
+        "requested_permissions": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Requested Permissions",
+          "type": "array"
+        },
+        "required": {
+          "default": true,
+          "title": "Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "capability_ref",
+        "minimum_interface_version",
+        "exposure"
+      ],
+      "title": "CapabilityRequirement",
+      "type": "object"
+    },
+    "Classification": {
+      "enum": [
+        "public",
+        "internal",
+        "sensitive",
+        "restricted"
+      ],
+      "title": "Classification",
+      "type": "string"
+    },
+    "RuntimeRequirement": {
+      "additionalProperties": false,
+      "properties": {
+        "capability": {
+          "minLength": 1,
+          "title": "Capability",
+          "type": "string"
+        },
+        "required": {
+          "default": true,
+          "title": "Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "capability"
+      ],
+      "title": "RuntimeRequirement",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "contract_type": {
+      "const": "agent_inventory",
+      "default": "agent_inventory",
+      "title": "Contract Type",
+      "type": "string"
+    },
+    "logical_id": {
+      "minLength": 1,
+      "title": "Logical Id",
+      "type": "string"
+    },
+    "payload": {
+      "$ref": "#/$defs/AgentInventorySpec"
+    },
+    "project_id": {
+      "minLength": 1,
+      "title": "Project Id",
+      "type": "string"
+    },
+    "revision": {
+      "exclusiveMinimum": 0,
+      "title": "Revision",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "1",
+      "default": "1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "logical_id",
+    "revision",
+    "project_id",
+    "title",
+    "payload"
+  ],
+  "title": "AgentInventoryRevision",
+  "type": "object"
+}

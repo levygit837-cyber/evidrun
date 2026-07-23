@@ -27,6 +27,66 @@ class ProjectRow(Base):
     created_at: Mapped[datetime] = mapped_column(nullable=False)
 
 
+class ContractRevisionRow(Base):
+    __tablename__ = "contract_revisions"
+    __table_args__ = (
+        UniqueConstraint(
+            "contract_type", "logical_id", "revision", name="uq_contract_revision_identity"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    contract_type: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    logical_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), nullable=False)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="draft")
+    document_json: Mapped[str] = mapped_column(Text, nullable=False)
+    digest: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(nullable=False)
+
+
+class ContractDecisionRow(Base):
+    __tablename__ = "contract_decisions"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    contract_revision_id: Mapped[str] = mapped_column(
+        ForeignKey("contract_revisions.id"), nullable=False, index=True
+    )
+    decision: Mapped[str] = mapped_column(String, nullable=False)
+    actor_type: Mapped[str] = mapped_column(String, nullable=False)
+    actor_id: Mapped[str] = mapped_column(String, nullable=False)
+    rationale: Mapped[str] = mapped_column(Text, nullable=False)
+    decision_json: Mapped[str] = mapped_column(Text, nullable=False)
+    decision_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    decided_at: Mapped[datetime] = mapped_column(nullable=False)
+
+
+class RunSpecRow(Base):
+    __tablename__ = "run_specs"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    study_logical_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    scenario_logical_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    variant_id: Mapped[str] = mapped_column(String, nullable=False)
+    repetition_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    spec_json: Mapped[str] = mapped_column(Text, nullable=False)
+    digest: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    created_at: Mapped[datetime] = mapped_column(nullable=False)
+
+
+class AdmissionRecordRow(Base):
+    __tablename__ = "admission_records"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    run_spec_id: Mapped[str] = mapped_column(ForeignKey("run_specs.id"), nullable=False, index=True)
+    decision: Mapped[str] = mapped_column(String, nullable=False)
+    record_json: Mapped[str] = mapped_column(Text, nullable=False)
+    digest: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(nullable=False)
+
+
 class ExperimentRevisionRow(Base):
     __tablename__ = "experiment_revisions"
 
@@ -55,6 +115,8 @@ class RunRow(Base):
     output: Mapped[str | None] = mapped_column(Text)
     context_hash: Mapped[str | None] = mapped_column(String(64))
     retry_of: Mapped[str | None] = mapped_column(ForeignKey("runs.id"))
+    run_spec_id: Mapped[str | None] = mapped_column(ForeignKey("run_specs.id"))
+    admission_id: Mapped[str | None] = mapped_column(ForeignKey("admission_records.id"))
     created_at: Mapped[datetime] = mapped_column(nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column()
 
@@ -107,6 +169,38 @@ class GradeRow(Base):
     created_at: Mapped[datetime] = mapped_column(nullable=False)
 
 
+class CheckpointRecordRow(Base):
+    __tablename__ = "checkpoint_records"
+    __table_args__ = (
+        UniqueConstraint(
+            "run_id",
+            "definition_id",
+            "up_to_event_sequence",
+            name="uq_checkpoint_record_boundary",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    run_id: Mapped[str] = mapped_column(ForeignKey("runs.id"), nullable=False, index=True)
+    definition_id: Mapped[str] = mapped_column(String, nullable=False)
+    up_to_event_sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    record_json: Mapped[str] = mapped_column(Text, nullable=False)
+    checkpoint_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    created_at: Mapped[datetime] = mapped_column(nullable=False)
+
+
+class EvaluationRecordRow(Base):
+    __tablename__ = "evaluation_records"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    run_id: Mapped[str] = mapped_column(ForeignKey("runs.id"), nullable=False, index=True)
+    source_type: Mapped[str] = mapped_column(String, nullable=False)
+    stage_id: Mapped[str] = mapped_column(String, nullable=False)
+    record_json: Mapped[str] = mapped_column(Text, nullable=False)
+    record_digest: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    created_at: Mapped[datetime] = mapped_column(nullable=False)
+
+
 class ComparisonRow(Base):
     __tablename__ = "comparisons"
 
@@ -144,4 +238,3 @@ class ChatMessageRow(Base):
     role: Mapped[str] = mapped_column(String, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(nullable=False)
-
