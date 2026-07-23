@@ -45,3 +45,4 @@ contracts revisados e aceitos.
 
 - [Runs, contratos e checkpoints](product/run-laboratory-concept.md)
 - [Canvas vivo e grafo de execução](product/live-run-graph-concept.md)
+- [Discovery orientado por cenários de Run](research/run-scenario-discovery/comparison.md)

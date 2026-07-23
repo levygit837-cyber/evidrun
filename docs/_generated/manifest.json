@@ -387,6 +387,50 @@
       "review_due": "2026-10-22"
     },
     {
+      "id": "research-run-scenario-discovery-comparison",
+      "path": "docs/research/run-scenario-discovery/comparison.md",
+      "type": "research",
+      "title": "Comparação do discovery orientado por cenários de Run",
+      "status": "draft",
+      "authority": "research",
+      "owner": "core",
+      "updated_at": "2026-07-22",
+      "review_due": "2026-10-22"
+    },
+    {
+      "id": "research-run-scenario-a-crl-ctx-002",
+      "path": "docs/research/run-scenario-discovery/scenario-a-crl-ctx-002.md",
+      "type": "research",
+      "title": "Dossier A — CRL-CTX-002 determinístico",
+      "status": "draft",
+      "authority": "research",
+      "owner": "core",
+      "updated_at": "2026-07-22",
+      "review_due": "2026-10-22"
+    },
+    {
+      "id": "research-run-scenario-b-nested-agent-blueprint",
+      "path": "docs/research/run-scenario-discovery/scenario-b-nested-agent-blueprint.md",
+      "type": "research",
+      "title": "Dossier B — Blueprint de agente que cria outro agente",
+      "status": "draft",
+      "authority": "research",
+      "owner": "core",
+      "updated_at": "2026-07-22",
+      "review_due": "2026-10-22"
+    },
+    {
+      "id": "research-run-scenario-c-qualitative-incident",
+      "path": "docs/research/run-scenario-discovery/scenario-c-qualitative-incident.md",
+      "type": "research",
+      "title": "Dossier C — Investigação qualitativa de pedidos duplicados",
+      "status": "draft",
+      "authority": "research",
+      "owner": "core",
+      "updated_at": "2026-07-22",
+      "review_due": "2026-10-22"
+    },
+    {
       "id": "roadmap-mvp",
       "path": "docs/roadmap/mvp.md",
       "type": "roadmap",
