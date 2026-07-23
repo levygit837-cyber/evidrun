@@ -19,6 +19,7 @@ from evidrun import __version__
 from evidrun.evidence.bundle import EvidenceBundleService
 from evidrun.experiments import ExperimentManifest
 from evidrun.infrastructure.database import Database, Repository
+from evidrun.infrastructure.providers import ProviderCredentialStore
 from evidrun.runs import EvidrunService
 from evidrun.shared.settings import Settings
 
@@ -57,6 +58,7 @@ def create_app(
     repository = Repository(database)
     service = EvidrunService(repository)
     bundles = EvidenceBundleService(repository)
+    provider_credentials = ProviderCredentialStore()
     benchmarks = benchmark_root or REPOSITORY_ROOT / "benchmarks"
 
     @asynccontextmanager
@@ -112,6 +114,32 @@ def create_app(
             "artifacts": str(settings.artifacts_dir),
             "benchmark_available": (benchmarks / "experiments/crl-ctx-002-demo.yaml").exists(),
             "network_required_for_demo": False,
+            "default_provider": settings.default_provider.public_dict(),
+            "provider_credential_available": bool(
+                provider_credentials.get(settings.default_provider)
+            ),
+        }
+
+    @app.get("/api/v1/providers")
+    async def providers(_: None = Depends(authorize)) -> list[dict[str, Any]]:
+        profile = settings.default_provider
+        return [
+            {
+                **profile.public_dict(),
+                "default": True,
+                "credential_available": bool(provider_credentials.get(profile)),
+                "credential_source": provider_credentials.source(profile),
+            }
+        ]
+
+    @app.get("/api/v1/providers/default")
+    async def default_provider(_: None = Depends(authorize)) -> dict[str, Any]:
+        profile = settings.default_provider
+        return {
+            **profile.public_dict(),
+            "default": True,
+            "credential_available": bool(provider_credentials.get(profile)),
+            "credential_source": provider_credentials.source(profile),
         }
 
     @app.get("/api/v1/dashboard")

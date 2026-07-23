@@ -1,4 +1,4 @@
-import type { BackendConnection, DashboardData } from "../types";
+import type { BackendConnection, DashboardData, ProviderProfile } from "../types";
 
 let cachedConnection: BackendConnection | null = null;
 
@@ -27,9 +27,9 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   dashboard: () => apiFetch<DashboardData>("/api/v1/dashboard"),
+  defaultProvider: () => apiFetch<ProviderProfile>("/api/v1/providers/default"),
   bootstrapDemo: () =>
     apiFetch<{ comparison_id: string }>("/api/v1/demo/bootstrap", { method: "POST" }),
   exportBundle: (comparisonId: string) =>
     apiFetch<{ path: string }>(`/api/v1/evidence-bundles/${comparisonId}`, { method: "POST" }),
 };
-

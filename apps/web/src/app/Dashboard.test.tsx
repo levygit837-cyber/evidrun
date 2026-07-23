@@ -2,12 +2,12 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 function LabAgentNotice() {
-  return <p>Lab Agent ainda não configurado</p>;
+  return <p>Provider pronto; Lab Agent é o próximo passo</p>;
 }
 
 describe("Evidrun workbench", () => {
-  it("labels the unavailable agent honestly", () => {
+  it("separates provider readiness from Lab Agent implementation", () => {
     render(<LabAgentNotice />);
-    expect(screen.getByText("Lab Agent ainda não configurado")).toBeInTheDocument();
+    expect(screen.getByText("Provider pronto; Lab Agent é o próximo passo")).toBeInTheDocument();
   });
 });

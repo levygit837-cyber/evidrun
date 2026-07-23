@@ -151,6 +151,7 @@ export function Dashboard() {
   const queryClient = useQueryClient();
   const [backendState, setBackendState] = useState<BackendState>({ status: "ready" });
   const dashboard = useQuery({ queryKey: ["dashboard"], queryFn: api.dashboard });
+  const providerQuery = useQuery({ queryKey: ["default-provider"], queryFn: api.defaultProvider });
   const bootstrap = useMutation({
     mutationFn: api.bootstrapDemo,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
@@ -170,6 +171,7 @@ export function Dashboard() {
   const data = dashboard.data;
   const comparison = data?.comparisons[0];
   const experiment = data?.experiments[0];
+  const provider = providerQuery.data;
   const orderedRuns = useMemo(
     () => [...(data?.runs ?? [])].sort((a, b) => a.variant_id.localeCompare(b.variant_id)),
     [data?.runs],
@@ -198,6 +200,7 @@ export function Dashboard() {
           <div className="sidebar-section"><span>Conhecimento</span><a><BookOpen size={17} /> Documentação</a><a><Box size={17} /> Artifacts</a></div>
           <div className="sidebar-footer">
             <div className="backend-line"><span className={`backend-light ${backendState.status}`} /><div><strong>Backend {backendState.status}</strong><small>local · SQLite/WAL</small></div></div>
+            <div className="provider-line"><Bot size={15} /><div><strong>{provider?.model ?? "Provider carregando"}</strong><small>{provider ? `reasoning ${provider.reasoning_effort} · CLIProxyAPI` : "configuração local"}</small></div></div>
           </div>
         </aside>
 
@@ -241,7 +244,7 @@ export function Dashboard() {
                   <article className="report-card"><div className="report-toolbar"><span><BookOpen size={15} /> Relatório gerado da evidência</span><button onClick={() => comparison && exportBundle.mutate(comparison.id)}><Download size={14} /> Exportar bundle</button></div><pre>{comparison?.report_markdown}</pre></article>
                 </Tabs.Content>
                 <Tabs.Content value="chat">
-                  <section className="chat-shell"><div className="chat-empty"><div className="bot-orb"><Bot size={25} /></div><h2>Lab Agent ainda não configurado</h2><p>As sessões já possuem escopo explícito e persistência. Um provider será conectado somente no próximo marco, sem misturar históricos automaticamente.</p><span><ShieldCheck size={14} /> nenhum provider externo ativo</span></div><div className="chat-composer"><input disabled placeholder="Configure um provider para conversar sobre este experimento…" /><button disabled><ArrowRight size={17} /></button></div></section>
+                  <section className="chat-shell"><div className="chat-empty"><div className="bot-orb"><Bot size={25} /></div><h2>Provider pronto; Lab Agent é o próximo passo</h2><p>{provider?.model ?? "deepseek-v4-flash"} foi definido como modelo padrão via CLIProxyAPI com reasoning {provider?.reasoning_effort ?? "max"}. O adapter está configurado, mas o fluxo conversacional ainda não será simulado antes da implementação do LabAgentPort.</p><span><ShieldCheck size={14} /> {provider?.credential_available ? `credencial protegida no ${provider.credential_source === "system_keychain" ? "Keychain" : "ambiente"}` : "credencial ainda não disponível"}</span></div><div className="chat-composer"><input disabled placeholder="Lab Agent será habilitado no próximo marco…" /><button disabled><ArrowRight size={17} /></button></div></section>
                 </Tabs.Content>
               </Tabs.Root>
             </main>
@@ -251,4 +254,3 @@ export function Dashboard() {
     </Tooltip.Provider>
   );
 }
-

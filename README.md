@@ -19,6 +19,7 @@ A primeira espinha executável está implementada com o benchmark determinístic
 - comparação e relatório;
 - evidence bundle com checksums e verificação da cadeia;
 - CLI, API, React e Electron dev shell;
+- CLIProxyAPI local como provider padrão, com `deepseek-v4-flash` e `reasoning=max`;
 - nenhuma API externa necessária para o benchmark de referência.
 
 Esse benchmark comprova o funcionamento da infraestrutura. Ele não mede a capacidade de um LLM.
@@ -31,6 +32,8 @@ pnpm install
 uv run evidrun init
 uv run evidrun doctor
 uv run evidrun demo
+uv run evidrun provider status
+uv run evidrun provider doctor
 ```
 
 Backend e browser:
@@ -64,4 +67,3 @@ Comece por [docs/index.md](docs/index.md). Decisões aceitas ficam em `docs/adr`
 `docs/contracts` e resultados de runs permanecem no data store ou em bundles exportados.
 
 O Obsidian é uma área de pesquisa e incubação; o repositório é a fonte normativa.
-

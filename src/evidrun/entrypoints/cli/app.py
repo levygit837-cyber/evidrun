@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import secrets
 import socket
@@ -17,6 +18,12 @@ from evidrun.entrypoints.api.app import REPOSITORY_ROOT, create_app
 from evidrun.evidence.bundle import EvidenceBundleService
 from evidrun.experiments import ExperimentManifest
 from evidrun.infrastructure.database import Database, Repository
+from evidrun.infrastructure.providers import (
+    OpenAIResponsesProvider,
+    ProviderCredentialStore,
+    ProviderRequestError,
+    extract_output_text,
+)
 from evidrun.runs import EvidrunService
 from evidrun.shared.settings import Settings
 
@@ -26,11 +33,13 @@ run_app = typer.Typer(help="Executar e inspecionar runs.")
 bundle_app = typer.Typer(help="Exportar e verificar evidence bundles.")
 chat_app = typer.Typer(help="Inspecionar sessões de chat.")
 data_app = typer.Typer(help="Inspecionar e eliminar dados gerenciados.")
+provider_app = typer.Typer(help="Configurar e diagnosticar providers de modelos.")
 app.add_typer(experiment_app, name="experiment")
 app.add_typer(run_app, name="run")
 app.add_typer(bundle_app, name="bundle")
 app.add_typer(chat_app, name="chat")
 app.add_typer(data_app, name="data")
+app.add_typer(provider_app, name="provider")
 console = Console()
 
 
@@ -61,6 +70,7 @@ def initialize(
 @app.command()
 def doctor(data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None) -> None:
     settings, database, _ = _components(data_dir)
+    credentials = ProviderCredentialStore()
     checks = {
         "Python package": True,
         "Data directory": settings.data_dir.exists(),
@@ -68,6 +78,11 @@ def doctor(data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None) 
         "Artifacts directory": settings.artifacts_dir.exists(),
         "CRL-CTX-002": (REPOSITORY_ROOT / "benchmarks/experiments/crl-ctx-002-demo.yaml").exists(),
         "Demo runs offline": True,
+        "Default model is deepseek-v4-flash": (
+            settings.default_provider.model == "deepseek-v4-flash"
+        ),
+        "Provider reasoning is max": settings.default_provider.reasoning_effort == "max",
+        "Provider credential available": bool(credentials.get(settings.default_provider)),
     }
     database.dispose()
     table = Table(title="Evidrun doctor")
@@ -191,6 +206,71 @@ def purge_notice() -> None:
     console.print(
         "A exclusão de artifacts exige um artifact_id explícito pela API de retenção; "
         "nenhum dado foi removido."
+    )
+
+
+@provider_app.command("status")
+def provider_status() -> None:
+    profile = Settings.load().default_provider
+    credentials = ProviderCredentialStore()
+    console.print_json(
+        data={
+            **profile.public_dict(),
+            "default": True,
+            "credential_available": bool(credentials.get(profile)),
+            "credential_source": credentials.source(profile),
+        }
+    )
+
+
+@provider_app.command("set-key")
+def provider_set_key() -> None:
+    profile = Settings.load().default_provider
+    api_key = typer.prompt(
+        f"API key para {profile.display_name}", hide_input=True, confirmation_prompt=True
+    )
+    ProviderCredentialStore().set(profile, api_key)
+    console.print(f"[green]Credencial salva no Keychain[/green] para {profile.id}")
+
+
+@provider_app.command("doctor")
+def provider_doctor() -> None:
+    profile = Settings.load().default_provider
+    provider = OpenAIResponsesProvider(profile, ProviderCredentialStore())
+    try:
+        result = asyncio.run(provider.check())
+    except (ProviderRequestError, RuntimeError) as exc:
+        console.print(f"[red]Provider indisponível:[/red] {exc}")
+        raise typer.Exit(1) from exc
+    console.print_json(data=result)
+    if not result["model_available"]:
+        raise typer.Exit(1)
+
+
+@provider_app.command("smoke")
+def provider_smoke() -> None:
+    profile = Settings.load().default_provider
+    provider = OpenAIResponsesProvider(profile, ProviderCredentialStore())
+    try:
+        response = asyncio.run(
+            provider.invoke(
+                {
+                    "input": "Reply with exactly: EVIDRUN_PROVIDER_OK",
+                    "max_output_tokens": 64,
+                }
+            )
+        )
+    except (ProviderRequestError, RuntimeError) as exc:
+        console.print(f"[red]Smoke falhou:[/red] {exc}")
+        raise typer.Exit(1) from exc
+    console.print_json(
+        data={
+            "provider": profile.id,
+            "model": profile.model,
+            "reasoning_effort": profile.reasoning_effort,
+            "status": response.get("status"),
+            "output": extract_output_text(response),
+        }
     )
 
 

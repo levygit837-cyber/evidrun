@@ -92,3 +92,16 @@ export interface BackendState {
   message?: string;
 }
 
+export interface ProviderProfile {
+  id: string;
+  display_name: string;
+  api: "openai_responses";
+  base_url: string;
+  model: string;
+  reasoning_effort: "none" | "low" | "medium" | "high" | "max";
+  local_only: boolean;
+  credential_service: string;
+  default: boolean;
+  credential_available: boolean;
+  credential_source: "environment" | "system_keychain" | null;
+}

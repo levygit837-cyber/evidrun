@@ -27,7 +27,8 @@ verification_refs:
 4. [Agentes e autoridade](architecture/agents-and-authority.md)
 5. [Dados e evidência](architecture/data-and-evidence.md)
 6. [Protocolo de benchmarks](benchmarks/protocol.md)
-7. [Roadmap](roadmap/mvp.md)
+7. [Runtime de providers](architecture/provider-runtime.md)
+8. [Roadmap](roadmap/mvp.md)
 
 ## Autoridade
 
@@ -36,3 +37,11 @@ Roadmap é intenção futura. Relatórios são projeções geradas de evidência
 
 O manifest completo é gerado em `_generated/manifest.json` a partir do frontmatter dos documentos.
 
+## Ideias em incubação
+
+Os documentos abaixo preservam brainstorming do produto. Eles não são contratos, decisões aceitas
+nem promessa de implementação. Partes deles só se tornam normativas quando promovidas para ADRs ou
+contracts revisados e aceitos.
+
+- [Runs, contratos e checkpoints](product/run-laboratory-concept.md)
+- [Canvas vivo e grafo de execução](product/live-run-graph-concept.md)

@@ -49,6 +49,10 @@ button { color: inherit; }
 .backend-line div { display: grid; gap: 2px; }
 .backend-line strong { font-size: 11px; font-weight: 600; }
 .backend-line small { color: #646d65; font-size: 9px; }
+.provider-line { display: flex; align-items: center; gap: 9px; margin-top: 10px; padding: 10px 9px 0; border-top: 1px solid var(--line); color: #747d75; }
+.provider-line div { display: grid; gap: 2px; min-width: 0; }
+.provider-line strong { color: var(--text); font-size: 10px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.provider-line small { color: #646d65; font-size: 8px; }
 
 .main-column { grid-column: 2; min-width: 0; }
 .topbar { height: 68px; display: flex; align-items: center; justify-content: space-between; padding: 0 28px; border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; background: rgba(10,12,11,.88); backdrop-filter: blur(16px); }
@@ -188,8 +192,9 @@ button:disabled { opacity: .6; cursor: not-allowed; }
   .brand > span, .brand small, .sidebar a:not(.active) span, .sidebar a i, .sidebar a { font-size: 0; }
   .sidebar a { justify-content: center; }
   .sidebar a svg { width: 18px; height: 18px; }
-  .sidebar-section > span, .backend-line div { display: none; }
+  .sidebar-section > span, .backend-line div, .provider-line div { display: none; }
   .backend-line { justify-content: center; }
+  .provider-line { justify-content: center; padding-left: 0; padding-right: 0; }
   .comparison-grid { grid-template-columns: 1fr; gap: 12px; }
   .delta-column { min-height: 70px; }
   .delta-column small { writing-mode: horizontal-tb; }

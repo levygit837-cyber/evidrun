@@ -79,6 +79,17 @@
       "review_due": null
     },
     {
+      "id": "adr-0008",
+      "path": "docs/adr/0008-cliproxyapi-deepseek-default.md",
+      "type": "adr",
+      "title": "CLIProxyAPI com DeepSeek v4 Flash como provider padrão",
+      "status": "accepted",
+      "authority": "normative",
+      "owner": "agents",
+      "updated_at": "2026-07-22",
+      "review_due": null
+    },
+    {
       "id": "architecture-agents-authority",
       "path": "docs/architecture/agents-and-authority.md",
       "type": "architecture",
@@ -119,6 +130,17 @@
       "status": "implemented",
       "authority": "normative",
       "owner": "desktop",
+      "updated_at": "2026-07-22",
+      "review_due": null
+    },
+    {
+      "id": "architecture-provider-runtime",
+      "path": "docs/architecture/provider-runtime.md",
+      "type": "architecture",
+      "title": "Runtime de providers",
+      "status": "implemented",
+      "authority": "normative",
+      "owner": "agents",
       "updated_at": "2026-07-22",
       "review_due": null
     },
@@ -207,6 +229,17 @@
       "status": "implemented",
       "authority": "normative",
       "owner": "core",
+      "updated_at": "2026-07-22",
+      "review_due": null
+    },
+    {
+      "id": "contract-provider-profile-v1",
+      "path": "docs/contracts/provider-profile.md",
+      "type": "contract",
+      "title": "Provider Profile v1",
+      "status": "implemented",
+      "authority": "normative",
+      "owner": "agents",
       "updated_at": "2026-07-22",
       "review_due": null
     },
@@ -308,6 +341,28 @@
       "owner": "product",
       "updated_at": "2026-07-22",
       "review_due": null
+    },
+    {
+      "id": "product-live-run-graph-concept",
+      "path": "docs/product/live-run-graph-concept.md",
+      "type": "product",
+      "title": "Ideia de canvas vivo e grafo de execução",
+      "status": "draft",
+      "authority": "incubation",
+      "owner": "product",
+      "updated_at": "2026-07-22",
+      "review_due": "2026-10-22"
+    },
+    {
+      "id": "product-run-laboratory-concept",
+      "path": "docs/product/run-laboratory-concept.md",
+      "type": "product",
+      "title": "Ideias para Runs, contratos e checkpoints",
+      "status": "draft",
+      "authority": "incubation",
+      "owner": "product",
+      "updated_at": "2026-07-22",
+      "review_due": "2026-10-22"
     },
     {
       "id": "product-success-metrics",

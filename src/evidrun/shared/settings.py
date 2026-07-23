@@ -6,12 +6,15 @@ from pathlib import Path
 
 from platformdirs import user_data_path
 
+from evidrun.providers import ProviderProfile
+
 
 @dataclass(frozen=True)
 class Settings:
     data_dir: Path
     database_path: Path
     artifacts_dir: Path
+    default_provider: ProviderProfile
 
     @classmethod
     def load(cls, data_dir: Path | None = None) -> Settings:
@@ -24,6 +27,7 @@ class Settings:
             data_dir=root,
             database_path=root / "evidrun.db",
             artifacts_dir=root / "artifacts",
+            default_provider=ProviderProfile.load_default(),
         )
 
     def ensure_directories(self) -> None:

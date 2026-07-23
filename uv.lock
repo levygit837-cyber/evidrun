@@ -178,6 +178,7 @@ dependencies = [
     { name = "alembic" },
     { name = "cryptography" },
     { name = "fastapi" },
+    { name = "httpx" },
     { name = "keyring" },
     { name = "platformdirs" },
     { name = "pydantic" },
@@ -190,7 +191,6 @@ dependencies = [
 
 [package.optional-dependencies]
 dev = [
-    { name = "httpx" },
     { name = "hypothesis" },
     { name = "pyright" },
     { name = "pytest" },
@@ -206,7 +206,7 @@ requires-dist = [
     { name = "alembic", specifier = ">=1.16.0" },
     { name = "cryptography", specifier = ">=45.0.0" },
     { name = "fastapi", specifier = ">=0.116.0" },
-    { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.28.1" },
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "hypothesis", marker = "extra == 'dev'", specifier = ">=6.135.0" },
     { name = "keyring", specifier = ">=25.6.0" },
     { name = "platformdirs", specifier = ">=4.3.0" },
