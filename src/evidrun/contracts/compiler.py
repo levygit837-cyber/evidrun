@@ -56,6 +56,10 @@ class ExtensionValidator(Protocol):
     def validate(self, payload_ref: ArtifactRef) -> None: ...
 
 
+class RuntimeSpecValidator(Protocol):
+    def __call__(self, spec: RunSpec) -> Iterable[AdmissionIssue]: ...
+
+
 class ExtensionSchemaRegistry:
     def __init__(self) -> None:
         self._validators: dict[tuple[str, str, str], ExtensionValidator] = {}
@@ -433,6 +437,9 @@ class AdmissionService:
         runtime_capabilities: Iterable[str] = (),
         network_modes: Iterable[str] = ("disabled",),
         external_effect_modes: Iterable[str] = ("denied",),
+        supported_budget_fields: Iterable[str] = (),
+        supports_raw_encrypted_capture: bool = False,
+        execution_validators: Iterable[RuntimeSpecValidator] = (),
     ) -> None:
         self.runners = {self._capability_key(item): item for item in runners}
         self.capabilities = {
@@ -444,6 +451,9 @@ class AdmissionService:
         self.runtime_capabilities = frozenset(runtime_capabilities)
         self.network_modes = frozenset(network_modes)
         self.external_effect_modes = frozenset(external_effect_modes)
+        self.supported_budget_fields = frozenset(supported_budget_fields)
+        self.supports_raw_encrypted_capture = supports_raw_encrypted_capture
+        self.execution_validators = tuple(execution_validators)
 
     @staticmethod
     def _capability_key(reference: CapabilityDescriptorRef) -> tuple[str, str, str]:
@@ -798,7 +808,10 @@ class AdmissionService:
                     blocking=True,
                 )
             )
-        if spec.capture_policy.default_mode == "raw_encrypted":
+        if (
+            spec.capture_policy.default_mode == "raw_encrypted"
+            and not self.supports_raw_encrypted_capture
+        ):
             denied_policies.append("capture:raw_encrypted")
             issues.append(
                 AdmissionIssue(
@@ -928,7 +941,7 @@ class AdmissionService:
                 ("max_tool_calls", spec.budgets.max_tool_calls),
                 ("max_cost", spec.budgets.max_cost),
             )
-            if value is not None
+            if value is not None and name not in self.supported_budget_fields
         )
         if spec.budgets.max_turns not in {None, 1}:
             unsupported_budget_fields += ("max_turns",)
@@ -943,7 +956,7 @@ class AdmissionService:
                     reason=ResolutionReason(
                         code="unsupported",
                         detail=(
-                            "the active runner only enforces wall time and a single Subject turn"
+                            "the active runtime cannot enforce one or more declared budgets"
                         ),
                     ),
                     blocking=True,
@@ -974,10 +987,13 @@ class AdmissionService:
                     blocking=True,
                 )
             )
+        for validator in self.execution_validators:
+            issues.extend(validator(spec))
         required_capability_failed = any(
             item.required and item.status != "resolved" for item in resolved
         )
         blocked = bool(missing or denied_policies) or required_capability_failed
+        blocked = blocked or any(item.blocking for item in issues)
         blocked = blocked or workspace_status != "resolved" or interaction_status != "resolved"
 
         inventory = ResolvedAgentInventory(
@@ -989,7 +1005,13 @@ class AdmissionService:
             provider_reasoning_effort=provider_reasoning,
             provider_adapter=provider_adapter,
             capabilities=tuple(resolved),
-            runtime_capabilities=tuple(sorted(self.runtime_capabilities)),
+            runtime_capabilities=tuple(
+                sorted(
+                    requirement.capability
+                    for requirement in spec.agent_inventory.runtime_requirements
+                    if requirement.capability in self.runtime_capabilities
+                )
+            ),
         )
         return AdmissionRecord(
             run_spec_ref=f"run-spec:{spec.digest}",

@@ -141,6 +141,21 @@
         "title": "ManifestRequest",
         "type": "object"
       },
+      "RunEnqueueRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "admission_id": {
+            "minLength": 1,
+            "title": "Admission Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "admission_id"
+        ],
+        "title": "RunEnqueueRequest",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -1383,6 +1398,82 @@
         "summary": "Admit Run Spec"
       }
     },
+    "/api/v1/run-specs/{run_spec_id}/runs": {
+      "post": {
+        "operationId": "enqueue_run_api_v1_run_specs__run_spec_id__runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_spec_id",
+            "required": true,
+            "schema": {
+              "title": "Run Spec Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunEnqueueRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Enqueue Run Api V1 Run Specs  Run Spec Id  Runs Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Enqueue Run"
+      }
+    },
     "/api/v1/runs": {
       "get": {
         "operationId": "runs_api_v1_runs_get",
@@ -1669,6 +1760,139 @@
           }
         },
         "summary": "Run Events"
+      }
+    },
+    "/api/v1/runs/{run_id}/evidence-bundles": {
+      "post": {
+        "operationId": "export_run_bundle_api_v1_runs__run_id__evidence_bundles_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Export Run Bundle Api V1 Runs  Run Id  Evidence Bundles Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Run Bundle"
+      }
+    },
+    "/api/v1/runs/{run_id}/retries": {
+      "post": {
+        "operationId": "retry_run_api_v1_runs__run_id__retries_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunEnqueueRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Retry Run Api V1 Runs  Run Id  Retries Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retry Run"
       }
     },
     "/api/v1/runs/{run_id}/stream": {

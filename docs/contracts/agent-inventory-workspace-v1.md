@@ -51,14 +51,16 @@ ao `RunSpec`, pois podem variar por Study e variant.
 
 O catálogo de admissão é explícito. O runner determinístico aceita um `single_turn` direto, com
 `max_turns=1` e sem artifacts de system prompt ou mensagens iniciais, além do workspace
-`in_process`; provider pode ser omitido para execução offline. Protocolos em grafo, tools, skills ou
-nested-agent runtime sem adapter catalogado produzem rejeição estruturada. Uma rejeição não cria Run
-e não apresenta a capability como executável. `raw_encrypted` também é rejeitado enquanto não há um
-sink cifrado para a resposta do Subject.
+`in_process`; provider pode ser omitido para execução offline. O adapter real do ADR 0016 aceita o
+provider profile exato, network `provider_only`, uma única capability `read-artifact-text` e capture
+`raw_encrypted` com opt-in. Protocolos em grafo, tools diferentes, skills ou nested-agent runtime sem
+adapter catalogado produzem rejeição estruturada. Uma rejeição não cria Run nem apresenta a
+capability como executável.
 
-O único budget executado é `max_wall_seconds`; `max_turns` pode ser omitido ou igual a 1. Budgets
-de input/output tokens, tool calls ou custo e `max_turns > 1` rejeitam a admissão. Stops aceitos são
-somente `goal_complete` e `budget_exhausted`, ambos terminais, e o stop de budget é obrigatório.
+Todo adapter executa `max_wall_seconds`; `max_turns` pode ser omitido ou igual a 1. O adapter real
+também executa `max_tool_calls` entre 1 e 8. Budgets de input/output tokens ou custo, tool budget no
+adapter offline e `max_turns > 1` rejeitam a admissão. Stops aceitos são somente `goal_complete` e
+`budget_exhausted`, ambos terminais, e o stop de budget é obrigatório.
 Pause, predicates, human stop, guardrail ou provider error exigem coordinator indisponível.
 
 Qualquer input de cenário classificado como `sensitive` ou `restricted` também rejeita a admissão

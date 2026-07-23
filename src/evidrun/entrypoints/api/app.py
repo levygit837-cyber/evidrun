@@ -69,6 +69,11 @@ class ContractDecisionRequest(BaseModel):
     rationale: str = Field(min_length=1)
 
 
+class RunEnqueueRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    admission_id: str = Field(min_length=1)
+
+
 def create_app(
     *,
     data_dir: Path | None = None,
@@ -113,6 +118,7 @@ def create_app(
     app.state.settings = settings
     app.state.repository = repository
     app.state.service = service
+    app.state.runtime_kernel = service.runtime
     app.state.launch_token = launch_token
 
     app.add_middleware(
@@ -349,6 +355,107 @@ def create_app(
     async def runs(_: None = Depends(authorize)) -> list[dict[str, Any]]:
         return repository.latest_dashboard()["runs"]
 
+    @app.post(
+        "/api/v1/run-specs/{run_spec_id}/runs",
+        status_code=status.HTTP_202_ACCEPTED,
+    )
+    async def enqueue_run(
+        run_spec_id: str,
+        payload: RunEnqueueRequest,
+        idempotency_key: Annotated[str, Header(alias="Idempotency-Key")],
+        _: None = Depends(authorize),
+    ) -> dict[str, Any]:
+        try:
+            repository.get_run_spec(run_spec_id)
+            repository.get_admission_record(payload.admission_id)
+            run_id, job = service.runtime.coordinator.enqueue(
+                run_spec_id=run_spec_id,
+                admission_id=payload.admission_id,
+                idempotency_key=idempotency_key,
+            )
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="RunSpec or admission not found") from exc
+        except ValueError as exc:
+            if "idempotency key" in str(exc):
+                raise HTTPException(status_code=409, detail=str(exc)) from exc
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return {
+            "run_id": run_id,
+            "job_id": job.job_id,
+            "run_spec_id": run_spec_id,
+            "admission_id": payload.admission_id,
+            "retry_of": None,
+            "status": job.status,
+        }
+
+    @app.post(
+        "/api/v1/runs/{run_id}/retries",
+        status_code=status.HTTP_202_ACCEPTED,
+    )
+    async def retry_run(
+        run_id: str,
+        payload: RunEnqueueRequest,
+        idempotency_key: Annotated[str, Header(alias="Idempotency-Key")],
+        _: None = Depends(authorize),
+    ) -> dict[str, Any]:
+        try:
+            source = repository.get_run(run_id)
+            if source.run_spec_id is None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="legacy Run is not eligible for Runtime Kernel retry",
+                )
+            if source.status not in {
+                "failed",
+                "cancelled",
+                "budget_exhausted",
+                "guardrail_stopped",
+            }:
+                raise HTTPException(
+                    status_code=409,
+                    detail="only an unsuccessful terminal Run can be retried",
+                )
+            spec = repository.get_run_spec(source.run_spec_id)
+            retry_admission = repository.get_admission_record(payload.admission_id)
+            if (
+                retry_admission.decision != "admitted"
+                or retry_admission.run_spec_digest != spec.digest
+            ):
+                raise HTTPException(
+                    status_code=422,
+                    detail="retry admission does not admit the original RunSpec",
+                )
+            new_run_id, job = service.runtime.coordinator.enqueue(
+                run_spec_id=source.run_spec_id,
+                admission_id=payload.admission_id,
+                idempotency_key=idempotency_key,
+                retry_of=run_id,
+            )
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="Run or admission not found") from exc
+        except HTTPException:
+            raise
+        except ValueError as exc:
+            if any(
+                marker in str(exc)
+                for marker in (
+                    "idempotency key",
+                    "can be retried",
+                    "retry requires",
+                    "retry AdmissionRecord",
+                )
+            ):
+                raise HTTPException(status_code=409, detail=str(exc)) from exc
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return {
+            "run_id": new_run_id,
+            "job_id": job.job_id,
+            "run_spec_id": source.run_spec_id,
+            "admission_id": payload.admission_id,
+            "retry_of": run_id,
+            "status": job.status,
+        }
+
     @app.get("/api/v1/runs/{run_id}")
     async def run_detail(
         run_id: str, _: None = Depends(authorize)
@@ -357,10 +464,30 @@ def create_app(
         if not matches:
             raise HTTPException(status_code=404, detail="run not found")
         record = repository.get_run_record(run_id)
+        execution = repository.get_run_execution(run_id)
+        try:
+            subject_envelope_digest = repository.get_subject_envelope(run_id).digest
+        except KeyError:
+            subject_envelope_digest = None
         return {
             **matches[0],
             "record": semantic_model_dump(record) if record is not None else None,
             "events": repository.get_run_events(run_id),
+            "execution": (
+                {
+                    "job": {
+                        **semantic_model_dump(execution[0]),
+                        "digest": execution[0].digest,
+                    },
+                    "attempts": [
+                        {**semantic_model_dump(item), "digest": item.digest}
+                        for item in execution[1]
+                    ],
+                }
+                if execution is not None
+                else None
+            ),
+            "subject_envelope_digest": subject_envelope_digest,
         }
 
     @app.get("/api/v1/runs/{run_id}/events")
@@ -473,6 +600,20 @@ def create_app(
         target = settings.data_dir / "exports" / f"{comparison_id}.evidrun.zip"
         await asyncio.to_thread(bundles.export_comparison_v2, comparison_id, target)
         return {"path": str(target), "comparison_id": comparison_id}
+
+    @app.post("/api/v1/runs/{run_id}/evidence-bundles")
+    async def export_run_bundle(
+        run_id: str, _: None = Depends(authorize)
+    ) -> dict[str, Any]:
+        try:
+            repository.get_run(run_id)
+            target = settings.data_dir / "exports" / f"{run_id}.evidrun.zip"
+            await asyncio.to_thread(bundles.export_run_v3, run_id, target)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="run not found") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return {"path": str(target), "run_id": run_id, "schema_version": "3"}
 
     return app
 

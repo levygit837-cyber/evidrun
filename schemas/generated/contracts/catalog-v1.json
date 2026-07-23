@@ -376,6 +376,8 @@
             "extension_schema",
             "extension_payload",
             "evaluation_evidence",
+            "tool_arguments",
+            "tool_result",
             "run_output",
             "progress_summary",
             "workspace_snapshot",
@@ -4136,6 +4138,216 @@
       "title": "RunBlueprint",
       "type": "object"
     },
+    "RunExecutionAttempt": {
+      "additionalProperties": false,
+      "description": "One fenced worker lease over a RunExecutionJob.",
+      "properties": {
+        "attempt_id": {
+          "minLength": 1,
+          "title": "Attempt Id",
+          "type": "string"
+        },
+        "finished_at_utc": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Finished At Utc"
+        },
+        "job_id": {
+          "minLength": 1,
+          "title": "Job Id",
+          "type": "string"
+        },
+        "last_heartbeat_at_utc": {
+          "format": "date-time",
+          "title": "Last Heartbeat At Utc",
+          "type": "string"
+        },
+        "lease_expires_at_utc": {
+          "format": "date-time",
+          "title": "Lease Expires At Utc",
+          "type": "string"
+        },
+        "lease_generation": {
+          "exclusiveMinimum": 0,
+          "title": "Lease Generation",
+          "type": "integer"
+        },
+        "leased_at_utc": {
+          "format": "date-time",
+          "title": "Leased At Utc",
+          "type": "string"
+        },
+        "ordinal": {
+          "exclusiveMinimum": 0,
+          "title": "Ordinal",
+          "type": "integer"
+        },
+        "reason_code": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason Code"
+        },
+        "schema_version": {
+          "const": "1",
+          "default": "1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "leased",
+            "completed",
+            "released",
+            "expired",
+            "rejected"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "worker_id": {
+          "minLength": 1,
+          "title": "Worker Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "attempt_id",
+        "job_id",
+        "ordinal",
+        "worker_id",
+        "lease_generation",
+        "status",
+        "leased_at_utc",
+        "lease_expires_at_utc",
+        "last_heartbeat_at_utc"
+      ],
+      "title": "RunExecutionAttempt",
+      "type": "object"
+    },
+    "RunExecutionJob": {
+      "additionalProperties": false,
+      "description": "Durable operational queue state for one canonical Run.",
+      "properties": {
+        "active_attempt_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Active Attempt Id"
+        },
+        "available_at_utc": {
+          "format": "date-time",
+          "title": "Available At Utc",
+          "type": "string"
+        },
+        "created_at_utc": {
+          "format": "date-time",
+          "title": "Created At Utc",
+          "type": "string"
+        },
+        "finished_at_utc": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Finished At Utc"
+        },
+        "idempotency_key": {
+          "minLength": 1,
+          "title": "Idempotency Key",
+          "type": "string"
+        },
+        "job_id": {
+          "minLength": 1,
+          "title": "Job Id",
+          "type": "string"
+        },
+        "lease_generation": {
+          "minimum": 0,
+          "title": "Lease Generation",
+          "type": "integer"
+        },
+        "rejection_code": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rejection Code"
+        },
+        "request_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Request Digest",
+          "type": "string"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1",
+          "default": "1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "queued",
+            "leased",
+            "completed",
+            "rejected"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "job_id",
+        "run_id",
+        "status",
+        "idempotency_key",
+        "request_digest",
+        "available_at_utc",
+        "lease_generation",
+        "created_at_utc"
+      ],
+      "title": "RunExecutionJob",
+      "type": "object"
+    },
     "RunLifecyclePayload": {
       "additionalProperties": false,
       "properties": {
@@ -5021,6 +5233,7 @@
           "$ref": "#/$defs/BudgetSpec"
         },
         "effective_capabilities": {
+          "default": [],
           "items": {
             "$ref": "#/$defs/ResolvedCapability"
           },
@@ -5078,12 +5291,43 @@
         "goal",
         "inputs",
         "interaction_protocol",
-        "effective_capabilities",
         "workspace",
         "budgets",
         "stop_conditions"
       ],
       "title": "SubjectEnvelope",
+      "type": "object"
+    },
+    "SubjectEnvelopeRecord": {
+      "additionalProperties": false,
+      "description": "The exact materialized SubjectEnvelope used for one Run.",
+      "properties": {
+        "created_at_utc": {
+          "format": "date-time",
+          "title": "Created At Utc",
+          "type": "string"
+        },
+        "envelope": {
+          "$ref": "#/$defs/SubjectEnvelope"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1",
+          "default": "1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "envelope",
+        "created_at_utc"
+      ],
+      "title": "SubjectEnvelopeRecord",
       "type": "object"
     },
     "SubjectEvaluationDimension": {
@@ -5238,6 +5482,58 @@
           "title": "Network",
           "type": "string"
         },
+        "provider_adapter": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Adapter"
+        },
+        "provider_model": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Model"
+        },
+        "provider_profile_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Profile Id"
+        },
+        "provider_reasoning_effort": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Reasoning Effort"
+        },
         "runner": {
           "minLength": 1,
           "title": "Runner",
@@ -5302,6 +5598,17 @@
           "pattern": "^[0-9a-f]{64}$",
           "title": "Output Digest",
           "type": "string"
+        },
+        "output_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ArtifactRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -5956,6 +6263,15 @@
     },
     {
       "$ref": "#/$defs/RunRecord"
+    },
+    {
+      "$ref": "#/$defs/RunExecutionJob"
+    },
+    {
+      "$ref": "#/$defs/RunExecutionAttempt"
+    },
+    {
+      "$ref": "#/$defs/SubjectEnvelopeRecord"
     },
     {
       "$ref": "#/$defs/RunQueuedPayload"

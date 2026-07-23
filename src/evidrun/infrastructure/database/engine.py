@@ -3,7 +3,9 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from sqlalchemy import Engine, create_engine, event, inspect
+from alembic.migration import MigrationContext
+from alembic.operations import Operations
+from sqlalchemy import Engine, String, create_engine, event, inspect
 from sqlalchemy.orm import Session, sessionmaker
 
 from evidrun.infrastructure.database.models import Base
@@ -34,6 +36,7 @@ class Database:
         Base.metadata.create_all(self.engine)
         self._ensure_additive_run_contract_columns()
         self._ensure_additive_contract_revision_status()
+        self._ensure_runtime_kernel_schema()
 
     def _ensure_additive_run_contract_columns(self) -> None:
         """Keep pre-contract local databases readable before Alembic is invoked explicitly."""
@@ -59,6 +62,46 @@ class Database:
                     "ALTER TABLE contract_revisions "
                     "ADD COLUMN status VARCHAR NOT NULL DEFAULT 'draft'"
                 )
+
+    def _ensure_runtime_kernel_schema(self) -> None:
+        inspector = inspect(self.engine)
+        event_columns = {
+            item["name"] for item in inspector.get_columns("run_events")
+        }
+        with self.engine.begin() as connection:
+            if "operation_key" not in event_columns:
+                connection.exec_driver_sql(
+                    "ALTER TABLE run_events ADD COLUMN operation_key VARCHAR"
+                )
+            connection.exec_driver_sql(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_run_event_operation "
+                "ON run_events (run_id, operation_key)"
+            )
+            connection.exec_driver_sql(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_context_snapshot_run "
+                "ON context_snapshots (run_id)"
+            )
+            connection.exec_driver_sql(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_evaluation_stage_source "
+                "ON evaluation_records (run_id, stage_id, source_type)"
+            )
+            connection.exec_driver_sql(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_grade_run_grader "
+                "ON grades (run_id, grader_id)"
+            )
+        run_columns = {
+            item["name"]: item for item in inspect(self.engine).get_columns("runs")
+        }
+        if run_columns["experiment_revision_id"].get("nullable") is False:
+            with self.engine.begin() as connection:
+                context = MigrationContext.configure(connection)
+                operations = Operations(context)
+                with operations.batch_alter_table("runs") as batch:
+                    batch.alter_column(
+                        "experiment_revision_id",
+                        existing_type=String(),
+                        nullable=True,
+                    )
 
     def session(self) -> Session:
         return self.session_factory()

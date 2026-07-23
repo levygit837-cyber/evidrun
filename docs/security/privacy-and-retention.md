@@ -31,9 +31,9 @@ possui boundary classificada de materialização. Apenas `public` e `internal` s
 
 Na resposta do Subject, o payload valida a forma permitida por `metadata`, `redacted`,
 `raw_encrypted` ou `disabled`, e o repository exige que o modo corresponda exatamente ao RunSpec.
-`raw_encrypted` continua bloqueado na admissão porque o sink cifrado não existe. Esses controles ainda
-não cobrem automaticamente Context Snapshots, todos os demais payloads de evento ou strings livres
-de contracts.
+O adapter real do ADR 0016 aceita `raw_encrypted` somente com opt-in e grava o resultado em artifact
+`sensitive` cifrado; adapters sem esse sink continuam bloqueados. Esses controles ainda não cobrem
+automaticamente Context Snapshots, todos os demais payloads de evento ou strings livres de contracts.
 
 O sistema não pede chain-of-thought privado. Reasoning summary só é salvo se fornecido explicitamente
 pelo provider e permitido pela capture policy.

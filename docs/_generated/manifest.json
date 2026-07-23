@@ -145,6 +145,17 @@
       "review_due": null
     },
     {
+      "id": "adr-0014",
+      "path": "docs/adr/0014-durable-runtime-kernel.md",
+      "type": "adr",
+      "title": "Runtime Kernel durável com Run, attempt, lease e fencing",
+      "status": "accepted",
+      "authority": "normative",
+      "owner": "core",
+      "updated_at": "2026-07-23",
+      "review_due": null
+    },
+    {
       "id": "adr-0015",
       "path": "docs/adr/0015-human-subject-envelope-and-authenticator-lifecycle.md",
       "type": "adr",
@@ -152,6 +163,17 @@
       "status": "accepted",
       "authority": "normative",
       "owner": "governance",
+      "updated_at": "2026-07-23",
+      "review_due": null
+    },
+    {
+      "id": "adr-0016",
+      "path": "docs/adr/0016-real-subject-read-tool-and-tracing.md",
+      "type": "adr",
+      "title": "Subject real com tool de leitura, tracing cercado e avaliação fundamentada",
+      "status": "accepted",
+      "authority": "normative",
+      "owner": "core",
       "updated_at": "2026-07-23",
       "review_due": null
     },
@@ -233,6 +255,17 @@
       "review_due": null
     },
     {
+      "id": "benchmark-live-read-agent",
+      "path": "docs/benchmarks/live-read-agent.md",
+      "type": "benchmark",
+      "title": "Benchmark live de recuperação fundamentada por tool",
+      "status": "implemented",
+      "authority": "non-normative",
+      "owner": "evaluation",
+      "updated_at": "2026-07-23",
+      "review_due": null
+    },
+    {
       "id": "benchmark-protocol-v1",
       "path": "docs/benchmarks/protocol.md",
       "type": "protocol",
@@ -303,6 +336,17 @@
       "path": "docs/contracts/evidence-bundle-v2.md",
       "type": "contract",
       "title": "Evidence Bundle v2",
+      "status": "implemented",
+      "authority": "normative",
+      "owner": "core",
+      "updated_at": "2026-07-23",
+      "review_due": null
+    },
+    {
+      "id": "contract-evidence-bundle-v3",
+      "path": "docs/contracts/evidence-bundle-v3.md",
+      "type": "contract",
+      "title": "Evidence Bundle v3 por Run",
       "status": "implemented",
       "authority": "normative",
       "owner": "core",
@@ -416,7 +460,7 @@
       "status": "proposed",
       "authority": "normative",
       "owner": "core",
-      "updated_at": "2026-07-22",
+      "updated_at": "2026-07-23",
       "review_due": null
     },
     {
@@ -438,7 +482,18 @@
       "status": "implemented",
       "authority": "normative",
       "owner": "core",
-      "updated_at": "2026-07-22",
+      "updated_at": "2026-07-23",
+      "review_due": null
+    },
+    {
+      "id": "operations-runtime-worker",
+      "path": "docs/operations/runtime-worker.md",
+      "type": "operations",
+      "title": "Execução durável de Runs",
+      "status": "implemented",
+      "authority": "normative",
+      "owner": "core",
+      "updated_at": "2026-07-23",
       "review_due": null
     },
     {

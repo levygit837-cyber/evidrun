@@ -112,6 +112,8 @@ class ArtifactManifestEntry(ContractModel):
         "extension_schema",
         "extension_payload",
         "evaluation_evidence",
+        "tool_arguments",
+        "tool_result",
         "run_output",
         "progress_summary",
         "workspace_snapshot",

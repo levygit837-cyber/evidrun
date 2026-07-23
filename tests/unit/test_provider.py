@@ -8,7 +8,11 @@ import pytest
 from evidrun.infrastructure.providers import (
     OpenAIResponsesProvider,
     ProviderCredentialStore,
+    ProviderRequestError,
+    extract_function_calls,
     extract_output_text,
+    extract_response_id,
+    extract_usage,
 )
 from evidrun.providers import ProviderProfile
 
@@ -78,3 +82,58 @@ async def test_provider_catalog_check_requires_configured_model(
     assert status["reachable"] is True
     assert status["model_available"] is True
     assert status["catalog_size"] == 1
+
+
+def test_function_calls_response_id_and_usage_are_normalized() -> None:
+    response = {
+        "id": "resp_123",
+        "output": [
+            {
+                "type": "function_call",
+                "id": "fc_123",
+                "call_id": "call_123",
+                "name": "read_text",
+                "arguments": '{"input_id":"memo"}',
+            }
+        ],
+        "usage": {"input_tokens": 12, "output_tokens": 7, "total_tokens": 19},
+    }
+    calls = extract_function_calls(response)
+    assert len(calls) == 1
+    assert calls[0].call_id == "call_123"
+    assert calls[0].name == "read_text"
+    assert extract_response_id(response) == "resp_123"
+    assert extract_usage(response) == {
+        "input_tokens": 12,
+        "output_tokens": 7,
+        "total_tokens": 19,
+    }
+
+
+@pytest.mark.asyncio
+async def test_provider_error_exposes_only_sanitized_code(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("EVIDRUN_PROVIDER_API_KEY", "test-secret")
+
+    async def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            400,
+            json={
+                "error": {
+                    "type": "invalid_request_error",
+                    "code": "invalid_value",
+                    "param": "tool_choice",
+                    "message": "credential=must-not-be-propagated",
+                }
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = OpenAIResponsesProvider(
+            ProviderProfile.load_default(), ProviderCredentialStore(), client=client
+        )
+        with pytest.raises(ProviderRequestError) as captured:
+            await provider.invoke({"input": "hello"})
+    assert captured.value.code == "http_400_invalid_value_tool_choice"
+    assert "credential" not in str(captured.value)

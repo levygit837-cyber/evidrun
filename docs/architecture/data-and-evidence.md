@@ -46,12 +46,15 @@ ainda não estão implementados.
 Essa garantia está implementada no `ArtifactStore`, não automaticamente em toda escrita do pipeline
 de Run. O runtime atual rejeita na admissão qualquer input `sensitive` ou `restricted`; somente
 `public` e `internal` podem alcançar seu materializador. `SubjectRespondedPayload` limita o conteúdo
-permitido por capture mode, e o repository exige que esse modo corresponda ao RunSpec. A admissão
-rejeita `raw_encrypted` enquanto não há sink cifrado.
+permitido por capture mode, e o repository exige que esse modo corresponda ao RunSpec. Conforme o
+[ADR 0016](../adr/0016-real-subject-read-tool-and-tracing.md), o adapter real de leitura admite
+`raw_encrypted` somente com opt-in e persiste o resultado do Subject como artifact `sensitive`
+cifrado antes de publicar `subject.responded`. O adapter determinístico não anuncia esse suporte.
 
 O demo usa fixture internal e `ContextSnapshotRow.selected_content` continua fora do
-`ArtifactStore`. Portanto esses bloqueios reduzem a superfície do runtime atual, mas não devem ser
-apresentados como captura sensível completa ou enforcement de classification em toda persistência.
+`ArtifactStore`, embora o SubjectEnvelope aponte para um artifact canônico materializado. Portanto
+esses bloqueios reduzem a superfície do runtime atual, mas não devem ser apresentados como captura
+sensível completa ou enforcement de classification em toda persistência.
 
 JSONL existe dentro do Evidence Bundle. Bundle v1 permanece verificável; v2 carrega as revisions,
 specs, admissions, evaluations e checkpoints da composição nova, além de hashes, event chains e um

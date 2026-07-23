@@ -58,15 +58,16 @@ outras variants.
 `ArtifactRef` não possui `locator`, portanto paths e URLs de storage não são representáveis nos
 inputs ou capability refs do Subject, nem nos inputs, hidden refs e instructions do Evaluator.
 
-`subject.invoked` registra um `subject_envelope_digest`, mas o documento exato do SubjectEnvelope
-materializado não possui record persistido nem arquivo próprio no Bundle v2. Assim o ledger preserva
-a alegação do digest usado pelo runner, mas o export atual não permite recomputá-lo
-independentemente. Essa limitação não autoriza reconstruir o envelope a partir do RunSpec, pois os
-inputs materializados podem ser diferentes.
+`subject.invoked` registra um `subject_envelope_digest`. O Runtime Kernel persiste o documento exato
+como `SubjectEnvelopeRecord`, revalida seu digest na leitura e o exporta no Bundle v3 por Run. O
+Bundle v2 de comparison permanece inalterado e não contém esse record; portanto ele não permite
+recomputar o envelope independentemente.
 
 Tools e skills requeridas ficam no Agent Inventory; a admissão registra separadamente o que foi
 resolvido. Capability opcional ausente não entra no envelope. Inventário não prova uso: o uso depende
-dos eventos de lifecycle. O runtime real de tools, skills e nested agents ainda não existe.
+dos eventos de lifecycle. O subconjunto do ADR 0016 executa exatamente a capability
+`read-artifact-text` pelo adapter real e registra oferta, chamada e terminal sob fencing. Skills,
+outras tools e nested agents continuam sem runtime e são rejeitados na admissão.
 
 ## Serviços determinísticos
 
