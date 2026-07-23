@@ -260,7 +260,26 @@ def inspect_run(
     if not runs:
         database.dispose()
         raise typer.BadParameter("run not found")
-    console.print_json(data={**runs[0], "events": repository.get_run_events(run_id)})
+    execution = repository.get_run_execution(run_id)
+    try:
+        subject_envelope_digest = repository.get_subject_envelope(run_id).digest
+    except KeyError:
+        subject_envelope_digest = None
+    console.print_json(
+        data={
+            **runs[0],
+            "events": repository.get_run_events(run_id),
+            "execution": (
+                {
+                    "job": execution[0].model_dump(mode="json"),
+                    "attempts": [item.model_dump(mode="json") for item in execution[1]],
+                }
+                if execution is not None
+                else None
+            ),
+            "subject_envelope_digest": subject_envelope_digest,
+        }
+    )
     database.dispose()
 
 
@@ -281,6 +300,68 @@ def admit_run_spec(
                 "decision": admission.decision,
                 "digest": admission.digest,
                 "missing_requirements": admission.missing_requirements,
+            }
+        )
+    finally:
+        database.dispose()
+
+
+@run_app.command("enqueue")
+def enqueue_run(
+    run_spec_id: str,
+    admission_id: Annotated[str, typer.Option("--admission-id")],
+    idempotency_key: Annotated[str, typer.Option("--idempotency-key")],
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+) -> None:
+    _, database, repository = _components(data_dir)
+    try:
+        run_id, job = EvidrunService(repository).runtime.coordinator.enqueue(
+            run_spec_id=run_spec_id,
+            admission_id=admission_id,
+            idempotency_key=idempotency_key,
+        )
+        console.print_json(
+            data={
+                "run_id": run_id,
+                "job_id": job.job_id,
+                "run_spec_id": run_spec_id,
+                "admission_id": admission_id,
+                "retry_of": None,
+                "status": job.status,
+            }
+        )
+    finally:
+        database.dispose()
+
+
+@run_app.command("retry")
+def retry_run(
+    run_id: str,
+    admission_id: Annotated[str, typer.Option("--admission-id")],
+    idempotency_key: Annotated[str, typer.Option("--idempotency-key")],
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+) -> None:
+    _, database, repository = _components(data_dir)
+    try:
+        source = repository.get_run(run_id)
+        if source.run_spec_id is None:
+            raise typer.BadParameter("legacy Run is not eligible for retry")
+        if source.admission_id == admission_id:
+            raise typer.BadParameter("retry requires a new AdmissionRecord")
+        new_run_id, job = EvidrunService(repository).runtime.coordinator.enqueue(
+            run_spec_id=source.run_spec_id,
+            admission_id=admission_id,
+            idempotency_key=idempotency_key,
+            retry_of=run_id,
+        )
+        console.print_json(
+            data={
+                "run_id": new_run_id,
+                "job_id": job.job_id,
+                "run_spec_id": source.run_spec_id,
+                "admission_id": admission_id,
+                "retry_of": run_id,
+                "status": job.status,
             }
         )
     finally:
@@ -314,6 +395,21 @@ def verify_bundle(path: Path) -> None:
     console.print_json(data=result)
     if not result["valid"]:
         raise typer.Exit(1)
+
+
+@bundle_app.command("export-run")
+def export_run_bundle(
+    run_id: str,
+    output: Annotated[Path | None, typer.Option("--output")] = None,
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+) -> None:
+    settings, database, repository = _components(data_dir)
+    try:
+        target = output or settings.data_dir / "exports" / f"{run_id}.evidrun.zip"
+        EvidenceBundleService(repository).export_run_v3(run_id, target)
+        console.print(str(target))
+    finally:
+        database.dispose()
 
 
 @chat_app.command("list")

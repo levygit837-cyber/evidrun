@@ -8,36 +8,37 @@ from typing import Any
 import yaml
 
 from evidrun.contexts import ContextComposer
-from evidrun.contracts import ArtifactRef, EvaluationRecord, EvidenceRef, RunSpec
-from evidrun.contracts.compiler import (
-    AdmissionService,
-    EvaluatorEnvelopeCompiler,
-    StudyCompiler,
-    SubjectEnvelopeCompiler,
-)
-from evidrun.contracts.legacy import ExperimentManifestV1Adapter, capability_ref
-from evidrun.contracts.runtime import DimensionValue, EvaluationBoundary
-from evidrun.evaluations import ExactCauseGrader
+from evidrun.contracts import RunSpec
+from evidrun.contracts.compiler import StudyCompiler
+from evidrun.contracts.legacy import ExperimentManifestV1Adapter
 from evidrun.experiments import ExperimentManifest
 from evidrun.infrastructure.database import Repository
-from evidrun.shared.types import new_id, sha256_bytes, utc_now
-from evidrun.subject_runners import ScriptedLogInvestigator
+from evidrun.runs.composition import RuntimeKernel, build_runtime_kernel
+from evidrun.runs.worker import DurableRunWorker
+from evidrun.shared.types import Classification, new_id
 
 
 class EvidrunService:
-    def __init__(self, repository: Repository):
+    """Compatibility facade; all Run execution is delegated to the Runtime Kernel."""
+
+    def __init__(
+        self, repository: Repository, *, runtime: RuntimeKernel | None = None
+    ) -> None:
         self.repository = repository
+        artifacts_dir = repository.database.path.parent / "artifacts"
+        self.runtime = runtime or build_runtime_kernel(repository, artifacts_dir)
         self.composer = ContextComposer()
-        self.runner = ScriptedLogInvestigator()
-        self.admission_service = AdmissionService(
-            runners=(capability_ref("evidrun.runner", self.runner.name),),
-        )
+        self.runner = self.runtime.catalog.subject.runner
+        self.admission_service = self.runtime.coordinator.admission_service
 
     def bootstrap_demo(self, benchmark_root: Path) -> dict[str, Any]:
         manifest_path = benchmark_root / "experiments" / "crl-ctx-002-demo.yaml"
-        fixture_path = benchmark_root / "scenarios" / "crl-ctx-002" / "fixtures" / "long.log"
-        manifest = ExperimentManifest.model_validate(yaml.safe_load(manifest_path.read_text()))
-        source = fixture_path.read_text()
+        fixture_path = (
+            benchmark_root / "scenarios" / "crl-ctx-002" / "fixtures" / "long.log"
+        )
+        manifest = ExperimentManifest.model_validate(
+            yaml.safe_load(manifest_path.read_text())
+        )
 
         dashboard = self.repository.latest_dashboard()
         if dashboard["workspaces"]:
@@ -51,16 +52,23 @@ class EvidrunService:
         project_id = (
             project["id"]
             if project
-            else self.repository.create_project(workspace_id, "Context Reliability Lab").id
+            else self.repository.create_project(
+                workspace_id, "Context Reliability Lab"
+            ).id
         )
         revision = self.repository.save_experiment_revision(
             project_id=project_id, manifest=manifest.model_dump(mode="json")
         )
-
+        fixture_ref = self.runtime.artifact_store.put_ref(
+            fixture_path.read_bytes(),
+            project_id=project_id,
+            media_type="text/plain",
+            classification=Classification.INTERNAL,
+        )
         package = ExperimentManifestV1Adapter().convert(
             manifest,
             project_id=project_id,
-            fixture_path=fixture_path,
+            fixture_ref=fixture_ref,
         )
         self.repository.import_legacy_contract_package(package)
         registry = self.repository.contract_registry(project_id)
@@ -69,13 +77,17 @@ class EvidrunService:
         runs: dict[str, dict[str, Any]] = {}
         snapshots: dict[str, dict[str, Any]] = {}
         for spec in run_specs:
-            run, snapshot, grade = asyncio.run(self._execute_spec(revision.id, spec, source))
+            run, snapshot, grade = asyncio.run(
+                self._execute_spec(revision.id, spec, fixture_path.read_text())
+            )
             runs[spec.variant_id] = {"run": run, "grade": grade}
             snapshots[spec.variant_id] = snapshot
 
         baseline = runs[manifest.baseline_variant]
         candidate_variant = next(
-            variant.id for variant in manifest.variants if variant.id != manifest.baseline_variant
+            variant.id
+            for variant in manifest.variants
+            if variant.id != manifest.baseline_variant
         )
         candidate = runs[candidate_variant]
         baseline_score = float(baseline["grade"]["score"])
@@ -117,261 +129,54 @@ class EvidrunService:
         spec: RunSpec,
         source: str,
     ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
-        policy = spec.context_policy
-        if policy is None:
-            raise ValueError("deterministic context benchmark requires a ContextPolicy")
-
+        del source
         spec_row = self.repository.save_run_spec(spec)
         admission = self.admission_service.admit(spec)
         admission_row = self.repository.save_admission_record(spec_row.id, admission)
         if admission.decision != "admitted":
             reasons = admission.missing_requirements or admission.denied_policies
-            raise ValueError("built-in deterministic RunSpec was rejected: " + ", ".join(reasons))
-        row = self.repository.create_run(
-            experiment_revision_id=experiment_revision_id,
-            variant_id=spec.variant_id,
-            runner=self.runner.name,
-            objective=spec.goal.instruction,
-            repetition=spec.repetition_index,
+            raise ValueError("deterministic RunSpec was rejected: " + ", ".join(reasons))
+        run_id, job = self.runtime.coordinator.enqueue(
             run_spec_id=spec_row.id,
             admission_id=admission_row.id,
-        )
-        run = {"id": row.id, "variant_id": spec.variant_id}
-        self.repository.append_event(
-            run_id=row.id,
-            event_type="run.queued",
-            payload={
-                "run_id": row.id,
-                "variant_id": spec.variant_id,
-                "run_spec_digest": spec.digest,
-                "admission_digest": admission.digest,
-            },
-        )
-        self.repository.append_event(
-            run_id=row.id,
-            event_type="run.preparing",
-            payload={"scenario_ref": spec.scenario_ref.model_dump(mode="json")},
-        )
-
-        snapshot = self.composer.compose(source, policy)
-        stored_snapshot = {
-            **snapshot,
-            "selected_content": (
-                "[REDACTED]"
-                if spec.capture_policy.default_mode == "redacted"
-                else ""
-                if spec.capture_policy.default_mode in {"metadata", "disabled"}
-                else snapshot["selected_content"]
+            idempotency_key=(
+                f"demo:{experiment_revision_id}:{spec.digest}:{new_id('request')}"
             ),
+            experiment_revision_id=experiment_revision_id,
+        )
+        worker = DurableRunWorker(
+            self.repository,
+            self.runtime.coordinator,
+            worker_id=f"demo-worker:{run_id}",
+        )
+        await worker.process_once(job_id=job.job_id)
+        run = self.repository.get_run(run_id)
+        if run.status not in {"completed", "failed", "budget_exhausted"}:
+            raise RuntimeError(f"demo Runtime Kernel stopped with Run status {run.status}")
+        if run.status != "completed":
+            last = self.repository.get_run_events(run_id)[-1]
+            if last["type"] == "run.budget_exhausted":
+                raise TimeoutError(str(last["payload"]["terminal_cause"]))
+            raise RuntimeError(str(last["payload"]["terminal_cause"]))
+        dashboard_run = next(
+            item for item in self.repository.latest_dashboard()["runs"] if item["id"] == run_id
+        )
+        envelope = self.repository.get_subject_envelope(run_id).envelope
+        selected_content = self.runtime.artifact_store.get_verified(
+            envelope.inputs[0].source
+        ).decode("utf-8")
+        snapshot = {
+            **dashboard_run["context_snapshot"],
+            "selected_content": selected_content,
         }
-        saved_snapshot = self.repository.save_snapshot(row.id, stored_snapshot)
-        self.repository.append_event(
-            run_id=row.id,
-            event_type="context.composed",
-            payload={
-                "snapshot_id": saved_snapshot.id,
-                "policy_id": policy.id,
-                "strategy": policy.strategy,
-                "source_chars": snapshot["source_chars"],
-                "selected_chars": snapshot["selected_chars"],
-                "omitted": bool(snapshot["omitted"]),
-                "content_hash": snapshot["content_hash"],
-            },
-        )
-        self.repository.append_event(
-            run_id=row.id,
-            event_type="run.running",
-            payload={
-                "from_status": "preparing",
-                "reason": "context composed and deterministic Subject ready",
-            },
-        )
-        self.repository.update_run(row.id, context_hash=snapshot["content_hash"])
-        visible_inputs = tuple(
-            item
-            for item in spec.scenario.input_bindings
-            if item.visibility in {"subject", "subject_and_evaluator"}
-        )
-        if len(visible_inputs) != 1:
-            raise ValueError(
-                "deterministic context runner requires exactly one visible Subject input"
-            )
-        declared_input = visible_inputs[0]
-        materialized_input = declared_input.model_copy(
-            update={
-                "source": ArtifactRef(
-                    artifact_id=f"context-snapshot:{saved_snapshot.id}",
-                    digest=snapshot["content_hash"],
-                    media_type=declared_input.source.media_type,
-                    classification=declared_input.source.classification,
-                )
-            }
-        )
-        subject_envelope = SubjectEnvelopeCompiler.compile(
-            spec,
-            admission,
-            materialized_inputs=(materialized_input,),
-        )
-        self.repository.append_event(
-            run_id=row.id,
-            event_type="subject.invoked",
-            payload={
-                "runner": self.runner.name,
-                "network": "disabled",
-                "subject_envelope_digest": subject_envelope.digest,
-                "evaluation_guidance_digest": (
-                    subject_envelope.evaluation_guidance.digest
-                    if subject_envelope.evaluation_guidance is not None
-                    else None
-                ),
-            },
-        )
-        try:
-            result = await asyncio.wait_for(
-                self.runner.execute(
-                    spec.goal.instruction,
-                    snapshot["selected_content"],
-                ),
-                timeout=spec.budgets.max_wall_seconds,
-            )
-        except TimeoutError:
-            self.repository.append_event(
-                run_id=row.id,
-                event_type="run.budget_exhausted",
-                payload={
-                    "status": "budget_exhausted",
-                    "goal_result": {
-                        "goal_mode": "goal_state",
-                        "state": "not_assessable",
-                    },
-                    "terminal_cause": "Run exceeded its max_wall_seconds budget",
-                },
-            )
-            raise
-        except Exception:
-            self.repository.append_event(
-                run_id=row.id,
-                event_type="run.failed",
-                payload={
-                    "status": "failed",
-                    "goal_result": {
-                        "goal_mode": "goal_state",
-                        "state": "not_assessable",
-                    },
-                    "terminal_cause": "Subject runner execution failed",
-                },
-            )
-            raise
-        capture_mode = spec.capture_policy.default_mode
-        captured_output = "[REDACTED]" if capture_mode == "redacted" else None
-        captured_evidence = list(result.evidence) if capture_mode == "raw_encrypted" else []
-        captured_metadata = (
-            [
-                {"key": str(key), "value": value}
-                for key, value in result.metadata.items()
-                if isinstance(value, (str, int, float, bool))
-            ]
-            if capture_mode != "disabled"
-            else []
-        )
-        response_event = self.repository.append_event(
-            run_id=row.id,
-            event_type="subject.responded",
-            payload={
-                "output": captured_output,
-                "output_digest": sha256_bytes(result.output.encode("utf-8")),
-                "capture_mode": capture_mode,
-                "evidence": captured_evidence,
-                "metadata": captured_metadata,
-            },
-        )
-        self.repository.append_event(
-            run_id=row.id,
-            event_type="run.evaluating",
-            payload={
-                "from_status": "running",
-                "reason": "terminal Subject response captured",
-            },
-        )
-        self.repository.update_run(row.id, output=captured_output)
-
-        evaluator_envelope = EvaluatorEnvelopeCompiler.compile(
-            spec, spec.evaluation_plan.stages[0].id
-        )
-        stage = evaluator_envelope.stage
-        expected_parameter = next(item for item in stage.parameters if item.key == "expected")
-        expected = str(expected_parameter.value)
-        grade = ExactCauseGrader(stage.id, expected).grade(result.output, result.evidence)
-        evaluation_record = EvaluationRecord(
-            record_id=new_id("eval"),
-            run_id=row.id,
-            plan_ref=spec.evaluation_plan_ref,
-            stage_id=stage.id,
-            source_type="deterministic_grader",
-            evaluator_ref=stage.evaluator_ref,
-            boundary=EvaluationBoundary(
-                up_to_event_sequence=response_event.sequence,
-                event_hash=response_event.event_hash,
-            ),
-            dimension_values=(
-                DimensionValue(
-                    dimension_id=stage.output_dimensions[0],
-                    value=bool(grade["passed"]),
-                    rationale=str(grade["rationale"]),
-                    confidence=1.0,
-                    evidence_refs=(EvidenceRef(ref=f"event:{response_event.id}"),),
-                ),
-            ),
-            gate_status="passed" if bool(grade["passed"]) else "failed",
-            status="final",
-            created_at_utc=utc_now(),
-        )
-        self.repository.save_evaluation_record(evaluation_record)
-        self.repository.save_grade(
-            run_id=row.id,
-            grader_id=stage.id,
-            score=grade["score"],
-            passed=grade["passed"],
-            rationale=grade["rationale"],
-            evidence=[
-                item.ref
-                for value in evaluation_record.dimension_values
-                for item in value.evidence_refs
-            ],
-        )
-        self.repository.append_event(
-            run_id=row.id,
-            event_type="evaluation.completed",
-            payload={
-                "evaluation_record_id": evaluation_record.record_id,
-                "evaluation_record_digest": evaluation_record.digest,
-                "gate_status": evaluation_record.gate_status,
-            },
-        )
-        self.repository.append_event(
-            run_id=row.id,
-            event_type="run.completed",
-            payload={
-                "status": "completed",
-                "goal_result": {
-                    "goal_mode": "goal_state",
-                    "state": (
-                        "achieved"
-                        if bool(result.metadata.get("marker_visible"))
-                        and bool(result.evidence)
-                        else "not_achieved"
-                    ),
-                },
-                "terminal_cause": "terminal subject response evaluated",
-                "evaluation_record_refs": [evaluation_record.record_id],
-            },
-        )
-        self.repository.update_run(
-            row.id,
-            output=captured_output,
-            context_hash=snapshot["content_hash"],
-        )
-        return run, snapshot, grade
+        grade_row = self.repository.get_grade(run_id)
+        grade = {
+            "score": grade_row.score,
+            "passed": grade_row.passed,
+            "rationale": grade_row.rationale,
+            "evidence": json.loads(grade_row.evidence_json),
+        }
+        return {"id": run_id, "variant_id": spec.variant_id}, snapshot, grade
 
     @staticmethod
     def _build_report(

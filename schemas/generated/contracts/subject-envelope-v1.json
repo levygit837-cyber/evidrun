@@ -1036,6 +1036,7 @@
       "$ref": "#/$defs/BudgetSpec"
     },
     "effective_capabilities": {
+      "default": [],
       "items": {
         "$ref": "#/$defs/ResolvedCapability"
       },
@@ -1093,7 +1094,6 @@
     "goal",
     "inputs",
     "interaction_protocol",
-    "effective_capabilities",
     "workspace",
     "budgets",
     "stop_conditions"

@@ -104,8 +104,8 @@ class RunRow(Base):
     __tablename__ = "runs"
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
-    experiment_revision_id: Mapped[str] = mapped_column(
-        ForeignKey("experiment_revisions.id"), nullable=False
+    experiment_revision_id: Mapped[str | None] = mapped_column(
+        ForeignKey("experiment_revisions.id"), nullable=True
     )
     variant_id: Mapped[str] = mapped_column(String, nullable=False)
     repetition: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
@@ -123,7 +123,10 @@ class RunRow(Base):
 
 class RunEventRow(Base):
     __tablename__ = "run_events"
-    __table_args__ = (UniqueConstraint("run_id", "sequence", name="uq_run_event_sequence"),)
+    __table_args__ = (
+        UniqueConstraint("run_id", "sequence", name="uq_run_event_sequence"),
+        UniqueConstraint("run_id", "operation_key", name="uq_run_event_operation"),
+    )
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
     run_id: Mapped[str] = mapped_column(ForeignKey("runs.id"), nullable=False, index=True)
@@ -138,10 +141,59 @@ class RunEventRow(Base):
     causation_id: Mapped[str | None] = mapped_column(String)
     prev_event_hash: Mapped[str | None] = mapped_column(String(64))
     event_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    operation_key: Mapped[str | None] = mapped_column(String, nullable=True)
+
+
+class RunExecutionJobRow(Base):
+    __tablename__ = "run_execution_jobs"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    run_id: Mapped[str] = mapped_column(ForeignKey("runs.id"), nullable=False, unique=True)
+    status: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    idempotency_key: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    request_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    available_at: Mapped[datetime] = mapped_column(nullable=False, index=True)
+    active_attempt_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    lease_generation: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column()
+    rejection_code: Mapped[str | None] = mapped_column(String)
+
+
+class RunExecutionAttemptRow(Base):
+    __tablename__ = "run_execution_attempts"
+    __table_args__ = (
+        UniqueConstraint("job_id", "ordinal", name="uq_run_attempt_ordinal"),
+        UniqueConstraint("job_id", "lease_generation", name="uq_run_attempt_generation"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    job_id: Mapped[str] = mapped_column(
+        ForeignKey("run_execution_jobs.id"), nullable=False, index=True
+    )
+    ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
+    worker_id: Mapped[str] = mapped_column(String, nullable=False)
+    lease_generation: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    leased_at: Mapped[datetime] = mapped_column(nullable=False)
+    lease_expires_at: Mapped[datetime] = mapped_column(nullable=False, index=True)
+    last_heartbeat_at: Mapped[datetime] = mapped_column(nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column()
+    reason_code: Mapped[str | None] = mapped_column(String)
+
+
+class SubjectEnvelopeRow(Base):
+    __tablename__ = "subject_envelopes"
+
+    run_id: Mapped[str] = mapped_column(ForeignKey("runs.id"), primary_key=True)
+    envelope_json: Mapped[str] = mapped_column(Text, nullable=False)
+    digest: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(nullable=False)
 
 
 class ContextSnapshotRow(Base):
     __tablename__ = "context_snapshots"
+    __table_args__ = (UniqueConstraint("run_id", name="uq_context_snapshot_run"),)
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
     run_id: Mapped[str] = mapped_column(ForeignKey("runs.id"), nullable=False, index=True)
@@ -158,6 +210,7 @@ class ContextSnapshotRow(Base):
 
 class GradeRow(Base):
     __tablename__ = "grades"
+    __table_args__ = (UniqueConstraint("run_id", "grader_id", name="uq_grade_run_grader"),)
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
     run_id: Mapped[str] = mapped_column(ForeignKey("runs.id"), nullable=False, index=True)
@@ -191,6 +244,11 @@ class CheckpointRecordRow(Base):
 
 class EvaluationRecordRow(Base):
     __tablename__ = "evaluation_records"
+    __table_args__ = (
+        UniqueConstraint(
+            "run_id", "stage_id", "source_type", name="uq_evaluation_stage_source"
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
     run_id: Mapped[str] = mapped_column(ForeignKey("runs.id"), nullable=False, index=True)

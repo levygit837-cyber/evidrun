@@ -6,7 +6,7 @@ status: implemented
 authority: normative
 owner: core
 created_at: 2026-07-22
-updated_at: 2026-07-22
+updated_at: 2026-07-23
 applies_to: repository
 sources: []
 supersedes: []
@@ -26,6 +26,7 @@ pnpm install
 uv run evidrun init
 uv run evidrun demo
 uv run evidrun serve
+uv run evidrun-worker --data-dir ./.local-evidrun --once
 pnpm dev:web
 ```
 
@@ -33,4 +34,3 @@ Electron usa `pnpm desktop:dev`, que compila Main/preload, inicia Vite e deixa o
 backend Python por handshake. `EVIDRUN_DATA_DIR` isola dados de testes manuais.
 
 Antes de entregar, execute os comandos de verificação do `AGENTS.md`.
-

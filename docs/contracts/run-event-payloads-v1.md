@@ -29,18 +29,18 @@ O envelope e a hash chain de Run Event v1 permanecem inalterados. Para tipos reg
 é validado por modelo Pydantic fechado antes de entrar no ledger.
 
 O marco implementa payloads tipados para fila, preparação, composição de contexto, invocação e
-resposta do Subject, avaliação e término da Run. O catálogo também define shapes futuros para
-capabilities, pause/resume, checkpoint e Progress Artifact. Esses tipos permanecem reservados: o
-repository rejeita `run.paused`, `run.resumed`, `capability.offered`, todos os eventos de tool/skill,
-`checkpoint.validation_failed` e todos os eventos `progress.*` até existir o coordinator/runtime
-correspondente. Schema registrado não significa evento factual autorizado.
+resposta do Subject, avaliação e término da Run. O subconjunto do ADR 0016 também autoriza
+`capability.offered` e `tool.called` seguido por exatamente um `tool.completed`, `tool.denied` ou
+`tool.failed`, sempre para capability admitida e sob lease válido. Pause/resume, skill,
+`checkpoint.validation_failed` e `progress.*` permanecem reservados até existir o coordinator
+correspondente. Schema registrado não significa evento factual autorizado fora desses subconjuntos.
 
 `subject.responded` registra `output_digest` e o capture mode aplicado. `redacted` exige somente o
 marcador `[REDACTED]`; `metadata` não aceita output/evidence; `disabled` não aceita conteúdo capturado;
 e `raw_encrypted` aceita somente refs `artifact:`, nunca raw inline. O repository exige que o modo
-seja exatamente o default do RunSpec. No runtime atual, `raw_encrypted` é bloqueado na admissão porque
-o sink cifrado ainda não existe. Para `subject_turn_interval`, somente um `subject.responded` válido
-conta como turno.
+seja exatamente o default do RunSpec. O adapter real do ADR 0016 admite `raw_encrypted` com opt-in e
+grava um `output_ref` `sensitive` cifrado; adapters sem esse sink continuam falhando fechado na
+admissão. Para `subject_turn_interval`, somente um `subject.responded` válido conta como turno.
 
 Eventos factuais são phase-gated. `context.composed` ocorre em `preparing`;
 `subject.invoked`/`subject.responded` em `running`; e `evaluation.completed` em `evaluating`.

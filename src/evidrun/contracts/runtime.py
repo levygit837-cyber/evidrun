@@ -298,7 +298,7 @@ class SubjectEnvelope(ContractModel):
     goal: GoalSpec
     inputs: tuple[InputBinding, ...]
     interaction_protocol: InteractionProtocolSpec
-    effective_capabilities: tuple[ResolvedCapability, ...]
+    effective_capabilities: tuple[ResolvedCapability, ...] = ()
     workspace: SubjectWorkspace
     budgets: BudgetSpec
     stop_conditions: tuple[StopCondition, ...]
@@ -308,6 +308,20 @@ class SubjectEnvelope(ContractModel):
     @property
     def digest(self) -> str:
         return sha256_json(semantic_model_dump(self))
+
+
+class SubjectEnvelopeRecord(ContractModel):
+    """The exact materialized SubjectEnvelope used for one Run."""
+
+    schema_version: Literal["1"] = "1"
+    run_id: NonEmptyStr
+    envelope: SubjectEnvelope
+    created_at_utc: UtcDateTime
+
+    @computed_field
+    @property
+    def digest(self) -> str:
+        return self.envelope.digest
 
 
 class EvaluatorEnvelope(ContractModel):
@@ -371,6 +385,78 @@ class RunRecord(ContractModel):
         if identifier.version != 7:
             raise ValueError("Run IDs must contain a UUIDv7")
         return value
+
+
+class RunExecutionJob(ContractModel):
+    """Durable operational queue state for one canonical Run."""
+
+    schema_version: Literal["1"] = "1"
+    job_id: NonEmptyStr
+    run_id: NonEmptyStr
+    status: Literal["queued", "leased", "completed", "rejected"]
+    idempotency_key: NonEmptyStr
+    request_digest: Digest
+    available_at_utc: UtcDateTime
+    active_attempt_id: NonEmptyStr | None = None
+    lease_generation: int = Field(ge=0)
+    created_at_utc: UtcDateTime
+    finished_at_utc: UtcDateTime | None = None
+    rejection_code: NonEmptyStr | None = None
+
+    @model_validator(mode="after")
+    def validate_state(self) -> RunExecutionJob:
+        if self.status == "leased" and self.active_attempt_id is None:
+            raise ValueError("leased job requires an active attempt")
+        if self.status != "leased" and self.active_attempt_id is not None:
+            raise ValueError("only a leased job can expose an active attempt")
+        if self.status in {"completed", "rejected"} and self.finished_at_utc is None:
+            raise ValueError("terminal job requires finished_at_utc")
+        if self.status not in {"completed", "rejected"} and self.finished_at_utc is not None:
+            raise ValueError("non-terminal job cannot have finished_at_utc")
+        if self.status == "rejected" and self.rejection_code is None:
+            raise ValueError("rejected job requires a rejection code")
+        if self.status != "rejected" and self.rejection_code is not None:
+            raise ValueError("only a rejected job can have a rejection code")
+        return self
+
+    @computed_field
+    @property
+    def digest(self) -> str:
+        return sha256_json(semantic_model_dump(self))
+
+
+class RunExecutionAttempt(ContractModel):
+    """One fenced worker lease over a RunExecutionJob."""
+
+    schema_version: Literal["1"] = "1"
+    attempt_id: NonEmptyStr
+    job_id: NonEmptyStr
+    ordinal: int = Field(gt=0)
+    worker_id: NonEmptyStr
+    lease_generation: int = Field(gt=0)
+    status: Literal["leased", "completed", "released", "expired", "rejected"]
+    leased_at_utc: UtcDateTime
+    lease_expires_at_utc: UtcDateTime
+    last_heartbeat_at_utc: UtcDateTime
+    finished_at_utc: UtcDateTime | None = None
+    reason_code: NonEmptyStr | None = None
+
+    @model_validator(mode="after")
+    def validate_state(self) -> RunExecutionAttempt:
+        if self.lease_expires_at_utc <= self.leased_at_utc:
+            raise ValueError("lease expiry must be after lease acquisition")
+        if self.last_heartbeat_at_utc < self.leased_at_utc:
+            raise ValueError("heartbeat cannot predate lease acquisition")
+        if self.status == "leased" and self.finished_at_utc is not None:
+            raise ValueError("active attempt cannot be finished")
+        if self.status != "leased" and self.finished_at_utc is None:
+            raise ValueError("inactive attempt requires finished_at_utc")
+        return self
+
+    @computed_field
+    @property
+    def digest(self) -> str:
+        return sha256_json(semantic_model_dump(self))
 
 
 class EvaluationBoundary(ContractModel):
@@ -680,10 +766,29 @@ class SubjectInvokedPayload(ContractModel):
     network: Literal["disabled", "provider_only", "allowlist"]
     subject_envelope_digest: Digest
     evaluation_guidance_digest: Digest | None = None
+    provider_profile_id: NonEmptyStr | None = None
+    provider_model: NonEmptyStr | None = None
+    provider_reasoning_effort: NonEmptyStr | None = None
+    provider_adapter: NonEmptyStr | None = None
+
+    @model_validator(mode="after")
+    def validate_provider_resolution(self) -> SubjectInvokedPayload:
+        provider_fields = (
+            self.provider_profile_id,
+            self.provider_model,
+            self.provider_reasoning_effort,
+            self.provider_adapter,
+        )
+        if any(item is not None for item in provider_fields) and any(
+            item is None for item in provider_fields
+        ):
+            raise ValueError("Subject invocation provider resolution must be all-or-none")
+        return self
 
 
 class SubjectRespondedPayload(ContractModel):
     output: str | None = None
+    output_ref: ArtifactRef | None = None
     output_digest: Digest
     capture_mode: Literal["metadata", "redacted", "raw_encrypted", "disabled"]
     evidence: tuple[str, ...] = ()
@@ -692,25 +797,30 @@ class SubjectRespondedPayload(ContractModel):
     @model_validator(mode="after")
     def validate_capture_shape(self) -> SubjectRespondedPayload:
         if self.capture_mode == "redacted" and (
-            self.output != "[REDACTED]" or self.evidence
+            self.output != "[REDACTED]" or self.output_ref is not None or self.evidence
         ):
             raise ValueError(
                 "redacted Subject capture requires the redaction marker and no raw evidence"
             )
         if self.capture_mode == "metadata" and (
-            self.output is not None or self.evidence
+            self.output is not None or self.output_ref is not None or self.evidence
         ):
             raise ValueError("metadata Subject capture cannot contain output or raw evidence")
         if self.capture_mode == "disabled" and (
-            self.output is not None or self.evidence or self.metadata
+            self.output is not None
+            or self.output_ref is not None
+            or self.evidence
+            or self.metadata
         ):
             raise ValueError("disabled Subject capture cannot contain captured content")
         if self.capture_mode == "raw_encrypted" and (
             self.output is not None
+            or self.output_ref is None
+            or self.output_ref.classification.value != "sensitive"
             or any(not item.startswith("artifact:") for item in self.evidence)
         ):
             raise ValueError(
-                "raw encrypted Subject capture requires artifact refs, never inline content"
+                "raw encrypted Subject capture requires a sensitive output artifact ref"
             )
         return self
 
@@ -875,16 +985,11 @@ UNSUPPORTED_RUNTIME_EVENT_TYPES = frozenset(
     {
         "run.paused",
         "run.resumed",
-        "capability.offered",
         "skill.loaded",
         "skill.invoked",
         "skill.completed",
         "skill.failed",
-        "tool.called",
         "tool.approved",
-        "tool.denied",
-        "tool.completed",
-        "tool.failed",
         "checkpoint.validation_failed",
         "progress.observer_started",
         "progress.artifact_created",

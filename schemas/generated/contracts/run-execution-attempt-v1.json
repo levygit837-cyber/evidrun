@@ -1,0 +1,102 @@
+{
+  "additionalProperties": false,
+  "description": "One fenced worker lease over a RunExecutionJob.",
+  "properties": {
+    "attempt_id": {
+      "minLength": 1,
+      "title": "Attempt Id",
+      "type": "string"
+    },
+    "finished_at_utc": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Finished At Utc"
+    },
+    "job_id": {
+      "minLength": 1,
+      "title": "Job Id",
+      "type": "string"
+    },
+    "last_heartbeat_at_utc": {
+      "format": "date-time",
+      "title": "Last Heartbeat At Utc",
+      "type": "string"
+    },
+    "lease_expires_at_utc": {
+      "format": "date-time",
+      "title": "Lease Expires At Utc",
+      "type": "string"
+    },
+    "lease_generation": {
+      "exclusiveMinimum": 0,
+      "title": "Lease Generation",
+      "type": "integer"
+    },
+    "leased_at_utc": {
+      "format": "date-time",
+      "title": "Leased At Utc",
+      "type": "string"
+    },
+    "ordinal": {
+      "exclusiveMinimum": 0,
+      "title": "Ordinal",
+      "type": "integer"
+    },
+    "reason_code": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reason Code"
+    },
+    "schema_version": {
+      "const": "1",
+      "default": "1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "leased",
+        "completed",
+        "released",
+        "expired",
+        "rejected"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "worker_id": {
+      "minLength": 1,
+      "title": "Worker Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "attempt_id",
+    "job_id",
+    "ordinal",
+    "worker_id",
+    "lease_generation",
+    "status",
+    "leased_at_utc",
+    "lease_expires_at_utc",
+    "last_heartbeat_at_utc"
+  ],
+  "title": "RunExecutionAttempt",
+  "type": "object"
+}

@@ -42,23 +42,14 @@ from evidrun.contracts.authoring import (
 )
 from evidrun.contracts.base import (
     ArtifactRef,
-    CapabilityDescriptorRef,
     KeyValue,
     RepositoryFixtureDecisionAuthority,
     RevisionDecisionRecord,
     RevisionEnvelope,
 )
 from evidrun.experiments import ExperimentManifest
+from evidrun.shared.capabilities import capability_ref
 from evidrun.shared.types import Classification, sha256_bytes, sha256_json, utc_now
-
-
-def capability_ref(namespace: str, name: str, version: str = "1") -> CapabilityDescriptorRef:
-    return CapabilityDescriptorRef(
-        namespace=namespace,
-        name=name,
-        version=version,
-        digest=sha256_json({"namespace": namespace, "name": name, "version": version}),
-    )
 
 
 @dataclass(frozen=True)
@@ -95,15 +86,21 @@ class ExperimentManifestV1Adapter:
         manifest: ExperimentManifest,
         *,
         project_id: str,
-        fixture_path: Path,
+        fixture_path: Path | None = None,
+        fixture_ref: ArtifactRef | None = None,
     ) -> LegacyStudyPackage:
-        fixture_bytes = fixture_path.read_bytes()
-        fixture_ref = ArtifactRef(
-            artifact_id=f"fixture:{manifest.scenario_refs[0]}",
-            digest=sha256_bytes(fixture_bytes),
-            media_type="text/plain",
-            classification=Classification.INTERNAL,
-        )
+        if fixture_ref is None:
+            if fixture_path is None:
+                raise ValueError("legacy conversion requires fixture_path or fixture_ref")
+            fixture_bytes = fixture_path.read_bytes()
+            fixture_ref = ArtifactRef(
+                artifact_id=f"fixture:{manifest.scenario_refs[0]}",
+                digest=sha256_bytes(fixture_bytes),
+                media_type="text/plain",
+                classification=Classification.INTERNAL,
+            )
+        elif fixture_path is not None:
+            raise ValueError("legacy conversion accepts only one fixture materialization source")
 
         goal = GoalRevision(
             logical_id=f"{manifest.id}-goal",
@@ -209,7 +206,7 @@ class ExperimentManifestV1Adapter:
         )
 
         grader = manifest.graders[0]
-        grader_ref = capability_ref("evidrun.evaluator", grader.id)
+        grader_ref = capability_ref("evidrun.evaluator", "exact-root-cause-legacy-v1")
         evaluation = EvaluationPlanRevision(
             logical_id=f"{manifest.id}-evaluation",
             revision=1,

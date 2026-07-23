@@ -19,6 +19,8 @@ verification_refs:
   - tests/acceptance/test_demo_flow.py
   - tests/integration/test_admission_and_evaluation.py
   - tests/integration/test_contract_api.py
+  - tests/integration/test_runtime_kernel.py
+  - tests/integration/test_runtime_queue.py
 ---
 
 # Arquitetura do sistema
@@ -42,8 +44,10 @@ essa projeção.
 Eventos factuais são aceitos somente na fase permitida e com seus records canônicos ligados.
 Invocações e respostas do Subject são pareadas; evaluation só começa depois de uma resposta;
 `evaluation.completed` aponta para o EvaluationRecord exato; e `run.completed` exige os records e
-stages requeridos pelo EvaluationPlan. Eventos de pause/resume, tools, skills, checkpoint e Progress
-Artifact permanecem reservados e são rejeitados enquanto seus coordinators não existem.
+stages requeridos pelo EvaluationPlan. O coordinator fechado de `read_text` publica
+`capability.offered` e pares `tool.called`/terminal cercados por lease. Eventos de pause/resume,
+outras tools, skills, checkpoint e Progress Artifact permanecem reservados enquanto seus
+coordinators não existem.
 
 Superfícies:
 
@@ -56,23 +60,34 @@ Superfícies:
 Electron gerencia o lifecycle do backend, mas não contém regras de domínio. O React usa a mesma API
 no browser e no aplicativo desktop. SQLite é canônico localmente; JSONL é exportação.
 
-No estágio atual o coordinator executa o runner determinístico localmente pelo pipeline novo. O
-runtime admite apenas `single_turn`, workspace `in_process` e capabilities catalogadas. Um protocolo
-em grafo é tipável e compilável, mas é rejeitado na admissão. A interface de worker já é uma
-superfície separada, mas leases e execução assíncrona durável pertencem ao próximo marco. A execução
-genérica de todos os stages de um `EvaluationPlan` também não existe: o demo executa somente seu
-grader determinístico; ordem e hard gates já são validados quando `EvaluationRecord`s são
-persistidos.
+O Runtime Kernel executa jobs persistidos em SQLite/WAL por um worker separado. O catálogo ativo é
+compartilhado pela admissão e pelo coordinator: uma combinação sem runner e evaluator completos é
+rejeitada antes do enqueue. Claim cria attempts com lease e fencing; restart ou lease expirado retoma
+a mesma Run sem permitir writes do worker antigo. O demo usa esse mesmo kernel, embora drene seus
+jobs sincronamente para preservar sua interface histórica.
 
-O runner recebe somente objective e context, executa uma única interação e aplica
-`max_wall_seconds` com timeout. Ao excedê-lo, grava `run.budget_exhausted` como terminal e não
-`run.completed`. Budgets de tokens, tool calls ou custo, `max_turns > 1`, pause e stops fora de
-`goal_complete`/`budget_exhausted` terminal bloqueiam a admissão. Todo disclosure de evaluation
-diferente de `none` também bloqueia a admissão, ainda que `pre_run` seja compilável pelo contrato
-puro de SubjectEnvelope.
+O runtime admite apenas `single_turn`, workspace `in_process` e capabilities catalogadas. Um protocolo
+em grafo é tipável e compilável, mas rejeitado na admissão. Dois pares completos estão ativos: o
+runner scripted com grader legado offline e o Responses read agent com grader exato fundamentado em
+tool result. Cada par cobre um único stage booleano determinístico; model judge, human review e
+adjudicação continuam indisponíveis para execução pública.
+
+O adapter offline recebe somente objective e context. O adapter real recebe objective, inventário de
+inputs e o schema fechado de `read_text`; os resultados vêm apenas de artifacts já materializados no
+SubjectEnvelope. Ambos executam uma única interação e aplicam `max_wall_seconds`. O adapter real
+também aplica `max_tool_calls`; rounds internos de provider/tool não são turnos adicionais. Timeout ou
+estouro grava `run.budget_exhausted`, nunca `run.completed`. Budgets de tokens ou custo,
+`max_turns > 1`, pause e stops fora de `goal_complete`/`budget_exhausted` terminal bloqueiam a
+admissão. Todo disclosure de evaluation diferente de `none` também bloqueia a admissão.
 
 A admissão também falha fechado para checkpoint coordinator, Progress Artifact observer, pipeline de
 evaluation fora do grader determinístico suportado, adjudicação humana required, disclosure dinâmico
 e terminal de bounded exploration. Esses contratos serem tipáveis e compiláveis não anuncia
 capacidade executável. Decisions humanas possuem schema e verifier protocol, mas API/CLI recusam o
 fluxo enquanto não houver adapter WebAuthn confiável.
+
+O SubjectEnvelope materializado é persistido antes de `subject.invoked` e referencia o input
+selecionado em CAS. Resposta raw autorizada é cifrada por projeto e pode ser retomada depois de crash
+sem reinvocar o provider. Evidence Bundle v3 exporta RunSpec, AdmissionRecord, revisions, ledger,
+evaluations, SubjectEnvelope quando materializado, job, attempts e refs de tool/output para
+verificação isolada, sem afirmar portabilidade ou replay.

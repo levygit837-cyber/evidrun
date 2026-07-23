@@ -221,13 +221,15 @@ def test_ledger_rejects_unverified_human_progress_and_capture_bypass(
         event_type="run.running",
         payload={"from_status": "preparing", "reason": "Test runtime is ready."},
     )
+    canonical_envelope = repository.get_subject_envelope(terminal_run.id).envelope
+    repository.save_subject_envelope(run.id, canonical_envelope)
     repository.append_event(
         run_id=run.id,
         event_type="subject.invoked",
         payload={
             "runner": spec.agent_inventory.runner_ref.name,
             "network": "disabled",
-            "subject_envelope_digest": "c" * 64,
+            "subject_envelope_digest": canonical_envelope.digest,
         },
     )
     mismatched_mode = (
@@ -515,7 +517,7 @@ def test_runner_failure_writes_a_terminal_event_without_leaking_error(
         ROOT / "benchmarks/scenarios/crl-ctx-002/fixtures/long.log"
     ).read_text()
 
-    with pytest.raises(RuntimeError, match="sensitive provider response"):
+    with pytest.raises(RuntimeError, match="Subject runner execution failed"):
         asyncio.run(
             service._execute_spec(
                 source_run.experiment_revision_id,

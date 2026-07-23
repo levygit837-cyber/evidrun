@@ -23,11 +23,14 @@ from evidrun.contracts import (
     ProgressArtifactRecord,
     RevisionDecisionRecord,
     RunEventPayload,
+    RunExecutionAttempt,
+    RunExecutionJob,
     RunRecord,
     RunSpec,
     ScenarioRevision,
     StudyRevision,
     SubjectEnvelope,
+    SubjectEnvelopeRecord,
     WorkspaceTemplateRevision,
 )
 from evidrun.entrypoints.api.app import create_app
@@ -59,6 +62,9 @@ CONTRACT_MODELS = {
     "progress-artifact-record-v1": ProgressArtifactRecord,
     "artifact-manifest-v1": ArtifactManifest,
     "run-record-v1": RunRecord,
+    "run-execution-job-v1": RunExecutionJob,
+    "run-execution-attempt-v1": RunExecutionAttempt,
+    "subject-envelope-record-v1": SubjectEnvelopeRecord,
 }
 
 ContractCatalog = (
@@ -83,6 +89,9 @@ ContractCatalog = (
     | ProgressArtifactRecord
     | ArtifactManifest
     | RunRecord
+    | RunExecutionJob
+    | RunExecutionAttempt
+    | SubjectEnvelopeRecord
     | RunEventPayload
 )
 

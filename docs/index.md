@@ -30,6 +30,9 @@ verification_refs:
 7. [Runtime de providers](architecture/provider-runtime.md)
 8. [Roadmap](roadmap/mvp.md)
 
+O primeiro benchmark com Subject real está em
+[recuperação fundamentada por tool](benchmarks/live-read-agent.md).
+
 ## Contratos de execução
 
 - [Study, revisions e Run canônica v1](contracts/study-run-v1.md)
@@ -38,8 +41,13 @@ verification_refs:
 - [Run Event v1](contracts/run-event.md) e seu
   [catálogo de payloads](contracts/run-event-payloads-v1.md)
 - [Evidence Bundle v1](contracts/evidence-bundle.md) e
-  [Evidence Bundle v2](contracts/evidence-bundle-v2.md)
+  [Evidence Bundle v2](contracts/evidence-bundle-v2.md), além do
+  [Evidence Bundle v3 por Run](contracts/evidence-bundle-v3.md)
 - [Experiment Manifest v1](contracts/experiment-manifest.md), mantido por compatibilidade
+
+## Operação do Runtime Kernel
+
+- [Execução durável de Runs](operations/runtime-worker.md)
 
 ## Decisões sucessoras
 
@@ -47,7 +55,9 @@ verification_refs:
 - [ADR 0011 — Progress Artifacts, acesso e bundles](adr/0011-progress-artifacts-and-bundle-boundaries.md)
 - [ADR 0012 — Subject disclosure e semântica terminal (histórico)](adr/0012-subject-disclosure-and-terminal-semantics.md)
 - [ADR 0013 — bounded exploration em dois eixos](adr/0013-bounded-exploration-terminal-semantics.md)
+- [ADR 0014 — Runtime Kernel durável](adr/0014-durable-runtime-kernel.md)
 - [ADR 0015 — HumanSubjectEnvelope, autenticador local e ciclo de vida de credencial](adr/0015-human-subject-envelope-and-authenticator-lifecycle.md)
+- [ADR 0016 — Subject real, read tool e tracing](adr/0016-real-subject-read-tool-and-tracing.md)
 
 ## Autoridade
 

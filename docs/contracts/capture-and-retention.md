@@ -37,12 +37,13 @@ Modos: `metadata`, `redacted`, `raw_encrypted`, `disabled`.
 
 Os itens acima são aplicados pelo `ArtifactStore`. No pipeline Study/Run, o runtime atual admite
 somente inputs `public` ou `internal`; qualquer input `sensitive` ou `restricted` rejeita a admissão
-porque não existe boundary classificada de materialização. `raw_encrypted` também rejeita a admissão
-enquanto não houver sink cifrado para a resposta do Subject.
+porque não existe boundary classificada de materialização. O adapter real do ADR 0016 admite
+`raw_encrypted` com opt-in e persiste a resposta como artifact `sensitive` cifrado; adapters sem esse
+sink continuam rejeitando o modo.
 
 `SubjectRespondedPayload` aplica o shape correspondente ao modo: `redacted` aceita somente o marcador
 `[REDACTED]`; `metadata` não aceita output ou evidence; `disabled` também não aceita metadata; e
-`raw_encrypted` aceita apenas refs `artifact:`, nunca conteýo inline. Na persistência, o
+`raw_encrypted` aceita apenas refs `artifact:`, nunca conteúdo inline. Na persistência, o
 `capture_mode` do evento precisa ser exatamente o `CapturePolicySpec.default_mode` do RunSpec.
 
 Essas garantias não equivalem a enforcement ponta a ponta: Context Snapshots e todos os payloads de

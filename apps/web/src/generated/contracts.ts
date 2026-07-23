@@ -22,6 +22,9 @@ export type CatalogV1 =
   | ProgressArtifactRecord
   | ArtifactManifest1
   | RunRecord
+  | RunExecutionJob
+  | RunExecutionAttempt
+  | SubjectEnvelopeRecord
   | RunQueuedPayload
   | RunPreparingPayload
   | RunLifecyclePayload
@@ -527,6 +530,8 @@ export type Role1 =
   | "extension_schema"
   | "extension_payload"
   | "evaluation_evidence"
+  | "tool_arguments"
+  | "tool_result"
   | "run_output"
   | "progress_summary"
   | "workspace_snapshot"
@@ -549,8 +554,35 @@ export type RunSpecDigest3 = string;
 export type RunSpecId = string;
 export type SchemaVersion21 = "1";
 export type VariantId1 = string;
-export type AdmissionDigest1 = string;
+export type ActiveAttemptId = string | null;
+export type AvailableAtUtc = string;
+export type CreatedAtUtc5 = string;
+export type FinishedAtUtc = string | null;
+export type IdempotencyKey = string;
+export type JobId = string;
+export type LeaseGeneration = number;
+export type RejectionCode = string | null;
+export type RequestDigest = string;
 export type RunId6 = string;
+export type SchemaVersion22 = "1";
+export type Status4 = "queued" | "leased" | "completed" | "rejected";
+export type AttemptId = string;
+export type FinishedAtUtc1 = string | null;
+export type JobId1 = string;
+export type LastHeartbeatAtUtc = string;
+export type LeaseExpiresAtUtc = string;
+export type LeaseGeneration1 = number;
+export type LeasedAtUtc = string;
+export type Ordinal = number;
+export type ReasonCode = string | null;
+export type SchemaVersion23 = "1";
+export type Status5 = "leased" | "completed" | "released" | "expired" | "rejected";
+export type WorkerId = string;
+export type CreatedAtUtc6 = string;
+export type RunId7 = string;
+export type SchemaVersion24 = "1";
+export type AdmissionDigest1 = string;
+export type RunId8 = string;
 export type RunSpecDigest4 = string;
 export type VariantId2 = string;
 export type FromStatus = "queued" | "preparing" | "running" | "paused" | "evaluating";
@@ -564,6 +596,10 @@ export type SourceChars = number;
 export type Strategy1 = "head" | "tail" | "full";
 export type EvaluationGuidanceDigest = string | null;
 export type Network = "disabled" | "provider_only" | "allowlist";
+export type ProviderAdapter1 = string | null;
+export type ProviderModel3 = string | null;
+export type ProviderProfileId4 = string | null;
+export type ProviderReasoningEffort1 = string | null;
 export type Runner = string;
 export type SubjectEnvelopeDigest = string;
 export type CaptureMode = "metadata" | "redacted" | "raw_encrypted" | "disabled";
@@ -591,16 +627,16 @@ export type Reason2 = string | null;
 export type CheckpointDefinitionId2 = string;
 export type EvidenceRefs3 = EvidenceRef[];
 export type Rationale4 = string;
-export type AttemptId = string;
+export type AttemptId1 = string;
 export type DefinitionId2 = string;
 export type EventHash4 = string;
 export type UpToEventSequence4 = number;
-export type AttemptId1 = string;
+export type AttemptId2 = string;
 export type EventHash5 = string;
 export type ProgressRecordDigest = string;
 export type ProgressRecordId = string;
 export type UpToEventSequence5 = number;
-export type AttemptId2 = string;
+export type AttemptId3 = string;
 export type DefinitionId3 = string;
 export type EventHash6 = string;
 export type Phase =
@@ -610,7 +646,7 @@ export type Phase =
   | "output_validation"
   | "artifact_write"
   | "record_persistence";
-export type ReasonCode = string;
+export type ReasonCode1 = string;
 export type Retryable = boolean;
 export type UpToEventSequence6 = number;
 export type CheckpointRefs = string[];
@@ -631,7 +667,7 @@ export type StopReason =
   | "human_stop"
   | "guardrail"
   | "provider_failure";
-export type Status4 =
+export type Status6 =
   "completed" | "failed" | "cancelled" | "budget_exhausted" | "guardrail_stopped";
 export type TerminalCause = string;
 
@@ -1169,7 +1205,7 @@ export interface ResolvedCapability {
 }
 export interface SubjectEnvelope {
   budgets: BudgetSpec;
-  effective_capabilities: EffectiveCapabilities;
+  effective_capabilities?: EffectiveCapabilities;
   evaluation_guidance?: SubjectEvaluationGuidance | null;
   goal: GoalSpec;
   inputs: Inputs;
@@ -1389,9 +1425,52 @@ export interface RunRecord {
   study_ref: ContractRef;
   variant_id: VariantId1;
 }
+/**
+ * Durable operational queue state for one canonical Run.
+ */
+export interface RunExecutionJob {
+  active_attempt_id?: ActiveAttemptId;
+  available_at_utc: AvailableAtUtc;
+  created_at_utc: CreatedAtUtc5;
+  finished_at_utc?: FinishedAtUtc;
+  idempotency_key: IdempotencyKey;
+  job_id: JobId;
+  lease_generation: LeaseGeneration;
+  rejection_code?: RejectionCode;
+  request_digest: RequestDigest;
+  run_id: RunId6;
+  schema_version?: SchemaVersion22;
+  status: Status4;
+}
+/**
+ * One fenced worker lease over a RunExecutionJob.
+ */
+export interface RunExecutionAttempt {
+  attempt_id: AttemptId;
+  finished_at_utc?: FinishedAtUtc1;
+  job_id: JobId1;
+  last_heartbeat_at_utc: LastHeartbeatAtUtc;
+  lease_expires_at_utc: LeaseExpiresAtUtc;
+  lease_generation: LeaseGeneration1;
+  leased_at_utc: LeasedAtUtc;
+  ordinal: Ordinal;
+  reason_code?: ReasonCode;
+  schema_version?: SchemaVersion23;
+  status: Status5;
+  worker_id: WorkerId;
+}
+/**
+ * The exact materialized SubjectEnvelope used for one Run.
+ */
+export interface SubjectEnvelopeRecord {
+  created_at_utc: CreatedAtUtc6;
+  envelope: SubjectEnvelope;
+  run_id: RunId7;
+  schema_version?: SchemaVersion24;
+}
 export interface RunQueuedPayload {
   admission_digest: AdmissionDigest1;
-  run_id: RunId6;
+  run_id: RunId8;
   run_spec_digest: RunSpecDigest4;
   variant_id: VariantId2;
 }
@@ -1414,6 +1493,10 @@ export interface ContextComposedPayload {
 export interface SubjectInvokedPayload {
   evaluation_guidance_digest?: EvaluationGuidanceDigest;
   network: Network;
+  provider_adapter?: ProviderAdapter1;
+  provider_model?: ProviderModel3;
+  provider_profile_id?: ProviderProfileId4;
+  provider_reasoning_effort?: ProviderReasoningEffort1;
   runner: Runner;
   subject_envelope_digest: SubjectEnvelopeDigest;
 }
@@ -1423,6 +1506,7 @@ export interface SubjectRespondedPayload {
   metadata?: Metadata;
   output?: Output;
   output_digest: OutputDigest;
+  output_ref?: ArtifactRef | null;
 }
 export interface EvaluationCompletedPayload {
   evaluation_record_digest: EvaluationRecordDigest;
@@ -1473,7 +1557,7 @@ export interface CheckpointValidationFailedPayload {
   validator_ref: CapabilityDescriptorRef;
 }
 export interface ProgressObserverStartedPayload {
-  attempt_id: AttemptId;
+  attempt_id: AttemptId1;
   definition_id: DefinitionId2;
   event_hash: EventHash4;
   policy_ref: ContractRef;
@@ -1482,19 +1566,19 @@ export interface ProgressObserverStartedPayload {
 }
 export interface ProgressArtifactCreatedPayload {
   artifact_ref: ArtifactRef;
-  attempt_id: AttemptId1;
+  attempt_id: AttemptId2;
   event_hash: EventHash5;
   progress_record_digest: ProgressRecordDigest;
   progress_record_id: ProgressRecordId;
   up_to_event_sequence: UpToEventSequence5;
 }
 export interface ProgressObserverFailedPayload {
-  attempt_id: AttemptId2;
+  attempt_id: AttemptId3;
   definition_id: DefinitionId3;
   event_hash: EventHash6;
   phase: Phase;
   policy_ref: ContractRef;
-  reason_code: ReasonCode;
+  reason_code: ReasonCode1;
   retryable?: Retryable;
   up_to_event_sequence: UpToEventSequence6;
 }
@@ -1502,7 +1586,7 @@ export interface RunTerminalPayload {
   checkpoint_refs?: CheckpointRefs;
   evaluation_record_refs?: EvaluationRecordRefs1;
   goal_result: GoalResult;
-  status: Status4;
+  status: Status6;
   terminal_cause: TerminalCause;
 }
 export interface GoalStateTerminalResult {
