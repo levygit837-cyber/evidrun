@@ -218,7 +218,7 @@
       "status": "implemented",
       "authority": "normative",
       "owner": "security",
-      "updated_at": "2026-07-22",
+      "updated_at": "2026-07-23",
       "review_due": null
     },
     {
@@ -427,7 +427,7 @@
       "status": "draft",
       "authority": "incubation",
       "owner": "product",
-      "updated_at": "2026-07-22",
+      "updated_at": "2026-07-23",
       "review_due": "2026-10-22"
     },
     {
@@ -537,7 +537,7 @@
       "status": "accepted",
       "authority": "normative",
       "owner": "security",
-      "updated_at": "2026-07-22",
+      "updated_at": "2026-07-23",
       "review_due": null
     },
     {
@@ -548,7 +548,7 @@
       "status": "accepted",
       "authority": "normative",
       "owner": "security",
-      "updated_at": "2026-07-22",
+      "updated_at": "2026-07-23",
       "review_due": null
     },
     {

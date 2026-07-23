@@ -6,7 +6,7 @@ status: accepted
 authority: normative
 owner: security
 created_at: 2026-07-22
-updated_at: 2026-07-22
+updated_at: 2026-07-23
 applies_to: system
 sources: []
 supersedes: []
@@ -36,6 +36,15 @@ Ameaças prioritárias:
 - bundle exportado escapar da retenção;
 - agent aprovar a própria ação.
 
-Controles atuais são documentados nos contratos de captura, event e desktop bridge. Sandbox de
-código e sync exigirão revisões próprias deste threat model.
+Controles existentes são documentados nos contratos de captura, event e desktop bridge, mas não
+fecham todas as ameaças acima. Em particular:
 
+- o launch token protege o sidecar iniciado pelo desktop; `evidrun serve` sem handshake aceita
+  qualquer processo local em loopback;
+- `actor_type=human` é validado no contract, mas a API ainda não autentica uma role humana separada;
+- capture policy e rejeição de restricted estão completas no `ArtifactStore`, não em snapshots e
+  eventos da Run;
+- campos textuais livres ainda não passam por secret scanning.
+
+Sandbox de código, sync, autoridade do futuro Lab Agent e expansão do pipeline para conteúdo
+sensível exigirão revisões próprias deste threat model.

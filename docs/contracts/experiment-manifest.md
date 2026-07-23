@@ -34,3 +34,9 @@ referenciadas precisam existir na mesma revision.
 O contrato continua válido e seus digests históricos não mudam. O adapter de compatibilidade o
 converte em revisions modulares e RunSpecs para execução pelo pipeline Study, mantendo expected
 answers apenas no EvaluationPlan.
+
+No runtime atual, somente o bootstrap do benchmark versionado no próprio repositório sintetiza as
+decisões de aceitação necessárias à migração, com rationale explícita de import. Isso representa a
+aceitação preexistente daquele fixture confiável; não é uma autorização para imports genéricos
+marcarem propostas novas como decisões humanas. Um import externo deve passar pelo lifecycle normal
+de draft/proposed e decisão humana.

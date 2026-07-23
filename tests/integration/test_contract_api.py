@@ -5,6 +5,7 @@ import json
 import zipfile
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from evidrun.contracts import EvaluationRecord, GoalRevision, GoalSpec
@@ -90,6 +91,109 @@ def test_contract_lifecycle_compile_admit_and_bundle_v2(tmp_path: Path) -> None:
         )
         assert tampered_verification["valid"] is False
         assert tampered_verification["records"][evaluation_name] is False
+
+        with zipfile.ZipFile(source_bundle) as archive:
+            plan_files = {name: archive.read(name) for name in archive.namelist()}
+        plan_evaluations = json.loads(plan_files[evaluation_name])
+        plan_evaluations[0]["plan_ref"]["logical_id"] = "substituted-plan"
+        plan_document = {
+            key: value
+            for key, value in plan_evaluations[0].items()
+            if key != "digest"
+        }
+        plan_evaluations[0]["digest"] = EvaluationRecord.model_validate(
+            plan_document
+        ).digest
+        plan_files[evaluation_name] = (
+            json.dumps(plan_evaluations, ensure_ascii=False, sort_keys=True, indent=2)
+            + "\n"
+        ).encode()
+        plan_checksums = json.loads(plan_files["checksums.json"])
+        plan_checksums["files"][evaluation_name] = hashlib.sha256(
+            plan_files[evaluation_name]
+        ).hexdigest()
+        plan_files["checksums.json"] = (
+            json.dumps(plan_checksums, ensure_ascii=False, sort_keys=True, indent=2)
+            + "\n"
+        ).encode()
+        substituted_plan_bundle = tmp_path / "substituted-plan.evidrun.zip"
+        with zipfile.ZipFile(
+            substituted_plan_bundle, "w", compression=zipfile.ZIP_DEFLATED
+        ) as archive:
+            for name, content in plan_files.items():
+                archive.writestr(name, content)
+        plan_verification = EvidenceBundleService(app.state.repository).verify(
+            substituted_plan_bundle
+        )
+        assert plan_verification["valid"] is False
+        assert plan_verification["records"][evaluation_name] is False
+
+        injected_bundle = tmp_path / "injected-extra-file.evidrun.zip"
+        with zipfile.ZipFile(source_bundle) as source, zipfile.ZipFile(
+            injected_bundle, "w", compression=zipfile.ZIP_DEFLATED
+        ) as target:
+            for name in source.namelist():
+                target.writestr(name, source.read(name))
+            target.writestr("unverified.txt", b"not covered by checksums")
+        injected_verification = EvidenceBundleService(app.state.repository).verify(
+            injected_bundle
+        )
+        assert injected_verification["valid"] is False
+        assert (
+            injected_verification["checksums"]["__complete_file_list__"] is False
+        )
+
+        duplicate_bundle = tmp_path / "duplicate-member.evidrun.zip"
+        with zipfile.ZipFile(source_bundle) as source, zipfile.ZipFile(
+            duplicate_bundle, "w", compression=zipfile.ZIP_DEFLATED
+        ) as target:
+            for name in source.namelist():
+                target.writestr(name, source.read(name))
+            with pytest.warns(UserWarning, match="Duplicate name"):
+                target.writestr("report.md", source.read("report.md"))
+        duplicate_verification = EvidenceBundleService(app.state.repository).verify(
+            duplicate_bundle
+        )
+        assert duplicate_verification["valid"] is False
+        assert duplicate_verification["checksums"]["__unique_file_names__"] is False
+
+        with zipfile.ZipFile(source_bundle) as archive:
+            evidence_files = {name: archive.read(name) for name in archive.namelist()}
+        evidence_evaluations = json.loads(evidence_files[evaluation_name])
+        evidence_evaluations[0]["dimension_values"][0]["evidence_refs"][0][
+            "ref"
+        ] = "event:fake"
+        evidence_document = {
+            key: value
+            for key, value in evidence_evaluations[0].items()
+            if key != "digest"
+        }
+        evidence_evaluations[0]["digest"] = EvaluationRecord.model_validate(
+            evidence_document
+        ).digest
+        evidence_files[evaluation_name] = (
+            json.dumps(evidence_evaluations, ensure_ascii=False, sort_keys=True, indent=2)
+            + "\n"
+        ).encode()
+        evidence_checksums = json.loads(evidence_files["checksums.json"])
+        evidence_checksums["files"][evaluation_name] = hashlib.sha256(
+            evidence_files[evaluation_name]
+        ).hexdigest()
+        evidence_files["checksums.json"] = (
+            json.dumps(evidence_checksums, ensure_ascii=False, sort_keys=True, indent=2)
+            + "\n"
+        ).encode()
+        forged_evidence_bundle = tmp_path / "forged-evidence-ref.evidrun.zip"
+        with zipfile.ZipFile(
+            forged_evidence_bundle, "w", compression=zipfile.ZIP_DEFLATED
+        ) as archive:
+            for name, content in evidence_files.items():
+                archive.writestr(name, content)
+        evidence_verification = EvidenceBundleService(app.state.repository).verify(
+            forged_evidence_bundle
+        )
+        assert evidence_verification["valid"] is False
+        assert evidence_verification["records"][evaluation_name] is False
 
 
 def test_contract_validation_registration_and_human_decision(tmp_path: Path) -> None:

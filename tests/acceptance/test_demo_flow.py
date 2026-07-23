@@ -24,6 +24,18 @@ def test_demo_runs_end_to_end_and_bundle_verifies(
     assert all(UUID(run["id"].removeprefix("run_")).version == 7 for run in runs.values())
     assert runs["head-truncation"]["grade"]["score"] == 0
     assert runs["tail-preservation"]["grade"]["score"] == 1
+    assert runs["head-truncation"]["output"] == "[REDACTED]"
+    assert runs["tail-preservation"]["output"] == "[REDACTED]"
+    assert all(
+        run["context_snapshot"]["selected_content"] == "[REDACTED]"
+        for run in runs.values()
+    )
+    terminal_by_variant = {
+        variant_id: repository.get_run_events(run["id"])[-1]["payload"]
+        for variant_id, run in runs.items()
+    }
+    assert terminal_by_variant["head-truncation"]["goal_state"] == "not_achieved"
+    assert terminal_by_variant["tail-preservation"]["goal_state"] == "achieved"
     assert result["context_diff"]["added_root_cause"] is True
 
     bundle = tmp_path / "demo.evidrun.zip"

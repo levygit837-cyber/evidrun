@@ -9,6 +9,7 @@ from evidrun.contracts.authoring import (
     ComparisonPlan,
     EvaluationPlanRevision,
     GoalRevision,
+    InputBinding,
     InteractionProtocolRevision,
     ScenarioRevision,
     StudyRevision,
@@ -355,6 +356,8 @@ class CapabilityCatalogEntry:
     ref: CapabilityDescriptorRef
     adapter: str
     allowed_permissions: frozenset[str]
+    compatible_interface_versions: frozenset[str] = frozenset()
+    satisfied_authority_constraints: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True)
@@ -449,6 +452,7 @@ class AdmissionService:
                         kind=requirement.kind,
                         requested_ref=requirement.capability_ref,
                         required=requirement.required,
+                        exposure=requirement.exposure,
                         status="unsupported",
                         reason=ResolutionReason(
                             code="unsupported",
@@ -462,6 +466,29 @@ class AdmissionService:
                         f"{requirement.capability_ref.name}"
                     )
                 continue
+            if requirement.minimum_interface_version not in entry.compatible_interface_versions:
+                resolved.append(
+                    ResolvedCapability(
+                        kind=requirement.kind,
+                        requested_ref=requirement.capability_ref,
+                        required=requirement.required,
+                        exposure=requirement.exposure,
+                        status="unsupported",
+                        reason=ResolutionReason(
+                            code="unsupported",
+                            detail=(
+                                "capability adapter does not support the required "
+                                "interface version"
+                            ),
+                        ),
+                    )
+                )
+                if not requirement.required:
+                    warnings.append(
+                        "optional capability interface unavailable: "
+                        f"{requirement.capability_ref.name}"
+                    )
+                continue
             requested_permissions = frozenset(requirement.requested_permissions)
             if not requested_permissions.issubset(entry.allowed_permissions):
                 resolved.append(
@@ -469,6 +496,7 @@ class AdmissionService:
                         kind=requirement.kind,
                         requested_ref=requirement.capability_ref,
                         required=requirement.required,
+                        exposure=requirement.exposure,
                         status="denied",
                         reason=ResolutionReason(
                             code="denied",
@@ -482,16 +510,52 @@ class AdmissionService:
                         f"{requirement.capability_ref.name}"
                     )
                 continue
+            requested_constraints = frozenset(requirement.authority_constraints)
+            if not requested_constraints.issubset(
+                entry.satisfied_authority_constraints
+            ):
+                resolved.append(
+                    ResolvedCapability(
+                        kind=requirement.kind,
+                        requested_ref=requirement.capability_ref,
+                        required=requirement.required,
+                        exposure=requirement.exposure,
+                        status="denied",
+                        reason=ResolutionReason(
+                            code="denied",
+                            detail=(
+                                "capability adapter cannot prove all requested "
+                                "authority constraints"
+                            ),
+                        ),
+                    )
+                )
+                if not requirement.required:
+                    warnings.append(
+                        "optional capability authority constraint denied: "
+                        f"{requirement.capability_ref.name}"
+                    )
+                continue
             resolved.append(
                 ResolvedCapability(
                     kind=requirement.kind,
                     requested_ref=requirement.capability_ref,
                     required=requirement.required,
+                    exposure=requirement.exposure,
                     status="resolved",
                     resolved_ref=entry.ref,
                     adapter=entry.adapter,
+                    effective_interface_version=requirement.minimum_interface_version,
                     effective_permissions=tuple(sorted(requested_permissions)),
-                    context_refs=requirement.instruction_refs,
+                    satisfied_authority_constraints=tuple(
+                        sorted(requested_constraints)
+                    ),
+                    context_refs=(
+                        requirement.instruction_refs
+                        if requirement.exposure
+                        in {"instructions", "instructions_and_schema"}
+                        else ()
+                    ),
                 )
             )
 
@@ -524,6 +588,63 @@ class AdmissionService:
                     subject_ref=spec.workspace.runtime_kind,
                     reason=ResolutionReason(
                         code="unsupported", detail="workspace runtime is not implemented"
+                    ),
+                    blocking=True,
+                )
+            )
+        elif any(
+            not any(
+                binding.visibility in {"subject", "subject_and_evaluator"}
+                and binding.mount_name == mount.name
+                and binding.source == mount.source
+                and binding.mount_access == mount.access
+                for binding in spec.scenario.input_bindings
+            )
+            for mount in spec.workspace.mounts
+        ):
+            workspace_status = "denied"
+            issues.append(
+                AdmissionIssue(
+                    category="workspace",
+                    subject_ref="mount_authority",
+                    reason=ResolutionReason(
+                        code="denied",
+                        detail="workspace mount is not an exact Subject-visible scenario input",
+                    ),
+                    blocking=True,
+                )
+            )
+        elif any(item.access != "read_only" for item in spec.workspace.mounts):
+            workspace_status = "unsupported"
+            issues.append(
+                AdmissionIssue(
+                    category="workspace",
+                    subject_ref="read_write_mount",
+                    reason=ResolutionReason(
+                        code="unsupported",
+                        detail="the active workspace adapter only supports read-only inputs",
+                    ),
+                    blocking=True,
+                )
+            )
+        elif (
+            spec.workspace.write_zones
+            or spec.workspace.secret_binding_refs
+            or spec.workspace.snapshot_policy.capture_workspace
+            or spec.workspace.snapshot_policy.include_zones
+            or spec.workspace.cleanup_policy.mode != "discard"
+        ):
+            workspace_status = "unsupported"
+            issues.append(
+                AdmissionIssue(
+                    category="workspace",
+                    subject_ref=spec.workspace.runtime_kind,
+                    reason=ResolutionReason(
+                        code="unsupported",
+                        detail=(
+                            "workspace requests write, secret, snapshot, or retention "
+                            "features that the active adapter does not implement"
+                        ),
                     ),
                     blocking=True,
                 )
@@ -577,10 +698,45 @@ class AdmissionService:
                     blocking=True,
                 )
             )
+        elif (
+            spec.interaction_protocol.max_turns != 1
+            or spec.interaction_protocol.system_prompt_ref is not None
+            or spec.interaction_protocol.initial_message_refs
+        ):
+            interaction_status = "unsupported"
+            issues.append(
+                AdmissionIssue(
+                    category="interaction",
+                    subject_ref="single_turn_materialization",
+                    reason=ResolutionReason(
+                        code="unsupported",
+                        detail=(
+                            "the active runner supports one direct turn without "
+                            "materialized prompt artifacts"
+                        ),
+                    ),
+                    blocking=True,
+                )
+            )
+        if spec.capture_policy.default_mode == "raw_encrypted":
+            denied_policies.append("capture:raw_encrypted")
+            issues.append(
+                AdmissionIssue(
+                    category="policy",
+                    subject_ref="capture:raw_encrypted",
+                    reason=ResolutionReason(
+                        code="denied",
+                        detail=(
+                            "the active runner has no encrypted Subject-output artifact sink"
+                        ),
+                    ),
+                    blocking=True,
+                )
+            )
         required_capability_failed = any(
             item.required and item.status != "resolved" for item in resolved
         )
-        blocked = bool(missing) or required_capability_failed
+        blocked = bool(missing or denied_policies) or required_capability_failed
         blocked = blocked or workspace_status != "resolved" or interaction_status != "resolved"
 
         inventory = ResolvedAgentInventory(
@@ -611,16 +767,57 @@ class AdmissionService:
 
 class SubjectEnvelopeCompiler:
     @staticmethod
-    def compile(spec: RunSpec, admission: AdmissionRecord) -> SubjectEnvelope:
+    def compile(
+        spec: RunSpec,
+        admission: AdmissionRecord,
+        *,
+        materialized_inputs: tuple[InputBinding, ...] | None = None,
+    ) -> SubjectEnvelope:
         if admission.run_spec_digest != spec.digest:
             raise ValueError("admission does not belong to the RunSpec")
         if admission.decision != "admitted":
             raise ValueError("subject envelope cannot be created for rejected admission")
-        visible_inputs = tuple(
+        declared_visible_inputs = tuple(
             item
             for item in spec.scenario.input_bindings
             if item.visibility in {"subject", "subject_and_evaluator"}
         )
+        if spec.context_policy is not None and materialized_inputs is None:
+            raise ValueError(
+                "context-limited RunSpec requires materialized Subject inputs"
+            )
+        visible_inputs = (
+            materialized_inputs
+            if materialized_inputs is not None
+            else tuple(
+                item.model_copy(
+                    update={
+                        "source": item.source.model_copy(update={"locator": None})
+                    }
+                )
+                for item in declared_visible_inputs
+            )
+        )
+        if {item.id for item in visible_inputs} != {
+            item.id for item in declared_visible_inputs
+        }:
+            raise ValueError("materialized Subject inputs must match visible scenario inputs")
+        declared_by_id = {item.id: item for item in declared_visible_inputs}
+        for materialized in visible_inputs:
+            declared = declared_by_id[materialized.id]
+            if (
+                materialized.role != declared.role
+                or materialized.visibility != declared.visibility
+                or materialized.mount_access != declared.mount_access
+                or materialized.mount_name != declared.mount_name
+                or materialized.source.media_type != declared.source.media_type
+                or materialized.source.classification != declared.source.classification
+            ):
+                raise ValueError(
+                    "materialized Subject input changed its declared authority metadata"
+                )
+        if any(item.source.locator is not None for item in visible_inputs):
+            raise ValueError("Subject inputs cannot expose storage locators")
         effective_capabilities = tuple(
             item
             for item in admission.resolved_inventory.capabilities

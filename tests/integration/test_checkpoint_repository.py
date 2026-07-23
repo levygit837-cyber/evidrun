@@ -20,7 +20,7 @@ from evidrun.contracts.legacy import capability_ref
 from evidrun.contracts.runtime import CheckpointValidation
 from evidrun.infrastructure.database import Repository
 from evidrun.runs import EvidrunService
-from evidrun.shared.types import new_id, sha256_json, utc_now
+from evidrun.shared.types import new_id, sha256_bytes, sha256_json, utc_now
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -54,6 +54,7 @@ def test_checkpoint_record_is_anchored_to_the_exact_run_ledger(
     )
     checkpoint_spec = spec.model_copy(
         update={
+            "variant_id": "checkpoint-test",
             "checkpoint_policy_ref": policy_ref,
             "checkpoint_policy": policy,
         }
@@ -79,6 +80,20 @@ def test_checkpoint_record_is_anchored_to_the_exact_run_ledger(
             "admission_digest": admission.digest,
         },
     )
+    snapshot_content = "authorized checkpoint context"
+    snapshot = repository.save_snapshot(
+        run.id,
+        {
+            "policy_id": "checkpoint-test",
+            "strategy": "full",
+            "max_chars": len(snapshot_content),
+            "source_chars": len(snapshot_content),
+            "selected_chars": len(snapshot_content),
+            "selected_content": snapshot_content,
+            "omitted": [],
+            "content_hash": sha256_bytes(snapshot_content.encode()),
+        },
+    )
     record = CheckpointRecord(
         checkpoint_id=new_id("checkpoint"),
         run_id=run.id,
@@ -87,6 +102,7 @@ def test_checkpoint_record_is_anchored_to_the_exact_run_ledger(
         definition_digest=sha256_json(semantic_model_dump(policy.definitions[0])),
         up_to_event_sequence=boundary.sequence,
         event_hash=boundary.event_hash,
+        context_snapshot_refs=(snapshot.id,),
         validations=(
             CheckpointValidation(
                 validator_ref=validator_ref,
@@ -107,3 +123,37 @@ def test_checkpoint_record_is_anchored_to_the_exact_run_ledger(
     )
     with pytest.raises(ValueError, match="boundary"):
         repository.save_checkpoint_record(tampered)
+
+    missing_capture = record.model_copy(
+        update={
+            "checkpoint_id": new_id("checkpoint"),
+            "context_snapshot_refs": (),
+        }
+    )
+    with pytest.raises(ValueError, match="capture does not match"):
+        repository.save_checkpoint_record(missing_capture)
+
+    substituted_validator = record.model_copy(
+        update={
+            "checkpoint_id": new_id("checkpoint"),
+            "validations": (
+                CheckpointValidation(
+                    validator_ref=capability_ref("evidrun.checkpoint", "substituted"),
+                    passed=True,
+                    rationale="A validator not authorized by the definition.",
+                ),
+            ),
+        }
+    )
+    with pytest.raises(ValueError, match="definition validators"):
+        repository.save_checkpoint_record(substituted_validator)
+
+    replay_overclaim = record.model_copy(
+        update={
+            "checkpoint_id": new_id("checkpoint"),
+            "replayability": "deterministic",
+            "replayability_limitations": (),
+        }
+    )
+    with pytest.raises(ValueError, match="replayability is unsupported"):
+        repository.save_checkpoint_record(replay_overclaim)

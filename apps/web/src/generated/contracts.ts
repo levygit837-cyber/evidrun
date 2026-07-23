@@ -313,9 +313,12 @@ export type Issues = AdmissionIssue[];
 export type MissingRequirements = string[];
 export type Adapter = string | null;
 export type ContextRefs = ArtifactRef[];
+export type EffectiveInterfaceVersion = string | null;
 export type EffectivePermissions = string[];
+export type Exposure1 = "schema_only" | "instructions" | "instructions_and_schema";
 export type Kind16 = "tool" | "skill";
 export type Required5 = boolean;
+export type SatisfiedAuthorityConstraints = string[];
 export type Status = "resolved" | "unsupported" | "denied" | "unavailable";
 export type Capabilities = ResolvedCapability[];
 export type ProviderAdapter = string | null;
@@ -369,6 +372,8 @@ export type HiddenInputRefs1 = ArtifactRef[];
 export type Inputs1 = InputBinding[];
 export type RunSpecDigest2 = string;
 export type SchemaVersion13 = "1";
+export type AdmissionRecordDigest = string | null;
+export type AdmissionRecordId = string | null;
 export type CheckpointId1 = string;
 export type CompatibilityTags1 = string[];
 export type ContextSnapshotRefs = string[];
@@ -418,14 +423,16 @@ export type Strategy1 = "head" | "tail" | "full";
 export type Network = "disabled" | "provider_only" | "allowlist";
 export type Runner = string;
 export type SubjectEnvelopeDigest = string;
+export type CaptureMode = "metadata" | "redacted" | "raw_encrypted" | "disabled";
 export type Evidence = string[];
 export type Metadata = KeyValue[];
-export type Output = string;
+export type Output = string | null;
+export type OutputDigest = string;
 export type EvaluationRecordDigest = string;
 export type EvaluationRecordId = string;
 export type GateStatus1 = "passed" | "failed" | "not_applicable";
 export type EffectivePermissions1 = string[];
-export type Exposure1 = "schema_only" | "instructions" | "instructions_and_schema";
+export type Exposure2 = "schema_only" | "instructions" | "instructions_and_schema";
 export type Required6 = boolean;
 export type InstructionRefs1 = ArtifactRef[];
 export type InvocationId = string;
@@ -926,12 +933,15 @@ export interface ResolvedAgentInventory {
 export interface ResolvedCapability {
   adapter?: Adapter;
   context_refs?: ContextRefs;
+  effective_interface_version?: EffectiveInterfaceVersion;
   effective_permissions?: EffectivePermissions;
+  exposure: Exposure1;
   kind: Kind16;
   reason?: ResolutionReason | null;
   requested_ref: CapabilityDescriptorRef;
   required: Required5;
   resolved_ref?: CapabilityDescriptorRef | null;
+  satisfied_authority_constraints?: SatisfiedAuthorityConstraints;
   status: Status;
 }
 export interface SubjectEnvelope {
@@ -995,6 +1005,8 @@ export interface EvaluatorEnvelope {
   stage: EvaluationStage;
 }
 export interface CheckpointRecord {
+  admission_record_digest?: AdmissionRecordDigest;
+  admission_record_id?: AdmissionRecordId;
   artifact_manifest_ref?: ArtifactRef | null;
   checkpoint_id: CheckpointId1;
   compatibility_tags?: CompatibilityTags1;
@@ -1071,9 +1083,11 @@ export interface SubjectInvokedPayload {
   subject_envelope_digest: SubjectEnvelopeDigest;
 }
 export interface SubjectRespondedPayload {
+  capture_mode: CaptureMode;
   evidence?: Evidence;
   metadata?: Metadata;
-  output: Output;
+  output?: Output;
+  output_digest: OutputDigest;
 }
 export interface EvaluationCompletedPayload {
   evaluation_record_digest: EvaluationRecordDigest;
@@ -1083,7 +1097,7 @@ export interface EvaluationCompletedPayload {
 export interface CapabilityOfferedPayload {
   capability_ref: CapabilityDescriptorRef;
   effective_permissions?: EffectivePermissions1;
-  exposure: Exposure1;
+  exposure: Exposure2;
   required: Required6;
 }
 export interface SkillLoadedPayload {

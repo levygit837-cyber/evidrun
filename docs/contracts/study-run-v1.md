@@ -77,6 +77,8 @@ derivados de eventos; a coluna operacional de status não é fonte canônica.
 O envelope mínimo do Subject contém Goal, inputs visíveis, interação visível, capabilities
 efetivamente resolvidas, workspace, budgets e stop conditions. Ele exclui Intent, hipótese do
 laboratório, outras variants, hidden graders, calibration data, chats, segredos e decisões internas.
+Para Runs com Context Policy, o compiler do envelope exige inputs já materializados e rejeita
+locators de storage; o runner determinístico referencia o Context Snapshot selecionado por digest.
 
 Cada stage recebe um `EvaluatorEnvelope` separado com suas dimensões, inputs autorizados, hidden
 inputs declarados e blinding policy. Ele não recebe automaticamente StudyIntent ou outras variants.

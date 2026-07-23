@@ -33,6 +33,14 @@ criptográfica.
 Artifacts públicos ou internos usam CAS. Raw sensível usa ID opaco e AES-256-GCM. Conteúdo
 restricted não pode ser persistido.
 
+Essa garantia está implementada no `ArtifactStore`, não automaticamente em toda escrita do pipeline
+de Run. O evento de resposta do Subject já aplica os modos metadata/redacted/disabled, e a admissão
+rejeita `raw_encrypted` enquanto não há sink cifrado. Porém o demo usa fixture internal e
+`ContextSnapshotRow.selected_content` continua fora desse enforcement. Até a classification dos
+inputs e snapshots passar pelo mesmo boundary, o runner novo não deve receber conteúdo
+sensitive/restricted nem ser apresentado como captura sensível completa.
+
 JSONL existe dentro do Evidence Bundle. Bundle v1 permanece verificável; v2 carrega as revisions,
 specs, admissions, evaluations e checkpoints da composição nova, além de hashes e event chains. FTS,
-Parquet, Grade, scorecards e relatórios são projeções reconstruíveis.
+Parquet, Grade, scorecards e relatórios não são fontes canônicas. Grade e relatórios legados já são
+projeções operacionais; FTS e Parquet continuam planejados.

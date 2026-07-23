@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
-from datetime import UTC, datetime
-from typing import Any, Literal
+from datetime import UTC
+from typing import Any, Literal, cast
 
 from sqlalchemy import func, select
 
@@ -287,6 +287,57 @@ class Repository:
                 raise KeyError(f"RunSpec not found: {run_spec_id}")
             if spec.digest != record.run_spec_digest:
                 raise ValueError("admission digest does not match its RunSpec")
+            run_spec = RunSpec.model_validate(json.loads(spec.spec_json))
+            inventory = record.resolved_inventory
+            if (
+                inventory.requirement_ref != run_spec.agent_inventory_ref
+                or inventory.runner_ref != run_spec.agent_inventory.runner_ref
+                or inventory.provider_profile_id
+                != run_spec.agent_inventory.provider_profile_id
+            ):
+                raise ValueError("admission inventory does not match the RunSpec requirements")
+            requirements = run_spec.agent_inventory.capability_requirements
+            if len(inventory.capabilities) != len(requirements):
+                raise ValueError("admission must resolve every requested capability exactly once")
+            for requirement, resolved in zip(
+                requirements, inventory.capabilities, strict=True
+            ):
+                if (
+                    resolved.kind != requirement.kind
+                    or resolved.requested_ref != requirement.capability_ref
+                    or resolved.required != requirement.required
+                    or resolved.exposure != requirement.exposure
+                ):
+                    raise ValueError(
+                        "admission capability does not match its RunSpec requirement"
+                    )
+                if not set(resolved.effective_permissions).issubset(
+                    requirement.requested_permissions
+                ):
+                    raise ValueError("admission capability escalates requested permissions")
+                if not set(resolved.satisfied_authority_constraints).issubset(
+                    requirement.authority_constraints
+                ):
+                    raise ValueError(
+                        "admission capability substitutes authority constraints"
+                    )
+                if resolved.status == "resolved" and (
+                    resolved.resolved_ref != requirement.capability_ref
+                    or resolved.context_refs
+                    != (
+                        requirement.instruction_refs
+                        if requirement.exposure
+                        in {"instructions", "instructions_and_schema"}
+                        else ()
+                    )
+                    or resolved.effective_interface_version
+                    != requirement.minimum_interface_version
+                    or set(resolved.satisfied_authority_constraints)
+                    != set(requirement.authority_constraints)
+                ):
+                    raise ValueError(
+                        "admission capability does not satisfy its interface or authority contract"
+                    )
             existing = session.scalar(
                 select(AdmissionRecordRow).where(
                     AdmissionRecordRow.run_spec_id == run_spec_id,
@@ -345,16 +396,37 @@ class Repository:
         admission_id: str | None = None,
         retry_of: str | None = None,
     ) -> RunRow:
-        if (run_spec_id is None) != (admission_id is None):
-            raise ValueError("RunSpec and AdmissionRecord must be linked together")
-        if run_spec_id is not None and admission_id is not None:
-            with self.database.session() as session:
-                spec = session.get(RunSpecRow, run_spec_id)
-                admission = session.get(AdmissionRecordRow, admission_id)
-                if spec is None or admission is None:
-                    raise ValueError("RunSpec or AdmissionRecord does not exist")
-                if admission.run_spec_id != spec.id or admission.decision != "admitted":
-                    raise ValueError("Run requires an admitted record for the exact RunSpec")
+        if run_spec_id is None or admission_id is None:
+            raise ValueError("new Runs require an exact RunSpec and AdmissionRecord")
+        with self.database.session() as session:
+            spec_row = session.get(RunSpecRow, run_spec_id)
+            admission_row = session.get(AdmissionRecordRow, admission_id)
+            if spec_row is None or admission_row is None:
+                raise ValueError("RunSpec or AdmissionRecord does not exist")
+            spec = RunSpec.model_validate(json.loads(spec_row.spec_json))
+            admission = AdmissionRecord.model_validate(
+                json.loads(admission_row.record_json)
+            )
+            if spec.digest != spec_row.digest or admission.digest != admission_row.digest:
+                raise ValueError("Run contracts failed stored digest verification")
+            if (
+                admission_row.run_spec_id != spec_row.id
+                or admission_row.decision != "admitted"
+                or admission.decision != "admitted"
+                or admission.run_spec_digest != spec.digest
+            ):
+                raise ValueError("Run requires an admitted record for the exact RunSpec")
+            expected_identity = (
+                spec.variant_id,
+                spec.repetition_index,
+                spec.agent_inventory.runner_ref.name,
+                spec.goal.instruction,
+            )
+            received_identity = (variant_id, repetition, runner, objective)
+            if received_identity != expected_identity:
+                raise ValueError("Run identity must match its immutable RunSpec")
+            if retry_of is not None and session.get(RunRow, retry_of) is None:
+                raise ValueError("retry_of must reference an existing Run")
         row = RunRow(
             id=new_id("run"),
             experiment_revision_id=experiment_revision_id,
@@ -377,22 +449,17 @@ class Repository:
         self,
         run_id: str,
         *,
-        status: str,
         output: str | None = None,
         context_hash: str | None = None,
-        completed_at: datetime | None = None,
     ) -> RunRow:
         with self.database.session() as session:
             row = session.get(RunRow, run_id)
             if row is None:
                 raise KeyError(f"Run not found: {run_id}")
-            row.status = status
             if output is not None:
                 row.output = output
             if context_hash is not None:
                 row.context_hash = context_hash
-            if completed_at is not None:
-                row.completed_at = completed_at
             session.commit()
             return row
 
@@ -410,11 +477,60 @@ class Repository:
     ) -> RunEventRow:
         normalized_payload = normalize_event_payload(event_type, dict(payload))
         with self.database.session() as session:
+            run = session.get(RunRow, run_id)
+            if run is None:
+                raise KeyError(f"Run not found: {run_id}")
             last = session.scalar(
                 select(RunEventRow)
                 .where(RunEventRow.run_id == run_id)
                 .order_by(RunEventRow.sequence.desc())
                 .limit(1)
+            )
+            if event_type == "run.queued":
+                if run.run_spec_id is None or run.admission_id is None:
+                    raise ValueError("run.queued requires canonical Run contracts")
+                spec_row = session.get(RunSpecRow, run.run_spec_id)
+                admission_row = session.get(AdmissionRecordRow, run.admission_id)
+                if spec_row is None or admission_row is None:
+                    raise ValueError("run.queued references missing Run contracts")
+                if (
+                    normalized_payload.get("run_spec_digest") != spec_row.digest
+                    or normalized_payload.get("admission_digest") != admission_row.digest
+                ):
+                    raise ValueError("run.queued contract digests do not match the RunRecord")
+            if event_type in {
+                "run.completed",
+                "run.failed",
+                "run.cancelled",
+                "run.budget_exhausted",
+                "run.guardrail_stopped",
+            }:
+                evaluation_refs = cast(
+                    list[object],
+                    normalized_payload.get("evaluation_record_refs", []),
+                )
+                for evaluation_id in evaluation_refs:
+                    evaluation = session.get(
+                        EvaluationRecordRow, str(evaluation_id)
+                    )
+                    if evaluation is None or evaluation.run_id != run_id:
+                        raise ValueError(
+                            "terminal event references an evaluation outside the Run"
+                        )
+                checkpoint_refs = cast(
+                    list[object], normalized_payload.get("checkpoint_refs", [])
+                )
+                for checkpoint_id in checkpoint_refs:
+                    checkpoint = session.get(CheckpointRecordRow, str(checkpoint_id))
+                    if checkpoint is None or checkpoint.run_id != run_id:
+                        raise ValueError(
+                            "terminal event references a checkpoint outside the Run"
+                        )
+            next_status = self._event_transition(
+                run=run,
+                event_type=event_type,
+                payload=normalized_payload,
+                has_prior_event=last is not None,
             )
             sequence = 1 if last is None else last.sequence + 1
             event_id = new_id("evt")
@@ -451,8 +567,74 @@ class Repository:
                 event_hash=sha256_json(envelope),
             )
             session.add(row)
+            if next_status is not None:
+                run.status = next_status
+                if next_status in {
+                    "completed",
+                    "failed",
+                    "cancelled",
+                    "budget_exhausted",
+                    "guardrail_stopped",
+                }:
+                    run.completed_at = occurred_at
             session.commit()
             return row
+
+    @staticmethod
+    def _event_transition(
+        *,
+        run: RunRow,
+        event_type: str,
+        payload: Mapping[str, object],
+        has_prior_event: bool,
+    ) -> str | None:
+        transition: dict[str, tuple[frozenset[str], str]] = {
+            "run.preparing": (frozenset({"queued"}), "preparing"),
+            "run.running": (frozenset({"preparing"}), "running"),
+            "run.paused": (frozenset({"running"}), "paused"),
+            "run.resumed": (frozenset({"paused"}), "running"),
+            "run.evaluating": (frozenset({"running"}), "evaluating"),
+            "run.completed": (frozenset({"evaluating"}), "completed"),
+            "run.failed": (
+                frozenset({"queued", "preparing", "running", "paused", "evaluating"}),
+                "failed",
+            ),
+            "run.cancelled": (
+                frozenset({"queued", "preparing", "running", "paused", "evaluating"}),
+                "cancelled",
+            ),
+            "run.budget_exhausted": (
+                frozenset({"queued", "preparing", "running", "paused", "evaluating"}),
+                "budget_exhausted",
+            ),
+            "run.guardrail_stopped": (
+                frozenset({"queued", "preparing", "running", "paused", "evaluating"}),
+                "guardrail_stopped",
+            ),
+        }
+        if not has_prior_event and event_type != "run.queued":
+            raise ValueError("run.queued must be the first Run event")
+        if event_type == "run.queued":
+            if has_prior_event or run.status != "queued":
+                raise ValueError("run.queued must be the first lifecycle event")
+            if payload.get("run_id") != run.id or payload.get("variant_id") != run.variant_id:
+                raise ValueError("run.queued identity does not match the RunRecord")
+            return None
+        rule = transition.get(event_type)
+        if rule is None:
+            return None
+        allowed_from, target = rule
+        if run.status not in allowed_from:
+            raise ValueError(
+                f"invalid Run lifecycle transition: {run.status} -> {target}"
+            )
+        declared_from = payload.get("from_status")
+        if declared_from is not None and declared_from != run.status:
+            raise ValueError("Run lifecycle payload has an incorrect from_status")
+        declared_terminal = payload.get("status")
+        if declared_terminal is not None and declared_terminal != target:
+            raise ValueError("terminal event type and payload status do not match")
+        return target
 
     def save_snapshot(self, run_id: str, snapshot: Mapping[str, Any]) -> ContextSnapshotRow:
         row = ContextSnapshotRow(
@@ -518,6 +700,87 @@ class Repository:
             if spec.evaluation_plan_ref != record.plan_ref:
                 raise ValueError("evaluation plan does not belong to the RunSpec")
             EvaluationValidator.validate(spec.evaluation_plan, record)
+            stage = next(
+                item
+                for item in spec.evaluation_plan.stages
+                if item.id == record.stage_id
+            )
+            boundary_event: RunEventRow | None = None
+            boundary_checkpoint: CheckpointRecordRow | None = None
+            if record.boundary.up_to_event_sequence is not None:
+                boundary_event = session.scalar(
+                    select(RunEventRow).where(
+                        RunEventRow.run_id == record.run_id,
+                        RunEventRow.sequence
+                        == record.boundary.up_to_event_sequence,
+                    )
+                )
+            if record.boundary.checkpoint_id is not None:
+                boundary_checkpoint = session.get(
+                    CheckpointRecordRow, record.boundary.checkpoint_id
+                )
+            if stage.trigger.kind == "event":
+                if (
+                    boundary_event is None
+                    or boundary_event.event_type != stage.trigger.reference
+                ):
+                    raise ValueError("evaluation boundary does not satisfy its event trigger")
+            elif stage.trigger.kind == "checkpoint":
+                if boundary_checkpoint is None:
+                    raise ValueError(
+                        "evaluation checkpoint trigger requires a checkpoint boundary"
+                    )
+                if stage.trigger.reference is not None:
+                    checkpoint = CheckpointRecord.model_validate(
+                        json.loads(boundary_checkpoint.record_json)
+                    )
+                    if checkpoint.definition_id != stage.trigger.reference:
+                        raise ValueError(
+                            "evaluation boundary does not satisfy its checkpoint trigger"
+                        )
+            elif stage.trigger.kind == "run_terminal" and (
+                boundary_event is None
+                or boundary_event.event_type
+                not in {
+                    "run.completed",
+                    "run.failed",
+                    "run.cancelled",
+                    "run.budget_exhausted",
+                    "run.guardrail_stopped",
+                }
+            ):
+                raise ValueError(
+                    "run-terminal evaluation requires a terminal event boundary"
+                )
+            max_evidence_sequence = (
+                boundary_event.sequence
+                if boundary_event is not None
+                else boundary_checkpoint.up_to_event_sequence
+                if boundary_checkpoint is not None
+                else 0
+            )
+            for dimension in record.dimension_values:
+                for evidence_ref in dimension.evidence_refs:
+                    scheme, target = evidence_ref.ref.split(":", 1)
+                    if scheme == "run" and target != record.run_id:
+                        raise ValueError("evaluation evidence references a different Run")
+                    if scheme == "event":
+                        evidence_event = session.get(RunEventRow, target)
+                        if (
+                            evidence_event is None
+                            or evidence_event.run_id != record.run_id
+                            or evidence_event.sequence > max_evidence_sequence
+                        ):
+                            raise ValueError(
+                                "evaluation evidence event is outside its authorized boundary"
+                            )
+            existing = session.scalar(
+                select(EvaluationRecordRow).where(
+                    EvaluationRecordRow.record_digest == record.digest
+                )
+            )
+            if existing is not None:
+                return existing
             if record.source_type == "human_adjudicator":
                 prior_adjudicated = session.get(
                     EvaluationRecordRow, record.supersedes_record_ref
@@ -525,6 +788,13 @@ class Repository:
                 if prior_adjudicated is None or prior_adjudicated.run_id != record.run_id:
                     raise ValueError(
                         "human adjudication must reference an existing record from the same Run"
+                    )
+                prior_record = EvaluationRecord.model_validate(
+                    json.loads(prior_adjudicated.record_json)
+                )
+                if prior_record.plan_ref != record.plan_ref:
+                    raise ValueError(
+                        "human adjudication must supersede a record from the same plan"
                     )
             prior_rows = list(
                 session.scalars(
@@ -546,13 +816,14 @@ class Repository:
             )
             if record.stage_id not in visible_stages:
                 raise ValueError("evaluation stage is blocked by a failed hard gate")
-            existing = session.scalar(
-                select(EvaluationRecordRow).where(
-                    EvaluationRecordRow.record_digest == record.digest
+            if record.source_type != "human_adjudicator" and any(
+                prior.stage_id == record.stage_id
+                and prior.source_type == record.source_type
+                for prior in prior_rows
+            ):
+                raise ValueError(
+                    "evaluation stage already has a record from this source type"
                 )
-            )
-            if existing is not None:
-                return existing
             row = EvaluationRecordRow(
                 id=record.record_id,
                 run_id=record.run_id,
@@ -596,9 +867,89 @@ class Repository:
             )
             if definition is None:
                 raise ValueError("checkpoint definition does not belong to the RunSpec")
+            if record.replayability == "deterministic":
+                raise ValueError(
+                    "deterministic checkpoint replayability is unsupported in this runtime"
+                )
             expected_definition_digest = sha256_json(semantic_model_dump(definition))
             if record.definition_digest != expected_definition_digest:
                 raise ValueError("checkpoint definition digest does not match the RunSpec")
+            validation_refs = tuple(item.validator_ref for item in record.validations)
+            if set(validation_refs) != set(definition.validator_refs) or len(
+                validation_refs
+            ) != len(definition.validator_refs):
+                raise ValueError(
+                    "checkpoint validations must match the definition validators"
+                )
+            boundary_event = session.scalar(
+                select(RunEventRow).where(
+                    RunEventRow.run_id == record.run_id,
+                    RunEventRow.sequence == record.up_to_event_sequence,
+                )
+            )
+            if boundary_event is None:
+                raise ValueError("checkpoint boundary event is missing")
+            trigger = definition.trigger
+            if trigger.kind == "event" and boundary_event.event_type != trigger.event_type:
+                raise ValueError("checkpoint boundary does not satisfy its event trigger")
+            if trigger.kind not in {"manual", "event"}:
+                raise ValueError(
+                    "checkpoint trigger is representable but unsupported by this runtime"
+                )
+            capture = definition.capture
+            capture_pairs = (
+                (capture.context_snapshot, bool(record.context_snapshot_refs), "context snapshot"),
+                (capture.protocol_state, record.protocol_state_ref is not None, "protocol state"),
+                (
+                    capture.artifact_manifest,
+                    record.artifact_manifest_ref is not None,
+                    "artifact manifest",
+                ),
+                (
+                    capture.workspace_snapshot,
+                    record.workspace_snapshot_ref is not None,
+                    "workspace snapshot",
+                ),
+                (
+                    capture.evaluation_records,
+                    bool(record.evaluation_record_refs),
+                    "evaluation records",
+                ),
+            )
+            for requested, present, label in capture_pairs:
+                if requested != present:
+                    raise ValueError(
+                        f"checkpoint {label} capture does not match its definition"
+                    )
+            admission_capture = capture.provider_resolution or capture.agent_inventory
+            if admission_capture != (record.admission_record_id is not None):
+                raise ValueError(
+                    "checkpoint admission capture does not match provider/inventory request"
+                )
+            if record.admission_record_id is not None:
+                admission_row = session.get(
+                    AdmissionRecordRow, record.admission_record_id
+                )
+                if (
+                    admission_row is None
+                    or admission_row.id != run.admission_id
+                    or admission_row.digest != record.admission_record_digest
+                ):
+                    raise ValueError(
+                        "checkpoint admission capture does not belong to the Run"
+                    )
+            for snapshot_id in record.context_snapshot_refs:
+                snapshot = session.get(ContextSnapshotRow, snapshot_id)
+                if snapshot is None or snapshot.run_id != record.run_id:
+                    raise ValueError(
+                        "checkpoint context snapshot does not belong to the Run"
+                    )
+            for evaluation_id in record.evaluation_record_refs:
+                evaluation = session.get(EvaluationRecordRow, evaluation_id)
+                if evaluation is None or evaluation.run_id != record.run_id:
+                    raise ValueError(
+                        "checkpoint evaluation record does not belong to the Run"
+                    )
             existing = session.scalar(
                 select(CheckpointRecordRow).where(
                     CheckpointRecordRow.checkpoint_hash == record.checkpoint_hash

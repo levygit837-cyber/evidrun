@@ -21,7 +21,8 @@ review_due: 2026-10-23
 
 > Estado: feature futura preservada para reuso. Este documento não descreve runtime existente, não
 > define contrato aceito, não escolhe UI ou classificador e não autoriza implementação automática.
-> A ideia foi deliberadamente adiada enquanto o projeto prioriza suas partes mais críticas.
+> A ideia foi deliberadamente adiada enquanto a fundação de contratos e runtime passa por revisão e
+> endurecimento.
 
 ## Origem e motivação
 
@@ -760,8 +761,9 @@ substituem RunEvents, Context Snapshots, artifacts, evaluations ou CheckpointRec
 ## Decisão de prioridade
 
 A ideia foi considerada promissora e deve ser preservada para experimentação futura. Ela não entra
-agora no roadmap ativo porque contratos de Run, admissão, evidência e runtime possuem prioridade
-maior. O adiamento reduz competição por atenção sem descartar a oportunidade.
+agora no roadmap ativo: a fundação de contratos, admissão, evidência e runtime foi criada, mas ainda
+possui prioridade de revisão e endurecimento. O adiamento reduz competição por atenção sem descartar
+a oportunidade.
 
 ## Regra de promoção documental
 

@@ -221,7 +221,9 @@ class ExperimentManifestV1Adapter:
                         id=grader.id,
                         kind="deterministic_grader",
                         evaluator_ref=grader_ref,
-                        trigger=EvaluationTrigger(kind="run_terminal"),
+                        trigger=EvaluationTrigger(
+                            kind="event", reference="subject.responded"
+                        ),
                         output_dimensions=("root-cause-grounded",),
                         parameters=(KeyValue(key="expected", value=grader.expected),),
                     ),

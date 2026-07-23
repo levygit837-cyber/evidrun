@@ -12,6 +12,7 @@ from evidrun.contracts import (
     AgentInventoryRevision,
     ArtifactRef,
     BudgetSpec,
+    CapturePolicySpec,
     CheckpointPolicyRevision,
     CheckpointRecord,
     ContractRef,
@@ -22,6 +23,7 @@ from evidrun.contracts import (
     ExtensionRef,
     GoalRevision,
     GoalSpec,
+    InputBinding,
     InteractionProtocolRevision,
     RevisionDecisionRecord,
     RevisionEnvelope,
@@ -114,6 +116,24 @@ def baseline_specs() -> tuple[
     registry = accepted_registry(package)
     specs = StudyCompiler(registry).compile(package.study)
     return manifest, package, registry, specs
+
+
+def materialized_subject_inputs(spec: RunSpec) -> tuple[InputBinding, ...]:
+    return tuple(
+        item.model_copy(
+            update={
+                "source": item.source.model_copy(
+                    update={
+                        "artifact_id": f"context-snapshot:{item.id}",
+                        "digest": sha256_bytes(f"materialized:{item.id}".encode()),
+                        "locator": None,
+                    }
+                )
+            }
+        )
+        for item in spec.scenario.input_bindings
+        if item.visibility in {"subject", "subject_and_evaluator"}
+    )
 
 
 def accept(registry: InMemoryContractRegistry, revision: RevisionEnvelope) -> None:
@@ -236,7 +256,17 @@ def test_legacy_study_compiles_two_specs_and_hides_laboratory_data() -> None:
     )
     baseline = next(spec for spec in specs if spec.variant_id == manifest.baseline_variant)
     admission = admission_service.admit(baseline)
-    envelope = SubjectEnvelopeCompiler.compile(baseline, admission)
+    envelope = SubjectEnvelopeCompiler.compile(
+        baseline,
+        admission,
+        materialized_inputs=materialized_subject_inputs(baseline),
+    )
+    with pytest.raises(ValueError, match="must match visible scenario inputs"):
+        SubjectEnvelopeCompiler.compile(
+            baseline,
+            admission,
+            materialized_inputs=(),
+        )
     serialized = envelope.model_dump_json()
 
     assert admission.decision == "admitted"
@@ -244,6 +274,8 @@ def test_legacy_study_compiles_two_specs_and_hides_laboratory_data() -> None:
     assert manifest.graders[0].expected not in serialized
     assert "evaluation_plan" not in serialized
     assert "provider_profile_id" not in serialized
+    assert str(ROOT / "benchmarks/scenarios/crl-ctx-002/fixtures/long.log") not in serialized
+    assert "context-snapshot:incident-log" in serialized
     evaluator = EvaluatorEnvelopeCompiler.compile(
         baseline, baseline.evaluation_plan.stages[0].id
     )
@@ -317,6 +349,20 @@ def test_exploratory_comparison_requires_declared_confounders_for_extra_differen
         StudyCompiler(registry).compile(unexplained)
 
 
+def test_confounders_are_rejected_outside_exploratory_studies() -> None:
+    _, package = legacy_package()
+    document = package.study.semantic_document()
+    payload = document["payload"]
+    assert isinstance(payload, dict)
+    payload["evidence_mode"] = EvidenceMode.RETROSPECTIVE_OBSERVATIONAL.value
+    variants = payload["variants"]
+    assert isinstance(variants, list)
+    variants[0]["confounders"] = ["A known environment difference."]
+
+    with pytest.raises(ValidationError, match="only valid in exploratory"):
+        StudyRevision.model_validate(document)
+
+
 def test_required_and_optional_capabilities_have_different_admission_results() -> None:
     _, _, _, specs = baseline_specs()
     baseline = specs[0]
@@ -350,7 +396,11 @@ def test_required_and_optional_capabilities_have_different_admission_results() -
     admitted = service.admit(optional_spec)
     assert admitted.decision == "admitted"
     assert admitted.warnings
-    envelope = SubjectEnvelopeCompiler.compile(optional_spec, admitted)
+    envelope = SubjectEnvelopeCompiler.compile(
+        optional_spec,
+        admitted,
+        materialized_inputs=materialized_subject_inputs(optional_spec),
+    )
     assert envelope.effective_capabilities == ()
 
 
@@ -358,6 +408,11 @@ def test_admission_records_exact_capability_permissions_and_provider_resolution(
     _, _, _, specs = baseline_specs()
     baseline = specs[0]
     tool_ref = capability_ref("example.tool", "read-only-repository")
+    instruction_ref = ArtifactRef(
+        artifact_id="tool-instructions",
+        digest=sha256_bytes(b"instructions that schema-only exposure must hide"),
+        media_type="text/markdown",
+    )
     requirement = CapabilityRequirement(
         kind="tool",
         capability_ref=tool_ref,
@@ -365,6 +420,8 @@ def test_admission_records_exact_capability_permissions_and_provider_resolution(
         minimum_interface_version="1",
         requested_permissions=("read",),
         exposure="schema_only",
+        instruction_refs=(instruction_ref,),
+        authority_constraints=("no-write",),
     )
     agent = baseline.agent_inventory.model_copy(
         update={
@@ -383,6 +440,8 @@ def test_admission_records_exact_capability_permissions_and_provider_resolution(
                 ref=tool_ref,
                 adapter="test-read-adapter@1",
                 allowed_permissions=frozenset({"read"}),
+                compatible_interface_versions=frozenset({"1"}),
+                satisfied_authority_constraints=frozenset({"no-write"}),
             ),
         ),
         providers=(
@@ -401,6 +460,9 @@ def test_admission_records_exact_capability_permissions_and_provider_resolution(
     assert resolved.resolved_ref == tool_ref
     assert resolved.adapter == "test-read-adapter@1"
     assert resolved.effective_permissions == ("read",)
+    assert resolved.effective_interface_version == "1"
+    assert resolved.satisfied_authority_constraints == ("no-write",)
+    assert resolved.context_refs == ()
     assert set(resolved.effective_permissions).issubset(requirement.requested_permissions)
     assert admission.resolved_inventory.provider_profile_digest == provider_digest
     assert admission.resolved_inventory.provider_adapter == "openai-responses@1"
@@ -418,6 +480,34 @@ def test_admission_records_exact_capability_permissions_and_provider_resolution(
     assert denied.decision == "rejected"
     assert denied.resolved_inventory.capabilities[0].status == "denied"
     assert denied.resolved_inventory.capabilities[0].effective_permissions == ()
+
+    incompatible = requirement.model_copy(update={"minimum_interface_version": "2"})
+    incompatible_spec = baseline.model_copy(
+        update={
+            "agent_inventory": agent.model_copy(
+                update={"capability_requirements": (incompatible,)}
+            )
+        }
+    )
+    incompatible_admission = service.admit(incompatible_spec)
+    assert incompatible_admission.decision == "rejected"
+    assert incompatible_admission.resolved_inventory.capabilities[0].status == "unsupported"
+
+    unconstrained_service = AdmissionService(
+        runners=(baseline.agent_inventory.runner_ref,),
+        capabilities=(
+            CapabilityCatalogEntry(
+                ref=tool_ref,
+                adapter="test-read-adapter@1",
+                allowed_permissions=frozenset({"read"}),
+                compatible_interface_versions=frozenset({"1"}),
+            ),
+        ),
+        providers=service.providers.values(),
+    )
+    authority_denied = unconstrained_service.admit(spec)
+    assert authority_denied.decision == "rejected"
+    assert authority_denied.resolved_inventory.capabilities[0].status == "denied"
 
 
 def test_nested_agent_graph_and_checkpoints_compile_but_admission_rejects_runtime() -> None:
@@ -537,6 +627,46 @@ def test_nested_agent_graph_and_checkpoints_compile_but_admission_rejects_runtim
         }
 
 
+def test_admission_rejects_workspace_interaction_and_capture_features_not_executed() -> None:
+    _, _, _, specs = baseline_specs()
+    baseline = specs[0]
+    service = AdmissionService(runners=(baseline.agent_inventory.runner_ref,))
+
+    writable = baseline.model_copy(
+        update={
+            "workspace": baseline.workspace.model_copy(
+                update={"write_zones": ("subject-output",)}
+            )
+        }
+    )
+    assert service.admit(writable).decision == "rejected"
+
+    prompt_ref = ArtifactRef(
+        artifact_id="system-prompt",
+        digest=sha256_bytes(b"system prompt"),
+        media_type="text/plain",
+    )
+    prompted = baseline.model_copy(
+        update={
+            "interaction_protocol": baseline.interaction_protocol.model_copy(
+                update={"system_prompt_ref": prompt_ref}
+            )
+        }
+    )
+    assert service.admit(prompted).interaction_status == "unsupported"
+
+    raw_capture = baseline.model_copy(
+        update={
+            "capture_policy": CapturePolicySpec(
+                default_mode="raw_encrypted", raw_sensitive="opt_in"
+            )
+        }
+    )
+    rejected_capture = service.admit(raw_capture)
+    assert rejected_capture.decision == "rejected"
+    assert "capture:raw_encrypted" in rejected_capture.denied_policies
+
+
 def test_exploratory_study_has_default_variant_and_no_aggregate_score() -> None:
     _, package, registry, _ = baseline_specs()
     base_study = package.study
@@ -610,7 +740,11 @@ def test_exploratory_study_has_default_variant_and_no_aggregate_score() -> None:
     assert specs[0].variant_id == "default"
     assert specs[0].evaluation_plan.aggregation is None
     admission = AdmissionService(runners=(specs[0].agent_inventory.runner_ref,)).admit(specs[0])
-    envelope = SubjectEnvelopeCompiler.compile(specs[0], admission)
+    envelope = SubjectEnvelopeCompiler.compile(
+        specs[0],
+        admission,
+        materialized_inputs=materialized_subject_inputs(specs[0]),
+    )
     assert "hidden-calibration" not in envelope.model_dump_json()
 
 
@@ -691,6 +825,7 @@ def test_evaluation_validator_enforces_types_scales_and_hard_gates() -> None:
     assert EvaluationValidator.stages_visible_after_gates(plan, {"integrity": "failed"}) == (
         "integrity",
     )
+    assert EvaluationValidator.stages_visible_after_gates(plan, {}) == ("integrity",)
 
     _, _, _, specs = baseline_specs()
     base = specs[0]
@@ -727,6 +862,11 @@ def test_evaluation_validator_enforces_types_scales_and_hard_gates() -> None:
     )
     with pytest.raises(ValueError, match="boolean"):
         EvaluationValidator.validate(plan, invalid)
+    substituted_evaluator = record.model_copy(
+        update={"evaluator_ref": capability_ref("evidrun.evaluator", "substituted")}
+    )
+    with pytest.raises(ValueError, match="substituted"):
+        EvaluationValidator.validate(plan, substituted_evaluator)
 
 
 def test_checkpoint_and_human_adjudication_are_append_only_records() -> None:

@@ -32,5 +32,10 @@ resposta do Subject, avaliação e término da Run. O catálogo também reserva 
 capabilities: oferta, carregamento, invocação, conclusão ou falha de skill; chamada, aprovação,
 negação, conclusão ou falha de tool.
 
-Presença no inventário não equivale a uso. Projeções de tools e skills usadas contam os eventos de
-lifecycle correspondentes. Conteúdo capturado continua sujeito à classificação e capture policy.
+`subject.responded` registra `output_digest` e o capture mode aplicado. No runner atual,
+`redacted` preserva apenas um marcador, `metadata`/`disabled` não incluem o output e
+`raw_encrypted` é bloqueado na admissão porque ainda não existe sink cifrado para a resposta.
+
+Presença no inventário não equivale a uso. Futuras projeções de tools e skills usadas devem contar
+os eventos de lifecycle correspondentes; essa projeção não faz parte do runtime atual. Conteúdo
+capturado continua sujeito à classificação e capture policy.

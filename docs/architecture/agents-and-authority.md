@@ -26,6 +26,16 @@ Pode ler evidências autorizadas, explicar runs e criar drafts. Decisões de rev
 registry exigem `actor_type=human`. O Lab Agent não aceita a própria proposta, não acessa raw sem
 grant, não exclui dados e não executa efeitos externos sem decisão humana.
 
+O contrato e o registry rejeitam qualquer `actor_type` diferente de `human`, mas a API loopback
+atual ainda não autentica um principal ou role humano separado: um caller autorizado informa
+`actor_id` e o servidor constrói o record humano. Enquanto o Lab Agent não existe, isso é uma
+fronteira operacional; antes de dar a ele acesso à API de decisão, um mecanismo de autoridade deve
+impedir que a simples posse do launch token seja interpretada como prova de ação humana.
+
+O bootstrap de compatibilidade do `CRL-CTX-002` é uma exceção limitada: ele materializa a aceitação
+preexistente de um benchmark versionado no repositório. Essa migração não se aplica a contracts
+externos ou a propostas criadas pelo Lab Agent.
+
 ## Subject Agent
 
 Recebe somente o `SubjectEnvelope`: Goal, inputs visíveis, protocolo visível, capabilities

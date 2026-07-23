@@ -13,6 +13,17 @@ class EvaluationValidator:
         stage = next((item for item in plan.stages if item.id == record.stage_id), None)
         if stage is None:
             raise ValueError("evaluation record references an unknown stage")
+        if record.source_type != "human_adjudicator":
+            expected_sources = {
+                "integrity": "deterministic_grader",
+                "deterministic_grader": "deterministic_grader",
+                "model_judge": "model_judge",
+                "human_review": "human_adjudicator",
+            }
+            if record.source_type != expected_sources[stage.kind]:
+                raise ValueError("evaluation source type does not match its plan stage")
+            if record.evaluator_ref != stage.evaluator_ref:
+                raise ValueError("evaluation record substituted the planned evaluator")
         dimension_by_id = {item.id: item for item in plan.dimensions}
         record_ids = {item.dimension_id for item in record.dimension_values}
         if record_ids != set(stage.output_dimensions):
@@ -51,6 +62,8 @@ class EvaluationValidator:
         visible: list[str] = []
         for stage in plan.stages:
             visible.append(stage.id)
-            if stage.hard_gate and gate_results.get(stage.id) == "failed":
-                break
+            if stage.hard_gate:
+                result = gate_results.get(stage.id)
+                if result not in {"passed", "not_applicable"}:
+                    break
         return tuple(visible)

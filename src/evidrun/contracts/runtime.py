@@ -110,26 +110,44 @@ class ResolvedCapability(ContractModel):
     kind: Literal["tool", "skill"]
     requested_ref: CapabilityDescriptorRef
     required: bool
+    exposure: Literal["schema_only", "instructions", "instructions_and_schema"]
     status: Literal["resolved", "unsupported", "denied", "unavailable"]
     resolved_ref: CapabilityDescriptorRef | None = None
     adapter: NonEmptyStr | None = None
+    effective_interface_version: NonEmptyStr | None = None
     effective_permissions: tuple[NonEmptyStr, ...] = ()
+    satisfied_authority_constraints: tuple[NonEmptyStr, ...] = ()
     context_refs: tuple[ArtifactRef, ...] = ()
     reason: ResolutionReason | None = None
 
     @model_validator(mode="after")
     def validate_resolution(self) -> ResolvedCapability:
-        if self.status == "resolved" and (self.resolved_ref is None or self.adapter is None):
-            raise ValueError("resolved capability requires an exact ref and adapter")
+        if self.status == "resolved" and (
+            self.resolved_ref is None
+            or self.adapter is None
+            or self.effective_interface_version is None
+        ):
+            raise ValueError(
+                "resolved capability requires an exact ref, adapter, and interface version"
+            )
         if self.status == "resolved" and self.reason is not None:
             raise ValueError("resolved capability cannot contain an unresolved reason")
         if self.status != "resolved" and self.reason is None:
             raise ValueError("unresolved capability requires a reason")
         if self.status != "resolved" and (
-            self.resolved_ref is not None or self.adapter is not None or self.effective_permissions
+            self.resolved_ref is not None
+            or self.adapter is not None
+            or self.effective_interface_version is not None
+            or self.effective_permissions
+            or self.satisfied_authority_constraints
+            or self.context_refs
         ):
             raise ValueError("unresolved capability cannot expose an effective resolution")
+        if self.exposure == "schema_only" and self.context_refs:
+            raise ValueError("schema-only capability cannot expose instruction context")
         return self
+
+
 class AdmissionIssue(ContractModel):
     category: Literal[
         "runner", "provider", "capability", "runtime", "workspace", "interaction", "policy"
@@ -312,6 +330,8 @@ class EvaluationBoundary(ContractModel):
             raise ValueError("evaluation event boundary requires both sequence and hash")
         if not has_event and self.checkpoint_id is None:
             raise ValueError("evaluation requires an event or checkpoint boundary")
+        if has_event and self.checkpoint_id is not None:
+            raise ValueError("evaluation boundary must use either an event or a checkpoint")
         return self
 
 
@@ -387,6 +407,8 @@ class CheckpointRecord(ContractModel):
     protocol_state_ref: ArtifactRef | None = None
     artifact_manifest_ref: ArtifactRef | None = None
     workspace_snapshot_ref: ArtifactRef | None = None
+    admission_record_id: NonEmptyStr | None = None
+    admission_record_digest: Digest | None = None
     evaluation_record_refs: tuple[NonEmptyStr, ...] = ()
     validations: tuple[CheckpointValidation, ...]
     replayability: Literal["none", "partial", "deterministic"]
@@ -398,8 +420,13 @@ class CheckpointRecord(ContractModel):
     def validate_checkpoint(self) -> CheckpointRecord:
         if self.policy_ref.contract_type != ContractType.CHECKPOINT_POLICY:
             raise ValueError("checkpoint record requires a checkpoint_policy ref")
-        if not self.validations or not all(item.passed for item in self.validations):
+        validator_refs = [item.validator_ref for item in self.validations]
+        if len(validator_refs) != len(set(validator_refs)):
+            raise ValueError("checkpoint validator results must be unique")
+        if not all(item.passed for item in self.validations):
             raise ValueError("checkpoint records require successful validations")
+        if (self.admission_record_id is None) != (self.admission_record_digest is None):
+            raise ValueError("checkpoint admission id and digest must be present together")
         if self.replayability != "deterministic" and not self.replayability_limitations:
             raise ValueError("non-deterministic checkpoints require replayability limitations")
         return self
@@ -443,7 +470,9 @@ class SubjectInvokedPayload(ContractModel):
 
 
 class SubjectRespondedPayload(ContractModel):
-    output: str
+    output: str | None = None
+    output_digest: Digest
+    capture_mode: Literal["metadata", "redacted", "raw_encrypted", "disabled"]
     evidence: tuple[str, ...] = ()
     metadata: tuple[KeyValue, ...] = ()
 

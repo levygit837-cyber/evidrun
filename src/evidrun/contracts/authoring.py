@@ -689,13 +689,10 @@ class StudySpec(ContractModel):
                 raise ValueError("comparison references unknown variant")
         if self.evidence_mode == EvidenceMode.PROSPECTIVE_CONTROLLED and not self.comparisons:
             raise ValueError("prospective_controlled study requires a comparison")
-        if self.evidence_mode == EvidenceMode.PROSPECTIVE_CONTROLLED:
-            compared = {
-                item.baseline_variant for item in self.comparisons
-            } | {item.candidate_variant for item in self.comparisons}
-            for variant in self.variants:
-                if variant.id in compared and variant.confounders:
-                    raise ValueError("controlled comparison variants cannot declare confounders")
+        if self.evidence_mode != EvidenceMode.EXPLORATORY and any(
+            variant.confounders for variant in self.variants
+        ):
+            raise ValueError("variant confounders are only valid in exploratory studies")
         return self
 
 

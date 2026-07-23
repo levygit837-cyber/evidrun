@@ -581,6 +581,16 @@
     "SubjectRespondedPayload": {
       "additionalProperties": false,
       "properties": {
+        "capture_mode": {
+          "enum": [
+            "metadata",
+            "redacted",
+            "raw_encrypted",
+            "disabled"
+          ],
+          "title": "Capture Mode",
+          "type": "string"
+        },
         "evidence": {
           "default": [],
           "items": {
@@ -598,12 +608,26 @@
           "type": "array"
         },
         "output": {
-          "title": "Output",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output"
+        },
+        "output_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Output Digest",
           "type": "string"
         }
       },
       "required": [
-        "output"
+        "output_digest",
+        "capture_mode"
       ],
       "title": "SubjectRespondedPayload",
       "type": "object"

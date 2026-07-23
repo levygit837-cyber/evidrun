@@ -182,6 +182,32 @@
   },
   "additionalProperties": false,
   "properties": {
+    "admission_record_digest": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Admission Record Digest"
+    },
+    "admission_record_id": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Admission Record Id"
+    },
     "artifact_manifest_ref": {
       "anyOf": [
         {

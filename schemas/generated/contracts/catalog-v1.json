@@ -879,6 +879,32 @@
     "CheckpointRecord": {
       "additionalProperties": false,
       "properties": {
+        "admission_record_digest": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Admission Record Digest"
+        },
+        "admission_record_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Admission Record Id"
+        },
         "artifact_manifest_ref": {
           "anyOf": [
             {
@@ -2842,6 +2868,19 @@
           "title": "Context Refs",
           "type": "array"
         },
+        "effective_interface_version": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Effective Interface Version"
+        },
         "effective_permissions": {
           "default": [],
           "items": {
@@ -2850,6 +2889,15 @@
           },
           "title": "Effective Permissions",
           "type": "array"
+        },
+        "exposure": {
+          "enum": [
+            "schema_only",
+            "instructions",
+            "instructions_and_schema"
+          ],
+          "title": "Exposure",
+          "type": "string"
         },
         "kind": {
           "enum": [
@@ -2888,6 +2936,15 @@
           ],
           "default": null
         },
+        "satisfied_authority_constraints": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Satisfied Authority Constraints",
+          "type": "array"
+        },
         "status": {
           "enum": [
             "resolved",
@@ -2903,6 +2960,7 @@
         "kind",
         "requested_ref",
         "required",
+        "exposure",
         "status"
       ],
       "title": "ResolvedCapability",
@@ -3974,6 +4032,16 @@
     "SubjectRespondedPayload": {
       "additionalProperties": false,
       "properties": {
+        "capture_mode": {
+          "enum": [
+            "metadata",
+            "redacted",
+            "raw_encrypted",
+            "disabled"
+          ],
+          "title": "Capture Mode",
+          "type": "string"
+        },
         "evidence": {
           "default": [],
           "items": {
@@ -3991,12 +4059,26 @@
           "type": "array"
         },
         "output": {
-          "title": "Output",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output"
+        },
+        "output_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Output Digest",
           "type": "string"
         }
       },
       "required": [
-        "output"
+        "output_digest",
+        "capture_mode"
       ],
       "title": "SubjectRespondedPayload",
       "type": "object"

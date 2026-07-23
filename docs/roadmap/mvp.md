@@ -35,12 +35,15 @@ verification_refs: []
 ## Próximo
 
 - job queue com lease e worker realmente assíncrono;
+- enforcement ponta a ponta de classification e capture policy em snapshots e eventos;
 - Lab Agent com Pydantic AI;
 - Responses Subject Runner;
 - approvals e resume;
 - tool simulator e sandbox;
 - runtime real de tools, skills e nested agents;
 - execução de protocolos em grafo;
+- executor genérico de `EvaluationPlan`, incluindo triggers e todos os stages;
+- runtime de triggers e validators de `CheckpointPolicy`;
 - restore, replay, context extraction e fork por checkpoint;
 - repetições e análise estatística;
 - LLM judges calibrados;

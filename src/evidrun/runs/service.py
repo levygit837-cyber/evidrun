@@ -8,7 +8,7 @@ from typing import Any
 import yaml
 
 from evidrun.contexts import ContextComposer
-from evidrun.contracts import EvaluationRecord, EvidenceRef, RunSpec
+from evidrun.contracts import ArtifactRef, EvaluationRecord, EvidenceRef, RunSpec
 from evidrun.contracts.compiler import (
     AdmissionService,
     EvaluatorEnvelopeCompiler,
@@ -20,7 +20,7 @@ from evidrun.contracts.runtime import DimensionValue, EvaluationBoundary
 from evidrun.evaluations import ExactCauseGrader
 from evidrun.experiments import ExperimentManifest
 from evidrun.infrastructure.database import Repository
-from evidrun.shared.types import new_id, utc_now
+from evidrun.shared.types import new_id, sha256_bytes, utc_now
 from evidrun.subject_runners import ScriptedLogInvestigator
 
 
@@ -130,8 +130,6 @@ class EvidrunService:
         if admission.decision != "admitted":
             reasons = admission.missing_requirements or admission.denied_policies
             raise ValueError("built-in deterministic RunSpec was rejected: " + ", ".join(reasons))
-        subject_envelope = SubjectEnvelopeCompiler.compile(spec, admission)
-
         row = self.repository.create_run(
             experiment_revision_id=experiment_revision_id,
             variant_id=spec.variant_id,
@@ -152,7 +150,6 @@ class EvidrunService:
                 "admission_digest": admission.digest,
             },
         )
-        self.repository.update_run(row.id, status="preparing")
         self.repository.append_event(
             run_id=row.id,
             event_type="run.preparing",
@@ -160,7 +157,17 @@ class EvidrunService:
         )
 
         snapshot = self.composer.compose(source, policy)
-        saved_snapshot = self.repository.save_snapshot(row.id, snapshot)
+        stored_snapshot = {
+            **snapshot,
+            "selected_content": (
+                "[REDACTED]"
+                if spec.capture_policy.default_mode == "redacted"
+                else ""
+                if spec.capture_policy.default_mode in {"metadata", "disabled"}
+                else snapshot["selected_content"]
+            ),
+        }
+        saved_snapshot = self.repository.save_snapshot(row.id, stored_snapshot)
         self.repository.append_event(
             run_id=row.id,
             event_type="context.composed",
@@ -174,7 +181,6 @@ class EvidrunService:
                 "content_hash": snapshot["content_hash"],
             },
         )
-        self.repository.update_run(row.id, status="running", context_hash=snapshot["content_hash"])
         self.repository.append_event(
             run_id=row.id,
             event_type="run.running",
@@ -182,6 +188,32 @@ class EvidrunService:
                 "from_status": "preparing",
                 "reason": "context composed and deterministic Subject ready",
             },
+        )
+        self.repository.update_run(row.id, context_hash=snapshot["content_hash"])
+        visible_inputs = tuple(
+            item
+            for item in spec.scenario.input_bindings
+            if item.visibility in {"subject", "subject_and_evaluator"}
+        )
+        if len(visible_inputs) != 1:
+            raise ValueError(
+                "deterministic context runner requires exactly one visible Subject input"
+            )
+        declared_input = visible_inputs[0]
+        materialized_input = declared_input.model_copy(
+            update={
+                "source": ArtifactRef(
+                    artifact_id=f"context-snapshot:{saved_snapshot.id}",
+                    digest=snapshot["content_hash"],
+                    media_type=declared_input.source.media_type,
+                    classification=declared_input.source.classification,
+                )
+            }
+        )
+        subject_envelope = SubjectEnvelopeCompiler.compile(
+            spec,
+            admission,
+            materialized_inputs=(materialized_input,),
         )
         self.repository.append_event(
             run_id=row.id,
@@ -193,20 +225,29 @@ class EvidrunService:
             },
         )
         result = await self.runner.execute(spec.goal.instruction, snapshot["selected_content"])
+        capture_mode = spec.capture_policy.default_mode
+        captured_output = "[REDACTED]" if capture_mode == "redacted" else None
+        captured_evidence = list(result.evidence) if capture_mode == "raw_encrypted" else []
+        captured_metadata = (
+            [
+                {"key": str(key), "value": value}
+                for key, value in result.metadata.items()
+                if isinstance(value, (str, int, float, bool))
+            ]
+            if capture_mode != "disabled"
+            else []
+        )
         response_event = self.repository.append_event(
             run_id=row.id,
             event_type="subject.responded",
             payload={
-                "output": result.output,
-                "evidence": list(result.evidence),
-                "metadata": [
-                    {"key": str(key), "value": value}
-                    for key, value in result.metadata.items()
-                    if isinstance(value, (str, int, float, bool))
-                ],
+                "output": captured_output,
+                "output_digest": sha256_bytes(result.output.encode("utf-8")),
+                "capture_mode": capture_mode,
+                "evidence": captured_evidence,
+                "metadata": captured_metadata,
             },
         )
-        self.repository.update_run(row.id, status="evaluating", output=result.output)
         self.repository.append_event(
             run_id=row.id,
             event_type="run.evaluating",
@@ -215,6 +256,7 @@ class EvidrunService:
                 "reason": "terminal Subject response captured",
             },
         )
+        self.repository.update_run(row.id, output=captured_output)
 
         evaluator_envelope = EvaluatorEnvelopeCompiler.compile(
             spec, spec.evaluation_plan.stages[0].id
@@ -223,14 +265,6 @@ class EvidrunService:
         expected_parameter = next(item for item in stage.parameters if item.key == "expected")
         expected = str(expected_parameter.value)
         grade = ExactCauseGrader(stage.id, expected).grade(result.output, result.evidence)
-        self.repository.save_grade(
-            run_id=row.id,
-            grader_id=stage.id,
-            score=grade["score"],
-            passed=grade["passed"],
-            rationale=grade["rationale"],
-            evidence=grade["evidence"],
-        )
         evaluation_record = EvaluationRecord(
             record_id=new_id("eval"),
             run_id=row.id,
@@ -256,6 +290,18 @@ class EvidrunService:
             created_at_utc=utc_now(),
         )
         self.repository.save_evaluation_record(evaluation_record)
+        self.repository.save_grade(
+            run_id=row.id,
+            grader_id=stage.id,
+            score=grade["score"],
+            passed=grade["passed"],
+            rationale=grade["rationale"],
+            evidence=[
+                item.ref
+                for value in evaluation_record.dimension_values
+                for item in value.evidence_refs
+            ],
+        )
         self.repository.append_event(
             run_id=row.id,
             event_type="evaluation.completed",
@@ -265,22 +311,24 @@ class EvidrunService:
                 "gate_status": evaluation_record.gate_status,
             },
         )
-        self.repository.update_run(
-            row.id,
-            status="completed",
-            output=result.output,
-            context_hash=snapshot["content_hash"],
-            completed_at=utc_now(),
-        )
         self.repository.append_event(
             run_id=row.id,
             event_type="run.completed",
             payload={
                 "status": "completed",
-                "goal_state": "achieved",
+                "goal_state": (
+                    "achieved"
+                    if bool(result.metadata.get("marker_visible")) and bool(result.evidence)
+                    else "not_achieved"
+                ),
                 "terminal_cause": "terminal subject response evaluated",
                 "evaluation_record_refs": [evaluation_record.record_id],
             },
+        )
+        self.repository.update_run(
+            row.id,
+            output=captured_output,
+            context_hash=snapshot["content_hash"],
         )
         return run, snapshot, grade
 

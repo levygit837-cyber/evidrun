@@ -48,7 +48,15 @@ ao `RunSpec`, pois podem variar por Study e variant.
 
 # Admissão atual
 
-O catálogo de admissão é explícito. O runner determinístico aceita `single_turn` e workspace
+O catálogo de admissão é explícito. O runner determinístico aceita um `single_turn` direto, com
+`max_turns=1` e sem artifacts de system prompt ou mensagens iniciais, além do workspace
 `in_process`; provider pode ser omitido para execução offline. Protocolos em grafo, tools, skills ou
 nested-agent runtime sem adapter catalogado produzem rejeição estruturada. Uma rejeição não cria Run
-e não apresenta a capability como executável.
+e não apresenta a capability como executável. `raw_encrypted` também é rejeitado enquanto não há um
+sink cifrado para a resposta do Subject.
+
+Para `in_process`, `workspace_status=resolved` exige runtime e policies compatíveis e que cada mount
+seja um input Subject-visible idêntico, read-only e autorizado pelo cenário. Write zones, secret
+bindings, workspace snapshot e retenção diferente de `discard` são rejeitados como não suportados.
+O adapter ainda não provisiona filesystem nem consulta um artifact catalog externo; o runner
+determinístico materializa seu único input como Context Snapshot sem expor o locator de storage.
