@@ -40,7 +40,8 @@
         "workspace_template",
         "interaction_protocol",
         "evaluation_plan",
-        "checkpoint_policy"
+        "checkpoint_policy",
+        "progress_artifact_policy"
       ],
       "title": "ContractType",
       "type": "string"

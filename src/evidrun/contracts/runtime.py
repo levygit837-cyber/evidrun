@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import Field, computed_field, field_validator, model_validator
@@ -16,6 +16,7 @@ from evidrun.contracts.authoring import (
     GoalSpec,
     InputBinding,
     InteractionProtocolSpec,
+    ProgressArtifactPolicySpec,
     ScenarioSpec,
     StopCondition,
     WorkspaceTemplateSpec,
@@ -29,6 +30,7 @@ from evidrun.contracts.base import (
     Digest,
     EvidenceRef,
     ExtensionRef,
+    HumanAttestationRecord,
     KeyValue,
     NonEmptyStr,
     UtcDateTime,
@@ -58,6 +60,8 @@ class RunSpec(ContractModel):
     evaluation_plan: EvaluationPlanSpec
     checkpoint_policy_ref: ContractRef | None = None
     checkpoint_policy: CheckpointPolicySpec | None = None
+    progress_artifact_policy_ref: ContractRef | None = None
+    progress_artifact_policy: ProgressArtifactPolicySpec | None = None
     context_policy: ContextPolicySpec | None = None
     budgets: BudgetSpec
     stop_conditions: tuple[StopCondition, ...]
@@ -69,6 +73,12 @@ class RunSpec(ContractModel):
     def validate_checkpoint_pair(self) -> RunSpec:
         if (self.checkpoint_policy_ref is None) != (self.checkpoint_policy is None):
             raise ValueError("checkpoint policy ref and payload must be present together")
+        if (self.progress_artifact_policy_ref is None) != (
+            self.progress_artifact_policy is None
+        ):
+            raise ValueError(
+                "progress artifact policy ref and payload must be present together"
+            )
         if self.goal.mode == "bounded_exploration":
             terminal_kinds = {
                 item.kind for item in self.stop_conditions if item.action == "terminal"
@@ -93,6 +103,14 @@ class RunSpec(ContractModel):
             and self.checkpoint_policy_ref.contract_type != ContractType.CHECKPOINT_POLICY
         ):
             raise ValueError("RunSpec checkpoint slot requires a checkpoint_policy ref")
+        if (
+            self.progress_artifact_policy_ref is not None
+            and self.progress_artifact_policy_ref.contract_type
+            != ContractType.PROGRESS_ARTIFACT_POLICY
+        ):
+            raise ValueError(
+                "RunSpec progress slot requires a progress_artifact_policy ref"
+            )
         return self
 
     @computed_field
@@ -150,7 +168,15 @@ class ResolvedCapability(ContractModel):
 
 class AdmissionIssue(ContractModel):
     category: Literal[
-        "runner", "provider", "capability", "runtime", "workspace", "interaction", "policy"
+        "runner",
+        "provider",
+        "capability",
+        "runtime",
+        "workspace",
+        "interaction",
+        "observer",
+        "authority",
+        "policy",
     ]
     subject_ref: NonEmptyStr
     reason: ResolutionReason
@@ -238,6 +264,34 @@ class SubjectWorkspace(ContractModel):
     external_effect_mode: Literal["denied", "approval_required", "allowlist"]
 
 
+class SubjectEvaluationDimension(ContractModel):
+    id: NonEmptyStr
+    description: NonEmptyStr
+    value_type: Literal["boolean", "number", "category"]
+    minimum: float | None = None
+    maximum: float | None = None
+    anchors: tuple[KeyValue, ...] = ()
+
+
+class SubjectEvaluationGuidance(ContractModel):
+    mode: Literal["pre_run"] = "pre_run"
+    plan_ref: ContractRef
+    dimensions: tuple[SubjectEvaluationDimension, ...]
+
+    @model_validator(mode="after")
+    def validate_plan(self) -> SubjectEvaluationGuidance:
+        if self.plan_ref.contract_type != ContractType.EVALUATION_PLAN:
+            raise ValueError("Subject evaluation guidance requires an evaluation_plan ref")
+        if not self.dimensions:
+            raise ValueError("Subject evaluation guidance requires public dimensions")
+        return self
+
+    @computed_field
+    @property
+    def digest(self) -> str:
+        return sha256_json(semantic_model_dump(self))
+
+
 class SubjectEnvelope(ContractModel):
     schema_version: Literal["1"] = "1"
     run_spec_digest: Digest
@@ -248,6 +302,7 @@ class SubjectEnvelope(ContractModel):
     workspace: SubjectWorkspace
     budgets: BudgetSpec
     stop_conditions: tuple[StopCondition, ...]
+    evaluation_guidance: SubjectEvaluationGuidance | None = None
 
     @computed_field
     @property
@@ -343,13 +398,46 @@ class DimensionValue(ContractModel):
     evidence_refs: tuple[EvidenceRef, ...] = Field(min_length=1)
 
 
+class AdjudicatesEvaluationRelation(ContractModel):
+    kind: Literal["adjudicates"] = "adjudicates"
+    target_record_refs: tuple[NonEmptyStr, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_targets(self) -> AdjudicatesEvaluationRelation:
+        if len(self.target_record_refs) != len(set(self.target_record_refs)):
+            raise ValueError("adjudication target records must be unique")
+        return self
+
+
+class IndependentHumanReviewRelation(ContractModel):
+    kind: Literal["independent_review"] = "independent_review"
+    considers_record_refs: tuple[NonEmptyStr, ...] = ()
+
+    @model_validator(mode="after")
+    def validate_considered_records(self) -> IndependentHumanReviewRelation:
+        if len(self.considers_record_refs) != len(set(self.considers_record_refs)):
+            raise ValueError("considered evaluation records must be unique")
+        return self
+
+
+HumanEvaluationRelation = Annotated[
+    AdjudicatesEvaluationRelation | IndependentHumanReviewRelation,
+    Field(discriminator="kind"),
+]
+
+
 class EvaluationRecord(ContractModel):
     schema_version: Literal["1"] = "1"
     record_id: NonEmptyStr
     run_id: NonEmptyStr
     plan_ref: ContractRef
     stage_id: NonEmptyStr
-    source_type: Literal["deterministic_grader", "model_judge", "human_adjudicator"]
+    source_type: Literal[
+        "deterministic_grader",
+        "model_judge",
+        "human_reviewer",
+        "human_adjudicator",
+    ]
     evaluator_ref: CapabilityDescriptorRef
     provider_profile_id: NonEmptyStr | None = None
     provider_model: NonEmptyStr | None = None
@@ -357,29 +445,84 @@ class EvaluationRecord(ContractModel):
     dimension_values: tuple[DimensionValue, ...]
     gate_status: Literal["passed", "failed", "not_applicable"]
     status: Literal["provisional", "final"]
-    supersedes_record_ref: NonEmptyStr | None = None
+    relation: HumanEvaluationRelation | None = None
+    human_attestation: HumanAttestationRecord | None = None
     created_at_utc: UtcDateTime
 
     @model_validator(mode="after")
     def validate_adjudication(self) -> EvaluationRecord:
         if self.plan_ref.contract_type != ContractType.EVALUATION_PLAN:
             raise ValueError("evaluation record requires an evaluation_plan ref")
-        if self.source_type == "human_adjudicator" and self.status != "final":
-            raise ValueError("human adjudication must be final")
-        if self.source_type == "human_adjudicator" and self.supersedes_record_ref is None:
-            raise ValueError("human adjudication must reference the prior record")
-        if self.source_type != "human_adjudicator" and self.supersedes_record_ref is not None:
-            raise ValueError("only human adjudication can supersede an evaluation record")
+        is_human = self.source_type in {"human_reviewer", "human_adjudicator"}
+        if is_human and self.status != "final":
+            raise ValueError("human evaluations must be final")
+        if is_human and self.human_attestation is None:
+            raise ValueError("human evaluations require verified attestation evidence")
+        if not is_human and (self.human_attestation is not None or self.relation is not None):
+            raise ValueError("automated evaluations cannot claim human authority or precedence")
+        if self.source_type == "human_adjudicator" and (
+            self.relation is None or self.relation.kind != "adjudicates"
+        ):
+            raise ValueError("human adjudication requires explicit target records")
+        if self.source_type == "human_reviewer" and (
+            self.relation is None or self.relation.kind != "independent_review"
+        ):
+            raise ValueError("human review requires an independent review relation")
         if self.source_type == "model_judge" and self.status != "provisional":
             raise ValueError("model judge evaluations remain provisional")
         if self.source_type == "model_judge" and not (
             self.provider_profile_id and self.provider_model
         ):
             raise ValueError("model judge evaluation requires provider and model resolution")
+        if self.source_type != "model_judge" and (
+            self.provider_profile_id is not None or self.provider_model is not None
+        ):
+            raise ValueError(
+                "only model judge evaluations may declare provider and model resolution"
+            )
+        if is_human and self.human_attestation is not None:
+            expected_action = (
+                "evaluation.adjudicated"
+                if self.source_type == "human_adjudicator"
+                else "evaluation.reviewed"
+            )
+            if self.human_attestation.action != expected_action:
+                raise ValueError("human attestation action does not match the evaluation role")
+            if self.human_attestation.target_digest != self.plan_ref.digest:
+                raise ValueError("human evaluation attestation must target the EvaluationPlan")
+            if self.human_attestation.subject_digest != self.human_subject_digest():
+                raise ValueError("human attestation does not cover the evaluation content")
+            if self.created_at_utc != self.human_attestation.verified_at_utc:
+                raise ValueError(
+                    "human evaluation timestamp must be the verified attestation timestamp"
+                )
         ids = [item.dimension_id for item in self.dimension_values]
         if len(ids) != len(set(ids)):
             raise ValueError("evaluation record dimensions must be unique")
         return self
+
+    def human_subject_digest(self) -> str:
+        return sha256_json(
+            {
+                "run_id": self.run_id,
+                "plan_ref": self.plan_ref.model_dump(mode="json"),
+                "stage_id": self.stage_id,
+                "source_type": self.source_type,
+                "evaluator_ref": self.evaluator_ref.model_dump(mode="json"),
+                "boundary": self.boundary.model_dump(mode="json", exclude_none=True),
+                "dimension_values": [
+                    item.model_dump(mode="json", exclude_none=True)
+                    for item in self.dimension_values
+                ],
+                "gate_status": self.gate_status,
+                "status": self.status,
+                "relation": (
+                    self.relation.model_dump(mode="json")
+                    if self.relation is not None
+                    else None
+                ),
+            }
+        )
 
     @computed_field
     @property
@@ -437,6 +580,75 @@ class CheckpointRecord(ContractModel):
         return sha256_json(semantic_model_dump(self))
 
 
+class ProgressStatement(ContractModel):
+    id: NonEmptyStr
+    kind: Literal["observation", "interpretation", "uncertainty"]
+    text: NonEmptyStr
+    confidence: float | None = Field(default=None, ge=0, le=1)
+    evidence_refs: tuple[EvidenceRef, ...] = ()
+
+    @model_validator(mode="after")
+    def validate_evidence(self) -> ProgressStatement:
+        if self.kind in {"observation", "interpretation"} and not self.evidence_refs:
+            raise ValueError("progress observations and interpretations require evidence refs")
+        return self
+
+
+class ProgressArtifactContent(ContractModel):
+    schema_version: Literal["1"] = "1"
+    run_id: NonEmptyStr
+    up_to_event_sequence: int = Field(gt=0)
+    event_hash: Digest
+    title: NonEmptyStr
+    overview: NonEmptyStr
+    statements: tuple[ProgressStatement, ...]
+    limitations: tuple[NonEmptyStr, ...] = Field(min_length=1)
+    status: Literal["provisional"] = "provisional"
+
+    @computed_field
+    @property
+    def digest(self) -> str:
+        return sha256_json(semantic_model_dump(self))
+
+
+class ProgressArtifactRecord(ContractModel):
+    schema_version: Literal["1"] = "1"
+    record_id: NonEmptyStr
+    run_id: NonEmptyStr
+    policy_ref: ContractRef
+    definition_id: NonEmptyStr
+    definition_digest: Digest
+    up_to_event_sequence: int = Field(gt=0)
+    event_hash: Digest
+    checkpoint_id: NonEmptyStr | None = None
+    checkpoint_hash: Digest | None = None
+    input_projection_version: Literal["run-event-prefix-v1"] = "run-event-prefix-v1"
+    input_ledger_digest: Digest
+    input_event_count: int = Field(gt=0)
+    summarizer_ref: CapabilityDescriptorRef
+    provider_profile_id: NonEmptyStr | None = None
+    provider_model: NonEmptyStr | None = None
+    artifact_ref: ArtifactRef
+    status: Literal["provisional"] = "provisional"
+    limitations: tuple[NonEmptyStr, ...] = Field(min_length=1)
+    created_at_utc: UtcDateTime
+
+    @model_validator(mode="after")
+    def validate_progress_record(self) -> ProgressArtifactRecord:
+        if self.policy_ref.contract_type != ContractType.PROGRESS_ARTIFACT_POLICY:
+            raise ValueError("progress record requires a progress_artifact_policy ref")
+        if (self.checkpoint_id is None) != (self.checkpoint_hash is None):
+            raise ValueError("progress checkpoint id and hash must be present together")
+        if (self.provider_profile_id is None) != (self.provider_model is None):
+            raise ValueError("model observer provider and model must be present together")
+        return self
+
+    @computed_field
+    @property
+    def digest(self) -> str:
+        return sha256_json(semantic_model_dump(self))
+
+
 class RunQueuedPayload(ContractModel):
     run_id: NonEmptyStr
     variant_id: NonEmptyStr
@@ -467,6 +679,7 @@ class SubjectInvokedPayload(ContractModel):
     runner: NonEmptyStr
     network: Literal["disabled", "provider_only", "allowlist"]
     subject_envelope_digest: Digest
+    evaluation_guidance_digest: Digest | None = None
 
 
 class SubjectRespondedPayload(ContractModel):
@@ -475,6 +688,31 @@ class SubjectRespondedPayload(ContractModel):
     capture_mode: Literal["metadata", "redacted", "raw_encrypted", "disabled"]
     evidence: tuple[str, ...] = ()
     metadata: tuple[KeyValue, ...] = ()
+
+    @model_validator(mode="after")
+    def validate_capture_shape(self) -> SubjectRespondedPayload:
+        if self.capture_mode == "redacted" and (
+            self.output != "[REDACTED]" or self.evidence
+        ):
+            raise ValueError(
+                "redacted Subject capture requires the redaction marker and no raw evidence"
+            )
+        if self.capture_mode == "metadata" and (
+            self.output is not None or self.evidence
+        ):
+            raise ValueError("metadata Subject capture cannot contain output or raw evidence")
+        if self.capture_mode == "disabled" and (
+            self.output is not None or self.evidence or self.metadata
+        ):
+            raise ValueError("disabled Subject capture cannot contain captured content")
+        if self.capture_mode == "raw_encrypted" and (
+            self.output is not None
+            or any(not item.startswith("artifact:") for item in self.evidence)
+        ):
+            raise ValueError(
+                "raw encrypted Subject capture requires artifact refs, never inline content"
+            )
+        return self
 
 
 class EvaluationCompletedPayload(ContractModel):
@@ -534,12 +772,125 @@ class CheckpointValidationFailedPayload(ContractModel):
     evidence_refs: tuple[EvidenceRef, ...] = ()
 
 
+class ProgressObserverStartedPayload(ContractModel):
+    attempt_id: NonEmptyStr
+    policy_ref: ContractRef
+    definition_id: NonEmptyStr
+    up_to_event_sequence: int = Field(gt=0)
+    event_hash: Digest
+    summarizer_ref: CapabilityDescriptorRef
+
+
+class ProgressArtifactCreatedPayload(ContractModel):
+    attempt_id: NonEmptyStr
+    progress_record_id: NonEmptyStr
+    progress_record_digest: Digest
+    artifact_ref: ArtifactRef
+    up_to_event_sequence: int = Field(gt=0)
+    event_hash: Digest
+
+
+class ProgressObserverFailedPayload(ContractModel):
+    attempt_id: NonEmptyStr
+    policy_ref: ContractRef
+    definition_id: NonEmptyStr
+    up_to_event_sequence: int = Field(gt=0)
+    event_hash: Digest
+    phase: Literal[
+        "input_materialization",
+        "summarizer_resolution",
+        "invocation",
+        "output_validation",
+        "artifact_write",
+        "record_persistence",
+    ]
+    reason_code: NonEmptyStr
+    retryable: bool = False
+
+
+class GoalStateTerminalResult(ContractModel):
+    goal_mode: Literal["goal_state"] = "goal_state"
+    state: Literal["achieved", "partially_achieved", "not_achieved", "not_assessable"]
+
+
+class BoundedExplorationTerminalResult(ContractModel):
+    goal_mode: Literal["bounded_exploration"] = "bounded_exploration"
+    disposition: Literal["concluded", "incomplete", "not_assessable"]
+    stop_reason: Literal[
+        "evidence_saturation",
+        "bounded_completion",
+        "budget_limit",
+        "time_limit",
+        "turn_limit",
+        "human_stop",
+        "guardrail",
+        "provider_failure",
+    ]
+    stop_condition_kind: NonEmptyStr
+    learning_summary_ref: ArtifactRef | None = None
+    evidence_refs: tuple[EvidenceRef, ...] = ()
+
+
+TerminalGoalResult = Annotated[
+    GoalStateTerminalResult | BoundedExplorationTerminalResult,
+    Field(discriminator="goal_mode"),
+]
+
+
 class RunTerminalPayload(ContractModel):
     status: Literal["completed", "failed", "cancelled", "budget_exhausted", "guardrail_stopped"]
-    goal_state: Literal["achieved", "partially_achieved", "not_achieved", "not_assessable"]
+    goal_result: TerminalGoalResult
     terminal_cause: NonEmptyStr
     evaluation_record_refs: tuple[NonEmptyStr, ...] = ()
     checkpoint_refs: tuple[NonEmptyStr, ...] = ()
+
+    @model_validator(mode="after")
+    def validate_unique_record_refs(self) -> RunTerminalPayload:
+        if len(self.evaluation_record_refs) != len(set(self.evaluation_record_refs)):
+            raise ValueError("terminal evaluation record refs must be unique")
+        if len(self.checkpoint_refs) != len(set(self.checkpoint_refs)):
+            raise ValueError("terminal checkpoint refs must be unique")
+        return self
+
+
+EVENT_ALLOWED_RUN_STATUSES: dict[str, frozenset[str]] = {
+    "context.composed": frozenset({"preparing"}),
+    "capability.offered": frozenset({"preparing", "running"}),
+    "skill.loaded": frozenset({"preparing", "running"}),
+    "subject.invoked": frozenset({"running"}),
+    "subject.responded": frozenset({"running"}),
+    "skill.invoked": frozenset({"running"}),
+    "skill.completed": frozenset({"running"}),
+    "skill.failed": frozenset({"running"}),
+    "tool.called": frozenset({"running"}),
+    "tool.approved": frozenset({"running"}),
+    "tool.denied": frozenset({"running"}),
+    "tool.completed": frozenset({"running"}),
+    "tool.failed": frozenset({"running"}),
+    "checkpoint.validation_failed": frozenset({"running", "paused", "evaluating"}),
+    "evaluation.completed": frozenset({"evaluating"}),
+}
+
+UNSUPPORTED_RUNTIME_EVENT_TYPES = frozenset(
+    {
+        "run.paused",
+        "run.resumed",
+        "capability.offered",
+        "skill.loaded",
+        "skill.invoked",
+        "skill.completed",
+        "skill.failed",
+        "tool.called",
+        "tool.approved",
+        "tool.denied",
+        "tool.completed",
+        "tool.failed",
+        "checkpoint.validation_failed",
+        "progress.observer_started",
+        "progress.artifact_created",
+        "progress.observer_failed",
+    }
+)
 
 
 EVENT_PAYLOAD_MODELS: dict[str, type[ContractModel]] = {
@@ -564,6 +915,9 @@ EVENT_PAYLOAD_MODELS: dict[str, type[ContractModel]] = {
     "tool.completed": ToolResultPayload,
     "tool.failed": ToolResultPayload,
     "checkpoint.validation_failed": CheckpointValidationFailedPayload,
+    "progress.observer_started": ProgressObserverStartedPayload,
+    "progress.artifact_created": ProgressArtifactCreatedPayload,
+    "progress.observer_failed": ProgressObserverFailedPayload,
     "run.completed": RunTerminalPayload,
     "run.failed": RunTerminalPayload,
     "run.cancelled": RunTerminalPayload,
@@ -587,6 +941,9 @@ RunEventPayload = (
     | ToolDecisionPayload
     | ToolResultPayload
     | CheckpointValidationFailedPayload
+    | ProgressObserverStartedPayload
+    | ProgressArtifactCreatedPayload
+    | ProgressObserverFailedPayload
     | RunTerminalPayload
 )
 

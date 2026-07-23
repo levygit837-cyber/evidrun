@@ -14,7 +14,7 @@ from rich.console import Console
 from rich.table import Table
 
 from evidrun import __version__
-from evidrun.contracts import RevisionDecisionRecord, StudyRevision, parse_revision
+from evidrun.contracts import StudyRevision, parse_revision
 from evidrun.contracts.compiler import StudyCompiler
 from evidrun.entrypoints.api.app import REPOSITORY_ROOT, create_app
 from evidrun.evidence.bundle import EvidenceBundleService
@@ -28,7 +28,6 @@ from evidrun.infrastructure.providers import (
 )
 from evidrun.runs import EvidrunService
 from evidrun.shared.settings import Settings
-from evidrun.shared.types import utc_now
 
 app = typer.Typer(help="Evidrun — laboratório auditável de confiabilidade de contexto.")
 experiment_app = typer.Typer(help="Validar e aceitar manifests de experimento.")
@@ -203,29 +202,14 @@ def register_contract(
 def accept_contract(
     revision_id: str,
     reason: Annotated[str, typer.Option("--reason")],
-    actor_id: Annotated[str, typer.Option("--actor-id")] = "local-human",
     data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
 ) -> None:
-    _, database, repository = _components(data_dir)
-    try:
-        revision = repository.get_contract_revision(revision_id)
-        decision = RevisionDecisionRecord(
-            revision_ref=revision.ref,
-            decision="accepted",
-            actor_id=actor_id,
-            rationale=reason,
-            decided_at_utc=utc_now(),
-        )
-        row = repository.decide_contract_revision(decision)
-        console.print_json(
-            data={
-                "id": row.id,
-                "decision": row.decision,
-                "decision_digest": row.decision_digest,
-            }
-        )
-    finally:
-        database.dispose()
+    del revision_id, reason, data_dir
+    console.print(
+        "Verified human authority is unavailable. "
+        "A trusted WebAuthn verifier must complete contract acceptance."
+    )
+    raise typer.Exit(code=1)
 
 
 @study_app.command("compile")

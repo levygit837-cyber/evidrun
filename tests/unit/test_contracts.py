@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+from datetime import timedelta
 from pathlib import Path
 
 import pytest
 import yaml
-from hypothesis import given
+from hypothesis import given, settings
 from hypothesis import strategies as st
 from pydantic import ValidationError
 
 from evidrun.contracts import (
+    AdjudicatesEvaluationRelation,
     AgentInventoryRevision,
     ArtifactRef,
     BudgetSpec,
@@ -23,13 +25,18 @@ from evidrun.contracts import (
     ExtensionRef,
     GoalRevision,
     GoalSpec,
+    HumanAttestationRecord,
     InputBinding,
     InteractionProtocolRevision,
+    ProgressArtifactContent,
+    ProgressArtifactPolicyRevision,
+    RepositoryFixtureDecisionAuthority,
     RevisionDecisionRecord,
     RevisionEnvelope,
     RunSpec,
     StudyRevision,
     VariantSpec,
+    VerifiedHumanDecisionAuthority,
     WorkspaceTemplateRevision,
     normalize_event_payload,
     semantic_model_dump,
@@ -51,11 +58,17 @@ from evidrun.contracts.authoring import (
     InteractionNode,
     InteractionProtocolSpec,
     ManualCheckpointTrigger,
+    ProgressArtifactDefinition,
+    ProgressArtifactPolicySpec,
     RunBlueprint,
     RuntimeRequirement,
+    StopCondition,
     StudyIntent,
     StudySpec,
+    SubjectEvaluationDisclosure,
+    SubjectTurnIntervalProgressTrigger,
 )
+from evidrun.contracts.authority import HumanAttestationUnavailable
 from evidrun.contracts.base import ContractModel
 from evidrun.contracts.compiler import (
     AdmissionService,
@@ -76,9 +89,16 @@ from evidrun.contracts.runtime import (
     CheckpointValidation,
     DimensionValue,
     EvaluationBoundary,
+    ProgressStatement,
 )
 from evidrun.experiments import ExperimentManifest
-from evidrun.shared.types import EvidenceMode, sha256_bytes, sha256_json, utc_now
+from evidrun.shared.types import (
+    Classification,
+    EvidenceMode,
+    sha256_bytes,
+    sha256_json,
+    utc_now,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -98,7 +118,7 @@ def legacy_package() -> tuple[ExperimentManifest, LegacyStudyPackage]:
 def accepted_registry(package: LegacyStudyPackage) -> InMemoryContractRegistry:
     revisions = package.revisions
     decisions = package.acceptance_decisions()
-    registry = InMemoryContractRegistry()
+    registry = InMemoryContractRegistry(allow_repository_fixture=True)
     for revision in revisions:
         registry.add(revision)
     for decision in decisions:
@@ -126,7 +146,6 @@ def materialized_subject_inputs(spec: RunSpec) -> tuple[InputBinding, ...]:
                     update={
                         "artifact_id": f"context-snapshot:{item.id}",
                         "digest": sha256_bytes(f"materialized:{item.id}".encode()),
-                        "locator": None,
                     }
                 )
             }
@@ -142,7 +161,9 @@ def accept(registry: InMemoryContractRegistry, revision: RevisionEnvelope) -> No
         RevisionDecisionRecord(
             revision_ref=revision.ref,
             decision="accepted",
-            actor_id="test-human",
+            authority=RepositoryFixtureDecisionAuthority(
+                fixture_digest=sha256_json(revision.ref.model_dump(mode="json")),
+            ),
             rationale="Accepted by the contract test fixture.",
             decided_at_utc=utc_now(),
         )
@@ -192,15 +213,14 @@ def test_semantic_serialization_omits_absent_modules_and_digest_excludes_metadat
         registry.add(renamed)
 
 
-def test_revision_decisions_require_human_actor_and_monotonic_revision() -> None:
+def test_revision_decisions_reject_unverified_human_claim_and_require_monotonic_revision() -> None:
     _, package = legacy_package()
     with pytest.raises(ValidationError):
         RevisionDecisionRecord.model_validate(
             {
                 "revision_ref": package.study.ref.model_dump(mode="json"),
                 "decision": "accepted",
-                "actor_type": "lab_agent",
-                "actor_id": "lab",
+                "authority": {"kind": "verified_human", "principal_id": "lab"},
                 "rationale": "A Lab Agent cannot accept its own draft.",
                 "decided_at_utc": utc_now().isoformat(),
             }
@@ -211,6 +231,61 @@ def test_revision_decisions_require_human_actor_and_monotonic_revision() -> None
     registry.add(package.study)
     with pytest.raises(ValueError, match="monotonic"):
         registry.add(skipped)
+
+
+def test_structurally_valid_human_decision_fails_closed_without_verifier() -> None:
+    _, package = legacy_package()
+    revision = package.study
+    rationale = "I reviewed the exact revision content."
+    decided_at = utc_now()
+    subject_digest = sha256_json(
+        {
+            "revision_ref": revision.ref.model_dump(mode="json"),
+            "decision": "accepted",
+            "rationale": rationale,
+        }
+    )
+    attestation = HumanAttestationRecord(
+        attestation_id="human-attestation-test",
+        principal_id="test-principal",
+        credential_id="credential-test",
+        action="revision.accepted",
+        target_digest=revision.digest,
+        subject_digest=subject_digest,
+        challenge_digest="a" * 64,
+        assertion_ref=ArtifactRef(
+            artifact_id="webauthn-assertion-test",
+            digest="b" * 64,
+            media_type="application/webauthn+json",
+        ),
+        relying_party_id="evidrun.local",
+        origin="https://evidrun.local",
+        verifier_ref=capability_ref("evidrun.authority", "webauthn"),
+        verified_at_utc=decided_at,
+    )
+    decision = RevisionDecisionRecord(
+        revision_ref=revision.ref,
+        decision="accepted",
+        authority=VerifiedHumanDecisionAuthority(
+            principal_id="test-principal", attestation=attestation
+        ),
+        rationale=rationale,
+        decided_at_utc=decided_at,
+    )
+    registry = InMemoryContractRegistry()
+    registry.add(revision)
+    with pytest.raises(HumanAttestationUnavailable, match="no trusted verifier"):
+        registry.decide(decision)
+
+    fixture_registry = InMemoryContractRegistry()
+    fixture_registry.add(revision)
+    fixture_decision = next(
+        item
+        for item in package.acceptance_decisions()
+        if item.revision_ref == revision.ref
+    )
+    with pytest.raises(PermissionError, match="legacy import path"):
+        fixture_registry.decide(fixture_decision)
 
 
 def test_reference_slots_and_extension_identity_are_validated() -> None:
@@ -243,6 +318,15 @@ def test_reference_slots_and_extension_identity_are_validated() -> None:
             payload_ref=payload,
             digest="c" * 64,
             classification=payload.classification,
+        )
+    with pytest.raises(ValidationError, match="Extra inputs"):
+        ArtifactRef.model_validate(
+            {
+                "artifact_id": "storage-coupled-ref",
+                "digest": "d" * 64,
+                "media_type": "text/plain",
+                "locator": "/private/laboratory/hidden.txt",
+            }
         )
 
 
@@ -282,6 +366,281 @@ def test_legacy_study_compiles_two_specs_and_hides_laboratory_data() -> None:
     evaluator_serialized = evaluator.model_dump_json()
     assert manifest.graders[0].expected in evaluator_serialized
     assert manifest.hypothesis not in evaluator_serialized
+    assert str(ROOT / "benchmarks/scenarios/crl-ctx-002/fixtures/long.log") not in (
+        evaluator_serialized
+    )
+
+
+def test_progress_artifact_policy_compiles_but_fails_admission_without_observer() -> None:
+    _, package, registry, _ = baseline_specs()
+    base_study = package.study
+    policy = ProgressArtifactPolicyRevision(
+        logical_id="subject-progress-summaries",
+        revision=1,
+        project_id=base_study.project_id,
+        title="Periodic human-readable Subject progress",
+        payload=ProgressArtifactPolicySpec(
+            definitions=(
+                ProgressArtifactDefinition(
+                    id="every-five-subject-turns",
+                    label="Every five completed Subject responses",
+                    trigger=SubjectTurnIntervalProgressTrigger(every_n_turns=5),
+                    summarizer_ref=capability_ref(
+                        "evidrun.observer", "progress-summarizer"
+                    ),
+                ),
+            ),
+            limitations=(
+                "The summary is provisional and does not replace the Run ledger.",
+            ),
+        ),
+    )
+    accept(registry, policy)
+    study = StudyRevision(
+        logical_id=base_study.logical_id,
+        revision=2,
+        project_id=base_study.project_id,
+        title=base_study.title,
+        payload=base_study.payload.model_copy(
+            update={
+                "run_blueprint": base_study.payload.run_blueprint.model_copy(
+                    update={"progress_artifact_policy_ref": policy.ref}
+                )
+            }
+        ),
+    )
+    accept(registry, study)
+
+    specs = StudyCompiler(registry).compile(study)
+    assert len(specs) == 2
+    assert all(spec.progress_artifact_policy_ref == policy.ref for spec in specs)
+    assert all(
+        spec.progress_artifact_policy.definitions[0].trigger.kind
+        == "subject_turn_interval"
+        for spec in specs
+        if spec.progress_artifact_policy is not None
+    )
+    definition = specs[0].progress_artifact_policy.definitions[0]
+    assert definition.trigger.kind == "subject_turn_interval"
+    assert definition.trigger.counted_event_type == "subject.responded"
+    assert definition.input_scope == "complete_run_ledger_prefix"
+    with pytest.raises(ValidationError):
+        ProgressArtifactDefinition(
+            id="unsafe-observer",
+            label="Observer without isolation",
+            trigger=SubjectTurnIntervalProgressTrigger(every_n_turns=1),
+            summarizer_ref=capability_ref("evidrun.observer", "unsafe"),
+            authority_constraints=(),
+        )
+    admission = AdmissionService(
+        runners=(specs[0].agent_inventory.runner_ref,)
+    ).admit(specs[0])
+    assert admission.decision == "rejected"
+    assert "runtime:background_progress_observer" in admission.missing_requirements
+    observer_issue = next(
+        item for item in admission.issues if item.subject_ref == "background_progress_observer"
+    )
+    assert observer_issue.blocking is True
+    with pytest.raises(ValueError, match="rejected admission"):
+        SubjectEnvelopeCompiler.compile(
+            specs[0],
+            admission,
+            materialized_inputs=materialized_subject_inputs(specs[0]),
+        )
+
+
+def test_progress_summary_is_provisional_evidence_cited_and_not_a_score() -> None:
+    with pytest.raises(ValidationError, match="require evidence refs"):
+        ProgressArtifactContent(
+            run_id="run-progress",
+            up_to_event_sequence=12,
+            event_hash="a" * 64,
+            title="Progress through Subject turn five",
+            overview="The Subject inspected the authorized packet.",
+            statements=(
+                ProgressStatement(
+                    id="inspection",
+                    kind="observation",
+                    text="The Subject inspected the packet.",
+                ),
+            ),
+            limitations=("This is a lossy summary of the ledger prefix.",),
+        )
+
+    content = ProgressArtifactContent(
+        run_id="run-progress",
+        up_to_event_sequence=12,
+        event_hash="a" * 64,
+        title="Progress through Subject turn five",
+        overview="The Subject inspected the authorized packet.",
+        statements=(
+            ProgressStatement(
+                id="inspection",
+                kind="observation",
+                text="The Subject inspected the packet.",
+                evidence_refs=(EvidenceRef(ref="event:evt_subject_response_5"),),
+            ),
+            ProgressStatement(
+                id="unknown-cause",
+                kind="uncertainty",
+                text="No supported root cause has been established yet.",
+            ),
+        ),
+        limitations=("This is a lossy summary of the ledger prefix.",),
+    )
+    document = content.model_dump(mode="json")
+    assert content.status == "provisional"
+    assert document["up_to_event_sequence"] == 12
+    assert "score" not in document
+    assert "goal_state" not in document
+    assert "files_read" not in document
+    assert "files_edited" not in document
+
+
+def test_pre_run_evaluation_disclosure_is_minimal_and_explicit() -> None:
+    manifest, package, registry, _ = baseline_specs()
+    base_study = package.study
+    base_plan = next(
+        revision
+        for revision in package.revisions
+        if isinstance(revision, EvaluationPlanRevision)
+    )
+    public_dimension = base_plan.payload.dimensions[0]
+    disclosed_plan = EvaluationPlanRevision(
+        logical_id=base_plan.logical_id,
+        revision=2,
+        project_id=base_plan.project_id,
+        title=base_plan.title,
+        payload=base_plan.payload.model_copy(
+            update={
+                "disclosure": base_plan.payload.disclosure.model_copy(
+                    update={
+                        "subject": SubjectEvaluationDisclosure(
+                            mode="pre_run",
+                            dimension_ids=(public_dimension.id,),
+                            include_scale=False,
+                            include_anchors=False,
+                        )
+                    }
+                )
+            }
+        ),
+    )
+    accept(registry, disclosed_plan)
+    study = StudyRevision(
+        logical_id=base_study.logical_id,
+        revision=2,
+        project_id=base_study.project_id,
+        title=base_study.title,
+        payload=base_study.payload.model_copy(
+            update={
+                "run_blueprint": base_study.payload.run_blueprint.model_copy(
+                    update={"evaluation_plan_ref": disclosed_plan.ref}
+                )
+            }
+        ),
+    )
+    accept(registry, study)
+    spec = StudyCompiler(registry).compile(study)[0]
+    service = AdmissionService(
+        runners=(spec.agent_inventory.runner_ref,)
+    )
+    admission = service.admit(spec)
+    assert admission.decision == "rejected"
+    assert (
+        "runtime:subject_evaluation_guidance_delivery"
+        in admission.missing_requirements
+    )
+    base_spec = StudyCompiler(registry).compile(base_study)[0]
+    base_admission = service.admit(base_spec)
+    assert base_admission.decision == "admitted"
+    # Exercise the pure envelope compiler as a future compatible runtime would.
+    compatible_admission = base_admission.model_copy(
+        update={
+            "run_spec_ref": f"run-spec:{spec.digest}",
+            "run_spec_digest": spec.digest,
+        }
+    )
+    envelope = SubjectEnvelopeCompiler.compile(
+        spec,
+        compatible_admission,
+        materialized_inputs=materialized_subject_inputs(spec),
+    )
+    assert envelope.evaluation_guidance is not None
+    assert [item.id for item in envelope.evaluation_guidance.dimensions] == [
+        public_dimension.id
+    ]
+    guidance_json = envelope.evaluation_guidance.model_dump_json()
+    assert "stages" not in guidance_json
+    assert "evaluator_ref" not in guidance_json
+    assert "parameters" not in guidance_json
+    assert "hidden_input_refs" not in guidance_json
+    assert manifest.graders[0].expected not in envelope.model_dump_json()
+
+
+def test_terminal_payload_separates_goal_state_from_bounded_exploration() -> None:
+    goal_state = normalize_event_payload(
+        "run.completed",
+        {
+            "status": "completed",
+            "goal_result": {"goal_mode": "goal_state", "state": "achieved"},
+            "terminal_cause": "The declared observable outcome was produced.",
+        },
+    )
+    assert goal_state["goal_result"] == {
+        "goal_mode": "goal_state",
+        "state": "achieved",
+    }
+    exploration = normalize_event_payload(
+        "run.completed",
+        {
+            "status": "completed",
+            "goal_result": {
+                "goal_mode": "bounded_exploration",
+                "disposition": "concluded",
+                "stop_reason": "evidence_saturation",
+                "stop_condition_kind": "bounded_exploration_complete",
+                "evidence_refs": [{"ref": "event:evt_terminal"}],
+            },
+            "terminal_cause": "The bounded evidence search reached its stop policy.",
+        },
+    )
+    assert exploration["goal_result"]["goal_mode"] == "bounded_exploration"
+    assert "state" not in exploration["goal_result"]
+    with pytest.raises(ValidationError):
+        normalize_event_payload(
+            "run.completed",
+            {
+                "status": "completed",
+                "goal_result": {
+                    "goal_mode": "bounded_exploration",
+                    "state": "achieved",
+                },
+                "terminal_cause": "An exploration cannot claim Goal achievement.",
+            },
+        )
+
+
+def test_trigger_and_stop_condition_references_are_not_ambiguous() -> None:
+    with pytest.raises(ValidationError, match="event evaluation trigger requires"):
+        EvaluationTrigger(kind="event")
+    with pytest.raises(ValidationError, match="checkpoint evaluation trigger requires"):
+        EvaluationTrigger(kind="checkpoint")
+    with pytest.raises(ValidationError, match="cannot declare a reference"):
+        EvaluationTrigger(kind="run_terminal", reference="subject.responded")
+
+    predicate_ref = capability_ref("evidrun.predicate", "bounded-stop")
+    with pytest.raises(ValidationError, match="requires a predicate_ref"):
+        StopCondition(kind="predicate")
+    with pytest.raises(ValidationError, match="only valid for predicate"):
+        StopCondition(kind="goal_complete", predicate_ref=predicate_ref)
+
+    assert EvaluationTrigger(kind="event", reference="subject.responded").reference == (
+        "subject.responded"
+    )
+    assert StopCondition(kind="predicate", predicate_ref=predicate_ref).predicate_ref == (
+        predicate_ref
+    )
 
 
 def test_controlled_comparison_rejects_an_unexplained_second_change() -> None:
@@ -467,6 +826,27 @@ def test_admission_records_exact_capability_permissions_and_provider_resolution(
     assert admission.resolved_inventory.provider_profile_digest == provider_digest
     assert admission.resolved_inventory.provider_adapter == "openai-responses@1"
     assert "api_key" not in admission.model_dump_json()
+    assert "locator" not in admission.model_dump_json()
+
+    instructions_requirement = requirement.model_copy(update={"exposure": "instructions"})
+    instructions_spec = baseline.model_copy(
+        update={
+            "agent_inventory": agent.model_copy(
+                update={"capability_requirements": (instructions_requirement,)}
+            )
+        }
+    )
+    instructions_admission = service.admit(instructions_spec)
+    assert instructions_admission.decision == "admitted"
+    assert instructions_admission.resolved_inventory.capabilities[0].context_refs == (
+        instruction_ref,
+    )
+    instructions_envelope = SubjectEnvelopeCompiler.compile(
+        instructions_spec,
+        instructions_admission,
+        materialized_inputs=materialized_subject_inputs(instructions_spec),
+    )
+    assert "locator" not in instructions_envelope.model_dump_json()
 
     excessive = requirement.model_copy(update={"requested_permissions": ("read", "write")})
     denied_spec = baseline.model_copy(
@@ -622,6 +1002,7 @@ def test_nested_agent_graph_and_checkpoints_compile_but_admission_rejects_runtim
         assert admission.decision == "rejected"
         assert admission.interaction_status == "unsupported"
         assert "runtime:nested_agents" in admission.missing_requirements
+        assert "runtime:checkpoint_coordinator" in admission.missing_requirements
         assert {item.status for item in admission.resolved_inventory.capabilities} == {
             "unsupported"
         }
@@ -665,6 +1046,54 @@ def test_admission_rejects_workspace_interaction_and_capture_features_not_execut
     rejected_capture = service.admit(raw_capture)
     assert rejected_capture.decision == "rejected"
     assert "capture:raw_encrypted" in rejected_capture.denied_policies
+
+    token_budget = baseline.model_copy(
+        update={
+            "budgets": baseline.budgets.model_copy(update={"max_output_tokens": 100})
+        }
+    )
+    token_budget_admission = service.admit(token_budget)
+    assert token_budget_admission.decision == "rejected"
+    assert "runtime:budget:max_output_tokens" in (
+        token_budget_admission.missing_requirements
+    )
+
+    unsupported_stop = baseline.model_copy(
+        update={
+            "stop_conditions": (
+                *baseline.stop_conditions,
+                StopCondition(kind="human_stop", action="pause"),
+            )
+        }
+    )
+    stop_admission = service.admit(unsupported_stop)
+    assert stop_admission.decision == "rejected"
+    assert "runtime:stop_condition_coordinator" in stop_admission.missing_requirements
+
+    restricted_source = baseline.scenario.input_bindings[0].source.model_copy(
+        update={"classification": Classification.RESTRICTED}
+    )
+    restricted_binding = baseline.scenario.input_bindings[0].model_copy(
+        update={"source": restricted_source}
+    )
+    restricted_scenario = baseline.scenario.model_copy(
+        update={"input_bindings": (restricted_binding,)}
+    )
+    restricted_mount = baseline.workspace.mounts[0].model_copy(
+        update={"source": restricted_source}
+    )
+    restricted_workspace = baseline.workspace.model_copy(
+        update={"mounts": (restricted_mount,)}
+    )
+    restricted_spec = baseline.model_copy(
+        update={
+            "scenario": restricted_scenario,
+            "workspace": restricted_workspace,
+        }
+    )
+    restricted_admission = service.admit(restricted_spec)
+    assert restricted_admission.decision == "rejected"
+    assert "classification:restricted" in restricted_admission.denied_policies
 
 
 def test_exploratory_study_has_default_variant_and_no_aggregate_score() -> None:
@@ -712,7 +1141,16 @@ def test_exploratory_study_has_default_variant_and_no_aggregate_score() -> None:
             ),
             disclosure=EvaluationDisclosure(hidden_input_refs=(hidden_ref,)),
             aggregation=None,
-            human_adjudication_policy=HumanAdjudicationPolicy(required=True),
+            human_adjudication_policy=HumanAdjudicationPolicy(
+                required=True,
+                adjudicator_ref=capability_ref(
+                    "evidrun.human", "qualitative-adjudicator"
+                ),
+                adjudicable_stage_ids=("qualitative-judge",),
+                attestation_verifier_ref=capability_ref(
+                    "evidrun.authority", "webauthn-verifier"
+                ),
+            ),
         ),
     )
     accept(registry, goal)
@@ -740,12 +1178,17 @@ def test_exploratory_study_has_default_variant_and_no_aggregate_score() -> None:
     assert specs[0].variant_id == "default"
     assert specs[0].evaluation_plan.aggregation is None
     admission = AdmissionService(runners=(specs[0].agent_inventory.runner_ref,)).admit(specs[0])
-    envelope = SubjectEnvelopeCompiler.compile(
-        specs[0],
-        admission,
-        materialized_inputs=materialized_subject_inputs(specs[0]),
-    )
-    assert "hidden-calibration" not in envelope.model_dump_json()
+    assert admission.decision == "rejected"
+    assert "runtime:bounded_exploration_terminal" in admission.missing_requirements
+    assert "runtime:evaluation_pipeline" in admission.missing_requirements
+    assert "runtime:verified_human_adjudication" in admission.missing_requirements
+    with pytest.raises(ValueError, match="rejected admission"):
+        SubjectEnvelopeCompiler.compile(
+            specs[0],
+            admission,
+            materialized_inputs=materialized_subject_inputs(specs[0]),
+        )
+    assert "hidden-calibration" not in specs[0].goal.model_dump_json()
 
 
 def test_unknown_required_extension_is_rejected_by_compiler() -> None:
@@ -867,6 +1310,50 @@ def test_evaluation_validator_enforces_types_scales_and_hard_gates() -> None:
     )
     with pytest.raises(ValueError, match="substituted"):
         EvaluationValidator.validate(plan, substituted_evaluator)
+    with pytest.raises(ValidationError, match="only model judge"):
+        EvaluationRecord.model_validate(
+            {
+                **semantic_model_dump(record),
+                "provider_profile_id": "fabricated-provider",
+                "provider_model": "fabricated-model",
+            }
+        )
+
+    failed_primary = record.model_copy(update={"gate_status": "failed"})
+    passing_adjudication = failed_primary.model_copy(
+        update={
+            "record_id": "eval-integrity-adjudicated",
+            "source_type": "human_adjudicator",
+            "gate_status": "passed",
+        }
+    )
+    assert EvaluationValidator.gate_results(
+        plan, [failed_primary, passing_adjudication]
+    ) == {"integrity": "passed"}
+    assert EvaluationValidator.gate_results(
+        plan, [passing_adjudication, failed_primary]
+    ) == {"integrity": "passed"}
+    future_primary = failed_primary.model_copy(
+        update={
+            "record_id": "eval-integrity-future",
+            "boundary": failed_primary.boundary.model_copy(
+                update={"up_to_event_sequence": 3}
+            ),
+        }
+    )
+    bounded_adjudication = passing_adjudication.model_copy(
+        update={
+            "boundary": passing_adjudication.boundary.model_copy(
+                update={"up_to_event_sequence": 2}
+            )
+        }
+    )
+    with pytest.raises(ValueError, match="outside its boundary"):
+        EvaluationValidator.validate_human_relation_boundary(
+            bounded_adjudication,
+            boundary_sequence=2,
+            related_records=[(future_primary, 3)],
+        )
 
 
 def test_checkpoint_and_human_adjudication_are_append_only_records() -> None:
@@ -909,6 +1396,84 @@ def test_checkpoint_and_human_adjudication_are_append_only_records() -> None:
         )
 
 
+def test_human_evaluation_timestamp_is_bound_to_verified_attestation() -> None:
+    _, _, _, specs = baseline_specs()
+    spec = specs[0]
+    created_at = utc_now()
+    relation = AdjudicatesEvaluationRelation(target_record_refs=("eval-source",))
+    dimension_values = (
+        DimensionValue(
+            dimension_id=spec.evaluation_plan.dimensions[0].id,
+            value=True,
+            rationale="The human resolved the declared disagreement.",
+            evidence_refs=(EvidenceRef(ref="event:evt-reviewed"),),
+        ),
+    )
+    evaluator_ref = capability_ref("evidrun.human", "test-adjudicator")
+    draft = EvaluationRecord.model_construct(
+        schema_version="1",
+        record_id="eval-human",
+        run_id="run-human",
+        plan_ref=spec.evaluation_plan_ref,
+        stage_id=spec.evaluation_plan.stages[0].id,
+        source_type="human_adjudicator",
+        evaluator_ref=evaluator_ref,
+        provider_profile_id=None,
+        provider_model=None,
+        boundary=EvaluationBoundary(
+            up_to_event_sequence=1,
+            event_hash="a" * 64,
+        ),
+        dimension_values=dimension_values,
+        gate_status="passed",
+        status="final",
+        relation=relation,
+        human_attestation=None,
+        created_at_utc=created_at,
+    )
+    attestation = HumanAttestationRecord(
+        attestation_id="attestation-human-eval",
+        principal_id="human-reviewer",
+        credential_id="credential-human-reviewer",
+        action="evaluation.adjudicated",
+        target_digest=spec.evaluation_plan_ref.digest,
+        subject_digest=draft.human_subject_digest(),
+        challenge_digest="b" * 64,
+        assertion_ref=ArtifactRef(
+            artifact_id="webauthn-human-eval",
+            digest="c" * 64,
+            media_type="application/webauthn+json",
+        ),
+        relying_party_id="evidrun.local",
+        origin="https://evidrun.local",
+        verifier_ref=capability_ref("evidrun.authority", "webauthn"),
+        verified_at_utc=created_at,
+    )
+    record = EvaluationRecord(
+        record_id="eval-human",
+        run_id="run-human",
+        plan_ref=spec.evaluation_plan_ref,
+        stage_id=spec.evaluation_plan.stages[0].id,
+        source_type="human_adjudicator",
+        evaluator_ref=evaluator_ref,
+        boundary=draft.boundary,
+        dimension_values=dimension_values,
+        gate_status="passed",
+        status="final",
+        relation=relation,
+        human_attestation=attestation,
+        created_at_utc=created_at,
+    )
+    assert record.created_at_utc == attestation.verified_at_utc
+    with pytest.raises(ValidationError, match="verified attestation timestamp"):
+        EvaluationRecord.model_validate(
+            {
+                **semantic_model_dump(record),
+                "created_at_utc": (created_at + timedelta(seconds=1)).isoformat(),
+            }
+        )
+
+
 def test_run_event_payload_catalog_rejects_unknown_types_and_extra_fields() -> None:
     normalized = normalize_event_payload(
         "run.running",
@@ -924,6 +1489,38 @@ def test_run_event_payload_catalog_rejects_unknown_types_and_extra_fields() -> N
                 "from_status": "preparing",
                 "reason": "The workspace is ready.",
                 "arbitrary": True,
+            },
+        )
+    with pytest.raises(ValidationError, match="metadata Subject capture"):
+        normalize_event_payload(
+            "subject.responded",
+            {
+                "output": "SECRET_SHOULD_NOT_BE_CAPTURED",
+                "output_digest": "a" * 64,
+                "capture_mode": "metadata",
+                "evidence": ["raw evidence"],
+            },
+        )
+    with pytest.raises(ValidationError, match="raw encrypted Subject capture"):
+        normalize_event_payload(
+            "subject.responded",
+            {
+                "output_digest": "a" * 64,
+                "capture_mode": "raw_encrypted",
+                "evidence": ["plaintext evidence"],
+            },
+        )
+    with pytest.raises(ValidationError, match="must be unique"):
+        normalize_event_payload(
+            "run.completed",
+            {
+                "status": "completed",
+                "goal_result": {
+                    "goal_mode": "goal_state",
+                    "state": "achieved",
+                },
+                "terminal_cause": "Duplicate refs are not valid evidence coverage.",
+                "evaluation_record_refs": ["eval-one", "eval-one"],
             },
         )
 
@@ -948,6 +1545,7 @@ def test_secret_bindings_cannot_carry_credential_values() -> None:
 
 
 @given(st.binary(min_size=1, max_size=32))
+@settings(deadline=None)
 def test_contract_refs_reject_a_mismatched_digest(payload: bytes) -> None:
     _, package, registry, _ = baseline_specs()
     wrong_digest = sha256_bytes(payload)
@@ -959,6 +1557,7 @@ def test_contract_refs_reject_a_mismatched_digest(payload: bytes) -> None:
 
 
 @given(repetitions=st.integers(min_value=1, max_value=4), variants=st.integers(1, 4))
+@settings(deadline=None)
 def test_study_matrix_size_is_deterministic(repetitions: int, variants: int) -> None:
     _, package, registry, _ = baseline_specs()
     study = StudyRevision(
@@ -989,6 +1588,7 @@ def test_study_matrix_size_is_deterministic(repetitions: int, variants: int) -> 
 
 
 @given(st.dictionaries(st.text(min_size=1, max_size=8), st.integers(), max_size=12))
+@settings(deadline=None)
 def test_canonical_digest_is_independent_of_mapping_order(values: dict[str, int]) -> None:
     reversed_values = dict(reversed(tuple(values.items())))
     assert sha256_json(values) == sha256_json(reversed_values)

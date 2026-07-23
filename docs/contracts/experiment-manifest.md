@@ -37,6 +37,12 @@ answers apenas no EvaluationPlan.
 
 No runtime atual, somente o bootstrap do benchmark versionado no próprio repositório sintetiza as
 decisões de aceitação necessárias à migração, com rationale explícita de import. Isso representa a
-aceitação preexistente daquele fixture confiável; não é uma autorização para imports genéricos
-marcarem propostas novas como decisões humanas. Um import externo deve passar pelo lifecycle normal
-de draft/proposed e decisão humana.
+aceitação preexistente daquele fixture confiável. O método dedicado
+`import_legacy_contract_package` confere a identidade fechada de todas as revisions do
+`CRL-CTX-002`, seus refs e o digest integral do pacote; `repository_fixture` não passa pelo método
+comum de decision. Isso não autoriza imports genéricos a marcarem propostas novas como decisões
+humanas. Um import externo deve passar pelo lifecycle normal de draft/proposed e decisão humana.
+
+Para manter o benchmark offline compatível com o runner executável, o adapter materializa apenas os
+stops terminais `goal_complete` e `budget_exhausted`; ele não adiciona `provider_error`. O budget
+`max_wall_seconds` é aplicado pelo runtime e timeout produz `run.budget_exhausted`.

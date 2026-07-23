@@ -17,19 +17,6 @@
           "title": "Digest",
           "type": "string"
         },
-        "locator": {
-          "anyOf": [
-            {
-              "minLength": 1,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Locator"
-        },
         "media_type": {
           "minLength": 1,
           "title": "Media Type",
@@ -127,7 +114,8 @@
         "workspace_template",
         "interaction_protocol",
         "evaluation_plan",
-        "checkpoint_policy"
+        "checkpoint_policy",
+        "progress_artifact_policy"
       ],
       "title": "ContractType",
       "type": "string"
@@ -240,11 +228,6 @@
         },
         "trigger": {
           "$ref": "#/$defs/EvaluationTrigger"
-        },
-        "visible_to_subject": {
-          "default": false,
-          "title": "Visible To Subject",
-          "type": "boolean"
         }
       },
       "required": [

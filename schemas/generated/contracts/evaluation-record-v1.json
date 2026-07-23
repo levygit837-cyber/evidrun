@@ -1,5 +1,61 @@
 {
   "$defs": {
+    "AdjudicatesEvaluationRelation": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "adjudicates",
+          "default": "adjudicates",
+          "title": "Kind",
+          "type": "string"
+        },
+        "target_record_refs": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Target Record Refs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "target_record_refs"
+      ],
+      "title": "AdjudicatesEvaluationRelation",
+      "type": "object"
+    },
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "classification": {
+          "$ref": "#/$defs/Classification",
+          "default": "internal"
+        },
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "media_type": {
+          "minLength": 1,
+          "title": "Media Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "digest",
+        "media_type"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
     "CapabilityDescriptorRef": {
       "additionalProperties": false,
       "properties": {
@@ -32,6 +88,16 @@
       ],
       "title": "CapabilityDescriptorRef",
       "type": "object"
+    },
+    "Classification": {
+      "enum": [
+        "public",
+        "internal",
+        "sensitive",
+        "restricted"
+      ],
+      "title": "Classification",
+      "type": "string"
     },
     "ContractRef": {
       "additionalProperties": false,
@@ -73,7 +139,8 @@
         "workspace_template",
         "interaction_protocol",
         "evaluation_plan",
-        "checkpoint_policy"
+        "checkpoint_policy",
+        "progress_artifact_policy"
       ],
       "title": "ContractType",
       "type": "string"
@@ -200,6 +267,130 @@
       ],
       "title": "EvidenceRef",
       "type": "object"
+    },
+    "HumanAttestationRecord": {
+      "additionalProperties": false,
+      "description": "Evidence produced by a trusted human-verification adapter, not by API input.",
+      "properties": {
+        "action": {
+          "enum": [
+            "revision.accepted",
+            "revision.rejected",
+            "revision.superseded",
+            "evaluation.adjudicated",
+            "evaluation.reviewed"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "assertion_ref": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "attestation_id": {
+          "minLength": 1,
+          "title": "Attestation Id",
+          "type": "string"
+        },
+        "challenge_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Challenge Digest",
+          "type": "string"
+        },
+        "credential_id": {
+          "minLength": 1,
+          "title": "Credential Id",
+          "type": "string"
+        },
+        "origin": {
+          "minLength": 1,
+          "title": "Origin",
+          "type": "string"
+        },
+        "principal_id": {
+          "minLength": 1,
+          "title": "Principal Id",
+          "type": "string"
+        },
+        "relying_party_id": {
+          "minLength": 1,
+          "title": "Relying Party Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1",
+          "default": "1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "subject_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Subject Digest",
+          "type": "string"
+        },
+        "target_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Target Digest",
+          "type": "string"
+        },
+        "user_verification": {
+          "const": "required_verified",
+          "default": "required_verified",
+          "title": "User Verification",
+          "type": "string"
+        },
+        "verification_method": {
+          "const": "webauthn",
+          "default": "webauthn",
+          "title": "Verification Method",
+          "type": "string"
+        },
+        "verified_at_utc": {
+          "format": "date-time",
+          "title": "Verified At Utc",
+          "type": "string"
+        },
+        "verifier_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        }
+      },
+      "required": [
+        "attestation_id",
+        "principal_id",
+        "credential_id",
+        "action",
+        "target_digest",
+        "subject_digest",
+        "challenge_digest",
+        "assertion_ref",
+        "relying_party_id",
+        "origin",
+        "verifier_ref",
+        "verified_at_utc"
+      ],
+      "title": "HumanAttestationRecord",
+      "type": "object"
+    },
+    "IndependentHumanReviewRelation": {
+      "additionalProperties": false,
+      "properties": {
+        "considers_record_refs": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Considers Record Refs",
+          "type": "array"
+        },
+        "kind": {
+          "const": "independent_review",
+          "default": "independent_review",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "title": "IndependentHumanReviewRelation",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -230,6 +421,17 @@
       ],
       "title": "Gate Status",
       "type": "string"
+    },
+    "human_attestation": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/HumanAttestationRecord"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "plan_ref": {
       "$ref": "#/$defs/ContractRef"
@@ -265,6 +467,32 @@
       "title": "Record Id",
       "type": "string"
     },
+    "relation": {
+      "anyOf": [
+        {
+          "discriminator": {
+            "mapping": {
+              "adjudicates": "#/$defs/AdjudicatesEvaluationRelation",
+              "independent_review": "#/$defs/IndependentHumanReviewRelation"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/AdjudicatesEvaluationRelation"
+            },
+            {
+              "$ref": "#/$defs/IndependentHumanReviewRelation"
+            }
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Relation"
+    },
     "run_id": {
       "minLength": 1,
       "title": "Run Id",
@@ -280,6 +508,7 @@
       "enum": [
         "deterministic_grader",
         "model_judge",
+        "human_reviewer",
         "human_adjudicator"
       ],
       "title": "Source Type",
@@ -297,19 +526,6 @@
       ],
       "title": "Status",
       "type": "string"
-    },
-    "supersedes_record_ref": {
-      "anyOf": [
-        {
-          "minLength": 1,
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Supersedes Record Ref"
     }
   },
   "required": [

@@ -4,20 +4,27 @@ import hashlib
 import json
 import zipfile
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel
 
 from evidrun.contracts import (
     AdmissionRecord,
+    ArtifactManifest,
+    ArtifactManifestEntry,
     CheckpointRecord,
     ContractRef,
     EvaluationRecord,
     EvaluationValidator,
     RunRecord,
     RunSpec,
+    normalize_event_payload,
     parse_revision,
     semantic_model_dump,
+)
+from evidrun.contracts.runtime import (
+    EVENT_ALLOWED_RUN_STATUSES,
+    UNSUPPORTED_RUNTIME_EVENT_TYPES,
 )
 from evidrun.infrastructure.database import Repository
 from evidrun.shared.types import canonical_json, sha256_json, utc_now
@@ -91,6 +98,10 @@ class EvidenceBundleService:
                 {
                     "schema_version": "2",
                     "kind": "comparison",
+                    "profile": "audit",
+                    "artifact_content": "references_only",
+                    "portable": False,
+                    "replayable": False,
                     "comparison_id": comparison.id,
                     "run_ids": [run.id for run in run_rows],
                 }
@@ -111,6 +122,7 @@ class EvidenceBundleService:
         }
 
         revision_refs: dict[tuple[str, str, int], ContractRef] = {}
+        artifact_entries: list[ArtifactManifestEntry] = []
         for run in run_rows:
             spec, admission = run_contracts[run.id]
             if run.run_spec_id is None or run.admission_id is None:
@@ -142,6 +154,12 @@ class EvidenceBundleService:
                     for record in self.repository.get_checkpoint_records(run.id)
                 ]
             )
+            artifact_entries.extend(self._spec_artifact_entries(run.id, spec))
+            artifact_entries.extend(
+                self._checkpoint_artifact_entries(
+                    run.id, self.repository.get_checkpoint_records(run.id)
+                )
+            )
             refs = (
                 spec.study_ref,
                 spec.goal_ref,
@@ -168,6 +186,15 @@ class EvidenceBundleService:
                         reference.revision,
                     )
                 ] = reference
+            if spec.progress_artifact_policy_ref is not None:
+                reference = spec.progress_artifact_policy_ref
+                revision_refs[
+                    (
+                        reference.contract_type.value,
+                        reference.logical_id,
+                        reference.revision,
+                    )
+                ] = reference
 
         for (contract_type, logical_id, revision_number), reference in revision_refs.items():
             revision = self.repository.get_contract_revision_by_ref(reference)
@@ -175,6 +202,20 @@ class EvidenceBundleService:
             files[
                 f"contracts/{contract_type}/{safe_id}@{revision_number}.json"
             ] = self._json_bytes(self._record_dict(revision))
+
+        unique_entries = {
+            (item.run_id, item.role, item.artifact_ref.artifact_id): item
+            for item in artifact_entries
+        }
+        artifact_manifest = ArtifactManifest(
+            entries=tuple(
+                unique_entries[key]
+                for key in sorted(unique_entries)
+            )
+        )
+        files["artifact-manifest.json"] = self._json_bytes(
+            self._record_dict(artifact_manifest)
+        )
 
         checksums = {name: hashlib.sha256(content).hexdigest() for name, content in files.items()}
         files["checksums.json"] = self._json_bytes(
@@ -214,13 +255,125 @@ class EvidenceBundleService:
             for name in sorted(item for item in names if item.startswith("events/")):
                 events = [json.loads(line) for line in archive.read(name).splitlines() if line]
                 previous: str | None = None
+                current_status = "queued"
                 valid = True
-                for event in events:
+                terminal_states = {
+                    "completed",
+                    "failed",
+                    "cancelled",
+                    "budget_exhausted",
+                    "guardrail_stopped",
+                }
+                transitions = {
+                    "run.preparing": ({"queued"}, "preparing"),
+                    "run.running": ({"preparing"}, "running"),
+                    "run.paused": ({"running"}, "paused"),
+                    "run.resumed": ({"paused"}, "running"),
+                    "run.evaluating": ({"running"}, "evaluating"),
+                    "run.completed": ({"evaluating"}, "completed"),
+                    "run.failed": (
+                        {"queued", "preparing", "running", "paused", "evaluating"},
+                        "failed",
+                    ),
+                    "run.cancelled": (
+                        {"queued", "preparing", "running", "paused", "evaluating"},
+                        "cancelled",
+                    ),
+                    "run.budget_exhausted": (
+                        {"queued", "preparing", "running", "paused", "evaluating"},
+                        "budget_exhausted",
+                    ),
+                    "run.guardrail_stopped": (
+                        {"queued", "preparing", "running", "paused", "evaluating"},
+                        "guardrail_stopped",
+                    ),
+                }
+                allowed_actor_types = {
+                    "system",
+                    "subject",
+                    "evaluator",
+                    "tool",
+                    "skill",
+                    "observer",
+                }
+                run_id = Path(name).stem
+                subject_invocations = 0
+                subject_responses = 0
+                for expected_sequence, event in enumerate(events, start=1):
+                    stored_event = dict(event)
                     stored_hash = event.pop("event_hash")
-                    if event["prev_event_hash"] != previous or sha256_json(event) != stored_hash:
+                    event_type = str(event.get("type"))
+                    payload = event.get("payload")
+                    if (
+                        event.get("schema_version") != "1"
+                        or event.get("run_id") != run_id
+                        or event.get("sequence") != expected_sequence
+                        or event.get("actor_type") not in allowed_actor_types
+                        or not str(event.get("actor_id", "")).strip()
+                        or event_type in UNSUPPORTED_RUNTIME_EVENT_TYPES
+                        or event.get("prev_event_hash") != previous
+                        or sha256_json(event) != stored_hash
+                    ):
                         valid = False
                         break
+                    try:
+                        if normalize_event_payload(event_type, payload) != payload:
+                            valid = False
+                            break
+                    except (TypeError, ValueError):
+                        valid = False
+                        break
+                    if expected_sequence == 1:
+                        if event_type != "run.queued":
+                            valid = False
+                            break
+                    elif event_type == "run.queued" or current_status in terminal_states:
+                        valid = False
+                        break
+                    allowed_statuses = EVENT_ALLOWED_RUN_STATUSES.get(event_type)
+                    if (
+                        allowed_statuses is not None
+                        and current_status not in allowed_statuses
+                    ):
+                        valid = False
+                        break
+                    if event_type == "subject.invoked":
+                        if subject_invocations != subject_responses:
+                            valid = False
+                            break
+                        subject_invocations += 1
+                    if event_type == "subject.responded":
+                        if subject_invocations != subject_responses + 1:
+                            valid = False
+                            break
+                        subject_responses += 1
+                    if event_type == "run.evaluating" and subject_responses == 0:
+                        valid = False
+                        break
+                    if event_type == "run.completed" and subject_responses == 0:
+                        valid = False
+                        break
+                    transition = transitions.get(event_type)
+                    if transition is not None:
+                        allowed_from, target = transition
+                        if current_status not in allowed_from:
+                            valid = False
+                            break
+                        if event.get("payload", {}).get("from_status") not in {
+                            None,
+                            current_status,
+                        }:
+                            valid = False
+                            break
+                        if event.get("payload", {}).get("status") not in {
+                            None,
+                            target,
+                        }:
+                            valid = False
+                            break
+                        current_status = target
                     previous = stored_hash
+                    event.update(stored_event)
                 chain_results[name] = valid
 
             record_results: dict[str, bool] = {}
@@ -239,6 +392,10 @@ class EvidenceBundleService:
         )
         return {
             "valid": valid,
+            "integrity_valid": valid,
+            "audit_complete": valid and bool(record_results),
+            "portable": False,
+            "replayable": False,
             "checksums": checksum_results,
             "event_chains": chain_results,
             "records": record_results,
@@ -251,9 +408,14 @@ class EvidenceBundleService:
         raw_run_ids = bundle_manifest.get("run_ids")
         if (
             bundle_manifest.get("kind") != "comparison"
+            or bundle_manifest.get("profile") != "audit"
+            or bundle_manifest.get("artifact_content") != "references_only"
+            or bundle_manifest.get("portable") is not False
+            or bundle_manifest.get("replayable") is not False
             or not isinstance(raw_run_ids, list)
             or "comparison.json" not in names
             or "report.md" not in names
+            or "artifact-manifest.json" not in names
         ):
             return False
         run_ids = cast(list[object], raw_run_ids)
@@ -278,6 +440,8 @@ class EvidenceBundleService:
     ) -> dict[str, bool]:
         results: dict[str, bool] = {}
         run_specs: dict[str, RunSpec] = {}
+        run_records: dict[str, RunRecord] = {}
+        admissions: dict[str, AdmissionRecord] = {}
         for name in sorted(item for item in names if item.startswith("runs/")):
             try:
                 run_document = json.loads(archive.read(name))
@@ -287,8 +451,20 @@ class EvidenceBundleService:
                 )
                 expected = spec_document.pop("digest")
                 spec = RunSpec.model_validate(spec_document)
-                if spec.digest == expected:
+                admission_document = json.loads(
+                    archive.read(f"admissions/{run_record.admission_id}.json")
+                )
+                admission_digest = admission_document.pop("digest")
+                admission = AdmissionRecord.model_validate(admission_document)
+                if (
+                    spec.digest == expected
+                    and admission.digest == admission_digest
+                    and admission.decision == "admitted"
+                    and admission.run_spec_digest == spec.digest
+                ):
                     run_specs[run_record.run_id] = spec
+                    run_records[run_record.run_id] = run_record
+                    admissions[run_record.run_id] = admission
             except (KeyError, TypeError, ValueError):
                 continue
         for run_id, spec in run_specs.items():
@@ -304,6 +480,10 @@ class EvidenceBundleService:
             if spec.checkpoint_policy_ref is not None:
                 referenced_contracts.append(
                     (spec.checkpoint_policy_ref, spec.checkpoint_policy)
+                )
+            if spec.progress_artifact_policy_ref is not None:
+                referenced_contracts.append(
+                    (spec.progress_artifact_policy_ref, spec.progress_artifact_policy)
                 )
             for reference, expected_payload in referenced_contracts:
                 safe_id = reference.logical_id.replace("/", "_")
@@ -323,12 +503,56 @@ class EvidenceBundleService:
                     )
                 except (AttributeError, KeyError, TypeError, ValueError):
                     results[result_key] = False
+        try:
+            manifest_document = json.loads(archive.read("artifact-manifest.json"))
+            manifest_digest = manifest_document.pop("digest")
+            artifact_manifest = ArtifactManifest.model_validate(manifest_document)
+            expected_entries: list[ArtifactManifestEntry] = []
+            for run_id, spec in run_specs.items():
+                expected_entries.extend(
+                    EvidenceBundleService._spec_artifact_entries(run_id, spec)
+                )
+                checkpoint_name = f"checkpoints/{run_id}.json"
+                checkpoint_documents = json.loads(archive.read(checkpoint_name))
+                expected_entries.extend(
+                    EvidenceBundleService._checkpoint_artifact_entries(
+                        run_id,
+                        [
+                            CheckpointRecord.model_validate(
+                                {
+                                    key: value
+                                    for key, value in document.items()
+                                    if key != "checkpoint_hash"
+                                }
+                            )
+                            for document in checkpoint_documents
+                        ],
+                    )
+                )
+            expected_documents = {
+                canonical_json(semantic_model_dump(item)) for item in expected_entries
+            }
+            actual_documents = {
+                canonical_json(semantic_model_dump(item))
+                for item in artifact_manifest.entries
+            }
+            results["artifact-manifest.json"] = (
+                artifact_manifest.digest == manifest_digest
+                and artifact_manifest.profile == "audit"
+                and not artifact_manifest.portable
+                and not artifact_manifest.replayable
+                and expected_documents == actual_documents
+            )
+        except (KeyError, TypeError, ValueError):
+            results["artifact-manifest.json"] = False
         event_boundaries: dict[str, dict[int, str]] = {}
         event_types: dict[str, dict[int, str]] = {}
         event_sequences_by_id: dict[str, dict[str, int]] = {}
+        events_by_run: dict[str, list[dict[str, Any]]] = {}
         for name in sorted(item for item in names if item.startswith("events/")):
             run_id = Path(name).stem
             events = [json.loads(line) for line in archive.read(name).splitlines() if line]
+            events_by_run[run_id] = events
             event_boundaries[run_id] = {
                 int(event["sequence"]): str(event["event_hash"]) for event in events
             }
@@ -338,6 +562,45 @@ class EvidenceBundleService:
             event_sequences_by_id[run_id] = {
                 str(event["event_id"]): int(event["sequence"]) for event in events
             }
+            terminal_types = {
+                "run.completed",
+                "run.failed",
+                "run.cancelled",
+                "run.budget_exhausted",
+                "run.guardrail_stopped",
+            }
+            results[f"__terminal_event__:{run_id}"] = bool(events) and str(
+                events[-1]["type"]
+            ) in terminal_types
+            spec = run_specs.get(run_id)
+            run_record = run_records.get(run_id)
+            admission = admissions.get(run_id)
+            if (
+                not events
+                or str(events[-1].get("type")) not in terminal_types
+                or spec is None
+                or run_record is None
+                or admission is None
+            ):
+                results[f"__event_contracts__:{run_id}"] = False
+            else:
+                queued_payload = events[0]["payload"]
+                terminal_payload = events[-1]["payload"]
+                bounded_stop_valid = True
+                if terminal_payload["goal_result"]["goal_mode"] == "bounded_exploration":
+                    bounded_stop_valid = terminal_payload["goal_result"][
+                        "stop_condition_kind"
+                    ] in {item.kind for item in spec.stop_conditions}
+                results[f"__event_contracts__:{run_id}"] = (
+                    events[0]["type"] == "run.queued"
+                    and queued_payload["run_id"] == run_record.run_id
+                    and queued_payload["variant_id"] == spec.variant_id
+                    and queued_payload["run_spec_digest"] == spec.digest
+                    and queued_payload["admission_digest"] == admission.digest
+                    and terminal_payload["goal_result"]["goal_mode"]
+                    == spec.goal.mode
+                    and bounded_stop_valid
+                )
         checkpoint_ids: dict[str, set[str]] = {}
         checkpoint_sequences: dict[str, dict[str, int]] = {}
         checkpoint_definitions: dict[str, dict[str, str]] = {}
@@ -396,7 +659,29 @@ class EvidenceBundleService:
                 elif name.startswith("evaluations/") and name.endswith(".json"):
                     documents = json.loads(archive.read(name))
                     run_id = Path(name).stem
-                    results[name] = all(
+                    records_by_id = {
+                        str(document["record_id"]): document for document in documents
+                    }
+                    record_keys = [
+                        (str(document["stage_id"]), str(document["source_type"]))
+                        for document in documents
+                    ]
+                    completion_event_payloads = [
+                        event["payload"]
+                        for event in events_by_run.get(run_id, [])
+                        if event["type"] == "evaluation.completed"
+                    ]
+                    completion_events = {
+                        str(payload["evaluation_record_id"]): payload
+                        for payload in completion_event_payloads
+                    }
+                    records_valid = bool(documents) and (
+                        len(records_by_id) == len(documents)
+                        and len(set(record_keys)) == len(record_keys)
+                        and len(completion_events) == len(completion_event_payloads)
+                        and set(completion_events) == set(records_by_id)
+                    )
+                    records_valid = records_valid and all(
                         EvidenceBundleService._evaluation_record_valid(
                             document,
                             run_id=run_id,
@@ -407,9 +692,62 @@ class EvidenceBundleService:
                             checkpoint_ids=checkpoint_ids,
                             checkpoint_sequences=checkpoint_sequences,
                             checkpoint_definitions=checkpoint_definitions,
+                            records_by_id=records_by_id,
                         )
                         for document in documents
                     )
+                    records_valid = records_valid and all(
+                        str(document["record_id"]) in completion_events
+                        and completion_events[str(document["record_id"])][
+                            "evaluation_record_digest"
+                        ]
+                        == document["digest"]
+                        and completion_events[str(document["record_id"])][
+                            "gate_status"
+                        ]
+                        == document["gate_status"]
+                        for document in documents
+                    )
+                    run_events = events_by_run.get(run_id, [])
+                    if not run_events:
+                        records_valid = False
+                    terminal_event = run_events[-1] if run_events else None
+                    if terminal_event is not None and terminal_event["type"] == "run.completed":
+                        terminal_refs = {
+                            str(item)
+                            for item in terminal_event["payload"].get(
+                                "evaluation_record_refs", []
+                            )
+                        }
+                        records_valid = records_valid and (
+                            terminal_refs == set(records_by_id)
+                        )
+                        spec = run_specs.get(run_id)
+                        if spec is None:
+                            records_valid = False
+                        else:
+                            parsed_records = [
+                                EvaluationRecord.model_validate(
+                                    {
+                                        key: value
+                                        for key, value in document.items()
+                                        if key != "digest"
+                                    }
+                                )
+                                for document in documents
+                            ]
+                            gate_results = EvaluationValidator.gate_results(
+                                spec.evaluation_plan,
+                                parsed_records,
+                            )
+                            required_stages = EvaluationValidator.stages_visible_after_gates(
+                                spec.evaluation_plan,
+                                gate_results,
+                            )
+                            records_valid = records_valid and set(
+                                required_stages
+                            ).issubset(gate_results)
+                    results[name] = records_valid
                 elif name.startswith("checkpoints/") and name.endswith(".json"):
                     documents = json.loads(archive.read(name))
                     run_id = Path(name).stem
@@ -425,6 +763,21 @@ class EvidenceBundleService:
                     )
             except (KeyError, TypeError, ValueError):
                 results[name] = False
+        try:
+            bundle_document = json.loads(archive.read("bundle.json"))
+            comparison_document = json.loads(archive.read("comparison.json"))
+            run_ids = {str(item) for item in bundle_document["run_ids"]}
+            comparison_run_ids = {
+                str(comparison_document["baseline_run_id"]),
+                str(comparison_document["candidate_run_id"]),
+            }
+            results["comparison.json"] = (
+                len(run_ids) == 2
+                and run_ids == comparison_run_ids == set(run_specs)
+                and comparison_document["id"] == bundle_document["comparison_id"]
+            )
+        except (KeyError, TypeError, ValueError):
+            results["comparison.json"] = False
         return results
 
     @staticmethod
@@ -439,6 +792,7 @@ class EvidenceBundleService:
         checkpoint_ids: dict[str, set[str]],
         checkpoint_sequences: dict[str, dict[str, int]],
         checkpoint_definitions: dict[str, dict[str, str]],
+        records_by_id: dict[str, dict[str, Any]],
     ) -> bool:
         expected = document["digest"]
         record = EvaluationRecord.model_validate(
@@ -455,6 +809,51 @@ class EvidenceBundleService:
             EvaluationValidator.validate(spec.evaluation_plan, record)
         except ValueError:
             return False
+        if record.source_type == "human_adjudicator":
+            policy = spec.evaluation_plan.human_adjudication_policy
+            if (
+                not policy.required
+                or record.stage_id not in policy.adjudicable_stage_ids
+                or record.evaluator_ref != policy.adjudicator_ref
+                or record.human_attestation is None
+                or record.human_attestation.verifier_ref
+                != policy.attestation_verifier_ref
+                or record.relation is None
+                or record.relation.kind != "adjudicates"
+            ):
+                return False
+            adjudications_for_stage = [
+                document
+                for document in records_by_id.values()
+                if document.get("source_type") == "human_adjudicator"
+                and document.get("stage_id") == record.stage_id
+            ]
+            if len(adjudications_for_stage) != 1:
+                return False
+            for target_ref in record.relation.target_record_refs:
+                target_document = records_by_id.get(target_ref)
+                if target_document is None:
+                    return False
+                target = EvaluationRecord.model_validate(
+                    {
+                        key: value
+                        for key, value in target_document.items()
+                        if key != "digest"
+                    }
+                )
+                if (
+                    target.run_id != run_id
+                    or target.plan_ref != record.plan_ref
+                    or target.stage_id != record.stage_id
+                ):
+                    return False
+        if record.source_type == "human_reviewer":
+            if record.relation is None or record.relation.kind != "independent_review":
+                return False
+            for considered_ref in record.relation.considers_record_refs:
+                considered = records_by_id.get(considered_ref)
+                if considered is None or considered.get("run_id") != run_id:
+                    return False
         boundary = record.boundary
         if (
             boundary.up_to_event_sequence is not None
@@ -475,6 +874,43 @@ class EvidenceBundleService:
             )
         if boundary_sequence is None:
             return False
+        if record.source_type in {"human_reviewer", "human_adjudicator"}:
+            relation = record.relation
+            if relation is None:
+                return False
+            related_refs = (
+                relation.target_record_refs
+                if relation.kind == "adjudicates"
+                else relation.considers_record_refs
+            )
+            related_records: list[tuple[EvaluationRecord, int]] = []
+            for related_ref in related_refs:
+                related_document = records_by_id.get(related_ref)
+                if related_document is None:
+                    return False
+                related_record = EvaluationRecord.model_validate(
+                    {
+                        key: value
+                        for key, value in related_document.items()
+                        if key != "digest"
+                    }
+                )
+                related_sequence = related_record.boundary.up_to_event_sequence
+                if related_record.boundary.checkpoint_id is not None:
+                    related_sequence = checkpoint_sequences.get(run_id, {}).get(
+                        related_record.boundary.checkpoint_id
+                    )
+                if related_sequence is None:
+                    return False
+                related_records.append((related_record, related_sequence))
+            try:
+                EvaluationValidator.validate_human_relation_boundary(
+                    record,
+                    boundary_sequence=boundary_sequence,
+                    related_records=related_records,
+                )
+            except ValueError:
+                return False
         if stage.trigger.kind == "event" and (
             boundary.up_to_event_sequence is None
             or event_types.get(run_id, {}).get(boundary.up_to_event_sequence)
@@ -591,6 +1027,99 @@ class EvidenceBundleService:
     @staticmethod
     def _jsonl_bytes(events: list[dict[str, Any]]) -> bytes:
         return ("\n".join(canonical_json(event) for event in events) + "\n").encode()
+
+    @staticmethod
+    def _spec_artifact_entries(run_id: str, spec: RunSpec) -> list[ArtifactManifestEntry]:
+        entries: list[ArtifactManifestEntry] = []
+
+        def add(
+            role: Literal[
+                "scenario_input",
+                "agent_instruction",
+                "interaction_prompt",
+                "hidden_calibration",
+                "extension_schema",
+                "extension_payload",
+            ],
+            artifact_ref: Any,
+            source_label: str,
+        ) -> None:
+            entries.append(
+                ArtifactManifestEntry(
+                    run_id=run_id,
+                    role=role,
+                    artifact_ref=artifact_ref,
+                    source_label=source_label,
+                    content_included=False,
+                    omission_reason=(
+                        "audit profile includes identity and digest, not artifact bytes"
+                    ),
+                    required_for_portability=True,
+                )
+            )
+
+        for binding in spec.scenario.input_bindings:
+            add("scenario_input", binding.source, f"scenario_input:{binding.id}")
+        interaction_refs = tuple(
+            item
+            for item in (
+                spec.interaction_protocol.system_prompt_ref,
+                *spec.interaction_protocol.initial_message_refs,
+            )
+            if item is not None
+        )
+        for index, artifact_ref in enumerate(interaction_refs):
+            add("interaction_prompt", artifact_ref, f"interaction_prompt:{index}")
+        for requirement in spec.agent_inventory.capability_requirements:
+            for index, artifact_ref in enumerate(requirement.instruction_refs):
+                add(
+                    "agent_instruction",
+                    artifact_ref,
+                    f"capability_instruction:{requirement.capability_ref.name}:{index}",
+                )
+        for index, artifact_ref in enumerate(
+            spec.evaluation_plan.disclosure.hidden_input_refs
+        ):
+            add("hidden_calibration", artifact_ref, f"hidden_calibration:{index}")
+        for extension in spec.extensions:
+            add(
+                "extension_schema",
+                extension.schema_ref,
+                f"extension_schema:{extension.namespace}:{extension.slot}",
+            )
+            add(
+                "extension_payload",
+                extension.payload_ref,
+                f"extension_payload:{extension.namespace}:{extension.slot}",
+            )
+        return entries
+
+    @staticmethod
+    def _checkpoint_artifact_entries(
+        run_id: str, records: list[CheckpointRecord]
+    ) -> list[ArtifactManifestEntry]:
+        entries: list[ArtifactManifestEntry] = []
+        for record in records:
+            refs = (
+                record.protocol_state_ref,
+                record.artifact_manifest_ref,
+                record.workspace_snapshot_ref,
+            )
+            for index, artifact_ref in enumerate(item for item in refs if item is not None):
+                entries.append(
+                    ArtifactManifestEntry(
+                        run_id=run_id,
+                        role="checkpoint_capture",
+                        artifact_ref=artifact_ref,
+                        source_label=f"checkpoint:{record.checkpoint_id}:{index}",
+                        content_included=False,
+                        omission_reason=(
+                            "audit profile includes identity and digest, not artifact bytes"
+                        ),
+                        required_for_portability=True,
+                    )
+                )
+        return entries
 
     @staticmethod
     def _record_dict(model: Any, *, digest_field: str = "digest") -> dict[str, Any]:

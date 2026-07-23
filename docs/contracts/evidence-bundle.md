@@ -19,7 +19,7 @@ verification_refs:
 
 # Evidence Bundle v1
 
-ZIP portátil contendo:
+ZIP auditável contendo:
 
 ```text
 manifest.json
@@ -36,3 +36,5 @@ sensíveis.
 
 Este formato permanece exportável e verificável para compatibilidade. A exportação padrão nova usa
 [Evidence Bundle v2](evidence-bundle-v2.md); v2 não reinterpreta nem invalida bundles v1.
+Conforme o [ADR 0011](../adr/0011-progress-artifacts-and-bundle-boundaries.md), exportável não
+significa portátil com todos os blobs nem replayable.

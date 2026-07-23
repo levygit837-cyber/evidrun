@@ -17,19 +17,6 @@
           "title": "Digest",
           "type": "string"
         },
-        "locator": {
-          "anyOf": [
-            {
-              "minLength": 1,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Locator"
-        },
         "media_type": {
           "minLength": 1,
           "title": "Media Type",
@@ -42,6 +29,71 @@
         "media_type"
       ],
       "title": "ArtifactRef",
+      "type": "object"
+    },
+    "BoundedExplorationTerminalResult": {
+      "additionalProperties": false,
+      "properties": {
+        "disposition": {
+          "enum": [
+            "concluded",
+            "incomplete",
+            "not_assessable"
+          ],
+          "title": "Disposition",
+          "type": "string"
+        },
+        "evidence_refs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/EvidenceRef"
+          },
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "goal_mode": {
+          "const": "bounded_exploration",
+          "default": "bounded_exploration",
+          "title": "Goal Mode",
+          "type": "string"
+        },
+        "learning_summary_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ArtifactRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "stop_condition_kind": {
+          "minLength": 1,
+          "title": "Stop Condition Kind",
+          "type": "string"
+        },
+        "stop_reason": {
+          "enum": [
+            "evidence_saturation",
+            "bounded_completion",
+            "budget_limit",
+            "time_limit",
+            "turn_limit",
+            "human_stop",
+            "guardrail",
+            "provider_failure"
+          ],
+          "title": "Stop Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "disposition",
+        "stop_reason",
+        "stop_condition_kind"
+      ],
+      "title": "BoundedExplorationTerminalResult",
       "type": "object"
     },
     "CapabilityDescriptorRef": {
@@ -313,7 +365,8 @@
         "workspace_template",
         "interaction_protocol",
         "evaluation_plan",
-        "checkpoint_policy"
+        "checkpoint_policy",
+        "progress_artifact_policy"
       ],
       "title": "ContractType",
       "type": "string"
@@ -364,6 +417,32 @@
       "title": "EvidenceRef",
       "type": "object"
     },
+    "GoalStateTerminalResult": {
+      "additionalProperties": false,
+      "properties": {
+        "goal_mode": {
+          "const": "goal_state",
+          "default": "goal_state",
+          "title": "Goal Mode",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "achieved",
+            "partially_achieved",
+            "not_achieved",
+            "not_assessable"
+          ],
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "title": "GoalStateTerminalResult",
+      "type": "object"
+    },
     "KeyValue": {
       "additionalProperties": false,
       "properties": {
@@ -395,6 +474,151 @@
         "value"
       ],
       "title": "KeyValue",
+      "type": "object"
+    },
+    "ProgressArtifactCreatedPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_ref": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "attempt_id": {
+          "minLength": 1,
+          "title": "Attempt Id",
+          "type": "string"
+        },
+        "event_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Event Hash",
+          "type": "string"
+        },
+        "progress_record_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Progress Record Digest",
+          "type": "string"
+        },
+        "progress_record_id": {
+          "minLength": 1,
+          "title": "Progress Record Id",
+          "type": "string"
+        },
+        "up_to_event_sequence": {
+          "exclusiveMinimum": 0,
+          "title": "Up To Event Sequence",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "attempt_id",
+        "progress_record_id",
+        "progress_record_digest",
+        "artifact_ref",
+        "up_to_event_sequence",
+        "event_hash"
+      ],
+      "title": "ProgressArtifactCreatedPayload",
+      "type": "object"
+    },
+    "ProgressObserverFailedPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "attempt_id": {
+          "minLength": 1,
+          "title": "Attempt Id",
+          "type": "string"
+        },
+        "definition_id": {
+          "minLength": 1,
+          "title": "Definition Id",
+          "type": "string"
+        },
+        "event_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Event Hash",
+          "type": "string"
+        },
+        "phase": {
+          "enum": [
+            "input_materialization",
+            "summarizer_resolution",
+            "invocation",
+            "output_validation",
+            "artifact_write",
+            "record_persistence"
+          ],
+          "title": "Phase",
+          "type": "string"
+        },
+        "policy_ref": {
+          "$ref": "#/$defs/ContractRef"
+        },
+        "reason_code": {
+          "minLength": 1,
+          "title": "Reason Code",
+          "type": "string"
+        },
+        "retryable": {
+          "default": false,
+          "title": "Retryable",
+          "type": "boolean"
+        },
+        "up_to_event_sequence": {
+          "exclusiveMinimum": 0,
+          "title": "Up To Event Sequence",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "attempt_id",
+        "policy_ref",
+        "definition_id",
+        "up_to_event_sequence",
+        "event_hash",
+        "phase",
+        "reason_code"
+      ],
+      "title": "ProgressObserverFailedPayload",
+      "type": "object"
+    },
+    "ProgressObserverStartedPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "attempt_id": {
+          "minLength": 1,
+          "title": "Attempt Id",
+          "type": "string"
+        },
+        "definition_id": {
+          "minLength": 1,
+          "title": "Definition Id",
+          "type": "string"
+        },
+        "event_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Event Hash",
+          "type": "string"
+        },
+        "policy_ref": {
+          "$ref": "#/$defs/ContractRef"
+        },
+        "summarizer_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        },
+        "up_to_event_sequence": {
+          "exclusiveMinimum": 0,
+          "title": "Up To Event Sequence",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "attempt_id",
+        "policy_ref",
+        "definition_id",
+        "up_to_event_sequence",
+        "event_hash",
+        "summarizer_ref"
+      ],
+      "title": "ProgressObserverStartedPayload",
       "type": "object"
     },
     "RunLifecyclePayload": {
@@ -491,15 +715,23 @@
           "title": "Evaluation Record Refs",
           "type": "array"
         },
-        "goal_state": {
-          "enum": [
-            "achieved",
-            "partially_achieved",
-            "not_achieved",
-            "not_assessable"
+        "goal_result": {
+          "discriminator": {
+            "mapping": {
+              "bounded_exploration": "#/$defs/BoundedExplorationTerminalResult",
+              "goal_state": "#/$defs/GoalStateTerminalResult"
+            },
+            "propertyName": "goal_mode"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/GoalStateTerminalResult"
+            },
+            {
+              "$ref": "#/$defs/BoundedExplorationTerminalResult"
+            }
           ],
-          "title": "Goal State",
-          "type": "string"
+          "title": "Goal Result"
         },
         "status": {
           "enum": [
@@ -520,7 +752,7 @@
       },
       "required": [
         "status",
-        "goal_state",
+        "goal_result",
         "terminal_cause"
       ],
       "title": "RunTerminalPayload",
@@ -550,6 +782,19 @@
     "SubjectInvokedPayload": {
       "additionalProperties": false,
       "properties": {
+        "evaluation_guidance_digest": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evaluation Guidance Digest"
+        },
         "network": {
           "enum": [
             "disabled",
@@ -784,6 +1029,15 @@
     },
     {
       "$ref": "#/$defs/CheckpointValidationFailedPayload"
+    },
+    {
+      "$ref": "#/$defs/ProgressObserverStartedPayload"
+    },
+    {
+      "$ref": "#/$defs/ProgressArtifactCreatedPayload"
+    },
+    {
+      "$ref": "#/$defs/ProgressObserverFailedPayload"
     },
     {
       "$ref": "#/$defs/RunTerminalPayload"

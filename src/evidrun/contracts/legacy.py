@@ -44,6 +44,7 @@ from evidrun.contracts.base import (
     ArtifactRef,
     CapabilityDescriptorRef,
     KeyValue,
+    RepositoryFixtureDecisionAuthority,
     RevisionDecisionRecord,
     RevisionEnvelope,
 )
@@ -65,15 +66,22 @@ class LegacyStudyPackage:
     revisions: tuple[RevisionEnvelope, ...]
     study: StudyRevision
 
-    def acceptance_decisions(
-        self, actor_id: str = "repository-owner"
-    ) -> tuple[RevisionDecisionRecord, ...]:
+    @property
+    def fixture_digest(self) -> str:
+        return sha256_json(
+            [revision.ref.model_dump(mode="json") for revision in self.revisions]
+        )
+
+    def acceptance_decisions(self) -> tuple[RevisionDecisionRecord, ...]:
         decided_at = utc_now()
         return tuple(
             RevisionDecisionRecord(
                 revision_ref=revision.ref,
                 decision="accepted",
-                actor_id=actor_id,
+                authority=RepositoryFixtureDecisionAuthority(
+                    fixture_id="experiment-manifest-v1:crl-ctx-002",
+                    fixture_digest=self.fixture_digest,
+                ),
                 rationale="Accepted repository benchmark imported from ExperimentManifest v1.",
                 decided_at_utc=decided_at,
             )
@@ -95,7 +103,6 @@ class ExperimentManifestV1Adapter:
             digest=sha256_bytes(fixture_bytes),
             media_type="text/plain",
             classification=Classification.INTERNAL,
-            locator=str(fixture_path),
         )
 
         goal = GoalRevision(
@@ -307,7 +314,6 @@ class ExperimentManifestV1Adapter:
                     stop_conditions=(
                         StopCondition(kind="goal_complete"),
                         StopCondition(kind="budget_exhausted"),
-                        StopCondition(kind="provider_error"),
                     ),
                     capture_policy=CapturePolicySpec(
                         default_mode=cast_capture_mode(capture_default),

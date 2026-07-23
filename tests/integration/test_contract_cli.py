@@ -12,7 +12,7 @@ from evidrun.entrypoints.cli.app import app
 from evidrun.infrastructure.database import Database, Repository
 
 
-def test_contract_cli_validates_registers_and_accepts_the_same_normalized_model(
+def test_contract_cli_validates_registers_and_fails_closed_without_human_verifier(
     tmp_path: Path,
 ) -> None:
     data_dir = tmp_path / "data"
@@ -71,18 +71,16 @@ def test_contract_cli_validates_registers_and_accepts_the_same_normalized_model(
             registered["id"],
             "--reason",
             "Explicitly accepted by the CLI integration test.",
-            "--actor-id",
-            "cli-test-human",
             "--data-dir",
             str(data_dir),
         ],
     )
-    assert acceptance.exit_code == 0, acceptance.output
-    assert json.loads(acceptance.stdout)["decision"] == "accepted"
+    assert acceptance.exit_code == 1
+    assert "Verified human authority is unavailable" in acceptance.output
 
     verify_database = Database(data_dir / "evidrun.db")
     verify_database.create_all()
     revisions = Repository(verify_database).list_contract_revisions()
     verify_database.dispose()
     stored = next(item for item in revisions if item["logical_id"] == goal.logical_id)
-    assert stored["status"] == "accepted"
+    assert stored["status"] == "proposed"

@@ -62,10 +62,7 @@ class EvidrunService:
             project_id=project_id,
             fixture_path=fixture_path,
         )
-        for contract_revision in package.revisions:
-            self.repository.save_contract_revision(contract_revision)
-        for decision in package.acceptance_decisions():
-            self.repository.decide_contract_revision(decision)
+        self.repository.import_legacy_contract_package(package)
         registry = self.repository.contract_registry(project_id)
         run_specs = StudyCompiler(registry).compile(package.study)
 
@@ -222,9 +219,49 @@ class EvidrunService:
                 "runner": self.runner.name,
                 "network": "disabled",
                 "subject_envelope_digest": subject_envelope.digest,
+                "evaluation_guidance_digest": (
+                    subject_envelope.evaluation_guidance.digest
+                    if subject_envelope.evaluation_guidance is not None
+                    else None
+                ),
             },
         )
-        result = await self.runner.execute(spec.goal.instruction, snapshot["selected_content"])
+        try:
+            result = await asyncio.wait_for(
+                self.runner.execute(
+                    spec.goal.instruction,
+                    snapshot["selected_content"],
+                ),
+                timeout=spec.budgets.max_wall_seconds,
+            )
+        except TimeoutError:
+            self.repository.append_event(
+                run_id=row.id,
+                event_type="run.budget_exhausted",
+                payload={
+                    "status": "budget_exhausted",
+                    "goal_result": {
+                        "goal_mode": "goal_state",
+                        "state": "not_assessable",
+                    },
+                    "terminal_cause": "Run exceeded its max_wall_seconds budget",
+                },
+            )
+            raise
+        except Exception:
+            self.repository.append_event(
+                run_id=row.id,
+                event_type="run.failed",
+                payload={
+                    "status": "failed",
+                    "goal_result": {
+                        "goal_mode": "goal_state",
+                        "state": "not_assessable",
+                    },
+                    "terminal_cause": "Subject runner execution failed",
+                },
+            )
+            raise
         capture_mode = spec.capture_policy.default_mode
         captured_output = "[REDACTED]" if capture_mode == "redacted" else None
         captured_evidence = list(result.evidence) if capture_mode == "raw_encrypted" else []
@@ -316,11 +353,15 @@ class EvidrunService:
             event_type="run.completed",
             payload={
                 "status": "completed",
-                "goal_state": (
-                    "achieved"
-                    if bool(result.metadata.get("marker_visible")) and bool(result.evidence)
-                    else "not_achieved"
-                ),
+                "goal_result": {
+                    "goal_mode": "goal_state",
+                    "state": (
+                        "achieved"
+                        if bool(result.metadata.get("marker_visible"))
+                        and bool(result.evidence)
+                        else "not_achieved"
+                    ),
+                },
                 "terminal_cause": "terminal subject response evaluated",
                 "evaluation_record_refs": [evaluation_record.record_id],
             },

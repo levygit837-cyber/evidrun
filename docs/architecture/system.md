@@ -17,6 +17,7 @@ implementation_refs:
   - apps/desktop
 verification_refs:
   - tests/acceptance/test_demo_flow.py
+  - tests/integration/test_admission_and_evaluation.py
   - tests/integration/test_contract_api.py
 ---
 
@@ -38,6 +39,12 @@ na mesma transação que grava cada evento de lifecycle; `update_run` não aceit
 status. O event ledger continua sendo a autoridade normativa e permite verificar ou reconstruir
 essa projeção.
 
+Eventos factuais são aceitos somente na fase permitida e com seus records canônicos ligados.
+Invocações e respostas do Subject são pareadas; evaluation só começa depois de uma resposta;
+`evaluation.completed` aponta para o EvaluationRecord exato; e `run.completed` exige os records e
+stages requeridos pelo EvaluationPlan. Eventos de pause/resume, tools, skills, checkpoint e Progress
+Artifact permanecem reservados e são rejeitados enquanto seus coordinators não existem.
+
 Superfícies:
 
 - CLI Python;
@@ -56,3 +63,16 @@ superfície separada, mas leases e execução assíncrona durável pertencem ao 
 genérica de todos os stages de um `EvaluationPlan` também não existe: o demo executa somente seu
 grader determinístico; ordem e hard gates já são validados quando `EvaluationRecord`s são
 persistidos.
+
+O runner recebe somente objective e context, executa uma única interação e aplica
+`max_wall_seconds` com timeout. Ao excedê-lo, grava `run.budget_exhausted` como terminal e não
+`run.completed`. Budgets de tokens, tool calls ou custo, `max_turns > 1`, pause e stops fora de
+`goal_complete`/`budget_exhausted` terminal bloqueiam a admissão. Todo disclosure de evaluation
+diferente de `none` também bloqueia a admissão, ainda que `pre_run` seja compilável pelo contrato
+puro de SubjectEnvelope.
+
+A admissão também falha fechado para checkpoint coordinator, Progress Artifact observer, pipeline de
+evaluation fora do grader determinístico suportado, adjudicação humana required, disclosure dinâmico
+e terminal de bounded exploration. Esses contratos serem tipáveis e compiláveis não anuncia
+capacidade executável. Decisions humanas possuem schema e verifier protocol, mas API/CLI recusam o
+fluxo enquanto não houver adapter WebAuthn confiável.

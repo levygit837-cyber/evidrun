@@ -11,10 +11,15 @@ from evidrun.contracts.authoring import (
     GoalRevision,
     InputBinding,
     InteractionProtocolRevision,
+    ProgressArtifactPolicyRevision,
     ScenarioRevision,
     StudyRevision,
     VariantSpec,
     WorkspaceTemplateRevision,
+)
+from evidrun.contracts.authority import (
+    HumanAttestationVerifier,
+    UnavailableHumanAttestationVerifier,
 )
 from evidrun.contracts.base import (
     ArtifactRef,
@@ -34,6 +39,8 @@ from evidrun.contracts.runtime import (
     ResolvedCapability,
     RunSpec,
     SubjectEnvelope,
+    SubjectEvaluationDimension,
+    SubjectEvaluationGuidance,
     SubjectWorkspace,
 )
 from evidrun.shared.types import EvidenceMode, utc_now
@@ -74,9 +81,18 @@ class ExtensionSchemaRegistry:
 
 
 class InMemoryContractRegistry(ContractResolver):
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        human_attestation_verifier: HumanAttestationVerifier | None = None,
+        *,
+        allow_repository_fixture: bool = False,
+    ) -> None:
         self._revisions: dict[tuple[ContractType, str, int], RevisionEnvelope] = {}
         self._decisions: dict[tuple[ContractType, str, int], RevisionDecisionRecord] = {}
+        self._human_attestation_verifier = (
+            human_attestation_verifier or UnavailableHumanAttestationVerifier()
+        )
+        self._allow_repository_fixture = allow_repository_fixture
 
     @staticmethod
     def _key(reference: ContractRef | RevisionEnvelope) -> tuple[ContractType, str, int]:
@@ -111,6 +127,15 @@ class InMemoryContractRegistry(ContractResolver):
         self._revisions[key] = revision
 
     def decide(self, decision: RevisionDecisionRecord) -> None:
+        if decision.authority.kind == "verified_human":
+            self._human_attestation_verifier.verify(
+                decision.authority.attestation,
+                expected_subject_digest=decision.human_subject_digest(),
+            )
+        elif not self._allow_repository_fixture:
+            raise PermissionError(
+                "repository fixture acceptance is restricted to the legacy import path"
+            )
         key = self._key(decision.revision_ref)
         revision = self._revisions.get(key)
         if revision is None or revision.digest != decision.revision_ref.digest:
@@ -162,6 +187,7 @@ class VariantDiffer:
         "interaction_protocol",
         "evaluation_plan",
         "checkpoint_policy",
+        "progress_artifact_policy",
         "context_policy",
         "budgets",
         "stop_conditions",
@@ -193,6 +219,8 @@ class VariantDiffer:
             return (spec.evaluation_plan_ref, spec.evaluation_plan)
         if slot == "checkpoint_policy":
             return (spec.checkpoint_policy_ref, spec.checkpoint_policy)
+        if slot == "progress_artifact_policy":
+            return (spec.progress_artifact_policy_ref, spec.progress_artifact_policy)
         return getattr(spec, slot)
 
 
@@ -246,6 +274,10 @@ class StudyCompiler:
         interaction_ref = overrides.interaction_protocol_ref or blueprint.interaction_protocol_ref
         evaluation_ref = overrides.evaluation_plan_ref or blueprint.evaluation_plan_ref
         checkpoint_ref = overrides.checkpoint_policy_ref or blueprint.checkpoint_policy_ref
+        progress_ref = (
+            overrides.progress_artifact_policy_ref
+            or blueprint.progress_artifact_policy_ref
+        )
 
         goal = self._resolve_typed(goal_ref, GoalRevision)
         scenario = self._resolve_typed(scenario_ref, ScenarioRevision)
@@ -260,6 +292,24 @@ class StudyCompiler:
             checkpoint_payload = self._resolve_typed(
                 checkpoint_ref, CheckpointPolicyRevision
             ).payload
+        progress_payload = None
+        if progress_ref is not None:
+            progress_payload = self._resolve_typed(
+                progress_ref, ProgressArtifactPolicyRevision
+            ).payload
+            checkpoint_ids: set[str] = (
+                {item.id for item in checkpoint_payload.definitions}
+                if checkpoint_payload is not None
+                else set()
+            )
+            for definition in progress_payload.definitions:
+                if (
+                    definition.trigger.kind == "checkpoint_reached"
+                    and definition.trigger.checkpoint_definition_id not in checkpoint_ids
+                ):
+                    raise ValueError(
+                        "progress artifact trigger references an unknown checkpoint definition"
+                    )
 
         extensions = (
             overrides.extensions if overrides.extensions is not None else blueprint.extensions
@@ -286,6 +336,8 @@ class StudyCompiler:
             evaluation_plan=evaluation.payload,
             checkpoint_policy_ref=checkpoint_ref,
             checkpoint_policy=checkpoint_payload,
+            progress_artifact_policy_ref=progress_ref,
+            progress_artifact_policy=progress_payload,
             context_policy=(
                 overrides.context_policy
                 if overrides.context_policy is not None
@@ -580,7 +632,35 @@ class AdmissionService:
                     )
 
         workspace_status: Literal["resolved", "unsupported", "denied", "unavailable"]
-        if spec.workspace.runtime_kind not in self.workspace_runtime_kinds:
+        disallowed_input_classifications = {
+            item.source.classification
+            for item in spec.scenario.input_bindings
+            if item.source.classification.value in {"sensitive", "restricted"}
+        }
+        if disallowed_input_classifications:
+            workspace_status = "denied"
+            denied_policies.extend(
+                f"classification:{classification.value}"
+                for classification in sorted(
+                    disallowed_input_classifications,
+                    key=lambda item: item.value,
+                )
+            )
+            issues.append(
+                AdmissionIssue(
+                    category="policy",
+                    subject_ref="input_classification",
+                    reason=ResolutionReason(
+                        code="denied",
+                        detail=(
+                            "the active runtime has no classified materialization boundary "
+                            "for sensitive or restricted inputs"
+                        ),
+                    ),
+                    blocking=True,
+                )
+            )
+        elif spec.workspace.runtime_kind not in self.workspace_runtime_kinds:
             workspace_status = "unsupported"
             issues.append(
                 AdmissionIssue(
@@ -733,6 +813,167 @@ class AdmissionService:
                     blocking=True,
                 )
             )
+        if spec.progress_artifact_policy is not None:
+            missing.append("runtime:background_progress_observer")
+            issues.append(
+                AdmissionIssue(
+                    category="observer",
+                    subject_ref="background_progress_observer",
+                    reason=ResolutionReason(
+                        code="unsupported",
+                        detail="background progress observer is not implemented",
+                    ),
+                    blocking=True,
+                )
+            )
+        if spec.checkpoint_policy is not None:
+            missing.append("runtime:checkpoint_coordinator")
+            issues.append(
+                AdmissionIssue(
+                    category="runtime",
+                    subject_ref="checkpoint_coordinator",
+                    reason=ResolutionReason(
+                        code="unsupported",
+                        detail=(
+                            "checkpoint contracts are valid, but the active runtime does not "
+                            "observe triggers, execute validators, or create records"
+                        ),
+                    ),
+                    blocking=True,
+                )
+            )
+        if spec.goal.mode == "bounded_exploration":
+            missing.append("runtime:bounded_exploration_terminal")
+            issues.append(
+                AdmissionIssue(
+                    category="runtime",
+                    subject_ref="bounded_exploration_terminal",
+                    reason=ResolutionReason(
+                        code="unsupported",
+                        detail=(
+                            "the active deterministic runner only emits goal_state terminal "
+                            "results"
+                        ),
+                    ),
+                    blocking=True,
+                )
+            )
+        stages = spec.evaluation_plan.stages
+        supported_evaluation = len(stages) == 1
+        if supported_evaluation:
+            stage = stages[0]
+            dimension_by_id = {
+                item.id: item for item in spec.evaluation_plan.dimensions
+            }
+            supported_evaluation = (
+                stage.kind == "deterministic_grader"
+                and stage.trigger.kind == "event"
+                and stage.trigger.reference == "subject.responded"
+                and len(stage.output_dimensions) == 1
+                and dimension_by_id[stage.output_dimensions[0]].value_type == "boolean"
+                and any(item.key == "expected" for item in stage.parameters)
+            )
+        if not supported_evaluation:
+            missing.append("runtime:evaluation_pipeline")
+            issues.append(
+                AdmissionIssue(
+                    category="runtime",
+                    subject_ref="evaluation_pipeline",
+                    reason=ResolutionReason(
+                        code="unsupported",
+                        detail=(
+                            "the active runtime supports one deterministic boolean grader "
+                            "triggered by subject.responded"
+                        ),
+                    ),
+                    blocking=True,
+                )
+            )
+        if spec.evaluation_plan.human_adjudication_policy.required:
+            missing.append("runtime:verified_human_adjudication")
+            issues.append(
+                AdmissionIssue(
+                    category="authority",
+                    subject_ref="verified_human_adjudication",
+                    reason=ResolutionReason(
+                        code="unsupported",
+                        detail="verified human adjudication is not implemented",
+                    ),
+                    blocking=True,
+                )
+            )
+        disclosure_mode = spec.evaluation_plan.disclosure.subject.mode
+        if disclosure_mode != "none":
+            missing.append("runtime:subject_evaluation_guidance_delivery")
+            issues.append(
+                AdmissionIssue(
+                    category="interaction",
+                    subject_ref=f"evaluation_disclosure:{disclosure_mode}",
+                    reason=ResolutionReason(
+                        code="unsupported",
+                        detail=(
+                            "the active runner receives objective and context only; it does "
+                            "not consume Subject evaluation guidance"
+                        ),
+                    ),
+                    blocking=True,
+                )
+            )
+            interaction_status = "unsupported"
+        unsupported_budget_fields = tuple(
+            name
+            for name, value in (
+                ("max_input_tokens", spec.budgets.max_input_tokens),
+                ("max_output_tokens", spec.budgets.max_output_tokens),
+                ("max_tool_calls", spec.budgets.max_tool_calls),
+                ("max_cost", spec.budgets.max_cost),
+            )
+            if value is not None
+        )
+        if spec.budgets.max_turns not in {None, 1}:
+            unsupported_budget_fields += ("max_turns",)
+        if unsupported_budget_fields:
+            missing.extend(
+                f"runtime:budget:{field}" for field in unsupported_budget_fields
+            )
+            issues.append(
+                AdmissionIssue(
+                    category="runtime",
+                    subject_ref="budget_enforcement",
+                    reason=ResolutionReason(
+                        code="unsupported",
+                        detail=(
+                            "the active runner only enforces wall time and a single Subject turn"
+                        ),
+                    ),
+                    blocking=True,
+                )
+            )
+        supported_stop_kinds = {"goal_complete", "budget_exhausted"}
+        unsupported_stops = tuple(
+            item
+            for item in spec.stop_conditions
+            if item.kind not in supported_stop_kinds or item.action != "terminal"
+        )
+        if unsupported_stops or not any(
+            item.kind == "budget_exhausted" and item.action == "terminal"
+            for item in spec.stop_conditions
+        ):
+            missing.append("runtime:stop_condition_coordinator")
+            issues.append(
+                AdmissionIssue(
+                    category="runtime",
+                    subject_ref="stop_condition_coordinator",
+                    reason=ResolutionReason(
+                        code="unsupported",
+                        detail=(
+                            "the active runner supports terminal goal completion and wall-time "
+                            "budget exhaustion only"
+                        ),
+                    ),
+                    blocking=True,
+                )
+            )
         required_capability_failed = any(
             item.required and item.status != "resolved" for item in resolved
         )
@@ -789,14 +1030,7 @@ class SubjectEnvelopeCompiler:
         visible_inputs = (
             materialized_inputs
             if materialized_inputs is not None
-            else tuple(
-                item.model_copy(
-                    update={
-                        "source": item.source.model_copy(update={"locator": None})
-                    }
-                )
-                for item in declared_visible_inputs
-            )
+            else declared_visible_inputs
         )
         if {item.id for item in visible_inputs} != {
             item.id for item in declared_visible_inputs
@@ -816,8 +1050,6 @@ class SubjectEnvelopeCompiler:
                 raise ValueError(
                     "materialized Subject input changed its declared authority metadata"
                 )
-        if any(item.source.locator is not None for item in visible_inputs):
-            raise ValueError("Subject inputs cannot expose storage locators")
         effective_capabilities = tuple(
             item
             for item in admission.resolved_inventory.capabilities
@@ -830,6 +1062,35 @@ class SubjectEnvelopeCompiler:
             network_mode=spec.workspace.network_policy.mode,
             external_effect_mode=spec.workspace.external_effect_policy.mode,
         )
+        disclosure = spec.evaluation_plan.disclosure.subject
+        evaluation_guidance: SubjectEvaluationGuidance | None = None
+        if disclosure.mode == "pre_run":
+            dimensions_by_id = {
+                item.id: item for item in spec.evaluation_plan.dimensions
+            }
+            public_dimensions: list[SubjectEvaluationDimension] = []
+            for dimension_id in disclosure.dimension_ids:
+                dimension = dimensions_by_id[dimension_id]
+                public_dimensions.append(
+                    SubjectEvaluationDimension(
+                        id=dimension.id,
+                        description=dimension.description,
+                        value_type=dimension.value_type,
+                        minimum=(
+                            dimension.minimum if disclosure.include_scale else None
+                        ),
+                        maximum=(
+                            dimension.maximum if disclosure.include_scale else None
+                        ),
+                        anchors=(
+                            dimension.anchors if disclosure.include_anchors else ()
+                        ),
+                    )
+                )
+            evaluation_guidance = SubjectEvaluationGuidance(
+                plan_ref=spec.evaluation_plan_ref,
+                dimensions=tuple(public_dimensions),
+            )
         return SubjectEnvelope(
             run_spec_digest=spec.digest,
             goal=spec.goal,
@@ -839,6 +1100,7 @@ class SubjectEnvelopeCompiler:
             workspace=workspace,
             budgets=spec.budgets,
             stop_conditions=spec.stop_conditions,
+            evaluation_guidance=evaluation_guidance,
         )
 
 

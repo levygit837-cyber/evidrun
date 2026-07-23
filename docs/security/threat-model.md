@@ -13,7 +13,9 @@ supersedes: []
 superseded_by: null
 implementation_refs:
   - apps/desktop/src/main
+  - src/evidrun/contracts/authority.py
   - src/evidrun/infrastructure/artifacts
+  - src/evidrun/infrastructure/database/repository.py
 verification_refs:
   - tests/security
 ---
@@ -41,9 +43,16 @@ fecham todas as ameaças acima. Em particular:
 
 - o launch token protege o sidecar iniciado pelo desktop; `evidrun serve` sem handshake aceita
   qualquer processo local em loopback;
-- `actor_type=human` é validado no contract, mas a API ainda não autentica uma role humana separada;
-- capture policy e rejeição de restricted estão completas no `ArtifactStore`, não em snapshots e
-  eventos da Run;
+- authority humana exige `HumanAttestationRecord` e verifier confiável; como nenhum adapter WebAuthn
+  está instalado, API, CLI e repository default falham fechado em vez de aceitar uma role alegada;
+- `repository_fixture` é não humano e só é permitido pelo método dedicado que confere o pacote
+  canônico completo `CRL-CTX-002`; ampliar esse caminho seria uma quebra da fronteira definida no
+  [ADR 0010](../adr/0010-verifiable-human-authority.md);
+- o runtime rejeita inputs sensitive/restricted e valida shape/modo da resposta do Subject; Context
+  Snapshots, demais eventos e strings livres ainda não possuem enforcement de conteúdo equivalente;
+- `ArtifactRef` ainda não possui grant/materialization enforcement, e bundle auditável não implica
+  blobs portáteis ou replay, conforme o
+  [ADR 0011](../adr/0011-progress-artifacts-and-bundle-boundaries.md);
 - campos textuais livres ainda não passam por secret scanning.
 
 Sandbox de código, sync, autoridade do futuro Lab Agent e expansão do pipeline para conteúdo

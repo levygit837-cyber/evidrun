@@ -9,6 +9,7 @@ export type CatalogV1 =
   | InteractionProtocolRevision
   | EvaluationPlanRevision
   | CheckpointPolicyRevision
+  | ProgressArtifactPolicyRevision
   | RunSpec
   | AdmissionRecord
   | SubjectEnvelope
@@ -16,6 +17,10 @@ export type CatalogV1 =
   | EvaluatorEnvelope
   | CheckpointRecord
   | RevisionDecisionRecord
+  | HumanAttestationRecord
+  | ProgressArtifactContent
+  | ProgressArtifactRecord
+  | ArtifactManifest1
   | RunRecord
   | RunQueuedPayload
   | RunPreparingPayload
@@ -32,6 +37,9 @@ export type CatalogV1 =
   | ToolDecisionPayload
   | ToolResultPayload
   | CheckpointValidationFailedPayload
+  | ProgressObserverStartedPayload
+  | ProgressArtifactCreatedPayload
+  | ProgressObserverFailedPayload
   | RunTerminalPayload;
 export type ContractType = "study";
 export type LogicalId = string;
@@ -52,7 +60,8 @@ export type ContractType1 =
   | "workspace_template"
   | "interaction_protocol"
   | "evaluation_plan"
-  | "checkpoint_policy";
+  | "checkpoint_policy"
+  | "progress_artifact_policy";
 export type Digest = string;
 export type LogicalId1 = string;
 export type Revision = number;
@@ -83,7 +92,6 @@ export type Namespace = string;
 export type ArtifactId = string;
 export type Classification1 = "public" | "internal" | "sensitive" | "restricted";
 export type Digest2 = string;
-export type Locator = string | null;
 export type MediaType = string;
 export type Required = boolean;
 export type SchemaVersion = string;
@@ -244,8 +252,11 @@ export type Minimum = number | null;
 export type ValueType = "boolean" | "number" | "category";
 export type Dimensions = EvaluationDimension[];
 export type HiddenInputRefs = ArtifactRef[];
-export type PublicDimensionIds = string[];
-export type Authority = string;
+export type DimensionIds = string[];
+export type IncludeAnchors = boolean;
+export type IncludeScale = boolean;
+export type Mode5 = "none" | "pre_run" | "on_request" | "post_run";
+export type AdjudicableStageIds = string[];
 export type Required3 = boolean;
 export type Limitations2 = string[];
 export type HardGate = boolean;
@@ -255,7 +266,6 @@ export type OutputDimensions = string[];
 export type Parameters1 = KeyValue[];
 export type Kind11 = "run_terminal" | "checkpoint" | "event";
 export type Reference = string | null;
-export type VisibleToSubject = boolean;
 export type Stages = EvaluationStage[];
 export type ProjectId6 = string;
 export type Revision7 = number;
@@ -292,10 +302,35 @@ export type ProjectId7 = string;
 export type Revision8 = number;
 export type SchemaVersion8 = "1";
 export type Title7 = string;
-export type Extensions2 = ExtensionRef[];
+export type ContractType9 = "progress_artifact_policy";
+export type LogicalId9 = string;
+export type Audience = "laboratory_human";
+/**
+ * @minItems 3
+ * @maxItems 3
+ */
+export type AuthorityConstraints1 = [unknown, unknown, unknown];
+export type Id9 = string;
+export type InputScope = "complete_run_ledger_prefix";
+export type Label2 = string;
+export type MaxOutputCharacters = number;
+export type MinimumInterfaceVersion1 = string;
+export type Trigger2 = CheckpointReachedProgressTrigger | SubjectTurnIntervalProgressTrigger;
+export type CheckpointDefinitionId1 = string;
+export type Kind16 = "checkpoint_reached";
+export type CountedEventType = "subject.responded";
+export type EveryNTurns = number;
+export type Kind17 = "subject_turn_interval";
+export type Definitions1 = ProgressArtifactDefinition[];
 export type Limitations3 = string[];
-export type RepetitionIndex = number;
+export type ProjectId8 = string;
+export type Revision9 = number;
 export type SchemaVersion9 = "1";
+export type Title8 = string;
+export type Extensions2 = ExtensionRef[];
+export type Limitations4 = string[];
+export type RepetitionIndex = number;
+export type SchemaVersion10 = "1";
 export type Seed1 = number | null;
 export type StopConditions2 = StopCondition[];
 export type VariantId = string;
@@ -305,7 +340,15 @@ export type DeniedPolicies = string[];
 export type InteractionStatus = "resolved" | "unsupported";
 export type Blocking = boolean;
 export type Category =
-  "runner" | "provider" | "capability" | "runtime" | "workspace" | "interaction" | "policy";
+  | "runner"
+  | "provider"
+  | "capability"
+  | "runtime"
+  | "workspace"
+  | "interaction"
+  | "observer"
+  | "authority"
+  | "policy";
 export type Code = "unsupported" | "denied" | "unavailable" | "digest_mismatch";
 export type Detail = string;
 export type SubjectRef = string;
@@ -316,7 +359,7 @@ export type ContextRefs = ArtifactRef[];
 export type EffectiveInterfaceVersion = string | null;
 export type EffectivePermissions = string[];
 export type Exposure1 = "schema_only" | "instructions" | "instructions_and_schema";
-export type Kind16 = "tool" | "skill";
+export type Kind18 = "tool" | "skill";
 export type Required5 = boolean;
 export type SatisfiedAuthorityConstraints = string[];
 export type Status = "resolved" | "unsupported" | "denied" | "unavailable";
@@ -329,13 +372,21 @@ export type ProviderReasoningEffort = string | null;
 export type RuntimeCapabilities = string[];
 export type RunSpecDigest = string;
 export type RunSpecRef = string;
-export type SchemaVersion10 = "1";
+export type SchemaVersion11 = "1";
 export type Warnings = string[];
 export type WorkspaceStatus = "resolved" | "unsupported" | "denied" | "unavailable";
 export type EffectiveCapabilities = ResolvedCapability[];
+export type Anchors1 = KeyValue[];
+export type Description4 = string;
+export type Id10 = string;
+export type Maximum1 = number | null;
+export type Minimum1 = number | null;
+export type ValueType1 = "boolean" | "number" | "category";
+export type Dimensions1 = SubjectEvaluationDimension[];
+export type Mode6 = "pre_run";
 export type Inputs = InputBinding[];
 export type RunSpecDigest1 = string;
-export type SchemaVersion11 = "1";
+export type SchemaVersion12 = "1";
 export type StopConditions3 = StopCondition[];
 export type ExternalEffectMode = "denied" | "approval_required" | "allowlist";
 export type Mounts1 = string[];
@@ -357,21 +408,47 @@ export type Rationale = string;
 export type Value1 = string | number | boolean;
 export type DimensionValues = DimensionValue[];
 export type GateStatus = "passed" | "failed" | "not_applicable";
+export type Action1 =
+  | "revision.accepted"
+  | "revision.rejected"
+  | "revision.superseded"
+  | "evaluation.adjudicated"
+  | "evaluation.reviewed";
+export type AttestationId = string;
+export type ChallengeDigest = string;
+export type CredentialId = string;
+export type Origin = string;
+export type PrincipalId = string;
+export type RelyingPartyId = string;
+export type SchemaVersion13 = "1";
+export type SubjectDigest = string;
+export type TargetDigest = string;
+export type UserVerification = "required_verified";
+export type VerificationMethod = "webauthn";
+export type VerifiedAtUtc = string;
 export type ProviderModel1 = string | null;
 export type ProviderProfileId2 = string | null;
 export type RecordId = string;
+export type Relation = (AdjudicatesEvaluationRelation | IndependentHumanReviewRelation) | null;
+export type Kind19 = "adjudicates";
+/**
+ * @minItems 1
+ */
+export type TargetRecordRefs = [string, ...string[]];
+export type ConsidersRecordRefs = string[];
+export type Kind20 = "independent_review";
 export type RunId = string;
-export type SchemaVersion12 = "1";
-export type SourceType = "deterministic_grader" | "model_judge" | "human_adjudicator";
+export type SchemaVersion14 = "1";
+export type SourceType =
+  "deterministic_grader" | "model_judge" | "human_reviewer" | "human_adjudicator";
 export type StageId1 = string;
 export type Status1 = "provisional" | "final";
-export type SupersedesRecordRef = string | null;
 export type BlindedFields = string[];
-export type Dimensions1 = EvaluationDimension[];
+export type Dimensions2 = EvaluationDimension[];
 export type HiddenInputRefs1 = ArtifactRef[];
 export type Inputs1 = InputBinding[];
 export type RunSpecDigest2 = string;
-export type SchemaVersion13 = "1";
+export type SchemaVersion15 = "1";
 export type AdmissionRecordDigest = string | null;
 export type AdmissionRecordId = string | null;
 export type CheckpointId1 = string;
@@ -385,30 +462,95 @@ export type EventHash1 = string;
 export type Replayability = "none" | "partial" | "deterministic";
 export type ReplayabilityLimitations = string[];
 export type RunId1 = string;
-export type SchemaVersion14 = "1";
+export type SchemaVersion16 = "1";
 export type UpToEventSequence1 = number;
 export type EvidenceRefs1 = EvidenceRef[];
 export type Passed = boolean;
 export type Rationale1 = string;
 export type Validations = CheckpointValidation[];
-export type ActorId = string;
-export type ActorType = "human";
+export type Authority = VerifiedHumanDecisionAuthority | RepositoryFixtureDecisionAuthority;
+export type Kind21 = "verified_human";
+export type PrincipalId1 = string;
+export type FixtureDigest = string;
+export type FixtureId = "experiment-manifest-v1:crl-ctx-002";
+export type Kind22 = "repository_fixture";
 export type DecidedAtUtc = string;
 export type Decision1 = "accepted" | "rejected" | "superseded";
 export type Rationale2 = string;
-export type SchemaVersion15 = "1";
+export type SchemaVersion17 = "1";
+export type EventHash2 = string;
+/**
+ * @minItems 1
+ */
+export type Limitations5 = [string, ...string[]];
+export type Overview = string;
+export type RunId2 = string;
+export type SchemaVersion18 = "1";
+export type Confidence1 = number | null;
+export type EvidenceRefs2 = EvidenceRef[];
+export type Id11 = string;
+export type Kind23 = "observation" | "interpretation" | "uncertainty";
+export type Text = string;
+export type Statements = ProgressStatement[];
+export type Status2 = "provisional";
+export type Title9 = string;
+export type UpToEventSequence2 = number;
+export type CheckpointHash = string | null;
+export type CheckpointId2 = string | null;
+export type CreatedAtUtc3 = string;
+export type DefinitionDigest1 = string;
+export type DefinitionId1 = string;
+export type EventHash3 = string;
+export type InputEventCount = number;
+export type InputLedgerDigest = string;
+export type InputProjectionVersion = "run-event-prefix-v1";
+/**
+ * @minItems 1
+ */
+export type Limitations6 = [string, ...string[]];
+export type ProviderModel2 = string | null;
+export type ProviderProfileId3 = string | null;
+export type RecordId1 = string;
+export type RunId3 = string;
+export type SchemaVersion19 = "1";
+export type Status3 = "provisional";
+export type UpToEventSequence3 = number;
+export type ContentIncluded = boolean;
+export type OmissionReason = string | null;
+export type RequiredForPortability = boolean;
+export type Role1 =
+  | "scenario_input"
+  | "subject_input_materialized"
+  | "agent_instruction"
+  | "interaction_prompt"
+  | "hidden_calibration"
+  | "extension_schema"
+  | "extension_payload"
+  | "evaluation_evidence"
+  | "run_output"
+  | "progress_summary"
+  | "workspace_snapshot"
+  | "checkpoint_capture"
+  | "report_attachment";
+export type RunId4 = string;
+export type SourceLabel = string;
+export type Entries = ArtifactManifestEntry[];
+export type Portable = false;
+export type Profile = "audit";
+export type Replayable = false;
+export type SchemaVersion20 = "1";
 export type AdmissionDigest = string;
 export type AdmissionId = string;
-export type CreatedAtUtc3 = string;
+export type CreatedAtUtc4 = string;
 export type RepetitionIndex1 = number;
 export type RetryOf = string | null;
-export type RunId2 = string;
+export type RunId5 = string;
 export type RunSpecDigest3 = string;
 export type RunSpecId = string;
-export type SchemaVersion16 = "1";
+export type SchemaVersion21 = "1";
 export type VariantId1 = string;
 export type AdmissionDigest1 = string;
-export type RunId3 = string;
+export type RunId6 = string;
 export type RunSpecDigest4 = string;
 export type VariantId2 = string;
 export type FromStatus = "queued" | "preparing" | "running" | "paused" | "evaluating";
@@ -420,6 +562,7 @@ export type SelectedChars = number;
 export type SnapshotId = string;
 export type SourceChars = number;
 export type Strategy1 = "head" | "tail" | "full";
+export type EvaluationGuidanceDigest = string | null;
 export type Network = "disabled" | "provider_only" | "allowlist";
 export type Runner = string;
 export type SubjectEnvelopeDigest = string;
@@ -445,13 +588,50 @@ export type DecidedBy = string;
 export type Rationale3 = string;
 export type CallId2 = string;
 export type Reason2 = string | null;
-export type CheckpointDefinitionId1 = string;
-export type EvidenceRefs2 = EvidenceRef[];
+export type CheckpointDefinitionId2 = string;
+export type EvidenceRefs3 = EvidenceRef[];
 export type Rationale4 = string;
+export type AttemptId = string;
+export type DefinitionId2 = string;
+export type EventHash4 = string;
+export type UpToEventSequence4 = number;
+export type AttemptId1 = string;
+export type EventHash5 = string;
+export type ProgressRecordDigest = string;
+export type ProgressRecordId = string;
+export type UpToEventSequence5 = number;
+export type AttemptId2 = string;
+export type DefinitionId3 = string;
+export type EventHash6 = string;
+export type Phase =
+  | "input_materialization"
+  | "summarizer_resolution"
+  | "invocation"
+  | "output_validation"
+  | "artifact_write"
+  | "record_persistence";
+export type ReasonCode = string;
+export type Retryable = boolean;
+export type UpToEventSequence6 = number;
 export type CheckpointRefs = string[];
 export type EvaluationRecordRefs1 = string[];
-export type GoalState = "achieved" | "partially_achieved" | "not_achieved" | "not_assessable";
-export type Status2 =
+export type GoalResult = GoalStateTerminalResult | BoundedExplorationTerminalResult;
+export type GoalMode = "goal_state";
+export type State = "achieved" | "partially_achieved" | "not_achieved" | "not_assessable";
+export type Disposition = "concluded" | "incomplete" | "not_assessable";
+export type EvidenceRefs4 = EvidenceRef[];
+export type GoalMode1 = "bounded_exploration";
+export type StopConditionKind = string;
+export type StopReason =
+  | "evidence_saturation"
+  | "bounded_completion"
+  | "budget_limit"
+  | "time_limit"
+  | "turn_limit"
+  | "human_stop"
+  | "guardrail"
+  | "provider_failure";
+export type Status4 =
   "completed" | "failed" | "cancelled" | "budget_exhausted" | "guardrail_stopped";
 export type TerminalCause = string;
 
@@ -509,6 +689,7 @@ export interface RunBlueprint {
   evaluation_plan_ref: ContractRef;
   extensions?: Extensions;
   interaction_protocol_ref: ContractRef;
+  progress_artifact_policy_ref?: ContractRef | null;
   stop_conditions: StopConditions;
   workspace_template_ref: ContractRef;
 }
@@ -544,7 +725,6 @@ export interface ArtifactRef {
   artifact_id: ArtifactId;
   classification?: Classification1;
   digest: Digest2;
-  locator?: Locator;
   media_type: MediaType;
 }
 export interface StopCondition {
@@ -579,6 +759,7 @@ export interface VariantOverrides {
   extensions?: Extensions1;
   goal_ref?: ContractRef | null;
   interaction_protocol_ref?: ContractRef | null;
+  progress_artifact_policy_ref?: ContractRef | null;
   scenario_ref?: ContractRef | null;
   stop_conditions?: StopConditions1;
   workspace_template_ref?: ContractRef | null;
@@ -802,10 +983,18 @@ export interface EvaluationDimension {
 }
 export interface EvaluationDisclosure {
   hidden_input_refs?: HiddenInputRefs;
-  public_dimension_ids?: PublicDimensionIds;
+  subject?: SubjectEvaluationDisclosure;
+}
+export interface SubjectEvaluationDisclosure {
+  dimension_ids?: DimensionIds;
+  include_anchors?: IncludeAnchors;
+  include_scale?: IncludeScale;
+  mode?: Mode5;
 }
 export interface HumanAdjudicationPolicy {
-  authority?: Authority;
+  adjudicable_stage_ids?: AdjudicableStageIds;
+  adjudicator_ref?: CapabilityDescriptorRef | null;
+  attestation_verifier_ref?: CapabilityDescriptorRef | null;
   required?: Required3;
 }
 export interface EvaluationStage {
@@ -816,7 +1005,6 @@ export interface EvaluationStage {
   output_dimensions?: OutputDimensions;
   parameters?: Parameters1;
   trigger: EvaluationTrigger;
-  visible_to_subject?: VisibleToSubject;
 }
 export interface EvaluationTrigger {
   kind: Kind11;
@@ -868,6 +1056,39 @@ export interface PredicateCheckpointTrigger {
   kind?: Kind15;
   predicate_ref: CapabilityDescriptorRef;
 }
+export interface ProgressArtifactPolicyRevision {
+  contract_type?: ContractType9;
+  logical_id: LogicalId9;
+  payload: ProgressArtifactPolicySpec;
+  project_id: ProjectId8;
+  revision: Revision9;
+  schema_version?: SchemaVersion9;
+  title: Title8;
+}
+export interface ProgressArtifactPolicySpec {
+  definitions: Definitions1;
+  limitations?: Limitations3;
+}
+export interface ProgressArtifactDefinition {
+  audience?: Audience;
+  authority_constraints?: AuthorityConstraints1;
+  id: Id9;
+  input_scope?: InputScope;
+  label: Label2;
+  max_output_characters?: MaxOutputCharacters;
+  minimum_interface_version?: MinimumInterfaceVersion1;
+  summarizer_ref: CapabilityDescriptorRef;
+  trigger: Trigger2;
+}
+export interface CheckpointReachedProgressTrigger {
+  checkpoint_definition_id: CheckpointDefinitionId1;
+  kind?: Kind16;
+}
+export interface SubjectTurnIntervalProgressTrigger {
+  counted_event_type?: CountedEventType;
+  every_n_turns: EveryNTurns;
+  kind?: Kind17;
+}
 export interface RunSpec {
   agent_inventory: AgentInventorySpec;
   agent_inventory_ref: ContractRef;
@@ -883,11 +1104,13 @@ export interface RunSpec {
   goal_ref: ContractRef;
   interaction_protocol: InteractionProtocolSpec;
   interaction_protocol_ref: ContractRef;
-  limitations?: Limitations3;
+  limitations?: Limitations4;
+  progress_artifact_policy?: ProgressArtifactPolicySpec | null;
+  progress_artifact_policy_ref?: ContractRef | null;
   repetition_index: RepetitionIndex;
   scenario: ScenarioSpec;
   scenario_ref: ContractRef;
-  schema_version?: SchemaVersion9;
+  schema_version?: SchemaVersion10;
   seed?: Seed1;
   stop_conditions: StopConditions2;
   study_ref: ContractRef;
@@ -905,7 +1128,7 @@ export interface AdmissionRecord {
   resolved_inventory: ResolvedAgentInventory;
   run_spec_digest: RunSpecDigest;
   run_spec_ref: RunSpecRef;
-  schema_version?: SchemaVersion10;
+  schema_version?: SchemaVersion11;
   warnings?: Warnings;
   workspace_status: WorkspaceStatus;
 }
@@ -936,7 +1159,7 @@ export interface ResolvedCapability {
   effective_interface_version?: EffectiveInterfaceVersion;
   effective_permissions?: EffectivePermissions;
   exposure: Exposure1;
-  kind: Kind16;
+  kind: Kind18;
   reason?: ResolutionReason | null;
   requested_ref: CapabilityDescriptorRef;
   required: Required5;
@@ -947,13 +1170,27 @@ export interface ResolvedCapability {
 export interface SubjectEnvelope {
   budgets: BudgetSpec;
   effective_capabilities: EffectiveCapabilities;
+  evaluation_guidance?: SubjectEvaluationGuidance | null;
   goal: GoalSpec;
   inputs: Inputs;
   interaction_protocol: InteractionProtocolSpec;
   run_spec_digest: RunSpecDigest1;
-  schema_version?: SchemaVersion11;
+  schema_version?: SchemaVersion12;
   stop_conditions: StopConditions3;
   workspace: SubjectWorkspace;
+}
+export interface SubjectEvaluationGuidance {
+  dimensions: Dimensions1;
+  mode?: Mode6;
+  plan_ref: ContractRef;
+}
+export interface SubjectEvaluationDimension {
+  anchors?: Anchors1;
+  description: Description4;
+  id: Id10;
+  maximum?: Maximum1;
+  minimum?: Minimum1;
+  value_type: ValueType1;
 }
 export interface SubjectWorkspace {
   external_effect_mode: ExternalEffectMode;
@@ -968,16 +1205,17 @@ export interface EvaluationRecord {
   dimension_values: DimensionValues;
   evaluator_ref: CapabilityDescriptorRef;
   gate_status: GateStatus;
+  human_attestation?: HumanAttestationRecord | null;
   plan_ref: ContractRef;
   provider_model?: ProviderModel1;
   provider_profile_id?: ProviderProfileId2;
   record_id: RecordId;
+  relation?: Relation;
   run_id: RunId;
-  schema_version?: SchemaVersion12;
+  schema_version?: SchemaVersion14;
   source_type: SourceType;
   stage_id: StageId1;
   status: Status1;
-  supersedes_record_ref?: SupersedesRecordRef;
 }
 export interface EvaluationBoundary {
   checkpoint_id?: CheckpointId;
@@ -994,14 +1232,42 @@ export interface DimensionValue {
 export interface EvidenceRef {
   ref: Ref;
 }
+/**
+ * Evidence produced by a trusted human-verification adapter, not by API input.
+ */
+export interface HumanAttestationRecord {
+  action: Action1;
+  assertion_ref: ArtifactRef;
+  attestation_id: AttestationId;
+  challenge_digest: ChallengeDigest;
+  credential_id: CredentialId;
+  origin: Origin;
+  principal_id: PrincipalId;
+  relying_party_id: RelyingPartyId;
+  schema_version?: SchemaVersion13;
+  subject_digest: SubjectDigest;
+  target_digest: TargetDigest;
+  user_verification?: UserVerification;
+  verification_method?: VerificationMethod;
+  verified_at_utc: VerifiedAtUtc;
+  verifier_ref: CapabilityDescriptorRef;
+}
+export interface AdjudicatesEvaluationRelation {
+  kind?: Kind19;
+  target_record_refs: TargetRecordRefs;
+}
+export interface IndependentHumanReviewRelation {
+  considers_record_refs?: ConsidersRecordRefs;
+  kind?: Kind20;
+}
 export interface EvaluatorEnvelope {
   blinded_fields?: BlindedFields;
-  dimensions: Dimensions1;
+  dimensions: Dimensions2;
   hidden_input_refs?: HiddenInputRefs1;
   inputs: Inputs1;
   plan_ref: ContractRef;
   run_spec_digest: RunSpecDigest2;
-  schema_version?: SchemaVersion13;
+  schema_version?: SchemaVersion15;
   stage: EvaluationStage;
 }
 export interface CheckpointRecord {
@@ -1021,7 +1287,7 @@ export interface CheckpointRecord {
   replayability: Replayability;
   replayability_limitations?: ReplayabilityLimitations;
   run_id: RunId1;
-  schema_version?: SchemaVersion14;
+  schema_version?: SchemaVersion16;
   up_to_event_sequence: UpToEventSequence1;
   validations: Validations;
   workspace_snapshot_ref?: ArtifactRef | null;
@@ -1033,31 +1299,99 @@ export interface CheckpointValidation {
   validator_ref: CapabilityDescriptorRef;
 }
 export interface RevisionDecisionRecord {
-  actor_id: ActorId;
-  actor_type?: ActorType;
+  authority: Authority;
   decided_at_utc: DecidedAtUtc;
   decision: Decision1;
   rationale: Rationale2;
   revision_ref: ContractRef;
-  schema_version?: SchemaVersion15;
+  schema_version?: SchemaVersion17;
+}
+export interface VerifiedHumanDecisionAuthority {
+  attestation: HumanAttestationRecord;
+  kind?: Kind21;
+  principal_id: PrincipalId1;
+}
+export interface RepositoryFixtureDecisionAuthority {
+  fixture_digest: FixtureDigest;
+  fixture_id?: FixtureId;
+  kind?: Kind22;
+}
+export interface ProgressArtifactContent {
+  event_hash: EventHash2;
+  limitations: Limitations5;
+  overview: Overview;
+  run_id: RunId2;
+  schema_version?: SchemaVersion18;
+  statements: Statements;
+  status?: Status2;
+  title: Title9;
+  up_to_event_sequence: UpToEventSequence2;
+}
+export interface ProgressStatement {
+  confidence?: Confidence1;
+  evidence_refs?: EvidenceRefs2;
+  id: Id11;
+  kind: Kind23;
+  text: Text;
+}
+export interface ProgressArtifactRecord {
+  artifact_ref: ArtifactRef;
+  checkpoint_hash?: CheckpointHash;
+  checkpoint_id?: CheckpointId2;
+  created_at_utc: CreatedAtUtc3;
+  definition_digest: DefinitionDigest1;
+  definition_id: DefinitionId1;
+  event_hash: EventHash3;
+  input_event_count: InputEventCount;
+  input_ledger_digest: InputLedgerDigest;
+  input_projection_version?: InputProjectionVersion;
+  limitations: Limitations6;
+  policy_ref: ContractRef;
+  provider_model?: ProviderModel2;
+  provider_profile_id?: ProviderProfileId3;
+  record_id: RecordId1;
+  run_id: RunId3;
+  schema_version?: SchemaVersion19;
+  status?: Status3;
+  summarizer_ref: CapabilityDescriptorRef;
+  up_to_event_sequence: UpToEventSequence3;
+}
+export interface ArtifactManifest1 {
+  entries?: Entries;
+  portable?: Portable;
+  profile?: Profile;
+  replayable?: Replayable;
+  schema_version?: SchemaVersion20;
+}
+/**
+ * One intentionally materialized artifact; never a file-access activity log.
+ */
+export interface ArtifactManifestEntry {
+  artifact_ref: ArtifactRef;
+  content_included?: ContentIncluded;
+  omission_reason?: OmissionReason;
+  required_for_portability?: RequiredForPortability;
+  role: Role1;
+  run_id: RunId4;
+  source_label: SourceLabel;
 }
 export interface RunRecord {
   admission_digest: AdmissionDigest;
   admission_id: AdmissionId;
-  created_at_utc: CreatedAtUtc3;
+  created_at_utc: CreatedAtUtc4;
   repetition_index: RepetitionIndex1;
   retry_of?: RetryOf;
-  run_id: RunId2;
+  run_id: RunId5;
   run_spec_digest: RunSpecDigest3;
   run_spec_id: RunSpecId;
   scenario_ref: ContractRef;
-  schema_version?: SchemaVersion16;
+  schema_version?: SchemaVersion21;
   study_ref: ContractRef;
   variant_id: VariantId1;
 }
 export interface RunQueuedPayload {
   admission_digest: AdmissionDigest1;
-  run_id: RunId3;
+  run_id: RunId6;
   run_spec_digest: RunSpecDigest4;
   variant_id: VariantId2;
 }
@@ -1078,6 +1412,7 @@ export interface ContextComposedPayload {
   strategy: Strategy1;
 }
 export interface SubjectInvokedPayload {
+  evaluation_guidance_digest?: EvaluationGuidanceDigest;
   network: Network;
   runner: Runner;
   subject_envelope_digest: SubjectEnvelopeDigest;
@@ -1132,15 +1467,53 @@ export interface ToolResultPayload {
   result_ref?: ArtifactRef | null;
 }
 export interface CheckpointValidationFailedPayload {
-  checkpoint_definition_id: CheckpointDefinitionId1;
-  evidence_refs?: EvidenceRefs2;
+  checkpoint_definition_id: CheckpointDefinitionId2;
+  evidence_refs?: EvidenceRefs3;
   rationale: Rationale4;
   validator_ref: CapabilityDescriptorRef;
+}
+export interface ProgressObserverStartedPayload {
+  attempt_id: AttemptId;
+  definition_id: DefinitionId2;
+  event_hash: EventHash4;
+  policy_ref: ContractRef;
+  summarizer_ref: CapabilityDescriptorRef;
+  up_to_event_sequence: UpToEventSequence4;
+}
+export interface ProgressArtifactCreatedPayload {
+  artifact_ref: ArtifactRef;
+  attempt_id: AttemptId1;
+  event_hash: EventHash5;
+  progress_record_digest: ProgressRecordDigest;
+  progress_record_id: ProgressRecordId;
+  up_to_event_sequence: UpToEventSequence5;
+}
+export interface ProgressObserverFailedPayload {
+  attempt_id: AttemptId2;
+  definition_id: DefinitionId3;
+  event_hash: EventHash6;
+  phase: Phase;
+  policy_ref: ContractRef;
+  reason_code: ReasonCode;
+  retryable?: Retryable;
+  up_to_event_sequence: UpToEventSequence6;
 }
 export interface RunTerminalPayload {
   checkpoint_refs?: CheckpointRefs;
   evaluation_record_refs?: EvaluationRecordRefs1;
-  goal_state: GoalState;
-  status: Status2;
+  goal_result: GoalResult;
+  status: Status4;
   terminal_cause: TerminalCause;
+}
+export interface GoalStateTerminalResult {
+  goal_mode?: GoalMode;
+  state: State;
+}
+export interface BoundedExplorationTerminalResult {
+  disposition: Disposition;
+  evidence_refs?: EvidenceRefs4;
+  goal_mode?: GoalMode1;
+  learning_summary_ref?: ArtifactRef | null;
+  stop_condition_kind: StopConditionKind;
+  stop_reason: StopReason;
 }

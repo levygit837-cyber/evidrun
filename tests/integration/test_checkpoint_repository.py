@@ -60,7 +60,19 @@ def test_checkpoint_record_is_anchored_to_the_exact_run_ledger(
         }
     )
     spec_row = repository.save_run_spec(checkpoint_spec)
-    admission = EvidrunService(repository).admission_service.admit(checkpoint_spec)
+    source_contracts = repository.get_run_contracts(source_run.id)
+    assert source_contracts is not None
+    _, source_admission = source_contracts
+    # This test exercises checkpoint persistence as if a checkpoint-capable runtime
+    # had admitted the spec. The active deterministic runtime must reject the same
+    # policy, which is covered by the admission contract tests.
+    admission = source_admission.model_copy(
+        update={
+            "run_spec_ref": f"run-spec:{checkpoint_spec.digest}",
+            "run_spec_digest": checkpoint_spec.digest,
+            "created_at_utc": utc_now(),
+        }
+    )
     admission_row = repository.save_admission_record(spec_row.id, admission)
     run = repository.create_run(
         experiment_revision_id=source_run.experiment_revision_id,

@@ -17,7 +17,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from evidrun import __version__
 from evidrun.contracts import (
-    RevisionDecisionRecord,
     StudyRevision,
     parse_revision,
     semantic_model_dump,
@@ -29,7 +28,6 @@ from evidrun.infrastructure.database import Database, Repository
 from evidrun.infrastructure.providers import ProviderCredentialStore
 from evidrun.runs import EvidrunService
 from evidrun.shared.settings import Settings
-from evidrun.shared.types import utc_now
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 
@@ -62,7 +60,6 @@ class ContractDocumentRequest(BaseModel):
 class ContractDecisionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     decision: Literal["accepted", "rejected", "superseded"]
-    actor_id: str = Field(min_length=1)
     rationale: str = Field(min_length=1)
 
 
@@ -237,24 +234,17 @@ def create_app(
         _: None = Depends(authorize),
     ) -> dict[str, Any]:
         try:
-            revision = repository.get_contract_revision(revision_id)
-            decision = RevisionDecisionRecord(
-                revision_ref=revision.ref,
-                decision=payload.decision,
-                actor_id=payload.actor_id,
-                rationale=payload.rationale,
-                decided_at_utc=utc_now(),
-            )
-            row = repository.decide_contract_revision(decision)
+            repository.get_contract_revision(revision_id)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="contract revision not found") from exc
-        except Exception as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
-        return {
-            "id": row.id,
-            "decision": row.decision,
-            "decision_digest": row.decision_digest,
-        }
+        del payload
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "verified human authority is unavailable; a trusted WebAuthn verifier "
+                "must complete this decision"
+            ),
+        )
 
     @app.post("/api/v1/studies/{revision_id}/compile")
     async def compile_study(

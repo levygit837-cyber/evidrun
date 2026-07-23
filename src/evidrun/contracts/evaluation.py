@@ -18,7 +18,7 @@ class EvaluationValidator:
                 "integrity": "deterministic_grader",
                 "deterministic_grader": "deterministic_grader",
                 "model_judge": "model_judge",
-                "human_review": "human_adjudicator",
+                "human_review": "human_reviewer",
             }
             if record.source_type != expected_sources[stage.kind]:
                 raise ValueError("evaluation source type does not match its plan stage")
@@ -67,3 +67,47 @@ class EvaluationValidator:
                 if result not in {"passed", "not_applicable"}:
                     break
         return tuple(visible)
+
+    @staticmethod
+    def gate_results(
+        plan: EvaluationPlanSpec,
+        records: list[EvaluationRecord],
+    ) -> dict[str, Literal["passed", "failed", "not_applicable"]]:
+        """Project gates with explicit adjudication precedence, independent of order."""
+        results: dict[str, Literal["passed", "failed", "not_applicable"]] = {}
+        for stage in plan.stages:
+            stage_records = [record for record in records if record.stage_id == stage.id]
+            adjudications = [
+                record
+                for record in stage_records
+                if record.source_type == "human_adjudicator"
+            ]
+            primary_records = [
+                record
+                for record in stage_records
+                if record.source_type != "human_adjudicator"
+            ]
+            if len(adjudications) > 1:
+                raise ValueError("ambiguous human adjudication precedence in records")
+            if len(primary_records) > 1:
+                raise ValueError("ambiguous primary evaluation precedence in records")
+            if adjudications:
+                results[stage.id] = adjudications[0].gate_status
+            elif primary_records:
+                results[stage.id] = primary_records[0].gate_status
+        return results
+
+    @staticmethod
+    def validate_human_relation_boundary(
+        record: EvaluationRecord,
+        *,
+        boundary_sequence: int,
+        related_records: list[tuple[EvaluationRecord, int]],
+    ) -> None:
+        """Prevent a human record from claiming knowledge of a later ledger prefix."""
+        if record.source_type not in {"human_reviewer", "human_adjudicator"}:
+            return
+        if any(sequence > boundary_sequence for _, sequence in related_records):
+            raise ValueError(
+                "human evaluation relation references a record outside its boundary"
+            )

@@ -74,6 +74,7 @@ class ContractType(StrEnum):
     INTERACTION_PROTOCOL = "interaction_protocol"
     EVALUATION_PLAN = "evaluation_plan"
     CHECKPOINT_POLICY = "checkpoint_policy"
+    PROGRESS_ARTIFACT_POLICY = "progress_artifact_policy"
 
 
 class RevisionStatus(StrEnum):
@@ -96,7 +97,63 @@ class ArtifactRef(ContractModel):
     digest: Digest
     media_type: NonEmptyStr
     classification: Classification = Classification.INTERNAL
-    locator: NonEmptyStr | None = None
+
+
+class ArtifactManifestEntry(ContractModel):
+    """One intentionally materialized artifact; never a file-access activity log."""
+
+    run_id: NonEmptyStr
+    role: Literal[
+        "scenario_input",
+        "subject_input_materialized",
+        "agent_instruction",
+        "interaction_prompt",
+        "hidden_calibration",
+        "extension_schema",
+        "extension_payload",
+        "evaluation_evidence",
+        "run_output",
+        "progress_summary",
+        "workspace_snapshot",
+        "checkpoint_capture",
+        "report_attachment",
+    ]
+    artifact_ref: ArtifactRef
+    source_label: NonEmptyStr
+    content_included: bool = False
+    omission_reason: NonEmptyStr | None = None
+    required_for_portability: bool = False
+
+    @model_validator(mode="after")
+    def validate_content_claim(self) -> ArtifactManifestEntry:
+        if self.content_included and self.omission_reason is not None:
+            raise ValueError("included artifact content cannot declare an omission reason")
+        if not self.content_included and self.omission_reason is None:
+            raise ValueError("omitted artifact content requires an explicit reason")
+        return self
+
+
+class ArtifactManifest(ContractModel):
+    schema_version: Literal["1"] = "1"
+    profile: Literal["audit"] = "audit"
+    entries: tuple[ArtifactManifestEntry, ...] = ()
+    portable: Literal[False] = False
+    replayable: Literal[False] = False
+
+    @model_validator(mode="after")
+    def validate_unique_entries(self) -> ArtifactManifest:
+        keys = [
+            (item.run_id, item.role, item.artifact_ref.artifact_id)
+            for item in self.entries
+        ]
+        if len(keys) != len(set(keys)):
+            raise ValueError("artifact manifest entries must be unique per Run, role, and artifact")
+        return self
+
+    @computed_field
+    @property
+    def digest(self) -> str:
+        return sha256_json(semantic_model_dump(self))
 
 
 class CapabilityDescriptorRef(ContractModel):
@@ -178,14 +235,113 @@ class RevisionEnvelope(ContractModel):
         )
 
 
+class HumanAttestationRef(ContractModel):
+    attestation_id: NonEmptyStr
+    digest: Digest
+
+
+class HumanAttestationRecord(ContractModel):
+    """Evidence produced by a trusted human-verification adapter, not by API input."""
+
+    schema_version: Literal["1"] = "1"
+    attestation_id: NonEmptyStr
+    principal_id: NonEmptyStr
+    verification_method: Literal["webauthn"] = "webauthn"
+    credential_id: NonEmptyStr
+    action: Literal[
+        "revision.accepted",
+        "revision.rejected",
+        "revision.superseded",
+        "evaluation.adjudicated",
+        "evaluation.reviewed",
+    ]
+    target_digest: Digest
+    subject_digest: Digest
+    challenge_digest: Digest
+    assertion_ref: ArtifactRef
+    user_verification: Literal["required_verified"] = "required_verified"
+    relying_party_id: NonEmptyStr
+    origin: NonEmptyStr
+    verifier_ref: CapabilityDescriptorRef
+    verified_at_utc: UtcDateTime
+
+    @computed_field
+    @property
+    def digest(self) -> str:
+        return sha256_json(semantic_model_dump(self))
+
+    @property
+    def ref(self) -> HumanAttestationRef:
+        return HumanAttestationRef(attestation_id=self.attestation_id, digest=self.digest)
+
+
+class VerifiedHumanDecisionAuthority(ContractModel):
+    kind: Literal["verified_human"] = "verified_human"
+    principal_id: NonEmptyStr
+    attestation: HumanAttestationRecord
+
+    @model_validator(mode="after")
+    def validate_principal(self) -> VerifiedHumanDecisionAuthority:
+        if self.principal_id != self.attestation.principal_id:
+            raise ValueError("human authority principal must match the attestation principal")
+        return self
+
+
+class RepositoryFixtureDecisionAuthority(ContractModel):
+    kind: Literal["repository_fixture"] = "repository_fixture"
+    fixture_id: Literal["experiment-manifest-v1:crl-ctx-002"] = (
+        "experiment-manifest-v1:crl-ctx-002"
+    )
+    fixture_digest: Digest
+
+    @field_validator("fixture_digest")
+    @classmethod
+    def reject_placeholder_digest(cls, value: str) -> str:
+        if value == "0" * 64:
+            raise ValueError("repository fixture digest cannot be a placeholder")
+        return value
+
+
+DecisionAuthority = Annotated[
+    VerifiedHumanDecisionAuthority | RepositoryFixtureDecisionAuthority,
+    Field(discriminator="kind"),
+]
+
+
 class RevisionDecisionRecord(ContractModel):
     schema_version: Literal["1"] = "1"
     revision_ref: ContractRef
     decision: Literal["accepted", "rejected", "superseded"]
-    actor_type: Literal["human"] = "human"
-    actor_id: NonEmptyStr
+    authority: DecisionAuthority
     rationale: NonEmptyStr
     decided_at_utc: UtcDateTime
+
+    @model_validator(mode="after")
+    def validate_authority(self) -> RevisionDecisionRecord:
+        if self.authority.kind == "repository_fixture":
+            if self.decision != "accepted":
+                raise ValueError("repository fixtures can only import accepted revisions")
+            return self
+        attestation = self.authority.attestation
+        expected_subject = self.human_subject_digest()
+        if attestation.action != f"revision.{self.decision}":
+            raise ValueError("human attestation action does not match the revision decision")
+        if attestation.target_digest != self.revision_ref.digest:
+            raise ValueError("human attestation target does not match the revision digest")
+        if attestation.subject_digest != expected_subject:
+            raise ValueError("human attestation does not cover the revision decision content")
+        if self.decided_at_utc != attestation.verified_at_utc:
+            raise ValueError("human decision timestamp must be the verified attestation timestamp")
+        return self
+
+    def human_subject_digest(self) -> str:
+        return sha256_json(
+            {
+                "revision_ref": self.revision_ref.model_dump(mode="json"),
+                "decision": self.decision,
+                "rationale": self.rationale,
+            }
+        )
 
     @computed_field
     @property

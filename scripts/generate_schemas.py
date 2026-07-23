@@ -9,13 +9,18 @@ from pydantic import TypeAdapter
 from evidrun.contracts import (
     AdmissionRecord,
     AgentInventoryRevision,
+    ArtifactManifest,
     CheckpointPolicyRevision,
     CheckpointRecord,
     EvaluationPlanRevision,
     EvaluationRecord,
     EvaluatorEnvelope,
     GoalRevision,
+    HumanAttestationRecord,
     InteractionProtocolRevision,
+    ProgressArtifactContent,
+    ProgressArtifactPolicyRevision,
+    ProgressArtifactRecord,
     RevisionDecisionRecord,
     RunEventPayload,
     RunRecord,
@@ -41,6 +46,7 @@ CONTRACT_MODELS = {
     "interaction-protocol-revision-v1": InteractionProtocolRevision,
     "evaluation-plan-revision-v1": EvaluationPlanRevision,
     "checkpoint-policy-revision-v1": CheckpointPolicyRevision,
+    "progress-artifact-policy-revision-v1": ProgressArtifactPolicyRevision,
     "run-spec-v1": RunSpec,
     "admission-record-v1": AdmissionRecord,
     "subject-envelope-v1": SubjectEnvelope,
@@ -48,6 +54,10 @@ CONTRACT_MODELS = {
     "evaluator-envelope-v1": EvaluatorEnvelope,
     "checkpoint-record-v1": CheckpointRecord,
     "revision-decision-record-v1": RevisionDecisionRecord,
+    "human-attestation-record-v1": HumanAttestationRecord,
+    "progress-artifact-content-v1": ProgressArtifactContent,
+    "progress-artifact-record-v1": ProgressArtifactRecord,
+    "artifact-manifest-v1": ArtifactManifest,
     "run-record-v1": RunRecord,
 }
 
@@ -60,6 +70,7 @@ ContractCatalog = (
     | InteractionProtocolRevision
     | EvaluationPlanRevision
     | CheckpointPolicyRevision
+    | ProgressArtifactPolicyRevision
     | RunSpec
     | AdmissionRecord
     | SubjectEnvelope
@@ -67,6 +78,10 @@ ContractCatalog = (
     | EvaluatorEnvelope
     | CheckpointRecord
     | RevisionDecisionRecord
+    | HumanAttestationRecord
+    | ProgressArtifactContent
+    | ProgressArtifactRecord
+    | ArtifactManifest
     | RunRecord
     | RunEventPayload
 )

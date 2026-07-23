@@ -17,19 +17,6 @@
           "title": "Digest",
           "type": "string"
         },
-        "locator": {
-          "anyOf": [
-            {
-              "minLength": 1,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Locator"
-        },
         "media_type": {
           "minLength": 1,
           "title": "Media Type",

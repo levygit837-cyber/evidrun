@@ -353,6 +353,14 @@ class EvaluationTrigger(ContractModel):
     kind: Literal["run_terminal", "checkpoint", "event"]
     reference: NonEmptyStr | None = None
 
+    @model_validator(mode="after")
+    def validate_reference(self) -> EvaluationTrigger:
+        if self.kind in {"checkpoint", "event"} and self.reference is None:
+            raise ValueError(f"{self.kind} evaluation trigger requires a reference")
+        if self.kind == "run_terminal" and self.reference is not None:
+            raise ValueError("run_terminal evaluation trigger cannot declare a reference")
+        return self
+
 
 class EvaluationStage(ContractModel):
     id: NonEmptyStr
@@ -361,12 +369,28 @@ class EvaluationStage(ContractModel):
     trigger: EvaluationTrigger
     output_dimensions: tuple[NonEmptyStr, ...] = ()
     hard_gate: bool = False
-    visible_to_subject: bool = False
     parameters: tuple[KeyValue, ...] = ()
 
 
+class SubjectEvaluationDisclosure(ContractModel):
+    mode: Literal["none", "pre_run", "on_request", "post_run"] = "none"
+    dimension_ids: tuple[NonEmptyStr, ...] = ()
+    include_scale: bool = False
+    include_anchors: bool = False
+
+    @model_validator(mode="after")
+    def validate_disclosure(self) -> SubjectEvaluationDisclosure:
+        if self.mode == "none" and (
+            self.dimension_ids or self.include_scale or self.include_anchors
+        ):
+            raise ValueError("none disclosure cannot expose evaluation guidance")
+        if self.mode != "none" and not self.dimension_ids:
+            raise ValueError("enabled Subject disclosure requires public dimensions")
+        return self
+
+
 class EvaluationDisclosure(ContractModel):
-    public_dimension_ids: tuple[NonEmptyStr, ...] = ()
+    subject: SubjectEvaluationDisclosure = SubjectEvaluationDisclosure()
     hidden_input_refs: tuple[ArtifactRef, ...] = ()
 
 
@@ -381,7 +405,30 @@ class AggregationSpec(ContractModel):
 
 class HumanAdjudicationPolicy(ContractModel):
     required: bool = False
-    authority: NonEmptyStr = "local-human"
+    adjudicator_ref: CapabilityDescriptorRef | None = None
+    adjudicable_stage_ids: tuple[NonEmptyStr, ...] = ()
+    attestation_verifier_ref: CapabilityDescriptorRef | None = None
+
+    @model_validator(mode="after")
+    def validate_required_authority(self) -> HumanAdjudicationPolicy:
+        configured = (
+            self.adjudicator_ref is not None
+            and bool(self.adjudicable_stage_ids)
+            and self.attestation_verifier_ref is not None
+        )
+        if self.required and not configured:
+            raise ValueError(
+                "required human adjudication needs an adjudicator, stages, and verifier"
+            )
+        if not self.required and any(
+            (
+                self.adjudicator_ref is not None,
+                bool(self.adjudicable_stage_ids),
+                self.attestation_verifier_ref is not None,
+            )
+        ):
+            raise ValueError("optional adjudication authority is not supported in v1")
+        return self
 
 
 class EvaluationPlanSpec(ContractModel):
@@ -407,8 +454,11 @@ class EvaluationPlanSpec(ContractModel):
         for stage in self.stages:
             if not set(stage.output_dimensions).issubset(known_dimensions):
                 raise ValueError("evaluation stage references unknown dimension")
-        if not set(self.disclosure.public_dimension_ids).issubset(known_dimensions):
+        if not set(self.disclosure.subject.dimension_ids).issubset(known_dimensions):
             raise ValueError("disclosure references unknown dimension")
+        adjudicable = set(self.human_adjudication_policy.adjudicable_stage_ids)
+        if not adjudicable.issubset(stage_ids):
+            raise ValueError("human adjudication policy references an unknown stage")
         return self
 
 
@@ -487,6 +537,64 @@ class CheckpointPolicyRevision(RevisionEnvelope):
     payload: CheckpointPolicySpec
 
 
+class CheckpointReachedProgressTrigger(ContractModel):
+    kind: Literal["checkpoint_reached"] = "checkpoint_reached"
+    checkpoint_definition_id: NonEmptyStr
+
+
+class SubjectTurnIntervalProgressTrigger(ContractModel):
+    kind: Literal["subject_turn_interval"] = "subject_turn_interval"
+    counted_event_type: Literal["subject.responded"] = "subject.responded"
+    every_n_turns: int = Field(gt=0)
+
+
+ProgressArtifactTrigger = Annotated[
+    CheckpointReachedProgressTrigger | SubjectTurnIntervalProgressTrigger,
+    Field(discriminator="kind"),
+]
+
+
+class ProgressArtifactDefinition(ContractModel):
+    id: NonEmptyStr
+    label: NonEmptyStr
+    trigger: ProgressArtifactTrigger
+    summarizer_ref: CapabilityDescriptorRef
+    minimum_interface_version: NonEmptyStr = "1"
+    authority_constraints: tuple[
+        Literal["read_current_run_ledger_prefix"],
+        Literal["write_progress_artifact_only"],
+        Literal["no_subject_feedback"],
+    ] = (
+        "read_current_run_ledger_prefix",
+        "write_progress_artifact_only",
+        "no_subject_feedback",
+    )
+    input_scope: Literal["complete_run_ledger_prefix"] = "complete_run_ledger_prefix"
+    max_output_characters: int = Field(default=12_000, gt=0)
+    audience: Literal["laboratory_human"] = "laboratory_human"
+
+
+class ProgressArtifactPolicySpec(ContractModel):
+    definitions: tuple[ProgressArtifactDefinition, ...]
+    limitations: tuple[NonEmptyStr, ...] = ()
+
+    @model_validator(mode="after")
+    def validate_definitions(self) -> ProgressArtifactPolicySpec:
+        ids = [item.id for item in self.definitions]
+        if not ids:
+            raise ValueError("progress artifact policy requires at least one definition")
+        if len(ids) != len(set(ids)):
+            raise ValueError("progress artifact definition ids must be unique")
+        return self
+
+
+class ProgressArtifactPolicyRevision(RevisionEnvelope):
+    contract_type: Literal[ContractType.PROGRESS_ARTIFACT_POLICY] = (
+        ContractType.PROGRESS_ARTIFACT_POLICY
+    )
+    payload: ProgressArtifactPolicySpec
+
+
 class BudgetSpec(ContractModel):
     max_wall_seconds: int = Field(gt=0)
     max_turns: int | None = Field(default=None, gt=0)
@@ -509,6 +617,14 @@ class StopCondition(ContractModel):
     action: Literal["terminal", "pause"] = "terminal"
     predicate_ref: CapabilityDescriptorRef | None = None
 
+    @model_validator(mode="after")
+    def validate_predicate_ref(self) -> StopCondition:
+        if self.kind == "predicate" and self.predicate_ref is None:
+            raise ValueError("predicate stop condition requires a predicate_ref")
+        if self.kind != "predicate" and self.predicate_ref is not None:
+            raise ValueError("predicate_ref is only valid for predicate stop conditions")
+        return self
+
 
 class CapturePolicySpec(ContractModel):
     default_mode: Literal["metadata", "redacted", "raw_encrypted", "disabled"]
@@ -522,6 +638,7 @@ class RunBlueprint(ContractModel):
     interaction_protocol_ref: ContractRef
     evaluation_plan_ref: ContractRef
     checkpoint_policy_ref: ContractRef | None = None
+    progress_artifact_policy_ref: ContractRef | None = None
     context_policy: ContextPolicySpec | None = None
     budgets: BudgetSpec
     stop_conditions: tuple[StopCondition, ...]
@@ -545,6 +662,14 @@ class RunBlueprint(ContractModel):
             and self.checkpoint_policy_ref.contract_type != ContractType.CHECKPOINT_POLICY
         ):
             raise ValueError("checkpoint policy slot requires a checkpoint_policy ref")
+        if (
+            self.progress_artifact_policy_ref is not None
+            and self.progress_artifact_policy_ref.contract_type
+            != ContractType.PROGRESS_ARTIFACT_POLICY
+        ):
+            raise ValueError(
+                "progress artifact policy slot requires a progress_artifact_policy ref"
+            )
         return self
 
 
@@ -556,6 +681,7 @@ class VariantOverrides(ContractModel):
     interaction_protocol_ref: ContractRef | None = None
     evaluation_plan_ref: ContractRef | None = None
     checkpoint_policy_ref: ContractRef | None = None
+    progress_artifact_policy_ref: ContractRef | None = None
     context_policy: ContextPolicySpec | None = None
     budgets: BudgetSpec | None = None
     stop_conditions: tuple[StopCondition, ...] | None = None
@@ -572,6 +698,10 @@ class VariantOverrides(ContractModel):
             (self.interaction_protocol_ref, ContractType.INTERACTION_PROTOCOL),
             (self.evaluation_plan_ref, ContractType.EVALUATION_PLAN),
             (self.checkpoint_policy_ref, ContractType.CHECKPOINT_POLICY),
+            (
+                self.progress_artifact_policy_ref,
+                ContractType.PROGRESS_ARTIFACT_POLICY,
+            ),
         )
         if any(
             reference is not None and reference.contract_type != expected
@@ -602,6 +732,7 @@ VARIANT_SLOTS = frozenset(
         "interaction_protocol",
         "evaluation_plan",
         "checkpoint_policy",
+        "progress_artifact_policy",
         "context_policy",
         "budgets",
         "stop_conditions",
@@ -709,7 +840,8 @@ AuthoringRevision = Annotated[
     | WorkspaceTemplateRevision
     | InteractionProtocolRevision
     | EvaluationPlanRevision
-    | CheckpointPolicyRevision,
+    | CheckpointPolicyRevision
+    | ProgressArtifactPolicyRevision,
     Field(discriminator="contract_type"),
 ]
 
@@ -723,6 +855,7 @@ REVISION_MODELS: dict[ContractType, type[RevisionEnvelope]] = {
     ContractType.INTERACTION_PROTOCOL: InteractionProtocolRevision,
     ContractType.EVALUATION_PLAN: EvaluationPlanRevision,
     ContractType.CHECKPOINT_POLICY: CheckpointPolicyRevision,
+    ContractType.PROGRESS_ARTIFACT_POLICY: ProgressArtifactPolicyRevision,
 }
 
 

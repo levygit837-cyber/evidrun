@@ -101,6 +101,50 @@
       "review_due": null
     },
     {
+      "id": "adr-0010",
+      "path": "docs/adr/0010-verifiable-human-authority.md",
+      "type": "adr",
+      "title": "Autoridade humana verificável e separação entre review e adjudicação",
+      "status": "accepted",
+      "authority": "normative",
+      "owner": "governance",
+      "updated_at": "2026-07-23",
+      "review_due": null
+    },
+    {
+      "id": "adr-0011",
+      "path": "docs/adr/0011-progress-artifacts-and-bundle-boundaries.md",
+      "type": "adr",
+      "title": "Progress Artifacts, acesso a artifacts e fronteiras de bundles",
+      "status": "accepted",
+      "authority": "normative",
+      "owner": "evidence",
+      "updated_at": "2026-07-23",
+      "review_due": null
+    },
+    {
+      "id": "adr-0012",
+      "path": "docs/adr/0012-subject-disclosure-and-terminal-semantics.md",
+      "type": "adr",
+      "title": "Disclosure mínimo do Subject e semântica terminal por Goal",
+      "status": "superseded",
+      "authority": "normative",
+      "owner": "core",
+      "updated_at": "2026-07-23",
+      "review_due": null
+    },
+    {
+      "id": "adr-0013",
+      "path": "docs/adr/0013-bounded-exploration-terminal-semantics.md",
+      "type": "adr",
+      "title": "Semântica terminal de bounded exploration em dois eixos",
+      "status": "accepted",
+      "authority": "normative",
+      "owner": "core",
+      "updated_at": "2026-07-23",
+      "review_due": null
+    },
+    {
       "id": "architecture-agents-authority",
       "path": "docs/architecture/agents-and-authority.md",
       "type": "architecture",

@@ -30,19 +30,6 @@
           "title": "Digest",
           "type": "string"
         },
-        "locator": {
-          "anyOf": [
-            {
-              "minLength": 1,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Locator"
-        },
         "media_type": {
           "minLength": 1,
           "title": "Media Type",
@@ -199,6 +186,52 @@
         "restricted"
       ],
       "title": "Classification",
+      "type": "string"
+    },
+    "ContractRef": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_type": {
+          "$ref": "#/$defs/ContractType"
+        },
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "logical_id": {
+          "minLength": 1,
+          "title": "Logical Id",
+          "type": "string"
+        },
+        "revision": {
+          "exclusiveMinimum": 0,
+          "title": "Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "contract_type",
+        "logical_id",
+        "revision",
+        "digest"
+      ],
+      "title": "ContractRef",
+      "type": "object"
+    },
+    "ContractType": {
+      "enum": [
+        "study",
+        "goal",
+        "scenario",
+        "agent_inventory",
+        "workspace_template",
+        "interaction_protocol",
+        "evaluation_plan",
+        "checkpoint_policy",
+        "progress_artifact_policy"
+      ],
+      "title": "ContractType",
       "type": "string"
     },
     "EvaluatorSignalTrigger": {
@@ -610,6 +643,39 @@
       "title": "InteractionProtocolSpec",
       "type": "object"
     },
+    "KeyValue": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "minLength": 1,
+          "title": "Key",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "key",
+        "value"
+      ],
+      "title": "KeyValue",
+      "type": "object"
+    },
     "PredicateTrigger": {
       "additionalProperties": false,
       "properties": {
@@ -820,6 +886,96 @@
       "title": "StopCondition",
       "type": "object"
     },
+    "SubjectEvaluationDimension": {
+      "additionalProperties": false,
+      "properties": {
+        "anchors": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/KeyValue"
+          },
+          "title": "Anchors",
+          "type": "array"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "maximum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maximum"
+        },
+        "minimum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minimum"
+        },
+        "value_type": {
+          "enum": [
+            "boolean",
+            "number",
+            "category"
+          ],
+          "title": "Value Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "value_type"
+      ],
+      "title": "SubjectEvaluationDimension",
+      "type": "object"
+    },
+    "SubjectEvaluationGuidance": {
+      "additionalProperties": false,
+      "properties": {
+        "dimensions": {
+          "items": {
+            "$ref": "#/$defs/SubjectEvaluationDimension"
+          },
+          "title": "Dimensions",
+          "type": "array"
+        },
+        "mode": {
+          "const": "pre_run",
+          "default": "pre_run",
+          "title": "Mode",
+          "type": "string"
+        },
+        "plan_ref": {
+          "$ref": "#/$defs/ContractRef"
+        }
+      },
+      "required": [
+        "plan_ref",
+        "dimensions"
+      ],
+      "title": "SubjectEvaluationGuidance",
+      "type": "object"
+    },
     "SubjectWorkspace": {
       "additionalProperties": false,
       "properties": {
@@ -885,6 +1041,17 @@
       },
       "title": "Effective Capabilities",
       "type": "array"
+    },
+    "evaluation_guidance": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SubjectEvaluationGuidance"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "goal": {
       "$ref": "#/$defs/GoalSpec"

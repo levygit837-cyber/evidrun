@@ -17,19 +17,6 @@
           "title": "Digest",
           "type": "string"
         },
-        "locator": {
-          "anyOf": [
-            {
-              "minLength": 1,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Locator"
-        },
         "media_type": {
           "minLength": 1,
           "title": "Media Type",
@@ -299,7 +286,8 @@
         "workspace_template",
         "interaction_protocol",
         "evaluation_plan",
-        "checkpoint_policy"
+        "checkpoint_policy",
+        "progress_artifact_policy"
       ],
       "title": "ContractType",
       "type": "string"
@@ -436,6 +424,17 @@
         },
         "interaction_protocol_ref": {
           "$ref": "#/$defs/ContractRef"
+        },
+        "progress_artifact_policy_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContractRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "stop_conditions": {
           "items": {
@@ -678,6 +677,7 @@
                 "extensions": null,
                 "goal_ref": null,
                 "interaction_protocol_ref": null,
+                "progress_artifact_policy_ref": null,
                 "scenario_ref": null,
                 "stop_conditions": null,
                 "workspace_template_ref": null
@@ -807,6 +807,17 @@
           ],
           "default": null
         },
+        "progress_artifact_policy_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContractRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "scenario_ref": {
           "anyOf": [
             {
@@ -895,6 +906,7 @@
             "extensions": null,
             "goal_ref": null,
             "interaction_protocol_ref": null,
+            "progress_artifact_policy_ref": null,
             "scenario_ref": null,
             "stop_conditions": null,
             "workspace_template_ref": null

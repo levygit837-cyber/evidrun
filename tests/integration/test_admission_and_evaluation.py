@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 import pytest
@@ -26,7 +27,7 @@ from evidrun.contracts.legacy import capability_ref
 from evidrun.contracts.runtime import DimensionValue, EvaluationBoundary
 from evidrun.infrastructure.database import Repository
 from evidrun.runs import EvidrunService
-from evidrun.shared.types import new_id, sha256_bytes, utc_now
+from evidrun.shared.types import sha256_bytes, utc_now
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -107,17 +108,210 @@ def test_run_identity_and_lifecycle_are_enforced_by_canonical_contracts(
             "admission_digest": admission.digest,
         },
     )
-    with pytest.raises(ValueError, match="invalid Run lifecycle transition"):
+    with pytest.raises(ValueError, match="not valid while the Run is queued"):
+        repository.append_event(
+            run_id=run.id,
+            event_type="evaluation.completed",
+            payload={
+                "evaluation_record_id": "eval_missing",
+                "evaluation_record_digest": "f" * 64,
+                "gate_status": "passed",
+            },
+        )
+    with pytest.raises(
+        ValueError,
+        match=r"invalid Run lifecycle transition|completed Run requires",
+    ):
         repository.append_event(
             run_id=run.id,
             event_type="run.completed",
             payload={
                 "status": "completed",
-                "goal_state": "not_assessable",
+                "goal_result": {
+                    "goal_mode": "goal_state",
+                    "state": "not_assessable",
+                },
                 "terminal_cause": "forged direct completion",
             },
         )
     assert repository.get_run(run.id).status == "queued"
+
+    repository.append_event(
+        run_id=run.id,
+        event_type="run.preparing",
+        payload={"scenario_ref": spec.scenario_ref.model_dump(mode="json")},
+    )
+    repository.append_event(
+        run_id=run.id,
+        event_type="run.running",
+        payload={"from_status": "preparing", "reason": "Test runtime is ready."},
+    )
+    with pytest.raises(ValueError, match="before a Subject response"):
+        repository.append_event(
+            run_id=run.id,
+            event_type="run.evaluating",
+            payload={"from_status": "running", "reason": "Forged empty evaluation."},
+        )
+    assert repository.get_run(run.id).status == "running"
+
+
+def test_ledger_rejects_unverified_human_progress_and_capture_bypass(
+    repository: Repository,
+) -> None:
+    result = EvidrunService(repository).bootstrap_demo(ROOT / "benchmarks")
+    terminal_run = repository.get_run(result["baseline_run_id"])
+    assert terminal_run.run_spec_id is not None
+    assert terminal_run.admission_id is not None
+    spec = repository.get_run_spec(terminal_run.run_spec_id)
+    admission = repository.get_admission_record(terminal_run.admission_id)
+    valid_response_payload: dict[str, object] = {
+        "output_digest": "a" * 64,
+        "capture_mode": spec.capture_policy.default_mode,
+    }
+    if spec.capture_policy.default_mode == "redacted":
+        valid_response_payload["output"] = "[REDACTED]"
+
+    with pytest.raises(ValueError, match="cannot claim human authority"):
+        repository.append_event(
+            run_id=terminal_run.id,
+            event_type="subject.responded",
+            payload=valid_response_payload,
+            actor_type="human",
+            actor_id="agent-self-asserted",
+        )
+    with pytest.raises(ValueError, match="event type is reserved"):
+        repository.append_event(
+            run_id=terminal_run.id,
+            event_type="progress.artifact_created",
+            payload={},
+        )
+    with pytest.raises(ValueError, match="after a terminal lifecycle event"):
+        repository.append_event(
+            run_id=terminal_run.id,
+            event_type="subject.responded",
+            payload=valid_response_payload,
+        )
+
+    run = repository.create_run(
+        experiment_revision_id=terminal_run.experiment_revision_id,
+        variant_id=spec.variant_id,
+        runner=spec.agent_inventory.runner_ref.name,
+        objective=spec.goal.instruction,
+        repetition=spec.repetition_index,
+        run_spec_id=terminal_run.run_spec_id,
+        admission_id=terminal_run.admission_id,
+    )
+    repository.append_event(
+        run_id=run.id,
+        event_type="run.queued",
+        payload={
+            "run_id": run.id,
+            "variant_id": spec.variant_id,
+            "run_spec_digest": spec.digest,
+            "admission_digest": admission.digest,
+        },
+    )
+    repository.append_event(
+        run_id=run.id,
+        event_type="run.preparing",
+        payload={"scenario_ref": spec.scenario_ref.model_dump(mode="json")},
+    )
+    repository.append_event(
+        run_id=run.id,
+        event_type="run.running",
+        payload={"from_status": "preparing", "reason": "Test runtime is ready."},
+    )
+    repository.append_event(
+        run_id=run.id,
+        event_type="subject.invoked",
+        payload={
+            "runner": spec.agent_inventory.runner_ref.name,
+            "network": "disabled",
+            "subject_envelope_digest": "c" * 64,
+        },
+    )
+    mismatched_mode = (
+        "disabled"
+        if spec.capture_policy.default_mode != "disabled"
+        else "metadata"
+    )
+    with pytest.raises(ValueError, match="does not match the RunSpec policy"):
+        repository.append_event(
+            run_id=run.id,
+            event_type="subject.responded",
+            payload={
+                "output_digest": "b" * 64,
+                "capture_mode": mismatched_mode,
+            },
+        )
+    response_event = repository.append_event(
+        run_id=run.id,
+        event_type="subject.responded",
+        payload=valid_response_payload,
+    )
+    repository.append_event(
+        run_id=run.id,
+        event_type="run.evaluating",
+        payload={"from_status": "running", "reason": "The Subject turn is complete."},
+    )
+    with pytest.raises(ValueError, match="requires a Subject response and evaluation records"):
+        repository.append_event(
+            run_id=run.id,
+            event_type="run.completed",
+            payload={
+                "status": "completed",
+                "goal_result": {"goal_mode": "goal_state", "state": "achieved"},
+                "terminal_cause": "Forged achievement without an evaluation record.",
+            },
+        )
+    stage = spec.evaluation_plan.stages[0]
+    evaluation = EvaluationRecord(
+        record_id="eval_terminal_exact_set",
+        run_id=run.id,
+        plan_ref=spec.evaluation_plan_ref,
+        stage_id=stage.id,
+        source_type="deterministic_grader",
+        evaluator_ref=stage.evaluator_ref,
+        boundary=EvaluationBoundary(
+            up_to_event_sequence=response_event.sequence,
+            event_hash=response_event.event_hash,
+        ),
+        dimension_values=(
+            DimensionValue(
+                dimension_id=stage.output_dimensions[0],
+                value=True,
+                rationale="The exact terminal reference set is under test.",
+                evidence_refs=(EvidenceRef(ref=f"event:{response_event.id}"),),
+            ),
+        ),
+        gate_status="passed",
+        status="final",
+        created_at_utc=utc_now(),
+    )
+    repository.save_evaluation_record(evaluation)
+    repository.append_event(
+        run_id=run.id,
+        event_type="evaluation.completed",
+        payload={
+            "evaluation_record_id": evaluation.record_id,
+            "evaluation_record_digest": evaluation.digest,
+            "gate_status": evaluation.gate_status,
+        },
+    )
+    with pytest.raises(ValueError, match="every persisted EvaluationRecord exactly"):
+        repository.append_event(
+            run_id=run.id,
+            event_type="run.failed",
+            payload={
+                "status": "failed",
+                "goal_result": {
+                    "goal_mode": "goal_state",
+                    "state": "not_assessable",
+                },
+                "terminal_cause": "Forged omission of a persisted evaluation.",
+            },
+        )
+    assert repository.get_run(run.id).status == "evaluating"
 
 
 def test_admission_persistence_rejects_extra_subject_capability_context(
@@ -166,9 +360,16 @@ def test_admission_persistence_rejects_extra_subject_capability_context(
         ),
     ).admit(spec)
     assert admission.decision == "admitted"
+    repository.save_admission_record(spec_row.id, admission)
+    assert admission.resolved_inventory.capabilities[0].context_refs == (
+        declared_instruction,
+    )
     resolved = admission.resolved_inventory.capabilities[0].model_copy(
         update={
-            "context_refs": (declared_instruction, injected_instruction),
+            "context_refs": (
+                *admission.resolved_inventory.capabilities[0].context_refs,
+                injected_instruction,
+            ),
         }
     )
     tampered = admission.model_copy(
@@ -183,7 +384,9 @@ def test_admission_persistence_rejects_extra_subject_capability_context(
         repository.save_admission_record(spec_row.id, tampered)
 
 
-def test_failed_hard_gate_blocks_later_evaluation_stage(repository: Repository) -> None:
+def test_unsupported_hard_gate_pipeline_is_rejected_before_run(
+    repository: Repository,
+) -> None:
     result = EvidrunService(repository).bootstrap_demo(ROOT / "benchmarks")
     source_run = repository.get_run(result["baseline_run_id"])
     assert source_run.run_spec_id is not None
@@ -212,11 +415,11 @@ def test_failed_hard_gate_blocks_later_evaluation_stage(repository: Repository) 
             ),
         ),
         stages=(
-                EvaluationStage(
+            EvaluationStage(
                 id="integrity",
                 kind="integrity",
                 evaluator_ref=integrity_ref,
-                    trigger=EvaluationTrigger(kind="event", reference="run.queued"),
+                trigger=EvaluationTrigger(kind="event", reference="run.queued"),
                 output_dimensions=("integrity",),
                 hard_gate=True,
             ),
@@ -224,7 +427,7 @@ def test_failed_hard_gate_blocks_later_evaluation_stage(repository: Repository) 
                 id="judge",
                 kind="model_judge",
                 evaluator_ref=judge_ref,
-                    trigger=EvaluationTrigger(kind="event", reference="run.queued"),
+                trigger=EvaluationTrigger(kind="event", reference="run.queued"),
                 output_dimensions=("quality",),
             ),
         ),
@@ -239,83 +442,99 @@ def test_failed_hard_gate_blocks_later_evaluation_stage(repository: Repository) 
     spec_row = repository.save_run_spec(spec)
     admission = EvidrunService(repository).admission_service.admit(spec)
     admission_row = repository.save_admission_record(spec_row.id, admission)
-    run = repository.create_run(
-        experiment_revision_id=source_run.experiment_revision_id,
-        variant_id="hard-gate-test",
-        runner=spec.agent_inventory.subject_id,
-        objective=spec.goal.instruction,
-        run_spec_id=spec_row.id,
-        admission_id=admission_row.id,
-    )
-    boundary = repository.append_event(
-        run_id=run.id,
-        event_type="run.queued",
-        payload={
-            "run_id": run.id,
-            "variant_id": run.variant_id,
-            "run_spec_digest": spec.digest,
-            "admission_digest": admission.digest,
-        },
-    )
-    evaluation_boundary = EvaluationBoundary(
-        up_to_event_sequence=boundary.sequence,
-        event_hash=boundary.event_hash,
-    )
-    integrity = EvaluationRecord(
-        record_id=new_id("eval"),
-        run_id=run.id,
-        plan_ref=plan_ref,
-        stage_id="integrity",
-        source_type="deterministic_grader",
-        evaluator_ref=integrity_ref,
-        boundary=evaluation_boundary,
-        dimension_values=(
-            DimensionValue(
-                dimension_id="integrity",
-                value=False,
-                rationale="The integrity check failed.",
-                evidence_refs=(EvidenceRef(ref=f"event:{boundary.id}"),),
-            ),
-        ),
-        gate_status="failed",
-        status="final",
-        created_at_utc=utc_now(),
-    )
-    fake_evidence = integrity.model_copy(
-        update={
-            "record_id": new_id("eval"),
-            "dimension_values": (
-                integrity.dimension_values[0].model_copy(
-                    update={"evidence_refs": (EvidenceRef(ref="event:fake"),)}
-                ),
-            ),
-        }
-    )
-    with pytest.raises(ValueError, match="authorized boundary"):
-        repository.save_evaluation_record(fake_evidence)
-    repository.save_evaluation_record(integrity)
-    judge = EvaluationRecord(
-        record_id=new_id("eval"),
-        run_id=run.id,
-        plan_ref=plan_ref,
-        stage_id="judge",
-        source_type="model_judge",
-        evaluator_ref=judge_ref,
-        provider_profile_id="test-judge-provider",
-        provider_model="test-judge-model",
-        boundary=evaluation_boundary,
-        dimension_values=(
-            DimensionValue(
-                dimension_id="quality",
-                value=3,
-                rationale="This stage must not be accepted after the failed gate.",
-                evidence_refs=(EvidenceRef(ref=f"event:{boundary.id}"),),
-            ),
-        ),
-        gate_status="not_applicable",
-        status="provisional",
-        created_at_utc=utc_now(),
+    assert admission.decision == "rejected"
+    assert "runtime:evaluation_pipeline" in admission.missing_requirements
+    with pytest.raises(ValueError, match="requires an admitted record"):
+        repository.create_run(
+            experiment_revision_id=source_run.experiment_revision_id,
+            variant_id="hard-gate-test",
+            runner=spec.agent_inventory.subject_id,
+            objective=spec.goal.instruction,
+            run_spec_id=spec_row.id,
+            admission_id=admission_row.id,
+        )
+
+
+def test_wall_time_exhaustion_writes_a_terminal_event(
+    repository: Repository,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    result = EvidrunService(repository).bootstrap_demo(ROOT / "benchmarks")
+    source_run = repository.get_run(result["baseline_run_id"])
+    assert source_run.run_spec_id is not None
+    spec = repository.get_run_spec(source_run.run_spec_id)
+    service = EvidrunService(repository)
+
+    async def timeout_runner(_objective: str, _context: str) -> None:
+        raise TimeoutError
+
+    monkeypatch.setattr(service.runner, "execute", timeout_runner)
+    run_ids_before = {
+        item["id"] for item in repository.latest_dashboard()["runs"]
+    }
+    source = (
+        ROOT / "benchmarks/scenarios/crl-ctx-002/fixtures/long.log"
+    ).read_text()
+    with pytest.raises(TimeoutError):
+        asyncio.run(
+            service._execute_spec(
+                source_run.experiment_revision_id,
+                spec,
+                source,
+            )
+        )
+    new_runs = [
+        item
+        for item in repository.latest_dashboard()["runs"]
+        if item["id"] not in run_ids_before
+    ]
+    assert len(new_runs) == 1
+    timed_out_run = repository.get_run(new_runs[0]["id"])
+    assert timed_out_run.status == "budget_exhausted"
+    assert repository.get_run_events(timed_out_run.id)[-1]["type"] == (
+        "run.budget_exhausted"
     )
 
-    with pytest.raises(ValueError, match="blocked by a failed hard gate"):
-        repository.save_evaluation_record(judge)
+
+def test_runner_failure_writes_a_terminal_event_without_leaking_error(
+    repository: Repository,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    result = EvidrunService(repository).bootstrap_demo(ROOT / "benchmarks")
+    source_run = repository.get_run(result["baseline_run_id"])
+    assert source_run.run_spec_id is not None
+    spec = repository.get_run_spec(source_run.run_spec_id)
+    service = EvidrunService(repository)
+
+    async def failing_runner(_objective: str, _context: str) -> None:
+        raise RuntimeError("sensitive provider response must not reach the ledger")
+
+    monkeypatch.setattr(service.runner, "execute", failing_runner)
+    run_ids_before = {item["id"] for item in repository.latest_dashboard()["runs"]}
+    source = (
+        ROOT / "benchmarks/scenarios/crl-ctx-002/fixtures/long.log"
+    ).read_text()
+
+    with pytest.raises(RuntimeError, match="sensitive provider response"):
+        asyncio.run(
+            service._execute_spec(
+                source_run.experiment_revision_id,
+                spec,
+                source,
+            )
+        )
+
+    new_runs = [
+        item
+        for item in repository.latest_dashboard()["runs"]
+        if item["id"] not in run_ids_before
+    ]
+    assert len(new_runs) == 1
+    failed_run = repository.get_run(new_runs[0]["id"])
+    assert failed_run.status == "failed"
+    terminal_event = repository.get_run_events(failed_run.id)[-1]
+    assert terminal_event["type"] == "run.failed"
+    assert terminal_event["payload"]["terminal_cause"] == (
+        "Subject runner execution failed"
+    )
+    assert "sensitive provider response" not in str(terminal_event)

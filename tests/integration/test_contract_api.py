@@ -8,10 +8,11 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from evidrun.contracts import EvaluationRecord, GoalRevision, GoalSpec
+from evidrun.contracts import ArtifactManifest, EvaluationRecord, GoalRevision, GoalSpec
 from evidrun.contracts.authoring import GoalOutcome
 from evidrun.entrypoints.api.app import create_app
 from evidrun.evidence.bundle import EvidenceBundleService
+from evidrun.shared.types import canonical_json, sha256_json
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -57,6 +58,164 @@ def test_contract_lifecycle_compile_admit_and_bundle_v2(tmp_path: Path) -> None:
         assert verification["records"]
 
         source_bundle = Path(exported.json()["path"])
+        with zipfile.ZipFile(source_bundle) as archive:
+            bundle_profile = json.loads(archive.read("bundle.json"))
+            artifact_manifest = json.loads(archive.read("artifact-manifest.json"))
+            member_names = set(archive.namelist())
+        assert bundle_profile["profile"] == "audit"
+        assert bundle_profile["artifact_content"] == "references_only"
+        assert bundle_profile["portable"] is False
+        assert bundle_profile["replayable"] is False
+        assert artifact_manifest["entries"]
+        assert {item["role"] for item in artifact_manifest["entries"]} == {
+            "scenario_input"
+        }
+        assert all(item["content_included"] is False for item in artifact_manifest["entries"])
+        assert all("omission_reason" in item for item in artifact_manifest["entries"])
+        assert all(
+            "locator" not in item["artifact_ref"]
+            for item in artifact_manifest["entries"]
+        )
+        assert not any(name.startswith("artifact-content/") for name in member_names)
+
+        with zipfile.ZipFile(source_bundle) as archive:
+            unanchored_files = {name: archive.read(name) for name in archive.namelist()}
+        unanchored_manifest = json.loads(unanchored_files["artifact-manifest.json"])
+        extra_entry = dict(unanchored_manifest["entries"][0])
+        extra_entry["role"] = "report_attachment"
+        extra_entry["source_label"] = "unanchored-file-access-telemetry"
+        extra_entry["artifact_ref"] = {
+            **extra_entry["artifact_ref"],
+            "artifact_id": "unanchored-file",
+            "digest": "f" * 64,
+        }
+        unanchored_manifest["entries"].append(extra_entry)
+        manifest_document = {
+            key: value for key, value in unanchored_manifest.items() if key != "digest"
+        }
+        unanchored_manifest["digest"] = ArtifactManifest.model_validate(
+            manifest_document
+        ).digest
+        unanchored_files["artifact-manifest.json"] = (
+            json.dumps(
+                unanchored_manifest,
+                ensure_ascii=False,
+                sort_keys=True,
+                indent=2,
+            )
+            + "\n"
+        ).encode()
+        unanchored_checksums = json.loads(unanchored_files["checksums.json"])
+        unanchored_checksums["files"]["artifact-manifest.json"] = hashlib.sha256(
+            unanchored_files["artifact-manifest.json"]
+        ).hexdigest()
+        unanchored_files["checksums.json"] = (
+            json.dumps(
+                unanchored_checksums,
+                ensure_ascii=False,
+                sort_keys=True,
+                indent=2,
+            )
+            + "\n"
+        ).encode()
+        unanchored_bundle = tmp_path / "unanchored-artifact.evidrun.zip"
+        with zipfile.ZipFile(
+            unanchored_bundle, "w", compression=zipfile.ZIP_DEFLATED
+        ) as archive:
+            for name, content in unanchored_files.items():
+                archive.writestr(name, content)
+        unanchored_verification = EvidenceBundleService(app.state.repository).verify(
+            unanchored_bundle
+        )
+        assert unanchored_verification["valid"] is False
+        assert unanchored_verification["records"]["artifact-manifest.json"] is False
+
+        with zipfile.ZipFile(source_bundle) as archive:
+            comparison_files = {name: archive.read(name) for name in archive.namelist()}
+        comparison_document = json.loads(comparison_files["comparison.json"])
+        comparison_document["baseline_run_id"] = comparison_document["candidate_run_id"]
+        comparison_files["comparison.json"] = (
+            json.dumps(
+                comparison_document,
+                ensure_ascii=False,
+                sort_keys=True,
+                indent=2,
+            )
+            + "\n"
+        ).encode()
+        comparison_checksums = json.loads(comparison_files["checksums.json"])
+        comparison_checksums["files"]["comparison.json"] = hashlib.sha256(
+            comparison_files["comparison.json"]
+        ).hexdigest()
+        comparison_files["checksums.json"] = (
+            json.dumps(
+                comparison_checksums,
+                ensure_ascii=False,
+                sort_keys=True,
+                indent=2,
+            )
+            + "\n"
+        ).encode()
+        mismatched_comparison_bundle = tmp_path / "mismatched-comparison.evidrun.zip"
+        with zipfile.ZipFile(
+            mismatched_comparison_bundle, "w", compression=zipfile.ZIP_DEFLATED
+        ) as archive:
+            for name, content in comparison_files.items():
+                archive.writestr(name, content)
+        mismatched_comparison = EvidenceBundleService(app.state.repository).verify(
+            mismatched_comparison_bundle
+        )
+        assert mismatched_comparison["valid"] is False
+        assert mismatched_comparison["records"]["comparison.json"] is False
+
+        with zipfile.ZipFile(source_bundle) as archive:
+            unterminated_files = {name: archive.read(name) for name in archive.namelist()}
+        event_file = next(name for name in unterminated_files if name.startswith("events/"))
+        event_documents = [
+            json.loads(line)
+            for line in unterminated_files[event_file].splitlines()
+            if line
+        ]
+        assert event_documents[-1]["type"] == "run.completed"
+        event_documents.pop()
+        unterminated_files[event_file] = (
+            "\n".join(
+                json.dumps(
+                    event,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+                for event in event_documents
+            )
+            + "\n"
+        ).encode()
+        unterminated_checksums = json.loads(unterminated_files["checksums.json"])
+        unterminated_checksums["files"][event_file] = hashlib.sha256(
+            unterminated_files[event_file]
+        ).hexdigest()
+        unterminated_files["checksums.json"] = (
+            json.dumps(
+                unterminated_checksums,
+                ensure_ascii=False,
+                sort_keys=True,
+                indent=2,
+            )
+            + "\n"
+        ).encode()
+        unterminated_bundle = tmp_path / "unterminated-run.evidrun.zip"
+        with zipfile.ZipFile(
+            unterminated_bundle, "w", compression=zipfile.ZIP_DEFLATED
+        ) as archive:
+            for name, content in unterminated_files.items():
+                archive.writestr(name, content)
+        unterminated = EvidenceBundleService(app.state.repository).verify(
+            unterminated_bundle
+        )
+        assert unterminated["valid"] is False
+        run_id = Path(event_file).stem
+        assert unterminated["records"][f"__terminal_event__:{run_id}"] is False
+
         tampered_bundle = tmp_path / "tampered-boundary.evidrun.zip"
         with zipfile.ZipFile(source_bundle) as archive:
             files = {name: archive.read(name) for name in archive.namelist()}
@@ -195,6 +354,71 @@ def test_contract_lifecycle_compile_admit_and_bundle_v2(tmp_path: Path) -> None:
         assert evidence_verification["valid"] is False
         assert evidence_verification["records"][evaluation_name] is False
 
+        with zipfile.ZipFile(source_bundle) as archive:
+            duplicate_evaluation_files = {
+                name: archive.read(name) for name in archive.namelist()
+            }
+        duplicate_event_name = next(
+            name for name in duplicate_evaluation_files if name.startswith("events/")
+        )
+        duplicate_events = [
+            json.loads(line)
+            for line in duplicate_evaluation_files[duplicate_event_name].splitlines()
+            if line
+        ]
+        evaluation_index = next(
+            index
+            for index, event in enumerate(duplicate_events)
+            if event["type"] == "evaluation.completed"
+        )
+        forged_completion = {
+            **duplicate_events[evaluation_index],
+            "event_id": "evt_duplicate_evaluation_completion",
+        }
+        duplicate_events.insert(evaluation_index + 1, forged_completion)
+        previous_hash: str | None = None
+        for sequence, event in enumerate(duplicate_events, start=1):
+            event["sequence"] = sequence
+            event["prev_event_hash"] = previous_hash
+            event.pop("event_hash", None)
+            event["event_hash"] = sha256_json(event)
+            previous_hash = event["event_hash"]
+        duplicate_evaluation_files[duplicate_event_name] = (
+            "\n".join(canonical_json(event) for event in duplicate_events) + "\n"
+        ).encode()
+        duplicate_evaluation_checksums = json.loads(
+            duplicate_evaluation_files["checksums.json"]
+        )
+        duplicate_evaluation_checksums["files"][duplicate_event_name] = (
+            hashlib.sha256(
+                duplicate_evaluation_files[duplicate_event_name]
+            ).hexdigest()
+        )
+        duplicate_evaluation_files["checksums.json"] = (
+            json.dumps(
+                duplicate_evaluation_checksums,
+                ensure_ascii=False,
+                sort_keys=True,
+                indent=2,
+            )
+            + "\n"
+        ).encode()
+        duplicate_evaluation_bundle = tmp_path / "duplicate-evaluation-event.evidrun.zip"
+        with zipfile.ZipFile(
+            duplicate_evaluation_bundle, "w", compression=zipfile.ZIP_DEFLATED
+        ) as archive:
+            for name, content in duplicate_evaluation_files.items():
+                archive.writestr(name, content)
+        duplicate_evaluation_verification = EvidenceBundleService(
+            app.state.repository
+        ).verify(duplicate_evaluation_bundle)
+        assert duplicate_evaluation_verification["valid"] is False
+        run_evaluation_name = f"evaluations/{Path(duplicate_event_name).stem}.json"
+        assert (
+            duplicate_evaluation_verification["records"][run_evaluation_name]
+            is False
+        )
+
 
 def test_contract_validation_registration_and_human_decision(tmp_path: Path) -> None:
     app = create_app(data_dir=tmp_path, benchmark_root=ROOT / "benchmarks")
@@ -227,15 +451,14 @@ def test_contract_validation_registration_and_human_decision(tmp_path: Path) -> 
             f"/api/v1/contracts/revisions/{revision_id}/decisions",
             json={
                 "decision": "accepted",
-                "actor_id": "integration-test-human",
                 "rationale": "Explicitly accepted during the integration test.",
             },
         )
-        assert decision.status_code == 200
-        assert decision.json()["decision"] == "accepted"
+        assert decision.status_code == 503
+        assert "verified human authority is unavailable" in decision.json()["detail"]
         listed = client.get("/api/v1/contracts/revisions").json()
         stored = next(item for item in listed if item["id"] == revision_id)
-        assert stored["status"] == "accepted"
+        assert stored["status"] == "draft"
 
         changed = goal.model_copy(update={"title": "Mutated content"})
         conflict = client.post(

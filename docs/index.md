@@ -41,6 +41,13 @@ verification_refs:
   [Evidence Bundle v2](contracts/evidence-bundle-v2.md)
 - [Experiment Manifest v1](contracts/experiment-manifest.md), mantido por compatibilidade
 
+## Decisões sucessoras
+
+- [ADR 0010 — autoridade humana verificável e adjudicação](adr/0010-verifiable-human-authority.md)
+- [ADR 0011 — Progress Artifacts, acesso e bundles](adr/0011-progress-artifacts-and-bundle-boundaries.md)
+- [ADR 0012 — Subject disclosure e semântica terminal (histórico)](adr/0012-subject-disclosure-and-terminal-semantics.md)
+- [ADR 0013 — bounded exploration em dois eixos](adr/0013-bounded-exploration-terminal-semantics.md)
+
 ## Autoridade
 
 Contratos e ADRs aceitos são normativos. Arquitetura descreve o estado atual. Research é temporal.

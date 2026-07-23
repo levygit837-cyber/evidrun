@@ -99,19 +99,6 @@
           "title": "Digest",
           "type": "string"
         },
-        "locator": {
-          "anyOf": [
-            {
-              "minLength": 1,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Locator"
-        },
         "media_type": {
           "minLength": 1,
           "title": "Media Type",
@@ -519,6 +506,27 @@
       "title": "CheckpointPolicySpec",
       "type": "object"
     },
+    "CheckpointReachedProgressTrigger": {
+      "additionalProperties": false,
+      "properties": {
+        "checkpoint_definition_id": {
+          "minLength": 1,
+          "title": "Checkpoint Definition Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "checkpoint_reached",
+          "default": "checkpoint_reached",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "checkpoint_definition_id"
+      ],
+      "title": "CheckpointReachedProgressTrigger",
+      "type": "object"
+    },
     "CheckpointReachedTrigger": {
       "additionalProperties": false,
       "properties": {
@@ -650,7 +658,8 @@
         "workspace_template",
         "interaction_protocol",
         "evaluation_plan",
-        "checkpoint_policy"
+        "checkpoint_policy",
+        "progress_artifact_policy"
       ],
       "title": "ContractType",
       "type": "string"
@@ -729,14 +738,14 @@
           "title": "Hidden Input Refs",
           "type": "array"
         },
-        "public_dimension_ids": {
-          "default": [],
-          "items": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "title": "Public Dimension Ids",
-          "type": "array"
+        "subject": {
+          "$ref": "#/$defs/SubjectEvaluationDisclosure",
+          "default": {
+            "dimension_ids": [],
+            "include_anchors": false,
+            "include_scale": false,
+            "mode": "none"
+          }
         }
       },
       "title": "EvaluationDisclosure",
@@ -773,13 +782,20 @@
           "$ref": "#/$defs/EvaluationDisclosure",
           "default": {
             "hidden_input_refs": [],
-            "public_dimension_ids": []
+            "subject": {
+              "dimension_ids": [],
+              "include_anchors": false,
+              "include_scale": false,
+              "mode": "none"
+            }
           }
         },
         "human_adjudication_policy": {
           "$ref": "#/$defs/HumanAdjudicationPolicy",
           "default": {
-            "authority": "local-human",
+            "adjudicable_stage_ids": [],
+            "adjudicator_ref": null,
+            "attestation_verifier_ref": null,
             "required": false
           }
         },
@@ -852,11 +868,6 @@
         },
         "trigger": {
           "$ref": "#/$defs/EvaluationTrigger"
-        },
-        "visible_to_subject": {
-          "default": false,
-          "title": "Visible To Subject",
-          "type": "boolean"
         }
       },
       "required": [
@@ -1147,11 +1158,36 @@
     "HumanAdjudicationPolicy": {
       "additionalProperties": false,
       "properties": {
-        "authority": {
-          "default": "local-human",
-          "minLength": 1,
-          "title": "Authority",
-          "type": "string"
+        "adjudicable_stage_ids": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Adjudicable Stage Ids",
+          "type": "array"
+        },
+        "adjudicator_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CapabilityDescriptorRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "attestation_verifier_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CapabilityDescriptorRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "required": {
           "default": false,
@@ -1517,6 +1553,125 @@
       "title": "PredicateTrigger",
       "type": "object"
     },
+    "ProgressArtifactDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "audience": {
+          "const": "laboratory_human",
+          "default": "laboratory_human",
+          "title": "Audience",
+          "type": "string"
+        },
+        "authority_constraints": {
+          "default": [
+            "read_current_run_ledger_prefix",
+            "write_progress_artifact_only",
+            "no_subject_feedback"
+          ],
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "const": "read_current_run_ledger_prefix",
+              "type": "string"
+            },
+            {
+              "const": "write_progress_artifact_only",
+              "type": "string"
+            },
+            {
+              "const": "no_subject_feedback",
+              "type": "string"
+            }
+          ],
+          "title": "Authority Constraints",
+          "type": "array"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "input_scope": {
+          "const": "complete_run_ledger_prefix",
+          "default": "complete_run_ledger_prefix",
+          "title": "Input Scope",
+          "type": "string"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "max_output_characters": {
+          "default": 12000,
+          "exclusiveMinimum": 0,
+          "title": "Max Output Characters",
+          "type": "integer"
+        },
+        "minimum_interface_version": {
+          "default": "1",
+          "minLength": 1,
+          "title": "Minimum Interface Version",
+          "type": "string"
+        },
+        "summarizer_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        },
+        "trigger": {
+          "discriminator": {
+            "mapping": {
+              "checkpoint_reached": "#/$defs/CheckpointReachedProgressTrigger",
+              "subject_turn_interval": "#/$defs/SubjectTurnIntervalProgressTrigger"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/CheckpointReachedProgressTrigger"
+            },
+            {
+              "$ref": "#/$defs/SubjectTurnIntervalProgressTrigger"
+            }
+          ],
+          "title": "Trigger"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "trigger",
+        "summarizer_ref"
+      ],
+      "title": "ProgressArtifactDefinition",
+      "type": "object"
+    },
+    "ProgressArtifactPolicySpec": {
+      "additionalProperties": false,
+      "properties": {
+        "definitions": {
+          "items": {
+            "$ref": "#/$defs/ProgressArtifactDefinition"
+          },
+          "title": "Definitions",
+          "type": "array"
+        },
+        "limitations": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "definitions"
+      ],
+      "title": "ProgressArtifactPolicySpec",
+      "type": "object"
+    },
     "ProtocolNodeCheckpointTrigger": {
       "additionalProperties": false,
       "properties": {
@@ -1696,6 +1851,70 @@
         "kind"
       ],
       "title": "StopCondition",
+      "type": "object"
+    },
+    "SubjectEvaluationDisclosure": {
+      "additionalProperties": false,
+      "properties": {
+        "dimension_ids": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Dimension Ids",
+          "type": "array"
+        },
+        "include_anchors": {
+          "default": false,
+          "title": "Include Anchors",
+          "type": "boolean"
+        },
+        "include_scale": {
+          "default": false,
+          "title": "Include Scale",
+          "type": "boolean"
+        },
+        "mode": {
+          "default": "none",
+          "enum": [
+            "none",
+            "pre_run",
+            "on_request",
+            "post_run"
+          ],
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "title": "SubjectEvaluationDisclosure",
+      "type": "object"
+    },
+    "SubjectTurnIntervalProgressTrigger": {
+      "additionalProperties": false,
+      "properties": {
+        "counted_event_type": {
+          "const": "subject.responded",
+          "default": "subject.responded",
+          "title": "Counted Event Type",
+          "type": "string"
+        },
+        "every_n_turns": {
+          "exclusiveMinimum": 0,
+          "title": "Every N Turns",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "subject_turn_interval",
+          "default": "subject_turn_interval",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "every_n_turns"
+      ],
+      "title": "SubjectTurnIntervalProgressTrigger",
       "type": "object"
     },
     "WorkspaceMount": {
@@ -1882,6 +2101,28 @@
       },
       "title": "Limitations",
       "type": "array"
+    },
+    "progress_artifact_policy": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProgressArtifactPolicySpec"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "progress_artifact_policy_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ContractRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "repetition_index": {
       "exclusiveMinimum": 0,

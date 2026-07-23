@@ -64,38 +64,6 @@
       "title": "CapabilityDescriptorRef",
       "type": "object"
     },
-    "CheckpointValidation": {
-      "additionalProperties": false,
-      "properties": {
-        "evidence_refs": {
-          "default": [],
-          "items": {
-            "$ref": "#/$defs/EvidenceRef"
-          },
-          "title": "Evidence Refs",
-          "type": "array"
-        },
-        "passed": {
-          "title": "Passed",
-          "type": "boolean"
-        },
-        "rationale": {
-          "minLength": 1,
-          "title": "Rationale",
-          "type": "string"
-        },
-        "validator_ref": {
-          "$ref": "#/$defs/CapabilityDescriptorRef"
-        }
-      },
-      "required": [
-        "validator_ref",
-        "passed",
-        "rationale"
-      ],
-      "title": "CheckpointValidation",
-      "type": "object"
-    },
     "Classification": {
       "enum": [
         "public",
@@ -151,26 +119,14 @@
       ],
       "title": "ContractType",
       "type": "string"
-    },
-    "EvidenceRef": {
-      "additionalProperties": false,
-      "properties": {
-        "ref": {
-          "minLength": 1,
-          "title": "Ref",
-          "type": "string"
-        }
-      },
-      "required": [
-        "ref"
-      ],
-      "title": "EvidenceRef",
-      "type": "object"
     }
   },
   "additionalProperties": false,
   "properties": {
-    "admission_record_digest": {
+    "artifact_ref": {
+      "$ref": "#/$defs/ArtifactRef"
+    },
+    "checkpoint_hash": {
       "anyOf": [
         {
           "pattern": "^[0-9a-f]{64}$",
@@ -181,9 +137,9 @@
         }
       ],
       "default": null,
-      "title": "Admission Record Digest"
+      "title": "Checkpoint Hash"
     },
-    "admission_record_id": {
+    "checkpoint_id": {
       "anyOf": [
         {
           "minLength": 1,
@@ -194,41 +150,7 @@
         }
       ],
       "default": null,
-      "title": "Admission Record Id"
-    },
-    "artifact_manifest_ref": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/ArtifactRef"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null
-    },
-    "checkpoint_id": {
-      "minLength": 1,
-      "title": "Checkpoint Id",
-      "type": "string"
-    },
-    "compatibility_tags": {
-      "default": [],
-      "items": {
-        "minLength": 1,
-        "type": "string"
-      },
-      "title": "Compatibility Tags",
-      "type": "array"
-    },
-    "context_snapshot_refs": {
-      "default": [],
-      "items": {
-        "minLength": 1,
-        "type": "string"
-      },
-      "title": "Context Snapshot Refs",
-      "type": "array"
+      "title": "Checkpoint Id"
     },
     "created_at_utc": {
       "format": "date-time",
@@ -245,51 +167,69 @@
       "title": "Definition Id",
       "type": "string"
     },
-    "evaluation_record_refs": {
-      "default": [],
-      "items": {
-        "minLength": 1,
-        "type": "string"
-      },
-      "title": "Evaluation Record Refs",
-      "type": "array"
-    },
     "event_hash": {
       "pattern": "^[0-9a-f]{64}$",
       "title": "Event Hash",
       "type": "string"
     },
+    "input_event_count": {
+      "exclusiveMinimum": 0,
+      "title": "Input Event Count",
+      "type": "integer"
+    },
+    "input_ledger_digest": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Input Ledger Digest",
+      "type": "string"
+    },
+    "input_projection_version": {
+      "const": "run-event-prefix-v1",
+      "default": "run-event-prefix-v1",
+      "title": "Input Projection Version",
+      "type": "string"
+    },
+    "limitations": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Limitations",
+      "type": "array"
+    },
     "policy_ref": {
       "$ref": "#/$defs/ContractRef"
     },
-    "protocol_state_ref": {
+    "provider_model": {
       "anyOf": [
         {
-          "$ref": "#/$defs/ArtifactRef"
+          "minLength": 1,
+          "type": "string"
         },
         {
           "type": "null"
         }
       ],
-      "default": null
+      "default": null,
+      "title": "Provider Model"
     },
-    "replayability": {
-      "enum": [
-        "none",
-        "partial",
-        "deterministic"
+    "provider_profile_id": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
       ],
-      "title": "Replayability",
-      "type": "string"
+      "default": null,
+      "title": "Provider Profile Id"
     },
-    "replayability_limitations": {
-      "default": [],
-      "items": {
-        "minLength": 1,
-        "type": "string"
-      },
-      "title": "Replayability Limitations",
-      "type": "array"
+    "record_id": {
+      "minLength": 1,
+      "title": "Record Id",
+      "type": "string"
     },
     "run_id": {
       "minLength": 1,
@@ -302,42 +242,36 @@
       "title": "Schema Version",
       "type": "string"
     },
+    "status": {
+      "const": "provisional",
+      "default": "provisional",
+      "title": "Status",
+      "type": "string"
+    },
+    "summarizer_ref": {
+      "$ref": "#/$defs/CapabilityDescriptorRef"
+    },
     "up_to_event_sequence": {
       "exclusiveMinimum": 0,
       "title": "Up To Event Sequence",
       "type": "integer"
-    },
-    "validations": {
-      "items": {
-        "$ref": "#/$defs/CheckpointValidation"
-      },
-      "title": "Validations",
-      "type": "array"
-    },
-    "workspace_snapshot_ref": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/ArtifactRef"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null
     }
   },
   "required": [
-    "checkpoint_id",
+    "record_id",
     "run_id",
     "policy_ref",
     "definition_id",
     "definition_digest",
     "up_to_event_sequence",
     "event_hash",
-    "validations",
-    "replayability",
+    "input_ledger_digest",
+    "input_event_count",
+    "summarizer_ref",
+    "artifact_ref",
+    "limitations",
     "created_at_utc"
   ],
-  "title": "CheckpointRecord",
+  "title": "ProgressArtifactRecord",
   "type": "object"
 }

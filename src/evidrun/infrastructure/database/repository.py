@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 from datetime import UTC
-from typing import Any, Literal, cast
+from typing import Any, cast
 
 from sqlalchemy import func, select
 
@@ -21,7 +21,16 @@ from evidrun.contracts import (
     parse_revision,
     semantic_model_dump,
 )
+from evidrun.contracts.authority import (
+    HumanAttestationVerifier,
+    UnavailableHumanAttestationVerifier,
+)
 from evidrun.contracts.compiler import InMemoryContractRegistry
+from evidrun.contracts.legacy import LegacyStudyPackage
+from evidrun.contracts.runtime import (
+    EVENT_ALLOWED_RUN_STATUSES,
+    UNSUPPORTED_RUNTIME_EVENT_TYPES,
+)
 from evidrun.infrastructure.database.engine import Database
 from evidrun.infrastructure.database.models import (
     AdmissionRecordRow,
@@ -45,8 +54,15 @@ from evidrun.shared.types import canonical_json, new_id, sha256_json, utc_now
 
 
 class Repository:
-    def __init__(self, database: Database):
+    def __init__(
+        self,
+        database: Database,
+        human_attestation_verifier: HumanAttestationVerifier | None = None,
+    ):
         self.database = database
+        self.human_attestation_verifier = (
+            human_attestation_verifier or UnavailableHumanAttestationVerifier()
+        )
 
     def create_workspace(self, name: str) -> WorkspaceRow:
         row = WorkspaceRow(id=new_id("ws"), name=name, created_at=utc_now())
@@ -118,8 +134,91 @@ class Repository:
             return row
 
     def decide_contract_revision(
-        self, decision: RevisionDecisionRecord
+        self,
+        decision: RevisionDecisionRecord,
     ) -> ContractDecisionRow:
+        if decision.authority.kind == "repository_fixture":
+            raise PermissionError(
+                "repository fixture acceptance requires import_legacy_contract_package"
+            )
+        return self._persist_contract_decision(decision)
+
+    def import_legacy_contract_package(
+        self, package: LegacyStudyPackage
+    ) -> tuple[ContractDecisionRow, ...]:
+        decisions = package.acceptance_decisions()
+        allowed_identities = {
+            ("goal", "crl-ctx-002-context-policy-goal", 1),
+            ("scenario", "crl-ctx-002", 1),
+            ("agent_inventory", "crl-ctx-002-context-policy-agent", 1),
+            ("workspace_template", "crl-ctx-002-context-policy-workspace", 1),
+            ("interaction_protocol", "crl-ctx-002-context-policy-interaction", 1),
+            ("evaluation_plan", "crl-ctx-002-context-policy-evaluation", 1),
+            ("study", "crl-ctx-002-context-policy", 1),
+        }
+        package_identities = {
+            (
+                revision.ref.contract_type.value,
+                revision.ref.logical_id,
+                revision.ref.revision,
+            )
+            for revision in package.revisions
+        }
+        expected_refs = {
+            (
+                revision.ref.contract_type.value,
+                revision.ref.logical_id,
+                revision.ref.revision,
+                revision.ref.digest,
+            )
+            for revision in package.revisions
+        }
+        decision_refs = {
+            (
+                decision.revision_ref.contract_type.value,
+                decision.revision_ref.logical_id,
+                decision.revision_ref.revision,
+                decision.revision_ref.digest,
+            )
+            for decision in decisions
+        }
+        if (
+            not decisions
+            or package_identities != allowed_identities
+            or decision_refs != expected_refs
+            or package.study.logical_id != "crl-ctx-002-context-policy"
+            or any(
+                decision.authority.kind != "repository_fixture"
+                or decision.authority.fixture_digest != package.fixture_digest
+                for decision in decisions
+            )
+        ):
+            raise ValueError("legacy package decisions do not cover the exact package digest")
+        for revision in package.revisions:
+            self.save_contract_revision(revision)
+        return tuple(
+            self._persist_contract_decision(
+                decision,
+                repository_fixture_digest=package.fixture_digest,
+            )
+            for decision in decisions
+        )
+
+    def _persist_contract_decision(
+        self,
+        decision: RevisionDecisionRecord,
+        *,
+        repository_fixture_digest: str | None = None,
+    ) -> ContractDecisionRow:
+        if decision.authority.kind == "verified_human":
+            self.human_attestation_verifier.verify(
+                decision.authority.attestation,
+                expected_subject_digest=decision.human_subject_digest(),
+            )
+        elif repository_fixture_digest != decision.authority.fixture_digest:
+            raise PermissionError(
+                "repository fixture acceptance is restricted to the internal legacy adapter"
+            )
         with self.database.session() as session:
             revision = session.scalar(
                 select(ContractRevisionRow).where(
@@ -152,8 +251,12 @@ class Repository:
                 id=new_id("cdec"),
                 contract_revision_id=revision.id,
                 decision=decision.decision,
-                actor_type=decision.actor_type,
-                actor_id=decision.actor_id,
+                actor_type=decision.authority.kind,
+                actor_id=(
+                    decision.authority.principal_id
+                    if decision.authority.kind == "verified_human"
+                    else decision.authority.fixture_id
+                ),
                 rationale=decision.rationale,
                 decision_json=canonical_json(
                     semantic_model_dump(decision)
@@ -181,7 +284,10 @@ class Repository:
                     select(ContractDecisionRow).order_by(ContractDecisionRow.decided_at)
                 )
             )
-        registry = InMemoryContractRegistry()
+        registry = InMemoryContractRegistry(
+            self.human_attestation_verifier,
+            allow_repository_fixture=True,
+        )
         row_by_id: dict[str, RevisionEnvelope] = {}
         for row in revisions:
             revision = parse_revision(json.loads(row.document_json))
@@ -475,17 +581,84 @@ class Repository:
         correlation_id: str | None = None,
         causation_id: str | None = None,
     ) -> RunEventRow:
+        allowed_actor_types = {
+            "system",
+            "subject",
+            "evaluator",
+            "tool",
+            "skill",
+            "observer",
+        }
+        if actor_type not in allowed_actor_types:
+            raise ValueError(
+                "Run events cannot claim human authority without a typed attestation flow"
+            )
+        if not actor_id.strip():
+            raise ValueError("Run event actor_id cannot be empty")
+        if event_type in UNSUPPORTED_RUNTIME_EVENT_TYPES:
+            raise ValueError(
+                "Run event type is reserved until its coordinator/runtime is implemented"
+            )
         normalized_payload = normalize_event_payload(event_type, dict(payload))
         with self.database.session() as session:
             run = session.get(RunRow, run_id)
             if run is None:
                 raise KeyError(f"Run not found: {run_id}")
-            last = session.scalar(
-                select(RunEventRow)
-                .where(RunEventRow.run_id == run_id)
-                .order_by(RunEventRow.sequence.desc())
-                .limit(1)
+            prior_events = list(
+                session.scalars(
+                    select(RunEventRow)
+                    .where(RunEventRow.run_id == run_id)
+                    .order_by(RunEventRow.sequence)
+                )
             )
+            last = prior_events[-1] if prior_events else None
+            if run.status in {
+                "completed",
+                "failed",
+                "cancelled",
+                "budget_exhausted",
+                "guardrail_stopped",
+            }:
+                raise ValueError(
+                    "no Run events may be appended after a terminal lifecycle event"
+                )
+            allowed_statuses = EVENT_ALLOWED_RUN_STATUSES.get(event_type)
+            if allowed_statuses is not None and run.status not in allowed_statuses:
+                raise ValueError(
+                    f"{event_type} is not valid while the Run is {run.status}"
+                )
+            prior_event_types = [item.event_type for item in prior_events]
+            if event_type == "subject.invoked" and prior_event_types.count(
+                "subject.invoked"
+            ) != prior_event_types.count("subject.responded"):
+                raise ValueError("Subject invocation requires the prior turn to be complete")
+            if event_type == "subject.responded" and prior_event_types.count(
+                "subject.invoked"
+            ) != prior_event_types.count("subject.responded") + 1:
+                raise ValueError("Subject response requires one unmatched Subject invocation")
+            if event_type == "run.evaluating" and "subject.responded" not in prior_event_types:
+                raise ValueError("Run cannot enter evaluation before a Subject response")
+            if event_type == "evaluation.completed":
+                evaluation_id = str(normalized_payload["evaluation_record_id"])
+                evaluation = session.get(EvaluationRecordRow, evaluation_id)
+                if (
+                    evaluation is None
+                    or evaluation.run_id != run_id
+                    or evaluation.record_digest
+                    != normalized_payload["evaluation_record_digest"]
+                    or json.loads(evaluation.record_json).get("gate_status")
+                    != normalized_payload["gate_status"]
+                ):
+                    raise ValueError(
+                        "evaluation.completed requires the exact persisted EvaluationRecord"
+                    )
+                if any(
+                    item.event_type == "evaluation.completed"
+                    and json.loads(item.payload_json).get("evaluation_record_id")
+                    == evaluation_id
+                    for item in prior_events
+                ):
+                    raise ValueError("EvaluationRecord already has a completion event")
             if event_type == "run.queued":
                 if run.run_spec_id is None or run.admission_id is None:
                     raise ValueError("run.queued requires canonical Run contracts")
@@ -498,6 +671,56 @@ class Repository:
                     or normalized_payload.get("admission_digest") != admission_row.digest
                 ):
                     raise ValueError("run.queued contract digests do not match the RunRecord")
+            if event_type == "context.composed":
+                snapshot = session.get(
+                    ContextSnapshotRow, str(normalized_payload["snapshot_id"])
+                )
+                if (
+                    snapshot is None
+                    or snapshot.run_id != run_id
+                    or snapshot.policy_id != normalized_payload["policy_id"]
+                    or snapshot.strategy != normalized_payload["strategy"]
+                    or snapshot.content_hash != normalized_payload["content_hash"]
+                    or snapshot.source_chars != normalized_payload["source_chars"]
+                    or snapshot.selected_chars != normalized_payload["selected_chars"]
+                    or bool(json.loads(snapshot.omitted_json))
+                    != normalized_payload["omitted"]
+                ):
+                    raise ValueError(
+                        "context.composed requires the exact persisted ContextSnapshot"
+                    )
+                if run.run_spec_id is None:
+                    raise ValueError("context.composed requires a canonical RunSpec")
+                context_spec_row = session.get(RunSpecRow, run.run_spec_id)
+                if context_spec_row is None:
+                    raise ValueError("context.composed references a missing RunSpec")
+                context_spec = RunSpec.model_validate(
+                    json.loads(context_spec_row.spec_json)
+                )
+                if (
+                    context_spec.context_policy is None
+                    or context_spec.context_policy.id != snapshot.policy_id
+                    or context_spec.context_policy.strategy != snapshot.strategy
+                ):
+                    raise ValueError(
+                        "ContextSnapshot policy does not match the admitted RunSpec"
+                    )
+            if event_type == "subject.responded":
+                if run.run_spec_id is None:
+                    raise ValueError("Subject response requires a canonical RunSpec")
+                response_spec_row = session.get(RunSpecRow, run.run_spec_id)
+                if response_spec_row is None:
+                    raise ValueError("Subject response references a missing RunSpec")
+                response_spec = RunSpec.model_validate(
+                    json.loads(response_spec_row.spec_json)
+                )
+                if (
+                    normalized_payload.get("capture_mode")
+                    != response_spec.capture_policy.default_mode
+                ):
+                    raise ValueError(
+                        "Subject response capture mode does not match the RunSpec policy"
+                    )
             if event_type in {
                 "run.completed",
                 "run.failed",
@@ -505,10 +728,51 @@ class Repository:
                 "run.budget_exhausted",
                 "run.guardrail_stopped",
             }:
+                if run.run_spec_id is None:
+                    raise ValueError("terminal event requires a canonical RunSpec")
+                terminal_spec_row = session.get(RunSpecRow, run.run_spec_id)
+                if terminal_spec_row is None:
+                    raise ValueError("terminal event references a missing RunSpec")
+                terminal_spec = RunSpec.model_validate(
+                    json.loads(terminal_spec_row.spec_json)
+                )
+                goal_result = cast(
+                    Mapping[str, object], normalized_payload["goal_result"]
+                )
+                if goal_result.get("goal_mode") != terminal_spec.goal.mode:
+                    raise ValueError(
+                        "terminal Goal result mode does not match the RunSpec Goal"
+                    )
+                if goal_result.get("goal_mode") == "bounded_exploration":
+                    declared_stop = goal_result.get("stop_condition_kind")
+                    if declared_stop not in {
+                        item.kind for item in terminal_spec.stop_conditions
+                    }:
+                        raise ValueError(
+                            "bounded exploration terminal references an undeclared stop condition"
+                        )
                 evaluation_refs = cast(
                     list[object],
                     normalized_payload.get("evaluation_record_refs", []),
                 )
+                persisted_evaluation_ids = set(
+                    session.scalars(
+                        select(EvaluationRecordRow.id).where(
+                            EvaluationRecordRow.run_id == run_id
+                        )
+                    )
+                )
+                if {str(item) for item in evaluation_refs} != persisted_evaluation_ids:
+                    raise ValueError(
+                        "terminal event must reference every persisted EvaluationRecord exactly"
+                    )
+                if event_type == "run.completed" and (
+                    "subject.responded" not in prior_event_types or not evaluation_refs
+                ):
+                    raise ValueError(
+                        "completed Run requires a Subject response and evaluation records"
+                    )
+                referenced_evaluations: list[EvaluationRecord] = []
                 for evaluation_id in evaluation_refs:
                     evaluation = session.get(
                         EvaluationRecordRow, str(evaluation_id)
@@ -516,6 +780,50 @@ class Repository:
                     if evaluation is None or evaluation.run_id != run_id:
                         raise ValueError(
                             "terminal event references an evaluation outside the Run"
+                        )
+                    referenced_evaluations.append(
+                        EvaluationRecord.model_validate(
+                            json.loads(evaluation.record_json)
+                        )
+                    )
+                    if not any(
+                        item.event_type == "evaluation.completed"
+                        and json.loads(item.payload_json).get("evaluation_record_id")
+                        == str(evaluation_id)
+                        and json.loads(item.payload_json).get(
+                            "evaluation_record_digest"
+                        )
+                        == evaluation.record_digest
+                        for item in prior_events
+                    ):
+                        raise ValueError(
+                            "terminal evaluation ref has no matching completion event"
+                        )
+                if event_type == "run.completed":
+                    gate_results = EvaluationValidator.gate_results(
+                        terminal_spec.evaluation_plan,
+                        referenced_evaluations,
+                    )
+                    required_stages = EvaluationValidator.stages_visible_after_gates(
+                        terminal_spec.evaluation_plan,
+                        gate_results,
+                    )
+                    if not set(required_stages).issubset(gate_results):
+                        raise ValueError(
+                            "completed Run does not cover the required EvaluationPlan stages"
+                        )
+                if terminal_spec.evaluation_plan.human_adjudication_policy.required:
+                    referenced_records = [
+                        session.get(EvaluationRecordRow, str(evaluation_id))
+                        for evaluation_id in evaluation_refs
+                    ]
+                    if not any(
+                        record is not None
+                        and record.source_type == "human_adjudicator"
+                        for record in referenced_records
+                    ):
+                        raise ValueError(
+                            "terminal event requires the planned verified human adjudication"
                         )
                 checkpoint_refs = cast(
                     list[object], normalized_payload.get("checkpoint_refs", [])
@@ -588,6 +896,15 @@ class Repository:
         payload: Mapping[str, object],
         has_prior_event: bool,
     ) -> str | None:
+        terminal_states = {
+            "completed",
+            "failed",
+            "cancelled",
+            "budget_exhausted",
+            "guardrail_stopped",
+        }
+        if run.status in terminal_states:
+            raise ValueError("no Run events may be appended after a terminal lifecycle event")
         transition: dict[str, tuple[frozenset[str], str]] = {
             "run.preparing": (frozenset({"queued"}), "preparing"),
             "run.running": (frozenset({"preparing"}), "running"),
@@ -681,6 +998,13 @@ class Repository:
         return row
 
     def save_evaluation_record(self, record: EvaluationRecord) -> EvaluationRecordRow:
+        if record.source_type in {"human_reviewer", "human_adjudicator"}:
+            if record.human_attestation is None:
+                raise ValueError("human evaluation requires attestation evidence")
+            self.human_attestation_verifier.verify(
+                record.human_attestation,
+                expected_subject_digest=record.human_subject_digest(),
+            )
         self._validate_evaluation_boundary(record)
         self._validate_evidence_boundary(
             run_id=record.run_id,
@@ -781,36 +1105,102 @@ class Repository:
             )
             if existing is not None:
                 return existing
+            related_records: list[tuple[EvaluationRecord, int]] = []
+
+            def related_boundary_sequence(related: EvaluationRecord) -> int:
+                if related.boundary.up_to_event_sequence is not None:
+                    return related.boundary.up_to_event_sequence
+                checkpoint_id = related.boundary.checkpoint_id
+                checkpoint = (
+                    session.get(CheckpointRecordRow, checkpoint_id)
+                    if checkpoint_id is not None
+                    else None
+                )
+                if checkpoint is None or checkpoint.run_id != record.run_id:
+                    raise ValueError(
+                        "related evaluation record has an unverifiable boundary"
+                    )
+                return checkpoint.up_to_event_sequence
+
             if record.source_type == "human_adjudicator":
-                prior_adjudicated = session.get(
-                    EvaluationRecordRow, record.supersedes_record_ref
-                )
-                if prior_adjudicated is None or prior_adjudicated.run_id != record.run_id:
+                if record.relation is None or record.relation.kind != "adjudicates":
+                    raise ValueError("human adjudication requires explicit target records")
+                adjudication_policy = spec.evaluation_plan.human_adjudication_policy
+                if (
+                    not adjudication_policy.required
+                    or record.stage_id
+                    not in adjudication_policy.adjudicable_stage_ids
+                    or record.evaluator_ref != adjudication_policy.adjudicator_ref
+                    or record.human_attestation is None
+                    or record.human_attestation.verifier_ref
+                    != adjudication_policy.attestation_verifier_ref
+                ):
                     raise ValueError(
-                        "human adjudication must reference an existing record from the same Run"
+                        "human adjudication is not authorized by the EvaluationPlan"
                     )
-                prior_record = EvaluationRecord.model_validate(
-                    json.loads(prior_adjudicated.record_json)
-                )
-                if prior_record.plan_ref != record.plan_ref:
-                    raise ValueError(
-                        "human adjudication must supersede a record from the same plan"
+                for target_ref in record.relation.target_record_refs:
+                    target = session.get(EvaluationRecordRow, target_ref)
+                    if target is None or target.run_id != record.run_id:
+                        raise ValueError(
+                            "human adjudication target must belong to the same Run"
+                        )
+                    target_record = EvaluationRecord.model_validate(
+                        json.loads(target.record_json)
                     )
+                    if (
+                        target_record.plan_ref != record.plan_ref
+                        or target_record.stage_id != record.stage_id
+                    ):
+                        raise ValueError(
+                            "human adjudication target must use the same plan and stage"
+                        )
+                    related_records.append(
+                        (target_record, related_boundary_sequence(target_record))
+                    )
+            if record.source_type == "human_reviewer":
+                if record.relation is None or record.relation.kind != "independent_review":
+                    raise ValueError("human review requires an independent review relation")
+                for considered_ref in record.relation.considers_record_refs:
+                    considered = session.get(EvaluationRecordRow, considered_ref)
+                    if considered is None or considered.run_id != record.run_id:
+                        raise ValueError(
+                            "human review can only consider records from the same Run"
+                        )
+                    considered_record = EvaluationRecord.model_validate(
+                        json.loads(considered.record_json)
+                    )
+                    related_records.append(
+                        (
+                            considered_record,
+                            related_boundary_sequence(considered_record),
+                        )
+                    )
+            EvaluationValidator.validate_human_relation_boundary(
+                record,
+                boundary_sequence=max_evidence_sequence,
+                related_records=related_records,
+            )
             prior_rows = list(
                 session.scalars(
                     select(EvaluationRecordRow)
                     .where(EvaluationRecordRow.run_id == record.run_id)
-                    .order_by(EvaluationRecordRow.created_at)
+                    .order_by(EvaluationRecordRow.id)
                 )
             )
-            prior_gate_results: dict[
-                str, Literal["passed", "failed", "not_applicable"]
-            ] = {
-                prior.stage_id: EvaluationRecord.model_validate(
-                    json.loads(prior.record_json)
-                ).gate_status
+            prior_records = [
+                EvaluationRecord.model_validate(json.loads(prior.record_json))
                 for prior in prior_rows
-            }
+            ]
+            if record.source_type == "human_adjudicator" and any(
+                prior.stage_id == record.stage_id
+                and prior.source_type == "human_adjudicator"
+                for prior in prior_records
+            ):
+                raise ValueError("v1 permits only one human adjudication per stage")
+            prior_gate_results = EvaluationValidator.gate_results(
+                spec.evaluation_plan,
+                prior_records,
+            )
             visible_stages = EvaluationValidator.stages_visible_after_gates(
                 spec.evaluation_plan, prior_gate_results
             )

@@ -38,19 +38,6 @@
           "title": "Digest",
           "type": "string"
         },
-        "locator": {
-          "anyOf": [
-            {
-              "minLength": 1,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Locator"
-        },
         "media_type": {
           "minLength": 1,
           "title": "Media Type",
@@ -198,14 +185,14 @@
           "title": "Hidden Input Refs",
           "type": "array"
         },
-        "public_dimension_ids": {
-          "default": [],
-          "items": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "title": "Public Dimension Ids",
-          "type": "array"
+        "subject": {
+          "$ref": "#/$defs/SubjectEvaluationDisclosure",
+          "default": {
+            "dimension_ids": [],
+            "include_anchors": false,
+            "include_scale": false,
+            "mode": "none"
+          }
         }
       },
       "title": "EvaluationDisclosure",
@@ -242,13 +229,20 @@
           "$ref": "#/$defs/EvaluationDisclosure",
           "default": {
             "hidden_input_refs": [],
-            "public_dimension_ids": []
+            "subject": {
+              "dimension_ids": [],
+              "include_anchors": false,
+              "include_scale": false,
+              "mode": "none"
+            }
           }
         },
         "human_adjudication_policy": {
           "$ref": "#/$defs/HumanAdjudicationPolicy",
           "default": {
-            "authority": "local-human",
+            "adjudicable_stage_ids": [],
+            "adjudicator_ref": null,
+            "attestation_verifier_ref": null,
             "required": false
           }
         },
@@ -321,11 +315,6 @@
         },
         "trigger": {
           "$ref": "#/$defs/EvaluationTrigger"
-        },
-        "visible_to_subject": {
-          "default": false,
-          "title": "Visible To Subject",
-          "type": "boolean"
         }
       },
       "required": [
@@ -372,11 +361,36 @@
     "HumanAdjudicationPolicy": {
       "additionalProperties": false,
       "properties": {
-        "authority": {
-          "default": "local-human",
-          "minLength": 1,
-          "title": "Authority",
-          "type": "string"
+        "adjudicable_stage_ids": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Adjudicable Stage Ids",
+          "type": "array"
+        },
+        "adjudicator_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CapabilityDescriptorRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "attestation_verifier_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CapabilityDescriptorRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "required": {
           "default": false,
@@ -418,6 +432,43 @@
         "value"
       ],
       "title": "KeyValue",
+      "type": "object"
+    },
+    "SubjectEvaluationDisclosure": {
+      "additionalProperties": false,
+      "properties": {
+        "dimension_ids": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Dimension Ids",
+          "type": "array"
+        },
+        "include_anchors": {
+          "default": false,
+          "title": "Include Anchors",
+          "type": "boolean"
+        },
+        "include_scale": {
+          "default": false,
+          "title": "Include Scale",
+          "type": "boolean"
+        },
+        "mode": {
+          "default": "none",
+          "enum": [
+            "none",
+            "pre_run",
+            "on_request",
+            "post_run"
+          ],
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "title": "SubjectEvaluationDisclosure",
       "type": "object"
     }
   },

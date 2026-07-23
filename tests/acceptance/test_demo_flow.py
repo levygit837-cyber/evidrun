@@ -34,8 +34,14 @@ def test_demo_runs_end_to_end_and_bundle_verifies(
         variant_id: repository.get_run_events(run["id"])[-1]["payload"]
         for variant_id, run in runs.items()
     }
-    assert terminal_by_variant["head-truncation"]["goal_state"] == "not_achieved"
-    assert terminal_by_variant["tail-preservation"]["goal_state"] == "achieved"
+    assert terminal_by_variant["head-truncation"]["goal_result"] == {
+        "goal_mode": "goal_state",
+        "state": "not_achieved",
+    }
+    assert terminal_by_variant["tail-preservation"]["goal_result"] == {
+        "goal_mode": "goal_state",
+        "state": "achieved",
+    }
     assert result["context_diff"]["added_root_cause"] is True
 
     bundle = tmp_path / "demo.evidrun.zip"
