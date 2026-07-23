@@ -16,6 +16,11 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from evidrun import __version__
+from evidrun.authority.authenticator import KeyringAuthenticator
+from evidrun.authority.repository import AuthorityRepository
+from evidrun.authority.router import create_authority_router
+from evidrun.authority.service import HumanAuthorityService
+from evidrun.authority.verifier import LocalWebAuthnVerifier
 from evidrun.contracts import (
     StudyRevision,
     parse_revision,
@@ -24,6 +29,7 @@ from evidrun.contracts import (
 from evidrun.contracts.compiler import StudyCompiler
 from evidrun.evidence.bundle import EvidenceBundleService
 from evidrun.experiments import ExperimentManifest
+from evidrun.infrastructure.artifacts.store import ArtifactStore
 from evidrun.infrastructure.database import Database, Repository
 from evidrun.infrastructure.providers import ProviderCredentialStore
 from evidrun.runs import EvidrunService
@@ -73,7 +79,21 @@ def create_app(
     settings.ensure_directories()
     database = Database(settings.database_path)
     database.create_all()
-    repository = Repository(database)
+
+    authority_repository: AuthorityRepository | None = None
+    authority_service: HumanAuthorityService | None = None
+    human_verifier: LocalWebAuthnVerifier | None = None
+    if settings.authority_enabled:
+        authority_repository = AuthorityRepository(database)
+        authority_artifacts = ArtifactStore(settings.artifacts_dir)
+        human_verifier = LocalWebAuthnVerifier(authority_repository, authority_artifacts)
+        authority_service = HumanAuthorityService(
+            repository=authority_repository,
+            authenticator=KeyringAuthenticator(),
+            artifacts=authority_artifacts,
+        )
+
+    repository = Repository(database, human_attestation_verifier=human_verifier)
     service = EvidrunService(repository)
     bundles = EvidenceBundleService(repository)
     provider_credentials = ProviderCredentialStore()
@@ -113,6 +133,16 @@ def create_app(
             return
         if authorization != f"Bearer {launch_token}":
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid token")
+
+    if authority_service is not None and authority_repository is not None:
+        app.include_router(
+            create_authority_router(
+                service=authority_service,
+                authority_repository=authority_repository,
+                repository=repository,
+                authorize=authorize,
+            )
+        )
 
     @app.get("/api/v1/health")
     async def health(_: None = Depends(authorize)) -> dict[str, Any]:

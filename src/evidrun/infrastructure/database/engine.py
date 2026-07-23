@@ -27,6 +27,10 @@ class Database:
         cursor.close()
 
     def create_all(self) -> None:
+        import importlib
+
+        importlib.import_module("evidrun.authority.models")  # register authority tables
+
         Base.metadata.create_all(self.engine)
         self._ensure_additive_run_contract_columns()
         self._ensure_additive_contract_revision_status()

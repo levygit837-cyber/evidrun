@@ -145,6 +145,17 @@
       "review_due": null
     },
     {
+      "id": "adr-0015",
+      "path": "docs/adr/0015-human-subject-envelope-and-authenticator-lifecycle.md",
+      "type": "adr",
+      "title": "HumanSubjectEnvelope, autenticador local e ciclo de vida de credencial",
+      "status": "accepted",
+      "authority": "normative",
+      "owner": "governance",
+      "updated_at": "2026-07-23",
+      "review_due": null
+    },
+    {
       "id": "architecture-agents-authority",
       "path": "docs/architecture/agents-and-authority.md",
       "type": "architecture",

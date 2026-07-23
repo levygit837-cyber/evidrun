@@ -47,6 +47,7 @@ verification_refs:
 - [ADR 0011 — Progress Artifacts, acesso e bundles](adr/0011-progress-artifacts-and-bundle-boundaries.md)
 - [ADR 0012 — Subject disclosure e semântica terminal (histórico)](adr/0012-subject-disclosure-and-terminal-semantics.md)
 - [ADR 0013 — bounded exploration em dois eixos](adr/0013-bounded-exploration-terminal-semantics.md)
+- [ADR 0015 — HumanSubjectEnvelope, autenticador local e ciclo de vida de credencial](adr/0015-human-subject-envelope-and-authenticator-lifecycle.md)
 
 ## Autoridade
 

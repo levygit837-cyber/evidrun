@@ -14,11 +14,18 @@ from rich.console import Console
 from rich.table import Table
 
 from evidrun import __version__
+from evidrun.authority.authenticator import KeyringAuthenticator
+from evidrun.authority.policy import AuthorityMode
+from evidrun.authority.repository import AuthorityRepository
+from evidrun.authority.service import HumanAuthorityService
+from evidrun.authority.subject import RevisionDecisionSubject
+from evidrun.authority.verifier import LocalWebAuthnVerifier
 from evidrun.contracts import StudyRevision, parse_revision
 from evidrun.contracts.compiler import StudyCompiler
 from evidrun.entrypoints.api.app import REPOSITORY_ROOT, create_app
 from evidrun.evidence.bundle import EvidenceBundleService
 from evidrun.experiments import ExperimentManifest
+from evidrun.infrastructure.artifacts.store import ArtifactStore
 from evidrun.infrastructure.database import Database, Repository
 from evidrun.infrastructure.providers import (
     OpenAIResponsesProvider,
@@ -38,6 +45,7 @@ bundle_app = typer.Typer(help="Exportar e verificar evidence bundles.")
 chat_app = typer.Typer(help="Inspecionar sessões de chat.")
 data_app = typer.Typer(help="Inspecionar e eliminar dados gerenciados.")
 provider_app = typer.Typer(help="Configurar e diagnosticar providers de modelos.")
+authority_app = typer.Typer(help="Enrollar credenciais e confirmar autoridade humana.")
 app.add_typer(experiment_app, name="experiment")
 app.add_typer(contract_app, name="contract")
 app.add_typer(study_app, name="study")
@@ -46,6 +54,7 @@ app.add_typer(bundle_app, name="bundle")
 app.add_typer(chat_app, name="chat")
 app.add_typer(data_app, name="data")
 app.add_typer(provider_app, name="provider")
+app.add_typer(authority_app, name="authority")
 console = Console()
 
 
@@ -385,6 +394,127 @@ def provider_smoke() -> None:
             "output": extract_output_text(response),
         }
     )
+
+
+def _authority_service(
+    database: Database,
+    settings: Settings,
+) -> tuple[HumanAuthorityService, AuthorityRepository]:
+    authority_repository = AuthorityRepository(database)
+    artifacts = ArtifactStore(settings.artifacts_dir)
+    service = HumanAuthorityService(
+        repository=authority_repository,
+        authenticator=KeyringAuthenticator(),
+        artifacts=artifacts,
+    )
+    return service, authority_repository
+
+
+@authority_app.command("enroll")
+def authority_enroll(
+    principal_id: Annotated[str, typer.Option("--principal-id")],
+    display_name: Annotated[str, typer.Option("--display-name")],
+    relying_party_id: Annotated[str, typer.Option("--relying-party-id")] = "evidrun.local",
+    origin: Annotated[str, typer.Option("--origin")] = "https://evidrun.local",
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+) -> None:
+    settings, database, _ = _components(data_dir)
+    try:
+        service, _ = _authority_service(database, settings)
+        credential = service.enroll(
+            principal_id=principal_id,
+            display_name=display_name,
+            relying_party_id=relying_party_id,
+            origin=origin,
+        )
+        console.print_json(
+            data={
+                "credential_id": credential.credential_id,
+                "principal_id": credential.principal_id,
+                "status": credential.status,
+            }
+        )
+    finally:
+        database.dispose()
+
+
+@authority_app.command("credentials")
+def authority_credentials(
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+) -> None:
+    settings, database, _ = _components(data_dir)
+    try:
+        _, authority_repository = _authority_service(database, settings)
+        console.print_json(
+            data=[
+                {
+                    "credential_id": item.credential_id,
+                    "principal_id": item.principal_id,
+                    "display_name": item.display_name,
+                    "status": item.status,
+                }
+                for item in authority_repository.list_credentials()
+            ]
+        )
+    finally:
+        database.dispose()
+
+
+@authority_app.command("revoke")
+def authority_revoke(
+    credential_id: str,
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+) -> None:
+    settings, database, _ = _components(data_dir)
+    try:
+        _, authority_repository = _authority_service(database, settings)
+        credential = authority_repository.revoke_credential(credential_id)
+        console.print_json(
+            data={"credential_id": credential.credential_id, "status": credential.status}
+        )
+    finally:
+        database.dispose()
+
+
+@authority_app.command("accept")
+def authority_accept(
+    revision_id: str,
+    credential_id: Annotated[str, typer.Option("--credential-id")],
+    reason: Annotated[str, typer.Option("--reason")],
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+) -> None:
+    """Confirm a verified-human acceptance of a contract revision (offline authenticator)."""
+    settings, database, repository = _components(data_dir)
+    try:
+        service, authority_repository = _authority_service(database, settings)
+        repository.human_attestation_verifier = LocalWebAuthnVerifier(
+            authority_repository, ArtifactStore(settings.artifacts_dir)
+        )
+        revision = repository.get_contract_revision(revision_id)
+        subject = RevisionDecisionSubject(
+            revision_ref=revision.ref,
+            decision="accepted",
+            rationale=reason,
+        )
+        attestation = service.confirm_with_local_authenticator(
+            mode=AuthorityMode.PRIVILEGED,
+            subject=subject,
+            credential_id=credential_id,
+            project_id=revision.project_id,
+        )
+        row = repository.decide_contract_revision(subject.build_decision(attestation))
+        console.print_json(
+            data={
+                "id": row.id,
+                "decision": row.decision,
+                "attestation_id": attestation.attestation_id,
+            }
+        )
+    except (ValueError, PermissionError, KeyError) as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1) from exc
+    finally:
+        database.dispose()
 
 
 def main() -> None:
