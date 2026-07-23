@@ -15,6 +15,7 @@ class Settings:
     database_path: Path
     artifacts_dir: Path
     default_provider: ProviderProfile
+    authority_enabled: bool = False
 
     @classmethod
     def load(cls, data_dir: Path | None = None) -> Settings:
@@ -28,6 +29,7 @@ class Settings:
             database_path=root / "evidrun.db",
             artifacts_dir=root / "artifacts",
             default_provider=ProviderProfile.load_default(),
+            authority_enabled=os.environ.get("EVIDRUN_AUTHORITY", "").strip() in {"1", "true"},
         )
 
     def ensure_directories(self) -> None:
