@@ -1,0 +1,1103 @@
+{
+  "$defs": {
+    "AlwaysTrigger": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "always",
+          "default": "always",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "title": "AlwaysTrigger",
+      "type": "object"
+    },
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "classification": {
+          "$ref": "#/$defs/Classification",
+          "default": "internal"
+        },
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "media_type": {
+          "minLength": 1,
+          "title": "Media Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "digest",
+        "media_type"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "BudgetSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "max_cost": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Cost"
+        },
+        "max_input_tokens": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Input Tokens"
+        },
+        "max_output_tokens": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Output Tokens"
+        },
+        "max_tool_calls": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Tool Calls"
+        },
+        "max_turns": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Turns"
+        },
+        "max_wall_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Max Wall Seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "max_wall_seconds"
+      ],
+      "title": "BudgetSpec",
+      "type": "object"
+    },
+    "CapabilityDescriptorRef": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "namespace": {
+          "minLength": 1,
+          "title": "Namespace",
+          "type": "string"
+        },
+        "version": {
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "namespace",
+        "name",
+        "version",
+        "digest"
+      ],
+      "title": "CapabilityDescriptorRef",
+      "type": "object"
+    },
+    "CheckpointReachedTrigger": {
+      "additionalProperties": false,
+      "properties": {
+        "checkpoint_definition_id": {
+          "minLength": 1,
+          "title": "Checkpoint Definition Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "checkpoint_reached",
+          "default": "checkpoint_reached",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "checkpoint_definition_id"
+      ],
+      "title": "CheckpointReachedTrigger",
+      "type": "object"
+    },
+    "Classification": {
+      "enum": [
+        "public",
+        "internal",
+        "sensitive",
+        "restricted"
+      ],
+      "title": "Classification",
+      "type": "string"
+    },
+    "ContractRef": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_type": {
+          "$ref": "#/$defs/ContractType"
+        },
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "logical_id": {
+          "minLength": 1,
+          "title": "Logical Id",
+          "type": "string"
+        },
+        "revision": {
+          "exclusiveMinimum": 0,
+          "title": "Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "contract_type",
+        "logical_id",
+        "revision",
+        "digest"
+      ],
+      "title": "ContractRef",
+      "type": "object"
+    },
+    "ContractType": {
+      "enum": [
+        "study",
+        "goal",
+        "scenario",
+        "agent_inventory",
+        "workspace_template",
+        "interaction_protocol",
+        "evaluation_plan",
+        "checkpoint_policy",
+        "progress_artifact_policy"
+      ],
+      "title": "ContractType",
+      "type": "string"
+    },
+    "EvaluatorSignalTrigger": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "evaluator_signal",
+          "default": "evaluator_signal",
+          "title": "Kind",
+          "type": "string"
+        },
+        "signal": {
+          "minLength": 1,
+          "title": "Signal",
+          "type": "string"
+        },
+        "stage_id": {
+          "minLength": 1,
+          "title": "Stage Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "stage_id",
+        "signal"
+      ],
+      "title": "EvaluatorSignalTrigger",
+      "type": "object"
+    },
+    "EventTrigger": {
+      "additionalProperties": false,
+      "properties": {
+        "event_type": {
+          "minLength": 1,
+          "title": "Event Type",
+          "type": "string"
+        },
+        "kind": {
+          "const": "event",
+          "default": "event",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_type"
+      ],
+      "title": "EventTrigger",
+      "type": "object"
+    },
+    "GoalConstraint": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "rule": {
+          "enum": [
+            "must",
+            "must_not"
+          ],
+          "title": "Rule",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "rule",
+        "description"
+      ],
+      "title": "GoalConstraint",
+      "type": "object"
+    },
+    "GoalOutcome": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "description"
+      ],
+      "title": "GoalOutcome",
+      "type": "object"
+    },
+    "GoalSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "completion_observations": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Completion Observations",
+          "type": "array"
+        },
+        "constraints": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/GoalConstraint"
+          },
+          "title": "Constraints",
+          "type": "array"
+        },
+        "evidence_expectations": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Evidence Expectations",
+          "type": "array"
+        },
+        "instruction": {
+          "minLength": 1,
+          "title": "Instruction",
+          "type": "string"
+        },
+        "learning_targets": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Learning Targets",
+          "type": "array"
+        },
+        "mode": {
+          "enum": [
+            "goal_state",
+            "bounded_exploration"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "outcomes": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/GoalOutcome"
+          },
+          "title": "Outcomes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "mode",
+        "instruction"
+      ],
+      "title": "GoalSpec",
+      "type": "object"
+    },
+    "HumanSignalTrigger": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "human_signal",
+          "default": "human_signal",
+          "title": "Kind",
+          "type": "string"
+        },
+        "signal": {
+          "minLength": 1,
+          "title": "Signal",
+          "type": "string"
+        }
+      },
+      "required": [
+        "signal"
+      ],
+      "title": "HumanSignalTrigger",
+      "type": "object"
+    },
+    "InputBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "mount_access": {
+          "default": "read_only",
+          "enum": [
+            "read_only",
+            "read_write"
+          ],
+          "title": "Mount Access",
+          "type": "string"
+        },
+        "mount_name": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mount Name"
+        },
+        "role": {
+          "minLength": 1,
+          "title": "Role",
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "visibility": {
+          "enum": [
+            "subject",
+            "evaluator",
+            "laboratory",
+            "subject_and_evaluator"
+          ],
+          "title": "Visibility",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "role",
+        "source",
+        "visibility"
+      ],
+      "title": "InputBinding",
+      "type": "object"
+    },
+    "InteractionEdge": {
+      "additionalProperties": false,
+      "properties": {
+        "max_activations": {
+          "default": 1,
+          "exclusiveMinimum": 0,
+          "title": "Max Activations",
+          "type": "integer"
+        },
+        "priority": {
+          "default": 0,
+          "title": "Priority",
+          "type": "integer"
+        },
+        "source": {
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        },
+        "target": {
+          "minLength": 1,
+          "title": "Target",
+          "type": "string"
+        },
+        "trigger": {
+          "discriminator": {
+            "mapping": {
+              "always": "#/$defs/AlwaysTrigger",
+              "checkpoint_reached": "#/$defs/CheckpointReachedTrigger",
+              "evaluator_signal": "#/$defs/EvaluatorSignalTrigger",
+              "event": "#/$defs/EventTrigger",
+              "human_signal": "#/$defs/HumanSignalTrigger",
+              "predicate": "#/$defs/PredicateTrigger"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/AlwaysTrigger"
+            },
+            {
+              "$ref": "#/$defs/EventTrigger"
+            },
+            {
+              "$ref": "#/$defs/CheckpointReachedTrigger"
+            },
+            {
+              "$ref": "#/$defs/EvaluatorSignalTrigger"
+            },
+            {
+              "$ref": "#/$defs/HumanSignalTrigger"
+            },
+            {
+              "$ref": "#/$defs/PredicateTrigger"
+            }
+          ],
+          "title": "Trigger"
+        }
+      },
+      "required": [
+        "source",
+        "target",
+        "trigger"
+      ],
+      "title": "InteractionEdge",
+      "type": "object"
+    },
+    "InteractionNode": {
+      "additionalProperties": false,
+      "properties": {
+        "content_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ArtifactRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "prompt",
+            "await_subject",
+            "checkpoint",
+            "human_approval",
+            "terminal"
+          ],
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind"
+      ],
+      "title": "InteractionNode",
+      "type": "object"
+    },
+    "InteractionProtocolSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "edges": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/InteractionEdge"
+          },
+          "title": "Edges",
+          "type": "array"
+        },
+        "initial_message_refs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "title": "Initial Message Refs",
+          "type": "array"
+        },
+        "max_turns": {
+          "default": 1,
+          "exclusiveMinimum": 0,
+          "title": "Max Turns",
+          "type": "integer"
+        },
+        "mode": {
+          "enum": [
+            "single_turn",
+            "graph"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "nodes": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/InteractionNode"
+          },
+          "title": "Nodes",
+          "type": "array"
+        },
+        "system_prompt_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ArtifactRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "title": "InteractionProtocolSpec",
+      "type": "object"
+    },
+    "KeyValue": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "minLength": 1,
+          "title": "Key",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "key",
+        "value"
+      ],
+      "title": "KeyValue",
+      "type": "object"
+    },
+    "PredicateTrigger": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "predicate",
+          "default": "predicate",
+          "title": "Kind",
+          "type": "string"
+        },
+        "predicate_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        }
+      },
+      "required": [
+        "predicate_ref"
+      ],
+      "title": "PredicateTrigger",
+      "type": "object"
+    },
+    "ResolutionReason": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "enum": [
+            "unsupported",
+            "denied",
+            "unavailable",
+            "digest_mismatch"
+          ],
+          "title": "Code",
+          "type": "string"
+        },
+        "detail": {
+          "minLength": 1,
+          "title": "Detail",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "detail"
+      ],
+      "title": "ResolutionReason",
+      "type": "object"
+    },
+    "ResolvedCapability": {
+      "additionalProperties": false,
+      "properties": {
+        "adapter": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Adapter"
+        },
+        "context_refs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "title": "Context Refs",
+          "type": "array"
+        },
+        "effective_interface_version": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Effective Interface Version"
+        },
+        "effective_permissions": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Effective Permissions",
+          "type": "array"
+        },
+        "exposure": {
+          "enum": [
+            "schema_only",
+            "instructions",
+            "instructions_and_schema"
+          ],
+          "title": "Exposure",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "tool",
+            "skill"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResolutionReason"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "requested_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        },
+        "required": {
+          "title": "Required",
+          "type": "boolean"
+        },
+        "resolved_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CapabilityDescriptorRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "satisfied_authority_constraints": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Satisfied Authority Constraints",
+          "type": "array"
+        },
+        "status": {
+          "enum": [
+            "resolved",
+            "unsupported",
+            "denied",
+            "unavailable"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "requested_ref",
+        "required",
+        "exposure",
+        "status"
+      ],
+      "title": "ResolvedCapability",
+      "type": "object"
+    },
+    "StopCondition": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "default": "terminal",
+          "enum": [
+            "terminal",
+            "pause"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "goal_complete",
+            "bounded_exploration_complete",
+            "budget_exhausted",
+            "human_stop",
+            "guardrail_violation",
+            "provider_error",
+            "predicate"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "predicate_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CapabilityDescriptorRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "StopCondition",
+      "type": "object"
+    },
+    "SubjectEvaluationDimension": {
+      "additionalProperties": false,
+      "properties": {
+        "anchors": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/KeyValue"
+          },
+          "title": "Anchors",
+          "type": "array"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "maximum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maximum"
+        },
+        "minimum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minimum"
+        },
+        "value_type": {
+          "enum": [
+            "boolean",
+            "number",
+            "category"
+          ],
+          "title": "Value Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "value_type"
+      ],
+      "title": "SubjectEvaluationDimension",
+      "type": "object"
+    },
+    "SubjectEvaluationGuidance": {
+      "additionalProperties": false,
+      "properties": {
+        "dimensions": {
+          "items": {
+            "$ref": "#/$defs/SubjectEvaluationDimension"
+          },
+          "title": "Dimensions",
+          "type": "array"
+        },
+        "mode": {
+          "const": "pre_run",
+          "default": "pre_run",
+          "title": "Mode",
+          "type": "string"
+        },
+        "plan_ref": {
+          "$ref": "#/$defs/ContractRef"
+        }
+      },
+      "required": [
+        "plan_ref",
+        "dimensions"
+      ],
+      "title": "SubjectEvaluationGuidance",
+      "type": "object"
+    },
+    "SubjectWorkspace": {
+      "additionalProperties": false,
+      "properties": {
+        "external_effect_mode": {
+          "enum": [
+            "denied",
+            "approval_required",
+            "allowlist"
+          ],
+          "title": "External Effect Mode",
+          "type": "string"
+        },
+        "mounts": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Mounts",
+          "type": "array"
+        },
+        "network_mode": {
+          "enum": [
+            "disabled",
+            "provider_only",
+            "allowlist"
+          ],
+          "title": "Network Mode",
+          "type": "string"
+        },
+        "runtime_kind": {
+          "minLength": 1,
+          "title": "Runtime Kind",
+          "type": "string"
+        },
+        "write_zones": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Write Zones",
+          "type": "array"
+        }
+      },
+      "required": [
+        "runtime_kind",
+        "network_mode",
+        "external_effect_mode"
+      ],
+      "title": "SubjectWorkspace",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "budgets": {
+      "$ref": "#/$defs/BudgetSpec"
+    },
+    "effective_capabilities": {
+      "items": {
+        "$ref": "#/$defs/ResolvedCapability"
+      },
+      "title": "Effective Capabilities",
+      "type": "array"
+    },
+    "evaluation_guidance": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SubjectEvaluationGuidance"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "goal": {
+      "$ref": "#/$defs/GoalSpec"
+    },
+    "inputs": {
+      "items": {
+        "$ref": "#/$defs/InputBinding"
+      },
+      "title": "Inputs",
+      "type": "array"
+    },
+    "interaction_protocol": {
+      "$ref": "#/$defs/InteractionProtocolSpec"
+    },
+    "run_spec_digest": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Run Spec Digest",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1",
+      "default": "1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "stop_conditions": {
+      "items": {
+        "$ref": "#/$defs/StopCondition"
+      },
+      "title": "Stop Conditions",
+      "type": "array"
+    },
+    "workspace": {
+      "$ref": "#/$defs/SubjectWorkspace"
+    }
+  },
+  "required": [
+    "run_spec_digest",
+    "goal",
+    "inputs",
+    "interaction_protocol",
+    "effective_capabilities",
+    "workspace",
+    "budgets",
+    "stop_conditions"
+  ],
+  "title": "SubjectEnvelope",
+  "type": "object"
+}

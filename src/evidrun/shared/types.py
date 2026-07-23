@@ -19,6 +19,7 @@ class EvidenceMode(StrEnum):
     PROSPECTIVE_CONTROLLED = "prospective_controlled"
     COUNTERFACTUAL_REPLAY = "counterfactual_replay"
     RETROSPECTIVE_OBSERVATIONAL = "retrospective_observational"
+    EXPLORATORY = "exploratory"
 
 
 def new_id(prefix: str) -> str:
@@ -41,4 +42,3 @@ def sha256_json(value: Any) -> str:
 
 def sha256_bytes(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
-

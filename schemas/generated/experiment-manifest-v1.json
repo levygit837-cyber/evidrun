@@ -7,6 +7,11 @@
           "title": "Id",
           "type": "string"
         },
+        "max_chars": {
+          "exclusiveMinimum": 0,
+          "title": "Max Chars",
+          "type": "integer"
+        },
         "strategy": {
           "enum": [
             "head",
@@ -15,11 +20,6 @@
           ],
           "title": "Strategy",
           "type": "string"
-        },
-        "max_chars": {
-          "exclusiveMinimum": 0,
-          "title": "Max Chars",
-          "type": "integer"
         }
       },
       "required": [
@@ -34,7 +34,8 @@
       "enum": [
         "prospective_controlled",
         "counterfactual_replay",
-        "retrospective_observational"
+        "retrospective_observational",
+        "exploratory"
       ],
       "title": "EvidenceMode",
       "type": "string"
@@ -42,16 +43,16 @@
     "GraderSpec": {
       "additionalProperties": true,
       "properties": {
+        "expected": {
+          "title": "Expected",
+          "type": "string"
+        },
         "id": {
           "title": "Id",
           "type": "string"
         },
         "type": {
           "title": "Type",
-          "type": "string"
-        },
-        "expected": {
-          "title": "Expected",
           "type": "string"
         }
       },
@@ -66,10 +67,6 @@
     "SubjectProfile": {
       "additionalProperties": true,
       "properties": {
-        "runner": {
-          "title": "Runner",
-          "type": "string"
-        },
         "model": {
           "anyOf": [
             {
@@ -81,6 +78,10 @@
           ],
           "default": null,
           "title": "Model"
+        },
+        "runner": {
+          "title": "Runner",
+          "type": "string"
         }
       },
       "required": [
@@ -92,18 +93,6 @@
     "VariantSpec": {
       "additionalProperties": false,
       "properties": {
-        "id": {
-          "title": "Id",
-          "type": "string"
-        },
-        "label": {
-          "title": "Label",
-          "type": "string"
-        },
-        "context_policy": {
-          "title": "Context Policy",
-          "type": "string"
-        },
         "confounders": {
           "default": [],
           "items": {
@@ -111,6 +100,18 @@
           },
           "title": "Confounders",
           "type": "array"
+        },
+        "context_policy": {
+          "title": "Context Policy",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
         }
       },
       "required": [
@@ -124,33 +125,81 @@
   },
   "additionalProperties": false,
   "properties": {
-    "schema_version": {
-      "const": "1",
-      "title": "Schema Version",
+    "approvals": {
+      "default": [],
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Approvals",
+      "type": "array"
+    },
+    "baseline_variant": {
+      "title": "Baseline Variant",
+      "type": "string"
+    },
+    "budgets": {
+      "additionalProperties": true,
+      "title": "Budgets",
+      "type": "object"
+    },
+    "capture_policy": {
+      "additionalProperties": true,
+      "title": "Capture Policy",
+      "type": "object"
+    },
+    "comparison_plan": {
+      "additionalProperties": true,
+      "title": "Comparison Plan",
+      "type": "object"
+    },
+    "context_policies": {
+      "items": {
+        "$ref": "#/$defs/ContextPolicySpec"
+      },
+      "title": "Context Policies",
+      "type": "array"
+    },
+    "environment": {
+      "additionalProperties": true,
+      "title": "Environment",
+      "type": "object"
+    },
+    "evidence_mode": {
+      "$ref": "#/$defs/EvidenceMode"
+    },
+    "graders": {
+      "items": {
+        "$ref": "#/$defs/GraderSpec"
+      },
+      "title": "Graders",
+      "type": "array"
+    },
+    "hypothesis": {
+      "title": "Hypothesis",
       "type": "string"
     },
     "id": {
       "title": "Id",
       "type": "string"
     },
-    "project_id": {
-      "title": "Project Id",
-      "type": "string"
-    },
-    "title": {
-      "title": "Title",
-      "type": "string"
-    },
     "objective": {
       "title": "Objective",
       "type": "string"
     },
-    "hypothesis": {
-      "title": "Hypothesis",
+    "primary_variable": {
+      "title": "Primary Variable",
       "type": "string"
     },
-    "evidence_mode": {
-      "$ref": "#/$defs/EvidenceMode"
+    "project_id": {
+      "title": "Project Id",
+      "type": "string"
+    },
+    "repetitions": {
+      "default": 1,
+      "exclusiveMinimum": 0,
+      "title": "Repetitions",
+      "type": "integer"
     },
     "scenario_refs": {
       "items": {
@@ -159,30 +208,35 @@
       "title": "Scenario Refs",
       "type": "array"
     },
-    "baseline_variant": {
-      "title": "Baseline Variant",
+    "schema_version": {
+      "const": "1",
+      "title": "Schema Version",
       "type": "string"
     },
-    "variants": {
-      "items": {
-        "$ref": "#/$defs/VariantSpec"
-      },
-      "title": "Variants",
-      "type": "array"
+    "seed_strategy": {
+      "additionalProperties": true,
+      "title": "Seed Strategy",
+      "type": "object"
     },
-    "primary_variable": {
-      "title": "Primary Variable",
-      "type": "string"
+    "stop_conditions": {
+      "additionalProperties": true,
+      "title": "Stop Conditions",
+      "type": "object"
     },
     "subject_profile": {
       "$ref": "#/$defs/SubjectProfile"
     },
-    "context_policies": {
+    "tags": {
+      "default": [],
       "items": {
-        "$ref": "#/$defs/ContextPolicySpec"
+        "type": "string"
       },
-      "title": "Context Policies",
+      "title": "Tags",
       "type": "array"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
     },
     "tools": {
       "default": [],
@@ -193,64 +247,11 @@
       "title": "Tools",
       "type": "array"
     },
-    "environment": {
-      "additionalProperties": true,
-      "title": "Environment",
-      "type": "object"
-    },
-    "budgets": {
-      "additionalProperties": true,
-      "title": "Budgets",
-      "type": "object"
-    },
-    "approvals": {
-      "default": [],
+    "variants": {
       "items": {
-        "additionalProperties": true,
-        "type": "object"
+        "$ref": "#/$defs/VariantSpec"
       },
-      "title": "Approvals",
-      "type": "array"
-    },
-    "capture_policy": {
-      "additionalProperties": true,
-      "title": "Capture Policy",
-      "type": "object"
-    },
-    "repetitions": {
-      "default": 1,
-      "exclusiveMinimum": 0,
-      "title": "Repetitions",
-      "type": "integer"
-    },
-    "seed_strategy": {
-      "additionalProperties": true,
-      "title": "Seed Strategy",
-      "type": "object"
-    },
-    "graders": {
-      "items": {
-        "$ref": "#/$defs/GraderSpec"
-      },
-      "title": "Graders",
-      "type": "array"
-    },
-    "comparison_plan": {
-      "additionalProperties": true,
-      "title": "Comparison Plan",
-      "type": "object"
-    },
-    "stop_conditions": {
-      "additionalProperties": true,
-      "title": "Stop Conditions",
-      "type": "object"
-    },
-    "tags": {
-      "default": [],
-      "items": {
-        "type": "string"
-      },
-      "title": "Tags",
+      "title": "Variants",
       "type": "array"
     }
   },

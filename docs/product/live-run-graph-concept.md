@@ -6,7 +6,7 @@ status: draft
 authority: incubation
 owner: product
 created_at: 2026-07-22
-updated_at: 2026-07-22
+updated_at: 2026-07-23
 applies_to: product/run-visualization
 sources:
   - user-conversation:2026-07-22-live-run-graph-brainstorm
@@ -77,6 +77,25 @@ flowchart LR
     CP1 -. "avalia em background" .-> EVAL1["Evaluator"]
     EVAL1 -. "grade ancorada" .-> CP1
 ```
+
+## InteractionProtocolGraph, SemanticExecutionGraph e canvas
+
+Três estruturas futuras possuem responsabilidades diferentes:
+
+- `InteractionProtocolGraph` define antes da Run quais interações, prompts, triggers e edges podem
+  ocorrer;
+- `SemanticExecutionGraph` projeta incrementalmente, a partir dos eventos observados, quais
+  WorkUnits, fases e mudanças de foco parecem descrever a trajetória real;
+- o canvas é uma apresentação derivada que pode sobrepor o caminho planejado ao caminho observado.
+
+Uma classificação semântica não é fato sobre o estado interno do agente nem checkpoint válido. Ela
+precisa preservar confidence, regras ou classificador e evidence refs. Um marco inferido começa como
+`CheckpointCandidate`; somente validação determinística autorizada pode produzir um
+`CheckpointRecord`.
+
+O `SemanticExecutionGraph` pode ser prototipado sobre o event ledger antes da implementação do
+runtime do `InteractionProtocolGraph`. A análise completa está preservada em
+[Matriz de contexto e grafo semântico da execução](semantic-execution-graph-concept.md).
 
 Nodes possíveis:
 
@@ -281,4 +300,5 @@ implementar ainda dependeria de validação de utilidade, legibilidade e perform
 Esta nota não escolhe biblioteca de grafo, layout, modelo de node ou roadmap. Qualquer parte promovida
 precisa de contrato de dados, threat model, critérios de UX e ADR quando afetar a arquitetura.
 
-Ver também: [Runs, contratos e checkpoints](run-laboratory-concept.md).
+Ver também: [Runs, contratos e checkpoints](run-laboratory-concept.md) e
+[Matriz de contexto e grafo semântico da execução](semantic-execution-graph-concept.md).

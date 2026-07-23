@@ -1,0 +1,510 @@
+{
+  "$defs": {
+    "AdmissionIssue": {
+      "additionalProperties": false,
+      "properties": {
+        "blocking": {
+          "title": "Blocking",
+          "type": "boolean"
+        },
+        "category": {
+          "enum": [
+            "runner",
+            "provider",
+            "capability",
+            "runtime",
+            "workspace",
+            "interaction",
+            "observer",
+            "authority",
+            "policy"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "reason": {
+          "$ref": "#/$defs/ResolutionReason"
+        },
+        "subject_ref": {
+          "minLength": 1,
+          "title": "Subject Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "category",
+        "subject_ref",
+        "reason",
+        "blocking"
+      ],
+      "title": "AdmissionIssue",
+      "type": "object"
+    },
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "classification": {
+          "$ref": "#/$defs/Classification",
+          "default": "internal"
+        },
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "media_type": {
+          "minLength": 1,
+          "title": "Media Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "digest",
+        "media_type"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "CapabilityDescriptorRef": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "namespace": {
+          "minLength": 1,
+          "title": "Namespace",
+          "type": "string"
+        },
+        "version": {
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "namespace",
+        "name",
+        "version",
+        "digest"
+      ],
+      "title": "CapabilityDescriptorRef",
+      "type": "object"
+    },
+    "Classification": {
+      "enum": [
+        "public",
+        "internal",
+        "sensitive",
+        "restricted"
+      ],
+      "title": "Classification",
+      "type": "string"
+    },
+    "ContractRef": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_type": {
+          "$ref": "#/$defs/ContractType"
+        },
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "logical_id": {
+          "minLength": 1,
+          "title": "Logical Id",
+          "type": "string"
+        },
+        "revision": {
+          "exclusiveMinimum": 0,
+          "title": "Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "contract_type",
+        "logical_id",
+        "revision",
+        "digest"
+      ],
+      "title": "ContractRef",
+      "type": "object"
+    },
+    "ContractType": {
+      "enum": [
+        "study",
+        "goal",
+        "scenario",
+        "agent_inventory",
+        "workspace_template",
+        "interaction_protocol",
+        "evaluation_plan",
+        "checkpoint_policy",
+        "progress_artifact_policy"
+      ],
+      "title": "ContractType",
+      "type": "string"
+    },
+    "ResolutionReason": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "enum": [
+            "unsupported",
+            "denied",
+            "unavailable",
+            "digest_mismatch"
+          ],
+          "title": "Code",
+          "type": "string"
+        },
+        "detail": {
+          "minLength": 1,
+          "title": "Detail",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "detail"
+      ],
+      "title": "ResolutionReason",
+      "type": "object"
+    },
+    "ResolvedAgentInventory": {
+      "additionalProperties": false,
+      "properties": {
+        "capabilities": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ResolvedCapability"
+          },
+          "title": "Capabilities",
+          "type": "array"
+        },
+        "provider_adapter": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Adapter"
+        },
+        "provider_model": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Model"
+        },
+        "provider_profile_digest": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Profile Digest"
+        },
+        "provider_profile_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Profile Id"
+        },
+        "provider_reasoning_effort": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Reasoning Effort"
+        },
+        "requirement_ref": {
+          "$ref": "#/$defs/ContractRef"
+        },
+        "runner_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        },
+        "runtime_capabilities": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Runtime Capabilities",
+          "type": "array"
+        }
+      },
+      "required": [
+        "requirement_ref",
+        "runner_ref"
+      ],
+      "title": "ResolvedAgentInventory",
+      "type": "object"
+    },
+    "ResolvedCapability": {
+      "additionalProperties": false,
+      "properties": {
+        "adapter": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Adapter"
+        },
+        "context_refs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "title": "Context Refs",
+          "type": "array"
+        },
+        "effective_interface_version": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Effective Interface Version"
+        },
+        "effective_permissions": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Effective Permissions",
+          "type": "array"
+        },
+        "exposure": {
+          "enum": [
+            "schema_only",
+            "instructions",
+            "instructions_and_schema"
+          ],
+          "title": "Exposure",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "tool",
+            "skill"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResolutionReason"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "requested_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        },
+        "required": {
+          "title": "Required",
+          "type": "boolean"
+        },
+        "resolved_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CapabilityDescriptorRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "satisfied_authority_constraints": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Satisfied Authority Constraints",
+          "type": "array"
+        },
+        "status": {
+          "enum": [
+            "resolved",
+            "unsupported",
+            "denied",
+            "unavailable"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "requested_ref",
+        "required",
+        "exposure",
+        "status"
+      ],
+      "title": "ResolvedCapability",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "created_at_utc": {
+      "format": "date-time",
+      "title": "Created At Utc",
+      "type": "string"
+    },
+    "decision": {
+      "enum": [
+        "admitted",
+        "rejected"
+      ],
+      "title": "Decision",
+      "type": "string"
+    },
+    "denied_policies": {
+      "default": [],
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "title": "Denied Policies",
+      "type": "array"
+    },
+    "interaction_status": {
+      "enum": [
+        "resolved",
+        "unsupported"
+      ],
+      "title": "Interaction Status",
+      "type": "string"
+    },
+    "issues": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/AdmissionIssue"
+      },
+      "title": "Issues",
+      "type": "array"
+    },
+    "missing_requirements": {
+      "default": [],
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "title": "Missing Requirements",
+      "type": "array"
+    },
+    "resolved_inventory": {
+      "$ref": "#/$defs/ResolvedAgentInventory"
+    },
+    "run_spec_digest": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Run Spec Digest",
+      "type": "string"
+    },
+    "run_spec_ref": {
+      "minLength": 1,
+      "title": "Run Spec Ref",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1",
+      "default": "1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "warnings": {
+      "default": [],
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    },
+    "workspace_status": {
+      "enum": [
+        "resolved",
+        "unsupported",
+        "denied",
+        "unavailable"
+      ],
+      "title": "Workspace Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_spec_ref",
+    "run_spec_digest",
+    "decision",
+    "resolved_inventory",
+    "workspace_status",
+    "interaction_status",
+    "created_at_utc"
+  ],
+  "title": "AdmissionRecord",
+  "type": "object"
+}

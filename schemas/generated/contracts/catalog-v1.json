@@ -1,0 +1,6018 @@
+{
+  "$defs": {
+    "AdjudicatesEvaluationRelation": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "adjudicates",
+          "default": "adjudicates",
+          "title": "Kind",
+          "type": "string"
+        },
+        "target_record_refs": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Target Record Refs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "target_record_refs"
+      ],
+      "title": "AdjudicatesEvaluationRelation",
+      "type": "object"
+    },
+    "AdmissionIssue": {
+      "additionalProperties": false,
+      "properties": {
+        "blocking": {
+          "title": "Blocking",
+          "type": "boolean"
+        },
+        "category": {
+          "enum": [
+            "runner",
+            "provider",
+            "capability",
+            "runtime",
+            "workspace",
+            "interaction",
+            "observer",
+            "authority",
+            "policy"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "reason": {
+          "$ref": "#/$defs/ResolutionReason"
+        },
+        "subject_ref": {
+          "minLength": 1,
+          "title": "Subject Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "category",
+        "subject_ref",
+        "reason",
+        "blocking"
+      ],
+      "title": "AdmissionIssue",
+      "type": "object"
+    },
+    "AdmissionRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "created_at_utc": {
+          "format": "date-time",
+          "title": "Created At Utc",
+          "type": "string"
+        },
+        "decision": {
+          "enum": [
+            "admitted",
+            "rejected"
+          ],
+          "title": "Decision",
+          "type": "string"
+        },
+        "denied_policies": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Denied Policies",
+          "type": "array"
+        },
+        "interaction_status": {
+          "enum": [
+            "resolved",
+            "unsupported"
+          ],
+          "title": "Interaction Status",
+          "type": "string"
+        },
+        "issues": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/AdmissionIssue"
+          },
+          "title": "Issues",
+          "type": "array"
+        },
+        "missing_requirements": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Missing Requirements",
+          "type": "array"
+        },
+        "resolved_inventory": {
+          "$ref": "#/$defs/ResolvedAgentInventory"
+        },
+        "run_spec_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Run Spec Digest",
+          "type": "string"
+        },
+        "run_spec_ref": {
+          "minLength": 1,
+          "title": "Run Spec Ref",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1",
+          "default": "1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "warnings": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        },
+        "workspace_status": {
+          "enum": [
+            "resolved",
+            "unsupported",
+            "denied",
+            "unavailable"
+          ],
+          "title": "Workspace Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_spec_ref",
+        "run_spec_digest",
+        "decision",
+        "resolved_inventory",
+        "workspace_status",
+        "interaction_status",
+        "created_at_utc"
+      ],
+      "title": "AdmissionRecord",
+      "type": "object"
+    },
+    "AgentInventoryRevision": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_type": {
+          "const": "agent_inventory",
+          "default": "agent_inventory",
+          "title": "Contract Type",
+          "type": "string"
+        },
+        "logical_id": {
+          "minLength": 1,
+          "title": "Logical Id",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/AgentInventorySpec"
+        },
+        "project_id": {
+          "minLength": 1,
+          "title": "Project Id",
+          "type": "string"
+        },
+        "revision": {
+          "exclusiveMinimum": 0,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "1",
+          "default": "1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "logical_id",
+        "revision",
+        "project_id",
+        "title",
+        "payload"
+      ],
+      "title": "AgentInventoryRevision",
+      "type": "object"
+    },
+    "AgentInventorySpec": {
+      "additionalProperties": false,
+      "properties": {
+        "capability_requirements": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/CapabilityRequirement"
+          },
+          "title": "Capability Requirements",
+          "type": "array"
+        },
+        "provider_profile_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Profile Id"
+        },
+        "runner_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        },
+        "runtime_requirements": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/RuntimeRequirement"
+          },
+          "title": "Runtime Requirements",
+          "type": "array"
+        },
+        "subject_id": {
+          "minLength": 1,
+          "title": "Subject Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "subject_id",
+        "runner_ref"
+      ],
+      "title": "AgentInventorySpec",
+      "type": "object"
+    },
+    "AggregationSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "parameters": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/KeyValue"
+          },
+          "title": "Parameters",
+          "type": "array"
+        },
+        "projector_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        }
+      },
+      "required": [
+        "projector_ref"
+      ],
+      "title": "AggregationSpec",
+      "type": "object"
+    },
+    "AlwaysTrigger": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "always",
+          "default": "always",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "title": "AlwaysTrigger",
+      "type": "object"
+    },
+    "ArtifactManifest": {
+      "additionalProperties": false,
+      "properties": {
+        "entries": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ArtifactManifestEntry"
+          },
+          "title": "Entries",
+          "type": "array"
+        },
+        "portable": {
+          "const": false,
+          "default": false,
+          "title": "Portable",
+          "type": "boolean"
+        },
+        "profile": {
+          "const": "audit",
+          "default": "audit",
+          "title": "Profile",
+          "type": "string"
+        },
+        "replayable": {
+          "const": false,
+          "default": false,
+          "title": "Replayable",
+          "type": "boolean"
+        },
+        "schema_version": {
+          "const": "1",
+          "default": "1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "title": "ArtifactManifest",
+      "type": "object"
+    },
+    "ArtifactManifestEntry": {
+      "additionalProperties": false,
+      "description": "One intentionally materialized artifact; never a file-access activity log.",
+      "properties": {
+        "artifact_ref": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "content_included": {
+          "default": false,
+          "title": "Content Included",
+          "type": "boolean"
+        },
+        "omission_reason": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Omission Reason"
+        },
+        "required_for_portability": {
+          "default": false,
+          "title": "Required For Portability",
+          "type": "boolean"
+        },
+        "role": {
+          "enum": [
+            "scenario_input",
+            "subject_input_materialized",
+            "agent_instruction",
+            "interaction_prompt",
+            "hidden_calibration",
+            "extension_schema",
+            "extension_payload",
+            "evaluation_evidence",
+            "run_output",
+            "progress_summary",
+            "workspace_snapshot",
+            "checkpoint_capture",
+            "report_attachment"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "source_label": {
+          "minLength": 1,
+          "title": "Source Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "role",
+        "artifact_ref",
+        "source_label"
+      ],
+      "title": "ArtifactManifestEntry",
+      "type": "object"
+    },
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "classification": {
+          "$ref": "#/$defs/Classification",
+          "default": "internal"
+        },
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "media_type": {
+          "minLength": 1,
+          "title": "Media Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "digest",
+        "media_type"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "BlindingPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "hidden_fields": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Hidden Fields",
+          "type": "array"
+        }
+      },
+      "title": "BlindingPolicy",
+      "type": "object"
+    },
+    "BoundedExplorationTerminalResult": {
+      "additionalProperties": false,
+      "properties": {
+        "disposition": {
+          "enum": [
+            "concluded",
+            "incomplete",
+            "not_assessable"
+          ],
+          "title": "Disposition",
+          "type": "string"
+        },
+        "evidence_refs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/EvidenceRef"
+          },
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "goal_mode": {
+          "const": "bounded_exploration",
+          "default": "bounded_exploration",
+          "title": "Goal Mode",
+          "type": "string"
+        },
+        "learning_summary_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ArtifactRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "stop_condition_kind": {
+          "minLength": 1,
+          "title": "Stop Condition Kind",
+          "type": "string"
+        },
+        "stop_reason": {
+          "enum": [
+            "evidence_saturation",
+            "bounded_completion",
+            "budget_limit",
+            "time_limit",
+            "turn_limit",
+            "human_stop",
+            "guardrail",
+            "provider_failure"
+          ],
+          "title": "Stop Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "disposition",
+        "stop_reason",
+        "stop_condition_kind"
+      ],
+      "title": "BoundedExplorationTerminalResult",
+      "type": "object"
+    },
+    "BudgetSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "max_cost": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Cost"
+        },
+        "max_input_tokens": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Input Tokens"
+        },
+        "max_output_tokens": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Output Tokens"
+        },
+        "max_tool_calls": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Tool Calls"
+        },
+        "max_turns": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Turns"
+        },
+        "max_wall_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Max Wall Seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "max_wall_seconds"
+      ],
+      "title": "BudgetSpec",
+      "type": "object"
+    },
+    "CapabilityDescriptorRef": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "namespace": {
+          "minLength": 1,
+          "title": "Namespace",
+          "type": "string"
+        },
+        "version": {
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "namespace",
+        "name",
+        "version",
+        "digest"
+      ],
+      "title": "CapabilityDescriptorRef",
+      "type": "object"
+    },
+    "CapabilityInvocationPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "capability_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        },
+        "invocation_id": {
+          "minLength": 1,
+          "title": "Invocation Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "capability_ref",
+        "invocation_id"
+      ],
+      "title": "CapabilityInvocationPayload",
+      "type": "object"
+    },
+    "CapabilityOfferedPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "capability_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        },
+        "effective_permissions": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Effective Permissions",
+          "type": "array"
+        },
+        "exposure": {
+          "enum": [
+            "schema_only",
+            "instructions",
+            "instructions_and_schema"
+          ],
+          "title": "Exposure",
+          "type": "string"
+        },
+        "required": {
+          "title": "Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "capability_ref",
+        "required",
+        "exposure"
+      ],
+      "title": "CapabilityOfferedPayload",
+      "type": "object"
+    },
+    "CapabilityRequirement": {
+      "additionalProperties": false,
+      "properties": {
+        "authority_constraints": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Authority Constraints",
+          "type": "array"
+        },
+        "capability_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        },
+        "exposure": {
+          "enum": [
+            "schema_only",
+            "instructions",
+            "instructions_and_schema"
+          ],
+          "title": "Exposure",
+          "type": "string"
+        },
+        "instruction_refs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "title": "Instruction Refs",
+          "type": "array"
+        },
+        "kind": {
+          "enum": [
+            "tool",
+            "skill"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "minimum_interface_version": {
+          "minLength": 1,
+          "title": "Minimum Interface Version",
+          "type": "string"
+        },
+        "requested_permissions": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Requested Permissions",
+          "type": "array"
+        },
+        "required": {
+          "default": true,
+          "title": "Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "capability_ref",
+        "minimum_interface_version",
+        "exposure"
+      ],
+      "title": "CapabilityRequirement",
+      "type": "object"
+    },
+    "CapabilityResultPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "capability_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        },
+        "invocation_id": {
+          "minLength": 1,
+          "title": "Invocation Id",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "result_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ArtifactRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "capability_ref",
+        "invocation_id"
+      ],
+      "title": "CapabilityResultPayload",
+      "type": "object"
+    },
+    "CapturePolicySpec": {
+      "additionalProperties": false,
+      "properties": {
+        "default_mode": {
+          "enum": [
+            "metadata",
+            "redacted",
+            "raw_encrypted",
+            "disabled"
+          ],
+          "title": "Default Mode",
+          "type": "string"
+        },
+        "raw_sensitive": {
+          "default": "disabled",
+          "enum": [
+            "disabled",
+            "opt_in"
+          ],
+          "title": "Raw Sensitive",
+          "type": "string"
+        },
+        "sensitive_ttl_days": {
+          "default": 30,
+          "exclusiveMinimum": 0,
+          "title": "Sensitive Ttl Days",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "default_mode"
+      ],
+      "title": "CapturePolicySpec",
+      "type": "object"
+    },
+    "CheckpointCaptureSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "agent_inventory": {
+          "default": false,
+          "title": "Agent Inventory",
+          "type": "boolean"
+        },
+        "artifact_manifest": {
+          "default": false,
+          "title": "Artifact Manifest",
+          "type": "boolean"
+        },
+        "context_snapshot": {
+          "default": false,
+          "title": "Context Snapshot",
+          "type": "boolean"
+        },
+        "evaluation_records": {
+          "default": false,
+          "title": "Evaluation Records",
+          "type": "boolean"
+        },
+        "protocol_state": {
+          "default": false,
+          "title": "Protocol State",
+          "type": "boolean"
+        },
+        "provider_resolution": {
+          "default": false,
+          "title": "Provider Resolution",
+          "type": "boolean"
+        },
+        "workspace_snapshot": {
+          "default": false,
+          "title": "Workspace Snapshot",
+          "type": "boolean"
+        }
+      },
+      "title": "CheckpointCaptureSpec",
+      "type": "object"
+    },
+    "CheckpointDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "capture": {
+          "$ref": "#/$defs/CheckpointCaptureSpec"
+        },
+        "compatibility_tags": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Compatibility Tags",
+          "type": "array"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "order": {
+          "exclusiveMinimum": 0,
+          "title": "Order",
+          "type": "integer"
+        },
+        "required": {
+          "default": false,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "trigger": {
+          "discriminator": {
+            "mapping": {
+              "event": "#/$defs/CheckpointEventTrigger",
+              "manual": "#/$defs/ManualCheckpointTrigger",
+              "predicate": "#/$defs/PredicateCheckpointTrigger",
+              "protocol_node": "#/$defs/ProtocolNodeCheckpointTrigger"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/ManualCheckpointTrigger"
+            },
+            {
+              "$ref": "#/$defs/CheckpointEventTrigger"
+            },
+            {
+              "$ref": "#/$defs/ProtocolNodeCheckpointTrigger"
+            },
+            {
+              "$ref": "#/$defs/PredicateCheckpointTrigger"
+            }
+          ],
+          "title": "Trigger"
+        },
+        "validator_refs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/CapabilityDescriptorRef"
+          },
+          "title": "Validator Refs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "order",
+        "trigger",
+        "capture"
+      ],
+      "title": "CheckpointDefinition",
+      "type": "object"
+    },
+    "CheckpointEventTrigger": {
+      "additionalProperties": false,
+      "properties": {
+        "event_type": {
+          "minLength": 1,
+          "title": "Event Type",
+          "type": "string"
+        },
+        "kind": {
+          "const": "event",
+          "default": "event",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_type"
+      ],
+      "title": "CheckpointEventTrigger",
+      "type": "object"
+    },
+    "CheckpointPolicyRevision": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_type": {
+          "const": "checkpoint_policy",
+          "default": "checkpoint_policy",
+          "title": "Contract Type",
+          "type": "string"
+        },
+        "logical_id": {
+          "minLength": 1,
+          "title": "Logical Id",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/CheckpointPolicySpec"
+        },
+        "project_id": {
+          "minLength": 1,
+          "title": "Project Id",
+          "type": "string"
+        },
+        "revision": {
+          "exclusiveMinimum": 0,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "1",
+          "default": "1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "logical_id",
+        "revision",
+        "project_id",
+        "title",
+        "payload"
+      ],
+      "title": "CheckpointPolicyRevision",
+      "type": "object"
+    },
+    "CheckpointPolicySpec": {
+      "additionalProperties": false,
+      "properties": {
+        "definitions": {
+          "items": {
+            "$ref": "#/$defs/CheckpointDefinition"
+          },
+          "title": "Definitions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "definitions"
+      ],
+      "title": "CheckpointPolicySpec",
+      "type": "object"
+    },
+    "CheckpointReachedProgressTrigger": {
+      "additionalProperties": false,
+      "properties": {
+        "checkpoint_definition_id": {
+          "minLength": 1,
+          "title": "Checkpoint Definition Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "checkpoint_reached",
+          "default": "checkpoint_reached",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "checkpoint_definition_id"
+      ],
+      "title": "CheckpointReachedProgressTrigger",
+      "type": "object"
+    },
+    "CheckpointReachedTrigger": {
+      "additionalProperties": false,
+      "properties": {
+        "checkpoint_definition_id": {
+          "minLength": 1,
+          "title": "Checkpoint Definition Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "checkpoint_reached",
+          "default": "checkpoint_reached",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "checkpoint_definition_id"
+      ],
+      "title": "CheckpointReachedTrigger",
+      "type": "object"
+    },
+    "CheckpointRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "admission_record_digest": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Admission Record Digest"
+        },
+        "admission_record_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Admission Record Id"
+        },
+        "artifact_manifest_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ArtifactRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "checkpoint_id": {
+          "minLength": 1,
+          "title": "Checkpoint Id",
+          "type": "string"
+        },
+        "compatibility_tags": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Compatibility Tags",
+          "type": "array"
+        },
+        "context_snapshot_refs": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Context Snapshot Refs",
+          "type": "array"
+        },
+        "created_at_utc": {
+          "format": "date-time",
+          "title": "Created At Utc",
+          "type": "string"
+        },
+        "definition_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Definition Digest",
+          "type": "string"
+        },
+        "definition_id": {
+          "minLength": 1,
+          "title": "Definition Id",
+          "type": "string"
+        },
+        "evaluation_record_refs": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Evaluation Record Refs",
+          "type": "array"
+        },
+        "event_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Event Hash",
+          "type": "string"
+        },
+        "policy_ref": {
+          "$ref": "#/$defs/ContractRef"
+        },
+        "protocol_state_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ArtifactRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "replayability": {
+          "enum": [
+            "none",
+            "partial",
+            "deterministic"
+          ],
+          "title": "Replayability",
+          "type": "string"
+        },
+        "replayability_limitations": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Replayability Limitations",
+          "type": "array"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1",
+          "default": "1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "up_to_event_sequence": {
+          "exclusiveMinimum": 0,
+          "title": "Up To Event Sequence",
+          "type": "integer"
+        },
+        "validations": {
+          "items": {
+            "$ref": "#/$defs/CheckpointValidation"
+          },
+          "title": "Validations",
+          "type": "array"
+        },
+        "workspace_snapshot_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ArtifactRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "checkpoint_id",
+        "run_id",
+        "policy_ref",
+        "definition_id",
+        "definition_digest",
+        "up_to_event_sequence",
+        "event_hash",
+        "validations",
+        "replayability",
+        "created_at_utc"
+      ],
+      "title": "CheckpointRecord",
+      "type": "object"
+    },
+    "CheckpointValidation": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_refs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/EvidenceRef"
+          },
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "rationale": {
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "validator_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        }
+      },
+      "required": [
+        "validator_ref",
+        "passed",
+        "rationale"
+      ],
+      "title": "CheckpointValidation",
+      "type": "object"
+    },
+    "CheckpointValidationFailedPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "checkpoint_definition_id": {
+          "minLength": 1,
+          "title": "Checkpoint Definition Id",
+          "type": "string"
+        },
+        "evidence_refs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/EvidenceRef"
+          },
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "rationale": {
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "validator_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        }
+      },
+      "required": [
+        "checkpoint_definition_id",
+        "validator_ref",
+        "rationale"
+      ],
+      "title": "CheckpointValidationFailedPayload",
+      "type": "object"
+    },
+    "Classification": {
+      "enum": [
+        "public",
+        "internal",
+        "sensitive",
+        "restricted"
+      ],
+      "title": "Classification",
+      "type": "string"
+    },
+    "CleanupPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "default": "discard",
+          "enum": [
+            "discard",
+            "retain_until_ttl",
+            "retain"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "ttl_seconds": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ttl Seconds"
+        }
+      },
+      "title": "CleanupPolicy",
+      "type": "object"
+    },
+    "ComparisonPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "baseline_variant": {
+          "minLength": 1,
+          "title": "Baseline Variant",
+          "type": "string"
+        },
+        "candidate_variant": {
+          "minLength": 1,
+          "title": "Candidate Variant",
+          "type": "string"
+        },
+        "primary_variable": {
+          "minLength": 1,
+          "title": "Primary Variable",
+          "type": "string"
+        }
+      },
+      "required": [
+        "baseline_variant",
+        "candidate_variant",
+        "primary_variable"
+      ],
+      "title": "ComparisonPlan",
+      "type": "object"
+    },
+    "ContextComposedPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "omitted": {
+          "title": "Omitted",
+          "type": "boolean"
+        },
+        "policy_id": {
+          "minLength": 1,
+          "title": "Policy Id",
+          "type": "string"
+        },
+        "selected_chars": {
+          "minimum": 0,
+          "title": "Selected Chars",
+          "type": "integer"
+        },
+        "snapshot_id": {
+          "minLength": 1,
+          "title": "Snapshot Id",
+          "type": "string"
+        },
+        "source_chars": {
+          "minimum": 0,
+          "title": "Source Chars",
+          "type": "integer"
+        },
+        "strategy": {
+          "enum": [
+            "head",
+            "tail",
+            "full"
+          ],
+          "title": "Strategy",
+          "type": "string"
+        }
+      },
+      "required": [
+        "snapshot_id",
+        "policy_id",
+        "strategy",
+        "source_chars",
+        "selected_chars",
+        "omitted",
+        "content_hash"
+      ],
+      "title": "ContextComposedPayload",
+      "type": "object"
+    },
+    "ContextPolicySpec": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "max_chars": {
+          "exclusiveMinimum": 0,
+          "title": "Max Chars",
+          "type": "integer"
+        },
+        "strategy": {
+          "enum": [
+            "head",
+            "tail",
+            "full"
+          ],
+          "title": "Strategy",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "strategy",
+        "max_chars"
+      ],
+      "title": "ContextPolicySpec",
+      "type": "object"
+    },
+    "ContractRef": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_type": {
+          "$ref": "#/$defs/ContractType"
+        },
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "logical_id": {
+          "minLength": 1,
+          "title": "Logical Id",
+          "type": "string"
+        },
+        "revision": {
+          "exclusiveMinimum": 0,
+          "title": "Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "contract_type",
+        "logical_id",
+        "revision",
+        "digest"
+      ],
+      "title": "ContractRef",
+      "type": "object"
+    },
+    "ContractType": {
+      "enum": [
+        "study",
+        "goal",
+        "scenario",
+        "agent_inventory",
+        "workspace_template",
+        "interaction_protocol",
+        "evaluation_plan",
+        "checkpoint_policy",
+        "progress_artifact_policy"
+      ],
+      "title": "ContractType",
+      "type": "string"
+    },
+    "DimensionValue": {
+      "additionalProperties": false,
+      "properties": {
+        "confidence": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Confidence"
+        },
+        "dimension_id": {
+          "minLength": 1,
+          "title": "Dimension Id",
+          "type": "string"
+        },
+        "evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/EvidenceRef"
+          },
+          "minItems": 1,
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "rationale": {
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "dimension_id",
+        "value",
+        "rationale",
+        "evidence_refs"
+      ],
+      "title": "DimensionValue",
+      "type": "object"
+    },
+    "EvaluationBoundary": {
+      "additionalProperties": false,
+      "properties": {
+        "checkpoint_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Checkpoint Id"
+        },
+        "event_hash": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Event Hash"
+        },
+        "up_to_event_sequence": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Up To Event Sequence"
+        }
+      },
+      "title": "EvaluationBoundary",
+      "type": "object"
+    },
+    "EvaluationCompletedPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "evaluation_record_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Evaluation Record Digest",
+          "type": "string"
+        },
+        "evaluation_record_id": {
+          "minLength": 1,
+          "title": "Evaluation Record Id",
+          "type": "string"
+        },
+        "gate_status": {
+          "enum": [
+            "passed",
+            "failed",
+            "not_applicable"
+          ],
+          "title": "Gate Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evaluation_record_id",
+        "evaluation_record_digest",
+        "gate_status"
+      ],
+      "title": "EvaluationCompletedPayload",
+      "type": "object"
+    },
+    "EvaluationDimension": {
+      "additionalProperties": false,
+      "properties": {
+        "anchors": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/KeyValue"
+          },
+          "title": "Anchors",
+          "type": "array"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "maximum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maximum"
+        },
+        "minimum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minimum"
+        },
+        "value_type": {
+          "enum": [
+            "boolean",
+            "number",
+            "category"
+          ],
+          "title": "Value Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "value_type"
+      ],
+      "title": "EvaluationDimension",
+      "type": "object"
+    },
+    "EvaluationDisclosure": {
+      "additionalProperties": false,
+      "properties": {
+        "hidden_input_refs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "title": "Hidden Input Refs",
+          "type": "array"
+        },
+        "subject": {
+          "$ref": "#/$defs/SubjectEvaluationDisclosure",
+          "default": {
+            "dimension_ids": [],
+            "include_anchors": false,
+            "include_scale": false,
+            "mode": "none"
+          }
+        }
+      },
+      "title": "EvaluationDisclosure",
+      "type": "object"
+    },
+    "EvaluationPlanRevision": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_type": {
+          "const": "evaluation_plan",
+          "default": "evaluation_plan",
+          "title": "Contract Type",
+          "type": "string"
+        },
+        "logical_id": {
+          "minLength": 1,
+          "title": "Logical Id",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/EvaluationPlanSpec"
+        },
+        "project_id": {
+          "minLength": 1,
+          "title": "Project Id",
+          "type": "string"
+        },
+        "revision": {
+          "exclusiveMinimum": 0,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "1",
+          "default": "1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "logical_id",
+        "revision",
+        "project_id",
+        "title",
+        "payload"
+      ],
+      "title": "EvaluationPlanRevision",
+      "type": "object"
+    },
+    "EvaluationPlanSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "aggregation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AggregationSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "blinding_policy": {
+          "$ref": "#/$defs/BlindingPolicy",
+          "default": {
+            "hidden_fields": []
+          }
+        },
+        "dimensions": {
+          "items": {
+            "$ref": "#/$defs/EvaluationDimension"
+          },
+          "title": "Dimensions",
+          "type": "array"
+        },
+        "disclosure": {
+          "$ref": "#/$defs/EvaluationDisclosure",
+          "default": {
+            "hidden_input_refs": [],
+            "subject": {
+              "dimension_ids": [],
+              "include_anchors": false,
+              "include_scale": false,
+              "mode": "none"
+            }
+          }
+        },
+        "human_adjudication_policy": {
+          "$ref": "#/$defs/HumanAdjudicationPolicy",
+          "default": {
+            "adjudicable_stage_ids": [],
+            "adjudicator_ref": null,
+            "attestation_verifier_ref": null,
+            "required": false
+          }
+        },
+        "limitations": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "stages": {
+          "items": {
+            "$ref": "#/$defs/EvaluationStage"
+          },
+          "title": "Stages",
+          "type": "array"
+        }
+      },
+      "required": [
+        "dimensions",
+        "stages"
+      ],
+      "title": "EvaluationPlanSpec",
+      "type": "object"
+    },
+    "EvaluationRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "boundary": {
+          "$ref": "#/$defs/EvaluationBoundary"
+        },
+        "created_at_utc": {
+          "format": "date-time",
+          "title": "Created At Utc",
+          "type": "string"
+        },
+        "dimension_values": {
+          "items": {
+            "$ref": "#/$defs/DimensionValue"
+          },
+          "title": "Dimension Values",
+          "type": "array"
+        },
+        "evaluator_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        },
+        "gate_status": {
+          "enum": [
+            "passed",
+            "failed",
+            "not_applicable"
+          ],
+          "title": "Gate Status",
+          "type": "string"
+        },
+        "human_attestation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HumanAttestationRecord"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "plan_ref": {
+          "$ref": "#/$defs/ContractRef"
+        },
+        "provider_model": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Model"
+        },
+        "provider_profile_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Profile Id"
+        },
+        "record_id": {
+          "minLength": 1,
+          "title": "Record Id",
+          "type": "string"
+        },
+        "relation": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "adjudicates": "#/$defs/AdjudicatesEvaluationRelation",
+                  "independent_review": "#/$defs/IndependentHumanReviewRelation"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/AdjudicatesEvaluationRelation"
+                },
+                {
+                  "$ref": "#/$defs/IndependentHumanReviewRelation"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Relation"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1",
+          "default": "1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_type": {
+          "enum": [
+            "deterministic_grader",
+            "model_judge",
+            "human_reviewer",
+            "human_adjudicator"
+          ],
+          "title": "Source Type",
+          "type": "string"
+        },
+        "stage_id": {
+          "minLength": 1,
+          "title": "Stage Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "provisional",
+            "final"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "record_id",
+        "run_id",
+        "plan_ref",
+        "stage_id",
+        "source_type",
+        "evaluator_ref",
+        "boundary",
+        "dimension_values",
+        "gate_status",
+        "status",
+        "created_at_utc"
+      ],
+      "title": "EvaluationRecord",
+      "type": "object"
+    },
+    "EvaluationStage": {
+      "additionalProperties": false,
+      "properties": {
+        "evaluator_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        },
+        "hard_gate": {
+          "default": false,
+          "title": "Hard Gate",
+          "type": "boolean"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "integrity",
+            "deterministic_grader",
+            "model_judge",
+            "human_review"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "output_dimensions": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Output Dimensions",
+          "type": "array"
+        },
+        "parameters": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/KeyValue"
+          },
+          "title": "Parameters",
+          "type": "array"
+        },
+        "trigger": {
+          "$ref": "#/$defs/EvaluationTrigger"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "evaluator_ref",
+        "trigger"
+      ],
+      "title": "EvaluationStage",
+      "type": "object"
+    },
+    "EvaluationTrigger": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "run_terminal",
+            "checkpoint",
+            "event"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "reference": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reference"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "EvaluationTrigger",
+      "type": "object"
+    },
+    "EvaluatorEnvelope": {
+      "additionalProperties": false,
+      "properties": {
+        "blinded_fields": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Blinded Fields",
+          "type": "array"
+        },
+        "dimensions": {
+          "items": {
+            "$ref": "#/$defs/EvaluationDimension"
+          },
+          "title": "Dimensions",
+          "type": "array"
+        },
+        "hidden_input_refs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "title": "Hidden Input Refs",
+          "type": "array"
+        },
+        "inputs": {
+          "items": {
+            "$ref": "#/$defs/InputBinding"
+          },
+          "title": "Inputs",
+          "type": "array"
+        },
+        "plan_ref": {
+          "$ref": "#/$defs/ContractRef"
+        },
+        "run_spec_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Run Spec Digest",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1",
+          "default": "1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "stage": {
+          "$ref": "#/$defs/EvaluationStage"
+        }
+      },
+      "required": [
+        "run_spec_digest",
+        "plan_ref",
+        "stage",
+        "dimensions",
+        "inputs"
+      ],
+      "title": "EvaluatorEnvelope",
+      "type": "object"
+    },
+    "EvaluatorSignalTrigger": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "evaluator_signal",
+          "default": "evaluator_signal",
+          "title": "Kind",
+          "type": "string"
+        },
+        "signal": {
+          "minLength": 1,
+          "title": "Signal",
+          "type": "string"
+        },
+        "stage_id": {
+          "minLength": 1,
+          "title": "Stage Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "stage_id",
+        "signal"
+      ],
+      "title": "EvaluatorSignalTrigger",
+      "type": "object"
+    },
+    "EventTrigger": {
+      "additionalProperties": false,
+      "properties": {
+        "event_type": {
+          "minLength": 1,
+          "title": "Event Type",
+          "type": "string"
+        },
+        "kind": {
+          "const": "event",
+          "default": "event",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_type"
+      ],
+      "title": "EventTrigger",
+      "type": "object"
+    },
+    "EvidenceMode": {
+      "enum": [
+        "prospective_controlled",
+        "counterfactual_replay",
+        "retrospective_observational",
+        "exploratory"
+      ],
+      "title": "EvidenceMode",
+      "type": "string"
+    },
+    "EvidenceRef": {
+      "additionalProperties": false,
+      "properties": {
+        "ref": {
+          "minLength": 1,
+          "title": "Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "title": "EvidenceRef",
+      "type": "object"
+    },
+    "ExtensionRef": {
+      "additionalProperties": false,
+      "properties": {
+        "classification": {
+          "$ref": "#/$defs/Classification"
+        },
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "namespace": {
+          "minLength": 1,
+          "title": "Namespace",
+          "type": "string"
+        },
+        "payload_ref": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "required": {
+          "default": true,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "schema_ref": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "schema_version": {
+          "minLength": 1,
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "slot": {
+          "minLength": 1,
+          "title": "Slot",
+          "type": "string"
+        }
+      },
+      "required": [
+        "namespace",
+        "slot",
+        "schema_ref",
+        "schema_version",
+        "payload_ref",
+        "digest",
+        "classification"
+      ],
+      "title": "ExtensionRef",
+      "type": "object"
+    },
+    "ExternalEffectPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed_effects": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Allowed Effects",
+          "type": "array"
+        },
+        "mode": {
+          "enum": [
+            "denied",
+            "approval_required",
+            "allowlist"
+          ],
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "title": "ExternalEffectPolicy",
+      "type": "object"
+    },
+    "GoalConstraint": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "rule": {
+          "enum": [
+            "must",
+            "must_not"
+          ],
+          "title": "Rule",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "rule",
+        "description"
+      ],
+      "title": "GoalConstraint",
+      "type": "object"
+    },
+    "GoalOutcome": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "description"
+      ],
+      "title": "GoalOutcome",
+      "type": "object"
+    },
+    "GoalRevision": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_type": {
+          "const": "goal",
+          "default": "goal",
+          "title": "Contract Type",
+          "type": "string"
+        },
+        "logical_id": {
+          "minLength": 1,
+          "title": "Logical Id",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/GoalSpec"
+        },
+        "project_id": {
+          "minLength": 1,
+          "title": "Project Id",
+          "type": "string"
+        },
+        "revision": {
+          "exclusiveMinimum": 0,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "1",
+          "default": "1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "logical_id",
+        "revision",
+        "project_id",
+        "title",
+        "payload"
+      ],
+      "title": "GoalRevision",
+      "type": "object"
+    },
+    "GoalSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "completion_observations": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Completion Observations",
+          "type": "array"
+        },
+        "constraints": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/GoalConstraint"
+          },
+          "title": "Constraints",
+          "type": "array"
+        },
+        "evidence_expectations": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Evidence Expectations",
+          "type": "array"
+        },
+        "instruction": {
+          "minLength": 1,
+          "title": "Instruction",
+          "type": "string"
+        },
+        "learning_targets": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Learning Targets",
+          "type": "array"
+        },
+        "mode": {
+          "enum": [
+            "goal_state",
+            "bounded_exploration"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "outcomes": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/GoalOutcome"
+          },
+          "title": "Outcomes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "mode",
+        "instruction"
+      ],
+      "title": "GoalSpec",
+      "type": "object"
+    },
+    "GoalStateTerminalResult": {
+      "additionalProperties": false,
+      "properties": {
+        "goal_mode": {
+          "const": "goal_state",
+          "default": "goal_state",
+          "title": "Goal Mode",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "achieved",
+            "partially_achieved",
+            "not_achieved",
+            "not_assessable"
+          ],
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "title": "GoalStateTerminalResult",
+      "type": "object"
+    },
+    "HumanAdjudicationPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "adjudicable_stage_ids": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Adjudicable Stage Ids",
+          "type": "array"
+        },
+        "adjudicator_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CapabilityDescriptorRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "attestation_verifier_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CapabilityDescriptorRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "required": {
+          "default": false,
+          "title": "Required",
+          "type": "boolean"
+        }
+      },
+      "title": "HumanAdjudicationPolicy",
+      "type": "object"
+    },
+    "HumanAttestationRecord": {
+      "additionalProperties": false,
+      "description": "Evidence produced by a trusted human-verification adapter, not by API input.",
+      "properties": {
+        "action": {
+          "enum": [
+            "revision.accepted",
+            "revision.rejected",
+            "revision.superseded",
+            "evaluation.adjudicated",
+            "evaluation.reviewed"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "assertion_ref": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "attestation_id": {
+          "minLength": 1,
+          "title": "Attestation Id",
+          "type": "string"
+        },
+        "challenge_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Challenge Digest",
+          "type": "string"
+        },
+        "credential_id": {
+          "minLength": 1,
+          "title": "Credential Id",
+          "type": "string"
+        },
+        "origin": {
+          "minLength": 1,
+          "title": "Origin",
+          "type": "string"
+        },
+        "principal_id": {
+          "minLength": 1,
+          "title": "Principal Id",
+          "type": "string"
+        },
+        "relying_party_id": {
+          "minLength": 1,
+          "title": "Relying Party Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1",
+          "default": "1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "subject_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Subject Digest",
+          "type": "string"
+        },
+        "target_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Target Digest",
+          "type": "string"
+        },
+        "user_verification": {
+          "const": "required_verified",
+          "default": "required_verified",
+          "title": "User Verification",
+          "type": "string"
+        },
+        "verification_method": {
+          "const": "webauthn",
+          "default": "webauthn",
+          "title": "Verification Method",
+          "type": "string"
+        },
+        "verified_at_utc": {
+          "format": "date-time",
+          "title": "Verified At Utc",
+          "type": "string"
+        },
+        "verifier_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        }
+      },
+      "required": [
+        "attestation_id",
+        "principal_id",
+        "credential_id",
+        "action",
+        "target_digest",
+        "subject_digest",
+        "challenge_digest",
+        "assertion_ref",
+        "relying_party_id",
+        "origin",
+        "verifier_ref",
+        "verified_at_utc"
+      ],
+      "title": "HumanAttestationRecord",
+      "type": "object"
+    },
+    "HumanSignalTrigger": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "human_signal",
+          "default": "human_signal",
+          "title": "Kind",
+          "type": "string"
+        },
+        "signal": {
+          "minLength": 1,
+          "title": "Signal",
+          "type": "string"
+        }
+      },
+      "required": [
+        "signal"
+      ],
+      "title": "HumanSignalTrigger",
+      "type": "object"
+    },
+    "IndependentHumanReviewRelation": {
+      "additionalProperties": false,
+      "properties": {
+        "considers_record_refs": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Considers Record Refs",
+          "type": "array"
+        },
+        "kind": {
+          "const": "independent_review",
+          "default": "independent_review",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "title": "IndependentHumanReviewRelation",
+      "type": "object"
+    },
+    "InputBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "mount_access": {
+          "default": "read_only",
+          "enum": [
+            "read_only",
+            "read_write"
+          ],
+          "title": "Mount Access",
+          "type": "string"
+        },
+        "mount_name": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mount Name"
+        },
+        "role": {
+          "minLength": 1,
+          "title": "Role",
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "visibility": {
+          "enum": [
+            "subject",
+            "evaluator",
+            "laboratory",
+            "subject_and_evaluator"
+          ],
+          "title": "Visibility",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "role",
+        "source",
+        "visibility"
+      ],
+      "title": "InputBinding",
+      "type": "object"
+    },
+    "IntentScope": {
+      "additionalProperties": false,
+      "properties": {
+        "excluded": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Excluded",
+          "type": "array"
+        },
+        "included": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Included",
+          "type": "array"
+        }
+      },
+      "title": "IntentScope",
+      "type": "object"
+    },
+    "InteractionEdge": {
+      "additionalProperties": false,
+      "properties": {
+        "max_activations": {
+          "default": 1,
+          "exclusiveMinimum": 0,
+          "title": "Max Activations",
+          "type": "integer"
+        },
+        "priority": {
+          "default": 0,
+          "title": "Priority",
+          "type": "integer"
+        },
+        "source": {
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        },
+        "target": {
+          "minLength": 1,
+          "title": "Target",
+          "type": "string"
+        },
+        "trigger": {
+          "discriminator": {
+            "mapping": {
+              "always": "#/$defs/AlwaysTrigger",
+              "checkpoint_reached": "#/$defs/CheckpointReachedTrigger",
+              "evaluator_signal": "#/$defs/EvaluatorSignalTrigger",
+              "event": "#/$defs/EventTrigger",
+              "human_signal": "#/$defs/HumanSignalTrigger",
+              "predicate": "#/$defs/PredicateTrigger"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/AlwaysTrigger"
+            },
+            {
+              "$ref": "#/$defs/EventTrigger"
+            },
+            {
+              "$ref": "#/$defs/CheckpointReachedTrigger"
+            },
+            {
+              "$ref": "#/$defs/EvaluatorSignalTrigger"
+            },
+            {
+              "$ref": "#/$defs/HumanSignalTrigger"
+            },
+            {
+              "$ref": "#/$defs/PredicateTrigger"
+            }
+          ],
+          "title": "Trigger"
+        }
+      },
+      "required": [
+        "source",
+        "target",
+        "trigger"
+      ],
+      "title": "InteractionEdge",
+      "type": "object"
+    },
+    "InteractionNode": {
+      "additionalProperties": false,
+      "properties": {
+        "content_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ArtifactRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "prompt",
+            "await_subject",
+            "checkpoint",
+            "human_approval",
+            "terminal"
+          ],
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind"
+      ],
+      "title": "InteractionNode",
+      "type": "object"
+    },
+    "InteractionProtocolRevision": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_type": {
+          "const": "interaction_protocol",
+          "default": "interaction_protocol",
+          "title": "Contract Type",
+          "type": "string"
+        },
+        "logical_id": {
+          "minLength": 1,
+          "title": "Logical Id",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/InteractionProtocolSpec"
+        },
+        "project_id": {
+          "minLength": 1,
+          "title": "Project Id",
+          "type": "string"
+        },
+        "revision": {
+          "exclusiveMinimum": 0,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "1",
+          "default": "1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "logical_id",
+        "revision",
+        "project_id",
+        "title",
+        "payload"
+      ],
+      "title": "InteractionProtocolRevision",
+      "type": "object"
+    },
+    "InteractionProtocolSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "edges": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/InteractionEdge"
+          },
+          "title": "Edges",
+          "type": "array"
+        },
+        "initial_message_refs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "title": "Initial Message Refs",
+          "type": "array"
+        },
+        "max_turns": {
+          "default": 1,
+          "exclusiveMinimum": 0,
+          "title": "Max Turns",
+          "type": "integer"
+        },
+        "mode": {
+          "enum": [
+            "single_turn",
+            "graph"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "nodes": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/InteractionNode"
+          },
+          "title": "Nodes",
+          "type": "array"
+        },
+        "system_prompt_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ArtifactRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "title": "InteractionProtocolSpec",
+      "type": "object"
+    },
+    "KeyValue": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "minLength": 1,
+          "title": "Key",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "key",
+        "value"
+      ],
+      "title": "KeyValue",
+      "type": "object"
+    },
+    "ManualCheckpointTrigger": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "manual",
+          "default": "manual",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "title": "ManualCheckpointTrigger",
+      "type": "object"
+    },
+    "NetworkPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed_endpoint_refs": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Allowed Endpoint Refs",
+          "type": "array"
+        },
+        "mode": {
+          "enum": [
+            "disabled",
+            "provider_only",
+            "allowlist"
+          ],
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "title": "NetworkPolicy",
+      "type": "object"
+    },
+    "PredicateCheckpointTrigger": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "predicate",
+          "default": "predicate",
+          "title": "Kind",
+          "type": "string"
+        },
+        "predicate_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        }
+      },
+      "required": [
+        "predicate_ref"
+      ],
+      "title": "PredicateCheckpointTrigger",
+      "type": "object"
+    },
+    "PredicateTrigger": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "predicate",
+          "default": "predicate",
+          "title": "Kind",
+          "type": "string"
+        },
+        "predicate_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        }
+      },
+      "required": [
+        "predicate_ref"
+      ],
+      "title": "PredicateTrigger",
+      "type": "object"
+    },
+    "ProgressArtifactContent": {
+      "additionalProperties": false,
+      "properties": {
+        "event_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Event Hash",
+          "type": "string"
+        },
+        "limitations": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Limitations",
+          "type": "array"
+        },
+        "overview": {
+          "minLength": 1,
+          "title": "Overview",
+          "type": "string"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1",
+          "default": "1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "statements": {
+          "items": {
+            "$ref": "#/$defs/ProgressStatement"
+          },
+          "title": "Statements",
+          "type": "array"
+        },
+        "status": {
+          "const": "provisional",
+          "default": "provisional",
+          "title": "Status",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "up_to_event_sequence": {
+          "exclusiveMinimum": 0,
+          "title": "Up To Event Sequence",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "run_id",
+        "up_to_event_sequence",
+        "event_hash",
+        "title",
+        "overview",
+        "statements",
+        "limitations"
+      ],
+      "title": "ProgressArtifactContent",
+      "type": "object"
+    },
+    "ProgressArtifactCreatedPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_ref": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "attempt_id": {
+          "minLength": 1,
+          "title": "Attempt Id",
+          "type": "string"
+        },
+        "event_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Event Hash",
+          "type": "string"
+        },
+        "progress_record_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Progress Record Digest",
+          "type": "string"
+        },
+        "progress_record_id": {
+          "minLength": 1,
+          "title": "Progress Record Id",
+          "type": "string"
+        },
+        "up_to_event_sequence": {
+          "exclusiveMinimum": 0,
+          "title": "Up To Event Sequence",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "attempt_id",
+        "progress_record_id",
+        "progress_record_digest",
+        "artifact_ref",
+        "up_to_event_sequence",
+        "event_hash"
+      ],
+      "title": "ProgressArtifactCreatedPayload",
+      "type": "object"
+    },
+    "ProgressArtifactDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "audience": {
+          "const": "laboratory_human",
+          "default": "laboratory_human",
+          "title": "Audience",
+          "type": "string"
+        },
+        "authority_constraints": {
+          "default": [
+            "read_current_run_ledger_prefix",
+            "write_progress_artifact_only",
+            "no_subject_feedback"
+          ],
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "const": "read_current_run_ledger_prefix",
+              "type": "string"
+            },
+            {
+              "const": "write_progress_artifact_only",
+              "type": "string"
+            },
+            {
+              "const": "no_subject_feedback",
+              "type": "string"
+            }
+          ],
+          "title": "Authority Constraints",
+          "type": "array"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "input_scope": {
+          "const": "complete_run_ledger_prefix",
+          "default": "complete_run_ledger_prefix",
+          "title": "Input Scope",
+          "type": "string"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "max_output_characters": {
+          "default": 12000,
+          "exclusiveMinimum": 0,
+          "title": "Max Output Characters",
+          "type": "integer"
+        },
+        "minimum_interface_version": {
+          "default": "1",
+          "minLength": 1,
+          "title": "Minimum Interface Version",
+          "type": "string"
+        },
+        "summarizer_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        },
+        "trigger": {
+          "discriminator": {
+            "mapping": {
+              "checkpoint_reached": "#/$defs/CheckpointReachedProgressTrigger",
+              "subject_turn_interval": "#/$defs/SubjectTurnIntervalProgressTrigger"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/CheckpointReachedProgressTrigger"
+            },
+            {
+              "$ref": "#/$defs/SubjectTurnIntervalProgressTrigger"
+            }
+          ],
+          "title": "Trigger"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "trigger",
+        "summarizer_ref"
+      ],
+      "title": "ProgressArtifactDefinition",
+      "type": "object"
+    },
+    "ProgressArtifactPolicyRevision": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_type": {
+          "const": "progress_artifact_policy",
+          "default": "progress_artifact_policy",
+          "title": "Contract Type",
+          "type": "string"
+        },
+        "logical_id": {
+          "minLength": 1,
+          "title": "Logical Id",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/ProgressArtifactPolicySpec"
+        },
+        "project_id": {
+          "minLength": 1,
+          "title": "Project Id",
+          "type": "string"
+        },
+        "revision": {
+          "exclusiveMinimum": 0,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "1",
+          "default": "1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "logical_id",
+        "revision",
+        "project_id",
+        "title",
+        "payload"
+      ],
+      "title": "ProgressArtifactPolicyRevision",
+      "type": "object"
+    },
+    "ProgressArtifactPolicySpec": {
+      "additionalProperties": false,
+      "properties": {
+        "definitions": {
+          "items": {
+            "$ref": "#/$defs/ProgressArtifactDefinition"
+          },
+          "title": "Definitions",
+          "type": "array"
+        },
+        "limitations": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "definitions"
+      ],
+      "title": "ProgressArtifactPolicySpec",
+      "type": "object"
+    },
+    "ProgressArtifactRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_ref": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "checkpoint_hash": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Checkpoint Hash"
+        },
+        "checkpoint_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Checkpoint Id"
+        },
+        "created_at_utc": {
+          "format": "date-time",
+          "title": "Created At Utc",
+          "type": "string"
+        },
+        "definition_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Definition Digest",
+          "type": "string"
+        },
+        "definition_id": {
+          "minLength": 1,
+          "title": "Definition Id",
+          "type": "string"
+        },
+        "event_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Event Hash",
+          "type": "string"
+        },
+        "input_event_count": {
+          "exclusiveMinimum": 0,
+          "title": "Input Event Count",
+          "type": "integer"
+        },
+        "input_ledger_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Input Ledger Digest",
+          "type": "string"
+        },
+        "input_projection_version": {
+          "const": "run-event-prefix-v1",
+          "default": "run-event-prefix-v1",
+          "title": "Input Projection Version",
+          "type": "string"
+        },
+        "limitations": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Limitations",
+          "type": "array"
+        },
+        "policy_ref": {
+          "$ref": "#/$defs/ContractRef"
+        },
+        "provider_model": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Model"
+        },
+        "provider_profile_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Profile Id"
+        },
+        "record_id": {
+          "minLength": 1,
+          "title": "Record Id",
+          "type": "string"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1",
+          "default": "1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "status": {
+          "const": "provisional",
+          "default": "provisional",
+          "title": "Status",
+          "type": "string"
+        },
+        "summarizer_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        },
+        "up_to_event_sequence": {
+          "exclusiveMinimum": 0,
+          "title": "Up To Event Sequence",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "record_id",
+        "run_id",
+        "policy_ref",
+        "definition_id",
+        "definition_digest",
+        "up_to_event_sequence",
+        "event_hash",
+        "input_ledger_digest",
+        "input_event_count",
+        "summarizer_ref",
+        "artifact_ref",
+        "limitations",
+        "created_at_utc"
+      ],
+      "title": "ProgressArtifactRecord",
+      "type": "object"
+    },
+    "ProgressObserverFailedPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "attempt_id": {
+          "minLength": 1,
+          "title": "Attempt Id",
+          "type": "string"
+        },
+        "definition_id": {
+          "minLength": 1,
+          "title": "Definition Id",
+          "type": "string"
+        },
+        "event_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Event Hash",
+          "type": "string"
+        },
+        "phase": {
+          "enum": [
+            "input_materialization",
+            "summarizer_resolution",
+            "invocation",
+            "output_validation",
+            "artifact_write",
+            "record_persistence"
+          ],
+          "title": "Phase",
+          "type": "string"
+        },
+        "policy_ref": {
+          "$ref": "#/$defs/ContractRef"
+        },
+        "reason_code": {
+          "minLength": 1,
+          "title": "Reason Code",
+          "type": "string"
+        },
+        "retryable": {
+          "default": false,
+          "title": "Retryable",
+          "type": "boolean"
+        },
+        "up_to_event_sequence": {
+          "exclusiveMinimum": 0,
+          "title": "Up To Event Sequence",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "attempt_id",
+        "policy_ref",
+        "definition_id",
+        "up_to_event_sequence",
+        "event_hash",
+        "phase",
+        "reason_code"
+      ],
+      "title": "ProgressObserverFailedPayload",
+      "type": "object"
+    },
+    "ProgressObserverStartedPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "attempt_id": {
+          "minLength": 1,
+          "title": "Attempt Id",
+          "type": "string"
+        },
+        "definition_id": {
+          "minLength": 1,
+          "title": "Definition Id",
+          "type": "string"
+        },
+        "event_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Event Hash",
+          "type": "string"
+        },
+        "policy_ref": {
+          "$ref": "#/$defs/ContractRef"
+        },
+        "summarizer_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        },
+        "up_to_event_sequence": {
+          "exclusiveMinimum": 0,
+          "title": "Up To Event Sequence",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "attempt_id",
+        "policy_ref",
+        "definition_id",
+        "up_to_event_sequence",
+        "event_hash",
+        "summarizer_ref"
+      ],
+      "title": "ProgressObserverStartedPayload",
+      "type": "object"
+    },
+    "ProgressStatement": {
+      "additionalProperties": false,
+      "properties": {
+        "confidence": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Confidence"
+        },
+        "evidence_refs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/EvidenceRef"
+          },
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "observation",
+            "interpretation",
+            "uncertainty"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "text": {
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "text"
+      ],
+      "title": "ProgressStatement",
+      "type": "object"
+    },
+    "ProtocolNodeCheckpointTrigger": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "protocol_node",
+          "default": "protocol_node",
+          "title": "Kind",
+          "type": "string"
+        },
+        "node_id": {
+          "minLength": 1,
+          "title": "Node Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "node_id"
+      ],
+      "title": "ProtocolNodeCheckpointTrigger",
+      "type": "object"
+    },
+    "RepositoryFixtureDecisionAuthority": {
+      "additionalProperties": false,
+      "properties": {
+        "fixture_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Fixture Digest",
+          "type": "string"
+        },
+        "fixture_id": {
+          "const": "experiment-manifest-v1:crl-ctx-002",
+          "default": "experiment-manifest-v1:crl-ctx-002",
+          "title": "Fixture Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "repository_fixture",
+          "default": "repository_fixture",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "fixture_digest"
+      ],
+      "title": "RepositoryFixtureDecisionAuthority",
+      "type": "object"
+    },
+    "ResolutionReason": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "enum": [
+            "unsupported",
+            "denied",
+            "unavailable",
+            "digest_mismatch"
+          ],
+          "title": "Code",
+          "type": "string"
+        },
+        "detail": {
+          "minLength": 1,
+          "title": "Detail",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "detail"
+      ],
+      "title": "ResolutionReason",
+      "type": "object"
+    },
+    "ResolvedAgentInventory": {
+      "additionalProperties": false,
+      "properties": {
+        "capabilities": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ResolvedCapability"
+          },
+          "title": "Capabilities",
+          "type": "array"
+        },
+        "provider_adapter": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Adapter"
+        },
+        "provider_model": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Model"
+        },
+        "provider_profile_digest": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Profile Digest"
+        },
+        "provider_profile_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Profile Id"
+        },
+        "provider_reasoning_effort": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Reasoning Effort"
+        },
+        "requirement_ref": {
+          "$ref": "#/$defs/ContractRef"
+        },
+        "runner_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        },
+        "runtime_capabilities": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Runtime Capabilities",
+          "type": "array"
+        }
+      },
+      "required": [
+        "requirement_ref",
+        "runner_ref"
+      ],
+      "title": "ResolvedAgentInventory",
+      "type": "object"
+    },
+    "ResolvedCapability": {
+      "additionalProperties": false,
+      "properties": {
+        "adapter": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Adapter"
+        },
+        "context_refs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "title": "Context Refs",
+          "type": "array"
+        },
+        "effective_interface_version": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Effective Interface Version"
+        },
+        "effective_permissions": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Effective Permissions",
+          "type": "array"
+        },
+        "exposure": {
+          "enum": [
+            "schema_only",
+            "instructions",
+            "instructions_and_schema"
+          ],
+          "title": "Exposure",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "tool",
+            "skill"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResolutionReason"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "requested_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        },
+        "required": {
+          "title": "Required",
+          "type": "boolean"
+        },
+        "resolved_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CapabilityDescriptorRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "satisfied_authority_constraints": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Satisfied Authority Constraints",
+          "type": "array"
+        },
+        "status": {
+          "enum": [
+            "resolved",
+            "unsupported",
+            "denied",
+            "unavailable"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "requested_ref",
+        "required",
+        "exposure",
+        "status"
+      ],
+      "title": "ResolvedCapability",
+      "type": "object"
+    },
+    "RevisionDecisionRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "authority": {
+          "discriminator": {
+            "mapping": {
+              "repository_fixture": "#/$defs/RepositoryFixtureDecisionAuthority",
+              "verified_human": "#/$defs/VerifiedHumanDecisionAuthority"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/VerifiedHumanDecisionAuthority"
+            },
+            {
+              "$ref": "#/$defs/RepositoryFixtureDecisionAuthority"
+            }
+          ],
+          "title": "Authority"
+        },
+        "decided_at_utc": {
+          "format": "date-time",
+          "title": "Decided At Utc",
+          "type": "string"
+        },
+        "decision": {
+          "enum": [
+            "accepted",
+            "rejected",
+            "superseded"
+          ],
+          "title": "Decision",
+          "type": "string"
+        },
+        "rationale": {
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "revision_ref": {
+          "$ref": "#/$defs/ContractRef"
+        },
+        "schema_version": {
+          "const": "1",
+          "default": "1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "revision_ref",
+        "decision",
+        "authority",
+        "rationale",
+        "decided_at_utc"
+      ],
+      "title": "RevisionDecisionRecord",
+      "type": "object"
+    },
+    "RunBlueprint": {
+      "additionalProperties": false,
+      "properties": {
+        "agent_inventory_ref": {
+          "$ref": "#/$defs/ContractRef"
+        },
+        "budgets": {
+          "$ref": "#/$defs/BudgetSpec"
+        },
+        "capture_policy": {
+          "$ref": "#/$defs/CapturePolicySpec"
+        },
+        "checkpoint_policy_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContractRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "context_policy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContextPolicySpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "evaluation_plan_ref": {
+          "$ref": "#/$defs/ContractRef"
+        },
+        "extensions": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ExtensionRef"
+          },
+          "title": "Extensions",
+          "type": "array"
+        },
+        "interaction_protocol_ref": {
+          "$ref": "#/$defs/ContractRef"
+        },
+        "progress_artifact_policy_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContractRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "stop_conditions": {
+          "items": {
+            "$ref": "#/$defs/StopCondition"
+          },
+          "title": "Stop Conditions",
+          "type": "array"
+        },
+        "workspace_template_ref": {
+          "$ref": "#/$defs/ContractRef"
+        }
+      },
+      "required": [
+        "agent_inventory_ref",
+        "workspace_template_ref",
+        "interaction_protocol_ref",
+        "evaluation_plan_ref",
+        "budgets",
+        "stop_conditions",
+        "capture_policy"
+      ],
+      "title": "RunBlueprint",
+      "type": "object"
+    },
+    "RunLifecyclePayload": {
+      "additionalProperties": false,
+      "properties": {
+        "from_status": {
+          "enum": [
+            "queued",
+            "preparing",
+            "running",
+            "paused",
+            "evaluating"
+          ],
+          "title": "From Status",
+          "type": "string"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "from_status",
+        "reason"
+      ],
+      "title": "RunLifecyclePayload",
+      "type": "object"
+    },
+    "RunPreparingPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "scenario_ref": {
+          "$ref": "#/$defs/ContractRef"
+        }
+      },
+      "required": [
+        "scenario_ref"
+      ],
+      "title": "RunPreparingPayload",
+      "type": "object"
+    },
+    "RunQueuedPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "admission_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Admission Digest",
+          "type": "string"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "run_spec_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Run Spec Digest",
+          "type": "string"
+        },
+        "variant_id": {
+          "minLength": 1,
+          "title": "Variant Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "variant_id",
+        "run_spec_digest",
+        "admission_digest"
+      ],
+      "title": "RunQueuedPayload",
+      "type": "object"
+    },
+    "RunRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "admission_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Admission Digest",
+          "type": "string"
+        },
+        "admission_id": {
+          "minLength": 1,
+          "title": "Admission Id",
+          "type": "string"
+        },
+        "created_at_utc": {
+          "format": "date-time",
+          "title": "Created At Utc",
+          "type": "string"
+        },
+        "repetition_index": {
+          "exclusiveMinimum": 0,
+          "title": "Repetition Index",
+          "type": "integer"
+        },
+        "retry_of": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Retry Of"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "run_spec_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Run Spec Digest",
+          "type": "string"
+        },
+        "run_spec_id": {
+          "minLength": 1,
+          "title": "Run Spec Id",
+          "type": "string"
+        },
+        "scenario_ref": {
+          "$ref": "#/$defs/ContractRef"
+        },
+        "schema_version": {
+          "const": "1",
+          "default": "1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "study_ref": {
+          "$ref": "#/$defs/ContractRef"
+        },
+        "variant_id": {
+          "minLength": 1,
+          "title": "Variant Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "run_spec_id",
+        "run_spec_digest",
+        "admission_id",
+        "admission_digest",
+        "study_ref",
+        "scenario_ref",
+        "variant_id",
+        "repetition_index",
+        "created_at_utc"
+      ],
+      "title": "RunRecord",
+      "type": "object"
+    },
+    "RunSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "agent_inventory": {
+          "$ref": "#/$defs/AgentInventorySpec"
+        },
+        "agent_inventory_ref": {
+          "$ref": "#/$defs/ContractRef"
+        },
+        "budgets": {
+          "$ref": "#/$defs/BudgetSpec"
+        },
+        "capture_policy": {
+          "$ref": "#/$defs/CapturePolicySpec"
+        },
+        "checkpoint_policy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CheckpointPolicySpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "checkpoint_policy_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContractRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "context_policy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContextPolicySpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "evaluation_plan": {
+          "$ref": "#/$defs/EvaluationPlanSpec"
+        },
+        "evaluation_plan_ref": {
+          "$ref": "#/$defs/ContractRef"
+        },
+        "extensions": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ExtensionRef"
+          },
+          "title": "Extensions",
+          "type": "array"
+        },
+        "goal": {
+          "$ref": "#/$defs/GoalSpec"
+        },
+        "goal_ref": {
+          "$ref": "#/$defs/ContractRef"
+        },
+        "interaction_protocol": {
+          "$ref": "#/$defs/InteractionProtocolSpec"
+        },
+        "interaction_protocol_ref": {
+          "$ref": "#/$defs/ContractRef"
+        },
+        "limitations": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "progress_artifact_policy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProgressArtifactPolicySpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "progress_artifact_policy_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContractRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "repetition_index": {
+          "exclusiveMinimum": 0,
+          "title": "Repetition Index",
+          "type": "integer"
+        },
+        "scenario": {
+          "$ref": "#/$defs/ScenarioSpec"
+        },
+        "scenario_ref": {
+          "$ref": "#/$defs/ContractRef"
+        },
+        "schema_version": {
+          "const": "1",
+          "default": "1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "seed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seed"
+        },
+        "stop_conditions": {
+          "items": {
+            "$ref": "#/$defs/StopCondition"
+          },
+          "title": "Stop Conditions",
+          "type": "array"
+        },
+        "study_ref": {
+          "$ref": "#/$defs/ContractRef"
+        },
+        "variant_id": {
+          "minLength": 1,
+          "title": "Variant Id",
+          "type": "string"
+        },
+        "workspace": {
+          "$ref": "#/$defs/WorkspaceTemplateSpec"
+        },
+        "workspace_template_ref": {
+          "$ref": "#/$defs/ContractRef"
+        }
+      },
+      "required": [
+        "study_ref",
+        "scenario_ref",
+        "variant_id",
+        "repetition_index",
+        "goal_ref",
+        "goal",
+        "scenario",
+        "agent_inventory_ref",
+        "agent_inventory",
+        "workspace_template_ref",
+        "workspace",
+        "interaction_protocol_ref",
+        "interaction_protocol",
+        "evaluation_plan_ref",
+        "evaluation_plan",
+        "budgets",
+        "stop_conditions",
+        "capture_policy"
+      ],
+      "title": "RunSpec",
+      "type": "object"
+    },
+    "RunTerminalPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "checkpoint_refs": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Checkpoint Refs",
+          "type": "array"
+        },
+        "evaluation_record_refs": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Evaluation Record Refs",
+          "type": "array"
+        },
+        "goal_result": {
+          "discriminator": {
+            "mapping": {
+              "bounded_exploration": "#/$defs/BoundedExplorationTerminalResult",
+              "goal_state": "#/$defs/GoalStateTerminalResult"
+            },
+            "propertyName": "goal_mode"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/GoalStateTerminalResult"
+            },
+            {
+              "$ref": "#/$defs/BoundedExplorationTerminalResult"
+            }
+          ],
+          "title": "Goal Result"
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "failed",
+            "cancelled",
+            "budget_exhausted",
+            "guardrail_stopped"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "terminal_cause": {
+          "minLength": 1,
+          "title": "Terminal Cause",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "goal_result",
+        "terminal_cause"
+      ],
+      "title": "RunTerminalPayload",
+      "type": "object"
+    },
+    "RuntimeRequirement": {
+      "additionalProperties": false,
+      "properties": {
+        "capability": {
+          "minLength": 1,
+          "title": "Capability",
+          "type": "string"
+        },
+        "required": {
+          "default": true,
+          "title": "Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "capability"
+      ],
+      "title": "RuntimeRequirement",
+      "type": "object"
+    },
+    "ScenarioRevision": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_type": {
+          "const": "scenario",
+          "default": "scenario",
+          "title": "Contract Type",
+          "type": "string"
+        },
+        "logical_id": {
+          "minLength": 1,
+          "title": "Logical Id",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/ScenarioSpec"
+        },
+        "project_id": {
+          "minLength": 1,
+          "title": "Project Id",
+          "type": "string"
+        },
+        "revision": {
+          "exclusiveMinimum": 0,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "1",
+          "default": "1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "logical_id",
+        "revision",
+        "project_id",
+        "title",
+        "payload"
+      ],
+      "title": "ScenarioRevision",
+      "type": "object"
+    },
+    "ScenarioSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "input_bindings": {
+          "items": {
+            "$ref": "#/$defs/InputBinding"
+          },
+          "title": "Input Bindings",
+          "type": "array"
+        },
+        "limitations": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "observable_conditions": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Observable Conditions",
+          "type": "array"
+        },
+        "provenance": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Provenance",
+          "type": "array"
+        }
+      },
+      "required": [
+        "description",
+        "input_bindings"
+      ],
+      "title": "ScenarioSpec",
+      "type": "object"
+    },
+    "SecretBindingRef": {
+      "additionalProperties": false,
+      "properties": {
+        "binding_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9.-]*$",
+          "title": "Binding Id",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "keychain",
+            "environment"
+          ],
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "binding_id",
+        "source"
+      ],
+      "title": "SecretBindingRef",
+      "type": "object"
+    },
+    "SeedStrategy": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "deterministic",
+            "fixed",
+            "per_repetition"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "seed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seed"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "SeedStrategy",
+      "type": "object"
+    },
+    "SkillLoadedPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "capability_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        },
+        "instruction_refs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "title": "Instruction Refs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "capability_ref"
+      ],
+      "title": "SkillLoadedPayload",
+      "type": "object"
+    },
+    "SnapshotPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "capture_workspace": {
+          "default": false,
+          "title": "Capture Workspace",
+          "type": "boolean"
+        },
+        "include_zones": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Include Zones",
+          "type": "array"
+        }
+      },
+      "title": "SnapshotPolicy",
+      "type": "object"
+    },
+    "StopCondition": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "default": "terminal",
+          "enum": [
+            "terminal",
+            "pause"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "goal_complete",
+            "bounded_exploration_complete",
+            "budget_exhausted",
+            "human_stop",
+            "guardrail_violation",
+            "provider_error",
+            "predicate"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "predicate_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CapabilityDescriptorRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "StopCondition",
+      "type": "object"
+    },
+    "StudyIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "assumptions": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Assumptions",
+          "type": "array"
+        },
+        "decision_to_inform": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Decision To Inform"
+        },
+        "hypothesis": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hypothesis"
+        },
+        "purpose": {
+          "minLength": 1,
+          "title": "Purpose",
+          "type": "string"
+        },
+        "questions": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Questions",
+          "type": "array"
+        },
+        "scope": {
+          "$ref": "#/$defs/IntentScope",
+          "default": {
+            "excluded": [],
+            "included": []
+          }
+        }
+      },
+      "required": [
+        "purpose"
+      ],
+      "title": "StudyIntent",
+      "type": "object"
+    },
+    "StudyRevision": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_type": {
+          "const": "study",
+          "default": "study",
+          "title": "Contract Type",
+          "type": "string"
+        },
+        "logical_id": {
+          "minLength": 1,
+          "title": "Logical Id",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/StudySpec"
+        },
+        "project_id": {
+          "minLength": 1,
+          "title": "Project Id",
+          "type": "string"
+        },
+        "revision": {
+          "exclusiveMinimum": 0,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "1",
+          "default": "1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "logical_id",
+        "revision",
+        "project_id",
+        "title",
+        "payload"
+      ],
+      "title": "StudyRevision",
+      "type": "object"
+    },
+    "StudySpec": {
+      "additionalProperties": false,
+      "properties": {
+        "comparisons": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ComparisonPlan"
+          },
+          "title": "Comparisons",
+          "type": "array"
+        },
+        "evidence_mode": {
+          "$ref": "#/$defs/EvidenceMode"
+        },
+        "goal_ref": {
+          "$ref": "#/$defs/ContractRef"
+        },
+        "intent": {
+          "$ref": "#/$defs/StudyIntent"
+        },
+        "limitations": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "repetitions": {
+          "default": 1,
+          "exclusiveMinimum": 0,
+          "title": "Repetitions",
+          "type": "integer"
+        },
+        "run_blueprint": {
+          "$ref": "#/$defs/RunBlueprint"
+        },
+        "scenario_refs": {
+          "items": {
+            "$ref": "#/$defs/ContractRef"
+          },
+          "title": "Scenario Refs",
+          "type": "array"
+        },
+        "seed_strategy": {
+          "$ref": "#/$defs/SeedStrategy",
+          "default": {
+            "kind": "deterministic",
+            "seed": null
+          }
+        },
+        "tags": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "variants": {
+          "default": [
+            {
+              "confounders": [],
+              "id": "default",
+              "label": "Default",
+              "notes": null,
+              "overrides": {
+                "agent_inventory_ref": null,
+                "budgets": null,
+                "capture_policy": null,
+                "checkpoint_policy_ref": null,
+                "context_policy": null,
+                "evaluation_plan_ref": null,
+                "extensions": null,
+                "goal_ref": null,
+                "interaction_protocol_ref": null,
+                "progress_artifact_policy_ref": null,
+                "scenario_ref": null,
+                "stop_conditions": null,
+                "workspace_template_ref": null
+              }
+            }
+          ],
+          "items": {
+            "$ref": "#/$defs/VariantSpec"
+          },
+          "title": "Variants",
+          "type": "array"
+        }
+      },
+      "required": [
+        "intent",
+        "evidence_mode",
+        "goal_ref",
+        "scenario_refs",
+        "run_blueprint"
+      ],
+      "title": "StudySpec",
+      "type": "object"
+    },
+    "SubjectEnvelope": {
+      "additionalProperties": false,
+      "properties": {
+        "budgets": {
+          "$ref": "#/$defs/BudgetSpec"
+        },
+        "effective_capabilities": {
+          "items": {
+            "$ref": "#/$defs/ResolvedCapability"
+          },
+          "title": "Effective Capabilities",
+          "type": "array"
+        },
+        "evaluation_guidance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SubjectEvaluationGuidance"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "goal": {
+          "$ref": "#/$defs/GoalSpec"
+        },
+        "inputs": {
+          "items": {
+            "$ref": "#/$defs/InputBinding"
+          },
+          "title": "Inputs",
+          "type": "array"
+        },
+        "interaction_protocol": {
+          "$ref": "#/$defs/InteractionProtocolSpec"
+        },
+        "run_spec_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Run Spec Digest",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1",
+          "default": "1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "stop_conditions": {
+          "items": {
+            "$ref": "#/$defs/StopCondition"
+          },
+          "title": "Stop Conditions",
+          "type": "array"
+        },
+        "workspace": {
+          "$ref": "#/$defs/SubjectWorkspace"
+        }
+      },
+      "required": [
+        "run_spec_digest",
+        "goal",
+        "inputs",
+        "interaction_protocol",
+        "effective_capabilities",
+        "workspace",
+        "budgets",
+        "stop_conditions"
+      ],
+      "title": "SubjectEnvelope",
+      "type": "object"
+    },
+    "SubjectEvaluationDimension": {
+      "additionalProperties": false,
+      "properties": {
+        "anchors": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/KeyValue"
+          },
+          "title": "Anchors",
+          "type": "array"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "maximum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maximum"
+        },
+        "minimum": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minimum"
+        },
+        "value_type": {
+          "enum": [
+            "boolean",
+            "number",
+            "category"
+          ],
+          "title": "Value Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "value_type"
+      ],
+      "title": "SubjectEvaluationDimension",
+      "type": "object"
+    },
+    "SubjectEvaluationDisclosure": {
+      "additionalProperties": false,
+      "properties": {
+        "dimension_ids": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Dimension Ids",
+          "type": "array"
+        },
+        "include_anchors": {
+          "default": false,
+          "title": "Include Anchors",
+          "type": "boolean"
+        },
+        "include_scale": {
+          "default": false,
+          "title": "Include Scale",
+          "type": "boolean"
+        },
+        "mode": {
+          "default": "none",
+          "enum": [
+            "none",
+            "pre_run",
+            "on_request",
+            "post_run"
+          ],
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "title": "SubjectEvaluationDisclosure",
+      "type": "object"
+    },
+    "SubjectEvaluationGuidance": {
+      "additionalProperties": false,
+      "properties": {
+        "dimensions": {
+          "items": {
+            "$ref": "#/$defs/SubjectEvaluationDimension"
+          },
+          "title": "Dimensions",
+          "type": "array"
+        },
+        "mode": {
+          "const": "pre_run",
+          "default": "pre_run",
+          "title": "Mode",
+          "type": "string"
+        },
+        "plan_ref": {
+          "$ref": "#/$defs/ContractRef"
+        }
+      },
+      "required": [
+        "plan_ref",
+        "dimensions"
+      ],
+      "title": "SubjectEvaluationGuidance",
+      "type": "object"
+    },
+    "SubjectInvokedPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "evaluation_guidance_digest": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evaluation Guidance Digest"
+        },
+        "network": {
+          "enum": [
+            "disabled",
+            "provider_only",
+            "allowlist"
+          ],
+          "title": "Network",
+          "type": "string"
+        },
+        "runner": {
+          "minLength": 1,
+          "title": "Runner",
+          "type": "string"
+        },
+        "subject_envelope_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Subject Envelope Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "runner",
+        "network",
+        "subject_envelope_digest"
+      ],
+      "title": "SubjectInvokedPayload",
+      "type": "object"
+    },
+    "SubjectRespondedPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "capture_mode": {
+          "enum": [
+            "metadata",
+            "redacted",
+            "raw_encrypted",
+            "disabled"
+          ],
+          "title": "Capture Mode",
+          "type": "string"
+        },
+        "evidence": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "metadata": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/KeyValue"
+          },
+          "title": "Metadata",
+          "type": "array"
+        },
+        "output": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output"
+        },
+        "output_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Output Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "output_digest",
+        "capture_mode"
+      ],
+      "title": "SubjectRespondedPayload",
+      "type": "object"
+    },
+    "SubjectTurnIntervalProgressTrigger": {
+      "additionalProperties": false,
+      "properties": {
+        "counted_event_type": {
+          "const": "subject.responded",
+          "default": "subject.responded",
+          "title": "Counted Event Type",
+          "type": "string"
+        },
+        "every_n_turns": {
+          "exclusiveMinimum": 0,
+          "title": "Every N Turns",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "subject_turn_interval",
+          "default": "subject_turn_interval",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "every_n_turns"
+      ],
+      "title": "SubjectTurnIntervalProgressTrigger",
+      "type": "object"
+    },
+    "SubjectWorkspace": {
+      "additionalProperties": false,
+      "properties": {
+        "external_effect_mode": {
+          "enum": [
+            "denied",
+            "approval_required",
+            "allowlist"
+          ],
+          "title": "External Effect Mode",
+          "type": "string"
+        },
+        "mounts": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Mounts",
+          "type": "array"
+        },
+        "network_mode": {
+          "enum": [
+            "disabled",
+            "provider_only",
+            "allowlist"
+          ],
+          "title": "Network Mode",
+          "type": "string"
+        },
+        "runtime_kind": {
+          "minLength": 1,
+          "title": "Runtime Kind",
+          "type": "string"
+        },
+        "write_zones": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Write Zones",
+          "type": "array"
+        }
+      },
+      "required": [
+        "runtime_kind",
+        "network_mode",
+        "external_effect_mode"
+      ],
+      "title": "SubjectWorkspace",
+      "type": "object"
+    },
+    "ToolCalledPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "arguments_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ArtifactRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "call_id": {
+          "minLength": 1,
+          "title": "Call Id",
+          "type": "string"
+        },
+        "capability_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        },
+        "input_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Input Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "capability_ref",
+        "call_id",
+        "input_digest"
+      ],
+      "title": "ToolCalledPayload",
+      "type": "object"
+    },
+    "ToolDecisionPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "call_id": {
+          "minLength": 1,
+          "title": "Call Id",
+          "type": "string"
+        },
+        "decided_by": {
+          "minLength": 1,
+          "title": "Decided By",
+          "type": "string"
+        },
+        "rationale": {
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        }
+      },
+      "required": [
+        "call_id",
+        "decided_by",
+        "rationale"
+      ],
+      "title": "ToolDecisionPayload",
+      "type": "object"
+    },
+    "ToolResultPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "call_id": {
+          "minLength": 1,
+          "title": "Call Id",
+          "type": "string"
+        },
+        "capability_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "result_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ArtifactRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "capability_ref",
+        "call_id"
+      ],
+      "title": "ToolResultPayload",
+      "type": "object"
+    },
+    "VariantOverrides": {
+      "additionalProperties": false,
+      "properties": {
+        "agent_inventory_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContractRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "budgets": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BudgetSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "capture_policy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CapturePolicySpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "checkpoint_policy_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContractRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "context_policy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContextPolicySpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "evaluation_plan_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContractRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "extensions": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ExtensionRef"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Extensions"
+        },
+        "goal_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContractRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "interaction_protocol_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContractRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "progress_artifact_policy_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContractRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "scenario_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContractRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "stop_conditions": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/StopCondition"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stop Conditions"
+        },
+        "workspace_template_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContractRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "VariantOverrides",
+      "type": "object"
+    },
+    "VariantSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "confounders": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Confounders",
+          "type": "array"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        },
+        "overrides": {
+          "$ref": "#/$defs/VariantOverrides",
+          "default": {
+            "agent_inventory_ref": null,
+            "budgets": null,
+            "capture_policy": null,
+            "checkpoint_policy_ref": null,
+            "context_policy": null,
+            "evaluation_plan_ref": null,
+            "extensions": null,
+            "goal_ref": null,
+            "interaction_protocol_ref": null,
+            "progress_artifact_policy_ref": null,
+            "scenario_ref": null,
+            "stop_conditions": null,
+            "workspace_template_ref": null
+          }
+        }
+      },
+      "required": [
+        "id",
+        "label"
+      ],
+      "title": "VariantSpec",
+      "type": "object"
+    },
+    "VerifiedHumanDecisionAuthority": {
+      "additionalProperties": false,
+      "properties": {
+        "attestation": {
+          "$ref": "#/$defs/HumanAttestationRecord"
+        },
+        "kind": {
+          "const": "verified_human",
+          "default": "verified_human",
+          "title": "Kind",
+          "type": "string"
+        },
+        "principal_id": {
+          "minLength": 1,
+          "title": "Principal Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "principal_id",
+        "attestation"
+      ],
+      "title": "VerifiedHumanDecisionAuthority",
+      "type": "object"
+    },
+    "WorkspaceMount": {
+      "additionalProperties": false,
+      "properties": {
+        "access": {
+          "enum": [
+            "read_only",
+            "read_write"
+          ],
+          "title": "Access",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "target": {
+          "minLength": 1,
+          "title": "Target",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "source",
+        "access",
+        "target"
+      ],
+      "title": "WorkspaceMount",
+      "type": "object"
+    },
+    "WorkspaceTemplateRevision": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_type": {
+          "const": "workspace_template",
+          "default": "workspace_template",
+          "title": "Contract Type",
+          "type": "string"
+        },
+        "logical_id": {
+          "minLength": 1,
+          "title": "Logical Id",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/WorkspaceTemplateSpec"
+        },
+        "project_id": {
+          "minLength": 1,
+          "title": "Project Id",
+          "type": "string"
+        },
+        "revision": {
+          "exclusiveMinimum": 0,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "1",
+          "default": "1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "logical_id",
+        "revision",
+        "project_id",
+        "title",
+        "payload"
+      ],
+      "title": "WorkspaceTemplateRevision",
+      "type": "object"
+    },
+    "WorkspaceTemplateSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "cleanup_policy": {
+          "$ref": "#/$defs/CleanupPolicy",
+          "default": {
+            "mode": "discard",
+            "ttl_seconds": null
+          }
+        },
+        "external_effect_policy": {
+          "$ref": "#/$defs/ExternalEffectPolicy"
+        },
+        "lifecycle": {
+          "const": "ephemeral_per_run",
+          "default": "ephemeral_per_run",
+          "title": "Lifecycle",
+          "type": "string"
+        },
+        "mounts": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/WorkspaceMount"
+          },
+          "title": "Mounts",
+          "type": "array"
+        },
+        "network_policy": {
+          "$ref": "#/$defs/NetworkPolicy"
+        },
+        "runtime_kind": {
+          "minLength": 1,
+          "title": "Runtime Kind",
+          "type": "string"
+        },
+        "secret_binding_refs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SecretBindingRef"
+          },
+          "title": "Secret Binding Refs",
+          "type": "array"
+        },
+        "snapshot_policy": {
+          "$ref": "#/$defs/SnapshotPolicy",
+          "default": {
+            "capture_workspace": false,
+            "include_zones": []
+          }
+        },
+        "write_zones": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Write Zones",
+          "type": "array"
+        }
+      },
+      "required": [
+        "runtime_kind",
+        "network_policy",
+        "external_effect_policy"
+      ],
+      "title": "WorkspaceTemplateSpec",
+      "type": "object"
+    }
+  },
+  "anyOf": [
+    {
+      "$ref": "#/$defs/StudyRevision"
+    },
+    {
+      "$ref": "#/$defs/GoalRevision"
+    },
+    {
+      "$ref": "#/$defs/ScenarioRevision"
+    },
+    {
+      "$ref": "#/$defs/AgentInventoryRevision"
+    },
+    {
+      "$ref": "#/$defs/WorkspaceTemplateRevision"
+    },
+    {
+      "$ref": "#/$defs/InteractionProtocolRevision"
+    },
+    {
+      "$ref": "#/$defs/EvaluationPlanRevision"
+    },
+    {
+      "$ref": "#/$defs/CheckpointPolicyRevision"
+    },
+    {
+      "$ref": "#/$defs/ProgressArtifactPolicyRevision"
+    },
+    {
+      "$ref": "#/$defs/RunSpec"
+    },
+    {
+      "$ref": "#/$defs/AdmissionRecord"
+    },
+    {
+      "$ref": "#/$defs/SubjectEnvelope"
+    },
+    {
+      "$ref": "#/$defs/EvaluationRecord"
+    },
+    {
+      "$ref": "#/$defs/EvaluatorEnvelope"
+    },
+    {
+      "$ref": "#/$defs/CheckpointRecord"
+    },
+    {
+      "$ref": "#/$defs/RevisionDecisionRecord"
+    },
+    {
+      "$ref": "#/$defs/HumanAttestationRecord"
+    },
+    {
+      "$ref": "#/$defs/ProgressArtifactContent"
+    },
+    {
+      "$ref": "#/$defs/ProgressArtifactRecord"
+    },
+    {
+      "$ref": "#/$defs/ArtifactManifest"
+    },
+    {
+      "$ref": "#/$defs/RunRecord"
+    },
+    {
+      "$ref": "#/$defs/RunQueuedPayload"
+    },
+    {
+      "$ref": "#/$defs/RunPreparingPayload"
+    },
+    {
+      "$ref": "#/$defs/RunLifecyclePayload"
+    },
+    {
+      "$ref": "#/$defs/ContextComposedPayload"
+    },
+    {
+      "$ref": "#/$defs/SubjectInvokedPayload"
+    },
+    {
+      "$ref": "#/$defs/SubjectRespondedPayload"
+    },
+    {
+      "$ref": "#/$defs/EvaluationCompletedPayload"
+    },
+    {
+      "$ref": "#/$defs/CapabilityOfferedPayload"
+    },
+    {
+      "$ref": "#/$defs/SkillLoadedPayload"
+    },
+    {
+      "$ref": "#/$defs/CapabilityInvocationPayload"
+    },
+    {
+      "$ref": "#/$defs/CapabilityResultPayload"
+    },
+    {
+      "$ref": "#/$defs/ToolCalledPayload"
+    },
+    {
+      "$ref": "#/$defs/ToolDecisionPayload"
+    },
+    {
+      "$ref": "#/$defs/ToolResultPayload"
+    },
+    {
+      "$ref": "#/$defs/CheckpointValidationFailedPayload"
+    },
+    {
+      "$ref": "#/$defs/ProgressObserverStartedPayload"
+    },
+    {
+      "$ref": "#/$defs/ProgressArtifactCreatedPayload"
+    },
+    {
+      "$ref": "#/$defs/ProgressObserverFailedPayload"
+    },
+    {
+      "$ref": "#/$defs/RunTerminalPayload"
+    }
+  ]
+}

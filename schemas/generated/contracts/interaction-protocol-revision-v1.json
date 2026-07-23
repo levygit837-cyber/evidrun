@@ -1,0 +1,411 @@
+{
+  "$defs": {
+    "AlwaysTrigger": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "always",
+          "default": "always",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "title": "AlwaysTrigger",
+      "type": "object"
+    },
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "classification": {
+          "$ref": "#/$defs/Classification",
+          "default": "internal"
+        },
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "media_type": {
+          "minLength": 1,
+          "title": "Media Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "digest",
+        "media_type"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "CapabilityDescriptorRef": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "namespace": {
+          "minLength": 1,
+          "title": "Namespace",
+          "type": "string"
+        },
+        "version": {
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "namespace",
+        "name",
+        "version",
+        "digest"
+      ],
+      "title": "CapabilityDescriptorRef",
+      "type": "object"
+    },
+    "CheckpointReachedTrigger": {
+      "additionalProperties": false,
+      "properties": {
+        "checkpoint_definition_id": {
+          "minLength": 1,
+          "title": "Checkpoint Definition Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "checkpoint_reached",
+          "default": "checkpoint_reached",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "checkpoint_definition_id"
+      ],
+      "title": "CheckpointReachedTrigger",
+      "type": "object"
+    },
+    "Classification": {
+      "enum": [
+        "public",
+        "internal",
+        "sensitive",
+        "restricted"
+      ],
+      "title": "Classification",
+      "type": "string"
+    },
+    "EvaluatorSignalTrigger": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "evaluator_signal",
+          "default": "evaluator_signal",
+          "title": "Kind",
+          "type": "string"
+        },
+        "signal": {
+          "minLength": 1,
+          "title": "Signal",
+          "type": "string"
+        },
+        "stage_id": {
+          "minLength": 1,
+          "title": "Stage Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "stage_id",
+        "signal"
+      ],
+      "title": "EvaluatorSignalTrigger",
+      "type": "object"
+    },
+    "EventTrigger": {
+      "additionalProperties": false,
+      "properties": {
+        "event_type": {
+          "minLength": 1,
+          "title": "Event Type",
+          "type": "string"
+        },
+        "kind": {
+          "const": "event",
+          "default": "event",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_type"
+      ],
+      "title": "EventTrigger",
+      "type": "object"
+    },
+    "HumanSignalTrigger": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "human_signal",
+          "default": "human_signal",
+          "title": "Kind",
+          "type": "string"
+        },
+        "signal": {
+          "minLength": 1,
+          "title": "Signal",
+          "type": "string"
+        }
+      },
+      "required": [
+        "signal"
+      ],
+      "title": "HumanSignalTrigger",
+      "type": "object"
+    },
+    "InteractionEdge": {
+      "additionalProperties": false,
+      "properties": {
+        "max_activations": {
+          "default": 1,
+          "exclusiveMinimum": 0,
+          "title": "Max Activations",
+          "type": "integer"
+        },
+        "priority": {
+          "default": 0,
+          "title": "Priority",
+          "type": "integer"
+        },
+        "source": {
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        },
+        "target": {
+          "minLength": 1,
+          "title": "Target",
+          "type": "string"
+        },
+        "trigger": {
+          "discriminator": {
+            "mapping": {
+              "always": "#/$defs/AlwaysTrigger",
+              "checkpoint_reached": "#/$defs/CheckpointReachedTrigger",
+              "evaluator_signal": "#/$defs/EvaluatorSignalTrigger",
+              "event": "#/$defs/EventTrigger",
+              "human_signal": "#/$defs/HumanSignalTrigger",
+              "predicate": "#/$defs/PredicateTrigger"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/AlwaysTrigger"
+            },
+            {
+              "$ref": "#/$defs/EventTrigger"
+            },
+            {
+              "$ref": "#/$defs/CheckpointReachedTrigger"
+            },
+            {
+              "$ref": "#/$defs/EvaluatorSignalTrigger"
+            },
+            {
+              "$ref": "#/$defs/HumanSignalTrigger"
+            },
+            {
+              "$ref": "#/$defs/PredicateTrigger"
+            }
+          ],
+          "title": "Trigger"
+        }
+      },
+      "required": [
+        "source",
+        "target",
+        "trigger"
+      ],
+      "title": "InteractionEdge",
+      "type": "object"
+    },
+    "InteractionNode": {
+      "additionalProperties": false,
+      "properties": {
+        "content_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ArtifactRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "prompt",
+            "await_subject",
+            "checkpoint",
+            "human_approval",
+            "terminal"
+          ],
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind"
+      ],
+      "title": "InteractionNode",
+      "type": "object"
+    },
+    "InteractionProtocolSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "edges": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/InteractionEdge"
+          },
+          "title": "Edges",
+          "type": "array"
+        },
+        "initial_message_refs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "title": "Initial Message Refs",
+          "type": "array"
+        },
+        "max_turns": {
+          "default": 1,
+          "exclusiveMinimum": 0,
+          "title": "Max Turns",
+          "type": "integer"
+        },
+        "mode": {
+          "enum": [
+            "single_turn",
+            "graph"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "nodes": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/InteractionNode"
+          },
+          "title": "Nodes",
+          "type": "array"
+        },
+        "system_prompt_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ArtifactRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "title": "InteractionProtocolSpec",
+      "type": "object"
+    },
+    "PredicateTrigger": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "predicate",
+          "default": "predicate",
+          "title": "Kind",
+          "type": "string"
+        },
+        "predicate_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        }
+      },
+      "required": [
+        "predicate_ref"
+      ],
+      "title": "PredicateTrigger",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "contract_type": {
+      "const": "interaction_protocol",
+      "default": "interaction_protocol",
+      "title": "Contract Type",
+      "type": "string"
+    },
+    "logical_id": {
+      "minLength": 1,
+      "title": "Logical Id",
+      "type": "string"
+    },
+    "payload": {
+      "$ref": "#/$defs/InteractionProtocolSpec"
+    },
+    "project_id": {
+      "minLength": 1,
+      "title": "Project Id",
+      "type": "string"
+    },
+    "revision": {
+      "exclusiveMinimum": 0,
+      "title": "Revision",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "1",
+      "default": "1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "logical_id",
+    "revision",
+    "project_id",
+    "title",
+    "payload"
+  ],
+  "title": "InteractionProtocolRevision",
+  "type": "object"
+}

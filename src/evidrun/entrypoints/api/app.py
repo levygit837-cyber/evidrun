@@ -6,7 +6,7 @@ import os
 from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 import uvicorn
 import yaml
@@ -16,6 +16,12 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from evidrun import __version__
+from evidrun.contracts import (
+    StudyRevision,
+    parse_revision,
+    semantic_model_dump,
+)
+from evidrun.contracts.compiler import StudyCompiler
 from evidrun.evidence.bundle import EvidenceBundleService
 from evidrun.experiments import ExperimentManifest
 from evidrun.infrastructure.database import Database, Repository
@@ -43,6 +49,18 @@ class ChatMessageCreate(BaseModel):
 class ManifestRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     yaml: str
+
+
+class ContractDocumentRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    document: dict[str, object]
+    status: Literal["draft", "proposed"] = "draft"
+
+
+class ContractDecisionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    decision: Literal["accepted", "rejected", "superseded"]
+    rationale: str = Field(min_length=1)
 
 
 def create_app(
@@ -173,6 +191,126 @@ def create_app(
             "normalized": manifest.model_dump(mode="json"),
         }
 
+    @app.post("/api/v1/contracts/validate")
+    async def validate_contract(
+        payload: ContractDocumentRequest, _: None = Depends(authorize)
+    ) -> dict[str, Any]:
+        try:
+            revision = parse_revision(payload.document)
+        except Exception as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return {
+            "valid": True,
+            "digest": revision.digest,
+            "normalized": revision.semantic_document(),
+        }
+
+    @app.post("/api/v1/contracts/revisions")
+    async def register_contract(
+        payload: ContractDocumentRequest, _: None = Depends(authorize)
+    ) -> dict[str, Any]:
+        try:
+            revision = parse_revision(payload.document)
+            row = repository.save_contract_revision(revision, status=payload.status)
+        except Exception as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return {
+            "id": row.id,
+            "contract_type": row.contract_type,
+            "logical_id": row.logical_id,
+            "revision": row.revision,
+            "digest": row.digest,
+            "status": row.status,
+        }
+
+    @app.get("/api/v1/contracts/revisions")
+    async def contract_revisions(_: None = Depends(authorize)) -> list[dict[str, Any]]:
+        return repository.list_contract_revisions()
+
+    @app.post("/api/v1/contracts/revisions/{revision_id}/decisions")
+    async def decide_contract(
+        revision_id: str,
+        payload: ContractDecisionRequest,
+        _: None = Depends(authorize),
+    ) -> dict[str, Any]:
+        try:
+            repository.get_contract_revision(revision_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="contract revision not found") from exc
+        del payload
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "verified human authority is unavailable; a trusted WebAuthn verifier "
+                "must complete this decision"
+            ),
+        )
+
+    @app.post("/api/v1/studies/{revision_id}/compile")
+    async def compile_study(
+        revision_id: str, _: None = Depends(authorize)
+    ) -> list[dict[str, Any]]:
+        try:
+            revision = repository.get_contract_revision(revision_id)
+            if not isinstance(revision, StudyRevision):
+                raise ValueError("contract revision is not a StudyRevision")
+            registry = repository.contract_registry(revision.project_id)
+            specs = StudyCompiler(registry).compile(revision)
+            rows = [repository.save_run_spec(spec) for spec in specs]
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="Study revision not found") from exc
+        except Exception as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return [
+            {
+                "id": row.id,
+                "digest": row.digest,
+                "variant_id": row.variant_id,
+                "scenario_id": row.scenario_logical_id,
+                "repetition_index": row.repetition_index,
+            }
+            for row in rows
+        ]
+
+    @app.post("/api/v1/run-specs/{run_spec_id}/admit")
+    async def admit_run_spec(
+        run_spec_id: str, _: None = Depends(authorize)
+    ) -> dict[str, Any]:
+        try:
+            spec = repository.get_run_spec(run_spec_id)
+            admission = service.admission_service.admit(spec)
+            row = repository.save_admission_record(run_spec_id, admission)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="RunSpec not found") from exc
+        except Exception as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return {
+            "id": row.id,
+            "decision": admission.decision,
+            "digest": admission.digest,
+            "missing_requirements": admission.missing_requirements,
+        }
+
+    @app.get("/api/v1/run-specs/{run_spec_id}")
+    async def run_spec(
+        run_spec_id: str, _: None = Depends(authorize)
+    ) -> dict[str, Any]:
+        try:
+            spec = repository.get_run_spec(run_spec_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="RunSpec not found") from exc
+        return {**semantic_model_dump(spec), "digest": spec.digest}
+
+    @app.get("/api/v1/admissions/{admission_id}")
+    async def admission(
+        admission_id: str, _: None = Depends(authorize)
+    ) -> dict[str, Any]:
+        try:
+            record = repository.get_admission_record(admission_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="AdmissionRecord not found") from exc
+        return {**semantic_model_dump(record), "digest": record.digest}
+
     @app.post("/api/v1/demo/bootstrap")
     async def bootstrap_demo(_: None = Depends(authorize)) -> dict[str, Any]:
         return await asyncio.to_thread(service.bootstrap_demo, benchmarks)
@@ -188,13 +326,36 @@ def create_app(
         matches = [item for item in repository.latest_dashboard()["runs"] if item["id"] == run_id]
         if not matches:
             raise HTTPException(status_code=404, detail="run not found")
-        return {**matches[0], "events": repository.get_run_events(run_id)}
+        record = repository.get_run_record(run_id)
+        return {
+            **matches[0],
+            "record": semantic_model_dump(record) if record is not None else None,
+            "events": repository.get_run_events(run_id),
+        }
 
     @app.get("/api/v1/runs/{run_id}/events")
     async def run_events(
         run_id: str, _: None = Depends(authorize)
     ) -> list[dict[str, Any]]:
         return repository.get_run_events(run_id)
+
+    @app.get("/api/v1/runs/{run_id}/evaluations")
+    async def run_evaluations(
+        run_id: str, _: None = Depends(authorize)
+    ) -> list[dict[str, Any]]:
+        return [
+            {**semantic_model_dump(item), "digest": item.digest}
+            for item in repository.get_evaluation_records(run_id)
+        ]
+
+    @app.get("/api/v1/runs/{run_id}/checkpoints")
+    async def run_checkpoints(
+        run_id: str, _: None = Depends(authorize)
+    ) -> list[dict[str, Any]]:
+        return [
+            {**semantic_model_dump(item), "checkpoint_hash": item.checkpoint_hash}
+            for item in repository.get_checkpoint_records(run_id)
+        ]
 
     @app.get("/api/v1/runs/{run_id}/stream")
     async def run_stream(
@@ -209,7 +370,13 @@ def create_app(
                     yield f"event: {event['type']}\ndata: {serialized}\n\n"
                 emitted = len(events)
                 run = repository.get_run(run_id)
-                if run.status in {"completed", "failed", "canceled", "expired"} and emitted:
+                if run.status in {
+                    "completed",
+                    "failed",
+                    "cancelled",
+                    "budget_exhausted",
+                    "guardrail_stopped",
+                } and emitted:
                     return
                 yield ": heartbeat\n\n"
                 await asyncio.sleep(1)
@@ -274,7 +441,7 @@ def create_app(
         comparison_id: str, _: None = Depends(authorize)
     ) -> dict[str, Any]:
         target = settings.data_dir / "exports" / f"{comparison_id}.evidrun.zip"
-        await asyncio.to_thread(bundles.export_comparison, comparison_id, target)
+        await asyncio.to_thread(bundles.export_comparison_v2, comparison_id, target)
         return {"path": str(target), "comparison_id": comparison_id}
 
     return app

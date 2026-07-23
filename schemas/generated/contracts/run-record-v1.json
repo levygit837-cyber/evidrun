@@ -1,0 +1,132 @@
+{
+  "$defs": {
+    "ContractRef": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_type": {
+          "$ref": "#/$defs/ContractType"
+        },
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "logical_id": {
+          "minLength": 1,
+          "title": "Logical Id",
+          "type": "string"
+        },
+        "revision": {
+          "exclusiveMinimum": 0,
+          "title": "Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "contract_type",
+        "logical_id",
+        "revision",
+        "digest"
+      ],
+      "title": "ContractRef",
+      "type": "object"
+    },
+    "ContractType": {
+      "enum": [
+        "study",
+        "goal",
+        "scenario",
+        "agent_inventory",
+        "workspace_template",
+        "interaction_protocol",
+        "evaluation_plan",
+        "checkpoint_policy",
+        "progress_artifact_policy"
+      ],
+      "title": "ContractType",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "admission_digest": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Admission Digest",
+      "type": "string"
+    },
+    "admission_id": {
+      "minLength": 1,
+      "title": "Admission Id",
+      "type": "string"
+    },
+    "created_at_utc": {
+      "format": "date-time",
+      "title": "Created At Utc",
+      "type": "string"
+    },
+    "repetition_index": {
+      "exclusiveMinimum": 0,
+      "title": "Repetition Index",
+      "type": "integer"
+    },
+    "retry_of": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Retry Of"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "run_spec_digest": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Run Spec Digest",
+      "type": "string"
+    },
+    "run_spec_id": {
+      "minLength": 1,
+      "title": "Run Spec Id",
+      "type": "string"
+    },
+    "scenario_ref": {
+      "$ref": "#/$defs/ContractRef"
+    },
+    "schema_version": {
+      "const": "1",
+      "default": "1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "study_ref": {
+      "$ref": "#/$defs/ContractRef"
+    },
+    "variant_id": {
+      "minLength": 1,
+      "title": "Variant Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "run_spec_id",
+    "run_spec_digest",
+    "admission_id",
+    "admission_digest",
+    "study_ref",
+    "scenario_ref",
+    "variant_id",
+    "repetition_index",
+    "created_at_utc"
+  ],
+  "title": "RunRecord",
+  "type": "object"
+}

@@ -1,0 +1,151 @@
+{
+  "$defs": {
+    "ArtifactManifestEntry": {
+      "additionalProperties": false,
+      "description": "One intentionally materialized artifact; never a file-access activity log.",
+      "properties": {
+        "artifact_ref": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "content_included": {
+          "default": false,
+          "title": "Content Included",
+          "type": "boolean"
+        },
+        "omission_reason": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Omission Reason"
+        },
+        "required_for_portability": {
+          "default": false,
+          "title": "Required For Portability",
+          "type": "boolean"
+        },
+        "role": {
+          "enum": [
+            "scenario_input",
+            "subject_input_materialized",
+            "agent_instruction",
+            "interaction_prompt",
+            "hidden_calibration",
+            "extension_schema",
+            "extension_payload",
+            "evaluation_evidence",
+            "run_output",
+            "progress_summary",
+            "workspace_snapshot",
+            "checkpoint_capture",
+            "report_attachment"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "source_label": {
+          "minLength": 1,
+          "title": "Source Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "role",
+        "artifact_ref",
+        "source_label"
+      ],
+      "title": "ArtifactManifestEntry",
+      "type": "object"
+    },
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "classification": {
+          "$ref": "#/$defs/Classification",
+          "default": "internal"
+        },
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "media_type": {
+          "minLength": 1,
+          "title": "Media Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "digest",
+        "media_type"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "Classification": {
+      "enum": [
+        "public",
+        "internal",
+        "sensitive",
+        "restricted"
+      ],
+      "title": "Classification",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "entries": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ArtifactManifestEntry"
+      },
+      "title": "Entries",
+      "type": "array"
+    },
+    "portable": {
+      "const": false,
+      "default": false,
+      "title": "Portable",
+      "type": "boolean"
+    },
+    "profile": {
+      "const": "audit",
+      "default": "audit",
+      "title": "Profile",
+      "type": "string"
+    },
+    "replayable": {
+      "const": false,
+      "default": false,
+      "title": "Replayable",
+      "type": "boolean"
+    },
+    "schema_version": {
+      "const": "1",
+      "default": "1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "title": "ArtifactManifest",
+  "type": "object"
+}

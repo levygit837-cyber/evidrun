@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from sqlalchemy import Engine, create_engine, event
+from sqlalchemy import Engine, create_engine, event, inspect
 from sqlalchemy.orm import Session, sessionmaker
 
 from evidrun.infrastructure.database.models import Base
@@ -28,6 +28,33 @@ class Database:
 
     def create_all(self) -> None:
         Base.metadata.create_all(self.engine)
+        self._ensure_additive_run_contract_columns()
+        self._ensure_additive_contract_revision_status()
+
+    def _ensure_additive_run_contract_columns(self) -> None:
+        """Keep pre-contract local databases readable before Alembic is invoked explicitly."""
+        columns = {item["name"] for item in inspect(self.engine).get_columns("runs")}
+        additions = {
+            "run_spec_id": "VARCHAR REFERENCES run_specs(id)",
+            "admission_id": "VARCHAR REFERENCES admission_records(id)",
+        }
+        with self.engine.begin() as connection:
+            for name, declaration in additions.items():
+                if name not in columns:
+                    connection.exec_driver_sql(
+                        f"ALTER TABLE runs ADD COLUMN {name} {declaration}"
+                    )
+
+    def _ensure_additive_contract_revision_status(self) -> None:
+        columns = {
+            item["name"] for item in inspect(self.engine).get_columns("contract_revisions")
+        }
+        if "status" not in columns:
+            with self.engine.begin() as connection:
+                connection.exec_driver_sql(
+                    "ALTER TABLE contract_revisions "
+                    "ADD COLUMN status VARCHAR NOT NULL DEFAULT 'draft'"
+                )
 
     def session(self) -> Session:
         return self.session_factory()

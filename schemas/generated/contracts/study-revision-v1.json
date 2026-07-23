@@ -1,0 +1,971 @@
+{
+  "$defs": {
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "classification": {
+          "$ref": "#/$defs/Classification",
+          "default": "internal"
+        },
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "media_type": {
+          "minLength": 1,
+          "title": "Media Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "digest",
+        "media_type"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "BudgetSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "max_cost": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Cost"
+        },
+        "max_input_tokens": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Input Tokens"
+        },
+        "max_output_tokens": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Output Tokens"
+        },
+        "max_tool_calls": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Tool Calls"
+        },
+        "max_turns": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Turns"
+        },
+        "max_wall_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Max Wall Seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "max_wall_seconds"
+      ],
+      "title": "BudgetSpec",
+      "type": "object"
+    },
+    "CapabilityDescriptorRef": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "namespace": {
+          "minLength": 1,
+          "title": "Namespace",
+          "type": "string"
+        },
+        "version": {
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "namespace",
+        "name",
+        "version",
+        "digest"
+      ],
+      "title": "CapabilityDescriptorRef",
+      "type": "object"
+    },
+    "CapturePolicySpec": {
+      "additionalProperties": false,
+      "properties": {
+        "default_mode": {
+          "enum": [
+            "metadata",
+            "redacted",
+            "raw_encrypted",
+            "disabled"
+          ],
+          "title": "Default Mode",
+          "type": "string"
+        },
+        "raw_sensitive": {
+          "default": "disabled",
+          "enum": [
+            "disabled",
+            "opt_in"
+          ],
+          "title": "Raw Sensitive",
+          "type": "string"
+        },
+        "sensitive_ttl_days": {
+          "default": 30,
+          "exclusiveMinimum": 0,
+          "title": "Sensitive Ttl Days",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "default_mode"
+      ],
+      "title": "CapturePolicySpec",
+      "type": "object"
+    },
+    "Classification": {
+      "enum": [
+        "public",
+        "internal",
+        "sensitive",
+        "restricted"
+      ],
+      "title": "Classification",
+      "type": "string"
+    },
+    "ComparisonPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "baseline_variant": {
+          "minLength": 1,
+          "title": "Baseline Variant",
+          "type": "string"
+        },
+        "candidate_variant": {
+          "minLength": 1,
+          "title": "Candidate Variant",
+          "type": "string"
+        },
+        "primary_variable": {
+          "minLength": 1,
+          "title": "Primary Variable",
+          "type": "string"
+        }
+      },
+      "required": [
+        "baseline_variant",
+        "candidate_variant",
+        "primary_variable"
+      ],
+      "title": "ComparisonPlan",
+      "type": "object"
+    },
+    "ContextPolicySpec": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "max_chars": {
+          "exclusiveMinimum": 0,
+          "title": "Max Chars",
+          "type": "integer"
+        },
+        "strategy": {
+          "enum": [
+            "head",
+            "tail",
+            "full"
+          ],
+          "title": "Strategy",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "strategy",
+        "max_chars"
+      ],
+      "title": "ContextPolicySpec",
+      "type": "object"
+    },
+    "ContractRef": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_type": {
+          "$ref": "#/$defs/ContractType"
+        },
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "logical_id": {
+          "minLength": 1,
+          "title": "Logical Id",
+          "type": "string"
+        },
+        "revision": {
+          "exclusiveMinimum": 0,
+          "title": "Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "contract_type",
+        "logical_id",
+        "revision",
+        "digest"
+      ],
+      "title": "ContractRef",
+      "type": "object"
+    },
+    "ContractType": {
+      "enum": [
+        "study",
+        "goal",
+        "scenario",
+        "agent_inventory",
+        "workspace_template",
+        "interaction_protocol",
+        "evaluation_plan",
+        "checkpoint_policy",
+        "progress_artifact_policy"
+      ],
+      "title": "ContractType",
+      "type": "string"
+    },
+    "EvidenceMode": {
+      "enum": [
+        "prospective_controlled",
+        "counterfactual_replay",
+        "retrospective_observational",
+        "exploratory"
+      ],
+      "title": "EvidenceMode",
+      "type": "string"
+    },
+    "ExtensionRef": {
+      "additionalProperties": false,
+      "properties": {
+        "classification": {
+          "$ref": "#/$defs/Classification"
+        },
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "namespace": {
+          "minLength": 1,
+          "title": "Namespace",
+          "type": "string"
+        },
+        "payload_ref": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "required": {
+          "default": true,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "schema_ref": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "schema_version": {
+          "minLength": 1,
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "slot": {
+          "minLength": 1,
+          "title": "Slot",
+          "type": "string"
+        }
+      },
+      "required": [
+        "namespace",
+        "slot",
+        "schema_ref",
+        "schema_version",
+        "payload_ref",
+        "digest",
+        "classification"
+      ],
+      "title": "ExtensionRef",
+      "type": "object"
+    },
+    "IntentScope": {
+      "additionalProperties": false,
+      "properties": {
+        "excluded": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Excluded",
+          "type": "array"
+        },
+        "included": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Included",
+          "type": "array"
+        }
+      },
+      "title": "IntentScope",
+      "type": "object"
+    },
+    "RunBlueprint": {
+      "additionalProperties": false,
+      "properties": {
+        "agent_inventory_ref": {
+          "$ref": "#/$defs/ContractRef"
+        },
+        "budgets": {
+          "$ref": "#/$defs/BudgetSpec"
+        },
+        "capture_policy": {
+          "$ref": "#/$defs/CapturePolicySpec"
+        },
+        "checkpoint_policy_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContractRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "context_policy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContextPolicySpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "evaluation_plan_ref": {
+          "$ref": "#/$defs/ContractRef"
+        },
+        "extensions": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ExtensionRef"
+          },
+          "title": "Extensions",
+          "type": "array"
+        },
+        "interaction_protocol_ref": {
+          "$ref": "#/$defs/ContractRef"
+        },
+        "progress_artifact_policy_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContractRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "stop_conditions": {
+          "items": {
+            "$ref": "#/$defs/StopCondition"
+          },
+          "title": "Stop Conditions",
+          "type": "array"
+        },
+        "workspace_template_ref": {
+          "$ref": "#/$defs/ContractRef"
+        }
+      },
+      "required": [
+        "agent_inventory_ref",
+        "workspace_template_ref",
+        "interaction_protocol_ref",
+        "evaluation_plan_ref",
+        "budgets",
+        "stop_conditions",
+        "capture_policy"
+      ],
+      "title": "RunBlueprint",
+      "type": "object"
+    },
+    "SeedStrategy": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "deterministic",
+            "fixed",
+            "per_repetition"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "seed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seed"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "SeedStrategy",
+      "type": "object"
+    },
+    "StopCondition": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "default": "terminal",
+          "enum": [
+            "terminal",
+            "pause"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "goal_complete",
+            "bounded_exploration_complete",
+            "budget_exhausted",
+            "human_stop",
+            "guardrail_violation",
+            "provider_error",
+            "predicate"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "predicate_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CapabilityDescriptorRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "StopCondition",
+      "type": "object"
+    },
+    "StudyIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "assumptions": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Assumptions",
+          "type": "array"
+        },
+        "decision_to_inform": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Decision To Inform"
+        },
+        "hypothesis": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hypothesis"
+        },
+        "purpose": {
+          "minLength": 1,
+          "title": "Purpose",
+          "type": "string"
+        },
+        "questions": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Questions",
+          "type": "array"
+        },
+        "scope": {
+          "$ref": "#/$defs/IntentScope",
+          "default": {
+            "excluded": [],
+            "included": []
+          }
+        }
+      },
+      "required": [
+        "purpose"
+      ],
+      "title": "StudyIntent",
+      "type": "object"
+    },
+    "StudySpec": {
+      "additionalProperties": false,
+      "properties": {
+        "comparisons": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ComparisonPlan"
+          },
+          "title": "Comparisons",
+          "type": "array"
+        },
+        "evidence_mode": {
+          "$ref": "#/$defs/EvidenceMode"
+        },
+        "goal_ref": {
+          "$ref": "#/$defs/ContractRef"
+        },
+        "intent": {
+          "$ref": "#/$defs/StudyIntent"
+        },
+        "limitations": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "repetitions": {
+          "default": 1,
+          "exclusiveMinimum": 0,
+          "title": "Repetitions",
+          "type": "integer"
+        },
+        "run_blueprint": {
+          "$ref": "#/$defs/RunBlueprint"
+        },
+        "scenario_refs": {
+          "items": {
+            "$ref": "#/$defs/ContractRef"
+          },
+          "title": "Scenario Refs",
+          "type": "array"
+        },
+        "seed_strategy": {
+          "$ref": "#/$defs/SeedStrategy",
+          "default": {
+            "kind": "deterministic",
+            "seed": null
+          }
+        },
+        "tags": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "variants": {
+          "default": [
+            {
+              "confounders": [],
+              "id": "default",
+              "label": "Default",
+              "notes": null,
+              "overrides": {
+                "agent_inventory_ref": null,
+                "budgets": null,
+                "capture_policy": null,
+                "checkpoint_policy_ref": null,
+                "context_policy": null,
+                "evaluation_plan_ref": null,
+                "extensions": null,
+                "goal_ref": null,
+                "interaction_protocol_ref": null,
+                "progress_artifact_policy_ref": null,
+                "scenario_ref": null,
+                "stop_conditions": null,
+                "workspace_template_ref": null
+              }
+            }
+          ],
+          "items": {
+            "$ref": "#/$defs/VariantSpec"
+          },
+          "title": "Variants",
+          "type": "array"
+        }
+      },
+      "required": [
+        "intent",
+        "evidence_mode",
+        "goal_ref",
+        "scenario_refs",
+        "run_blueprint"
+      ],
+      "title": "StudySpec",
+      "type": "object"
+    },
+    "VariantOverrides": {
+      "additionalProperties": false,
+      "properties": {
+        "agent_inventory_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContractRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "budgets": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BudgetSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "capture_policy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CapturePolicySpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "checkpoint_policy_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContractRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "context_policy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContextPolicySpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "evaluation_plan_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContractRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "extensions": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ExtensionRef"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Extensions"
+        },
+        "goal_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContractRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "interaction_protocol_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContractRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "progress_artifact_policy_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContractRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "scenario_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContractRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "stop_conditions": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/StopCondition"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stop Conditions"
+        },
+        "workspace_template_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContractRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "VariantOverrides",
+      "type": "object"
+    },
+    "VariantSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "confounders": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Confounders",
+          "type": "array"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        },
+        "overrides": {
+          "$ref": "#/$defs/VariantOverrides",
+          "default": {
+            "agent_inventory_ref": null,
+            "budgets": null,
+            "capture_policy": null,
+            "checkpoint_policy_ref": null,
+            "context_policy": null,
+            "evaluation_plan_ref": null,
+            "extensions": null,
+            "goal_ref": null,
+            "interaction_protocol_ref": null,
+            "progress_artifact_policy_ref": null,
+            "scenario_ref": null,
+            "stop_conditions": null,
+            "workspace_template_ref": null
+          }
+        }
+      },
+      "required": [
+        "id",
+        "label"
+      ],
+      "title": "VariantSpec",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "contract_type": {
+      "const": "study",
+      "default": "study",
+      "title": "Contract Type",
+      "type": "string"
+    },
+    "logical_id": {
+      "minLength": 1,
+      "title": "Logical Id",
+      "type": "string"
+    },
+    "payload": {
+      "$ref": "#/$defs/StudySpec"
+    },
+    "project_id": {
+      "minLength": 1,
+      "title": "Project Id",
+      "type": "string"
+    },
+    "revision": {
+      "exclusiveMinimum": 0,
+      "title": "Revision",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "1",
+      "default": "1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "logical_id",
+    "revision",
+    "project_id",
+    "title",
+    "payload"
+  ],
+  "title": "StudyRevision",
+  "type": "object"
+}

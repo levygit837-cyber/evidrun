@@ -6,7 +6,7 @@ status: draft
 authority: incubation
 owner: product
 created_at: 2026-07-22
-updated_at: 2026-07-22
+updated_at: 2026-07-23
 applies_to: product/runs
 sources:
   - user-conversation:2026-07-22-run-design-brainstorm
@@ -19,9 +19,10 @@ review_due: 2026-10-22
 
 # Ideias para Runs, contratos e checkpoints
 
-> Estado: brainstorming preservado. Este documento registra intenção, possibilidades e questões
-> abertas. Não define ainda o `RunSpec`, não altera o `ExperimentManifest v1` e não autoriza
-> implementação automática.
+> Estado: brainstorming histórico parcialmente promovido pelo
+> [ADR 0009](../adr/0009-study-run-contract-composition.md). As decisões fechadas vivem no ADR e nos
+> contracts v1; este documento preserva a motivação e as questões que continuam abertas. Ele não
+> altera o `ExperimentManifest v1` nem autoriza implementação automática.
 
 ## Origem
 
@@ -30,9 +31,24 @@ melhorar a performance de um agente, ou escolher uma capacidade e um cenário qu
 Lab Agent entenderia o contexto amplo da pessoa, ajudaria a transformar a ideia em benchmark e
 discutiria quais interações, ambientes, prompts, métricas e evidências seriam adequados.
 
-As ideias foram escritas de forma exploratória antes de o projeto entrar em implementação ampla.
-Devem ser preservadas porque podem orientar contratos futuros, mas não devem ser tratadas como
-requisitos fechados.
+As ideias foram escritas de forma exploratória antes da composição Study/Run ser implementada.
+Devem ser preservadas como origem e como backlog semântico, mas não substituem as decisões
+normativas posteriores.
+
+## Estado de promoção
+
+O ADR 0009 e os contracts v1 fecharam as seguintes partes deste brainstorm:
+
+- `StudyIntent` separado do `Goal` entregue ao Subject;
+- revisions imutáveis com aceitação humana;
+- `StudyRevision` como raiz e `RunSpec` atômico compilado;
+- `InteractionProtocolRevision` tipável, com grafo ainda não executável;
+- `EvaluationPlanRevision` vetorial e `CheckpointPolicyRevision`;
+- separação entre requisitos do agente, admissão resolvida, Run e event ledger;
+- checkpoint como evidência ancorada, sem restore, replay ou fork executável.
+
+Continuam em incubação Findings, usage detalhado, compaction, runtime de tools/skills/nested agents,
+execução de protocolos em grafo, operações derivadas de checkpoint e suas futuras projeções de UI.
 
 ## Intenção central
 
@@ -74,8 +90,10 @@ tratado como exploratório, e não como pass/fail.
 ### Provider e model specs
 
 Uma Run real pode precisar registrar provider, protocolo, model ID solicitado, model ID reportado,
-reasoning, parâmetros de geração, budgets e revisões. Ainda é uma questão aberta se essas definições
-vivem diretamente no contrato da Run ou são resolvidas de perfis versionados durante a compilação.
+reasoning, parâmetros de geração, budgets e revisões. O contrato v1 decidiu que o inventário
+requisita um profile opaco e que a admissão registra digest, modelo, reasoning e adapter efetivos.
+Parâmetros adicionais de geração e a distinção entre model ID solicitado e reportado continuam
+abertos para um successor contract.
 
 ### Prompts e interações condicionais
 
@@ -86,8 +104,9 @@ Uma Run pode possuir um ou vários prompts. O usuário imagina edges condicionai
 - após um marco, iniciar um novo tipo de comportamento;
 - após falhas repetidas, introduzir diagnóstico ou recuperação.
 
-Uma possível formalização futura é um `InteractionProtocol` versionado, com nodes, edges, triggers,
-prioridades e limites de ativação. Isso ainda não foi aceito como contrato.
+Essa parte foi formalizada como `InteractionProtocolRevision`, com nodes, edges, triggers,
+prioridades e limites de ativação. O contrato aceita o grafo como representação, mas o runtime atual
+o rejeita honestamente na admissão; apenas `single_turn` é executável.
 
 ### System prompts
 
@@ -212,9 +231,9 @@ Ainda não há decisão, mas três operações parecem semanticamente diferentes
 Uma execução derivada deve provavelmente ser uma nova Run com lineage explícita, nunca uma reabertura
 silenciosa de uma Run terminal.
 
-## Contratos candidatos
+## Contratos promovidos e candidatos remanescentes
 
-Os nomes abaixo são candidatos, não contratos aprovados:
+Foram promovidos para contracts v1:
 
 - `StudyIntent`;
 - `GoalSpec`;
@@ -224,9 +243,12 @@ Os nomes abaixo são candidatos, não contratos aprovados:
 - `EvaluationPlanRevision`;
 - `CheckpointPolicyRevision`;
 - `RunSpec` compilado;
+- `CheckpointRecord`.
+
+Continuam candidatos, sem contrato aprovado:
+
 - `FindingRecord`;
 - `UsageEvent`;
-- `CheckpointRecord`;
 - `RunOutcome` e `Scorecard`.
 
 ## Fluxo candidato do Lab Agent
@@ -261,18 +283,18 @@ Derivado: total de compactações e economia acumulada
 
 Essa separação reduz inconsistência sem perder observabilidade.
 
-## Questões abertas
+## Questões abertas remanescentes
 
-- Qual é o conjunto mínimo realmente universal do `RunSpec`?
-- Quando exatamente o contrato congela: acceptance, compilation, admission ou queue?
-- Como representar predicados de edges sem permitir lógica arbitrária insegura?
-- Quais dimensões devem existir em todo scorecard?
+- Quais novos slots, se houver, merecem entrar em um successor de `RunSpec`?
+- Como registrar e executar predicados versionados sem permitir lógica arbitrária insegura?
+- Deve existir alguma dimensão universal em scorecards ou o vetor continua inteiramente definido
+  por Study?
 - Quando um Finding inesperado pode influenciar o score atual?
 - O que torna um checkpoint “seguro” e compatível com outra Run?
 - Como medir replayability quando provider ou ambiente não são determinísticos?
 - Como separar tempo ativo do agente, espera humana, latência de provider e tempo de tool?
 - Quais dados brutos são necessários e quais projeções podem ser reconstruídas?
-- Como permitir extensões de domínio sem transformar tudo em `dict[str, Any]`?
+- Quais operações de restore, replay e context extraction merecem contratos separados?
 
 ## Regra de promoção
 

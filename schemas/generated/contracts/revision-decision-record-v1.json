@@ -1,0 +1,336 @@
+{
+  "$defs": {
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "classification": {
+          "$ref": "#/$defs/Classification",
+          "default": "internal"
+        },
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "media_type": {
+          "minLength": 1,
+          "title": "Media Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "digest",
+        "media_type"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "CapabilityDescriptorRef": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "namespace": {
+          "minLength": 1,
+          "title": "Namespace",
+          "type": "string"
+        },
+        "version": {
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "namespace",
+        "name",
+        "version",
+        "digest"
+      ],
+      "title": "CapabilityDescriptorRef",
+      "type": "object"
+    },
+    "Classification": {
+      "enum": [
+        "public",
+        "internal",
+        "sensitive",
+        "restricted"
+      ],
+      "title": "Classification",
+      "type": "string"
+    },
+    "ContractRef": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_type": {
+          "$ref": "#/$defs/ContractType"
+        },
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "logical_id": {
+          "minLength": 1,
+          "title": "Logical Id",
+          "type": "string"
+        },
+        "revision": {
+          "exclusiveMinimum": 0,
+          "title": "Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "contract_type",
+        "logical_id",
+        "revision",
+        "digest"
+      ],
+      "title": "ContractRef",
+      "type": "object"
+    },
+    "ContractType": {
+      "enum": [
+        "study",
+        "goal",
+        "scenario",
+        "agent_inventory",
+        "workspace_template",
+        "interaction_protocol",
+        "evaluation_plan",
+        "checkpoint_policy",
+        "progress_artifact_policy"
+      ],
+      "title": "ContractType",
+      "type": "string"
+    },
+    "HumanAttestationRecord": {
+      "additionalProperties": false,
+      "description": "Evidence produced by a trusted human-verification adapter, not by API input.",
+      "properties": {
+        "action": {
+          "enum": [
+            "revision.accepted",
+            "revision.rejected",
+            "revision.superseded",
+            "evaluation.adjudicated",
+            "evaluation.reviewed"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "assertion_ref": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "attestation_id": {
+          "minLength": 1,
+          "title": "Attestation Id",
+          "type": "string"
+        },
+        "challenge_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Challenge Digest",
+          "type": "string"
+        },
+        "credential_id": {
+          "minLength": 1,
+          "title": "Credential Id",
+          "type": "string"
+        },
+        "origin": {
+          "minLength": 1,
+          "title": "Origin",
+          "type": "string"
+        },
+        "principal_id": {
+          "minLength": 1,
+          "title": "Principal Id",
+          "type": "string"
+        },
+        "relying_party_id": {
+          "minLength": 1,
+          "title": "Relying Party Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1",
+          "default": "1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "subject_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Subject Digest",
+          "type": "string"
+        },
+        "target_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Target Digest",
+          "type": "string"
+        },
+        "user_verification": {
+          "const": "required_verified",
+          "default": "required_verified",
+          "title": "User Verification",
+          "type": "string"
+        },
+        "verification_method": {
+          "const": "webauthn",
+          "default": "webauthn",
+          "title": "Verification Method",
+          "type": "string"
+        },
+        "verified_at_utc": {
+          "format": "date-time",
+          "title": "Verified At Utc",
+          "type": "string"
+        },
+        "verifier_ref": {
+          "$ref": "#/$defs/CapabilityDescriptorRef"
+        }
+      },
+      "required": [
+        "attestation_id",
+        "principal_id",
+        "credential_id",
+        "action",
+        "target_digest",
+        "subject_digest",
+        "challenge_digest",
+        "assertion_ref",
+        "relying_party_id",
+        "origin",
+        "verifier_ref",
+        "verified_at_utc"
+      ],
+      "title": "HumanAttestationRecord",
+      "type": "object"
+    },
+    "RepositoryFixtureDecisionAuthority": {
+      "additionalProperties": false,
+      "properties": {
+        "fixture_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Fixture Digest",
+          "type": "string"
+        },
+        "fixture_id": {
+          "const": "experiment-manifest-v1:crl-ctx-002",
+          "default": "experiment-manifest-v1:crl-ctx-002",
+          "title": "Fixture Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "repository_fixture",
+          "default": "repository_fixture",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "fixture_digest"
+      ],
+      "title": "RepositoryFixtureDecisionAuthority",
+      "type": "object"
+    },
+    "VerifiedHumanDecisionAuthority": {
+      "additionalProperties": false,
+      "properties": {
+        "attestation": {
+          "$ref": "#/$defs/HumanAttestationRecord"
+        },
+        "kind": {
+          "const": "verified_human",
+          "default": "verified_human",
+          "title": "Kind",
+          "type": "string"
+        },
+        "principal_id": {
+          "minLength": 1,
+          "title": "Principal Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "principal_id",
+        "attestation"
+      ],
+      "title": "VerifiedHumanDecisionAuthority",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "authority": {
+      "discriminator": {
+        "mapping": {
+          "repository_fixture": "#/$defs/RepositoryFixtureDecisionAuthority",
+          "verified_human": "#/$defs/VerifiedHumanDecisionAuthority"
+        },
+        "propertyName": "kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/VerifiedHumanDecisionAuthority"
+        },
+        {
+          "$ref": "#/$defs/RepositoryFixtureDecisionAuthority"
+        }
+      ],
+      "title": "Authority"
+    },
+    "decided_at_utc": {
+      "format": "date-time",
+      "title": "Decided At Utc",
+      "type": "string"
+    },
+    "decision": {
+      "enum": [
+        "accepted",
+        "rejected",
+        "superseded"
+      ],
+      "title": "Decision",
+      "type": "string"
+    },
+    "rationale": {
+      "minLength": 1,
+      "title": "Rationale",
+      "type": "string"
+    },
+    "revision_ref": {
+      "$ref": "#/$defs/ContractRef"
+    },
+    "schema_version": {
+      "const": "1",
+      "default": "1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "revision_ref",
+    "decision",
+    "authority",
+    "rationale",
+    "decided_at_utc"
+  ],
+  "title": "RevisionDecisionRecord",
+  "type": "object"
+}

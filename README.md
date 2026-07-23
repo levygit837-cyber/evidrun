@@ -18,11 +18,28 @@ A primeira espinha executável está implementada com o benchmark determinístic
 - subject runner e grader determinísticos;
 - comparação e relatório;
 - evidence bundle com checksums e verificação da cadeia;
+- contracts revisionados para Study, Goal, Scenario, inventário, workspace, interação, avaliação e
+  checkpoints;
+- compilação determinística em RunSpecs, admissão explícita e envelopes mínimos para Subject e
+  evaluators;
 - CLI, API, React e Electron dev shell;
 - CLIProxyAPI local como provider padrão, com `deepseek-v4-flash` e `reasoning=max`;
 - nenhuma API externa necessária para o benchmark de referência.
 
 Esse benchmark comprova o funcionamento da infraestrutura. Ele não mede a capacidade de um LLM.
+
+O fluxo canônico novo é:
+
+```text
+revisions aceitas → Study compila RunSpecs → admissão resolve capacidades → Run → event ledger
+                                                      ↘ evaluations e checkpoints ancorados
+```
+
+O runtime executável continua propositalmente menor que os contracts: hoje ele suporta o runner
+determinístico, `single_turn` e workspace `in_process`. Tools, skills, nested agents, protocolo em
+grafo e restore/replay de checkpoints são representáveis ou planejáveis, mas ainda não são
+executáveis. Consulte [Study, revisions e Run canônica v1](docs/contracts/study-run-v1.md) para as
+fronteiras completas.
 
 ## Começar
 
