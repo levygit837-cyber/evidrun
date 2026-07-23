@@ -3,10 +3,10 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
+from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, inspect
 
-from alembic import command
 from evidrun.infrastructure.database import Database
 
 ROOT = Path(__file__).resolve().parents[2]

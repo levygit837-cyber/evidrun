@@ -10,9 +10,9 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy import inspect
 
-from alembic import op
 from evidrun.infrastructure.database.models import Base
 
 revision: str = "0001_contract_foundation"
