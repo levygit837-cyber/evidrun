@@ -27,7 +27,9 @@ export function AppShell() {
     queryFn: api.defaultProvider,
     enabled: backendState.status === "ready",
   });
-  const [platform, setPlatform] = useState("browser");
+  const [platform, setPlatform] = useState(() =>
+    navigator.userAgent.includes("Mac") ? "darwin" : "browser",
+  );
 
   useEffect(() => {
     void window.evidrunDesktop?.getAppInfo().then((info) => setPlatform(info.platform));
