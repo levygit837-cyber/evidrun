@@ -178,6 +178,39 @@
       "review_due": null
     },
     {
+      "id": "agents-domain-docs",
+      "path": "docs/agents/domain.md",
+      "type": "guide",
+      "title": "Consumo de documentos de domínio pelas agent skills",
+      "status": "accepted",
+      "authority": "informative",
+      "owner": "core",
+      "updated_at": "2026-07-23",
+      "review_due": null
+    },
+    {
+      "id": "agents-issue-tracker",
+      "path": "docs/agents/issue-tracker.md",
+      "type": "guide",
+      "title": "Rastreador de issues das agent skills",
+      "status": "accepted",
+      "authority": "informative",
+      "owner": "core",
+      "updated_at": "2026-07-23",
+      "review_due": null
+    },
+    {
+      "id": "agents-triage-labels",
+      "path": "docs/agents/triage-labels.md",
+      "type": "guide",
+      "title": "Labels de triagem das agent skills",
+      "status": "accepted",
+      "authority": "informative",
+      "owner": "core",
+      "updated_at": "2026-07-23",
+      "review_due": null
+    },
+    {
       "id": "architecture-agents-authority",
       "path": "docs/architecture/agents-and-authority.md",
       "type": "architecture",
