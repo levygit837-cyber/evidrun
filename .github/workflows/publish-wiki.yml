@@ -1,0 +1,55 @@
+name: Publish Wiki
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "droid-wiki/**"
+      - "scripts/publish_wiki.py"
+      - ".github/workflows/publish-wiki.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-wiki
+  cancel-in-progress: true
+
+jobs:
+  publish-wiki:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Clone the GitHub Wiki
+        run: |
+          git clone "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git" wiki
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Convert droid-wiki to GitHub Wiki format
+        run: |
+          python3 scripts/publish_wiki.py \
+            --source droid-wiki \
+            --output wiki \
+            --repo-blob-base "https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}"
+
+      - name: Commit and push wiki changes
+        run: |
+          cd wiki
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No wiki changes to publish."
+          else
+            git commit -m "docs: refresh wiki from ${GITHUB_SHA::7}"
+            git push
+          fi
