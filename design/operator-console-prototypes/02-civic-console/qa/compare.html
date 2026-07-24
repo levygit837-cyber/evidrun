@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Comparação visual Civic Console</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 1424px;
+        height: 512px;
+        margin: 0;
+        overflow: hidden;
+        background: #141d1f;
+      }
+
+      main {
+        display: grid;
+        width: 1424px;
+        height: 512px;
+        grid-template-columns: 711px 2px 711px;
+      }
+
+      img {
+        display: block;
+        width: 711px;
+        height: 512px;
+        object-fit: cover;
+      }
+
+      .divider {
+        background: #e23d35;
+      }
+    </style>
+  </head>
+  <body>
+    <main aria-label="Referência à esquerda e implementação à direita">
+      <img src="/reference/source.png" alt="Referência original" />
+      <div class="divider" aria-hidden="true"></div>
+      <img
+        src="/qa/screenshots/lab-after-1440x1024.png"
+        alt="Implementação após correções"
+      />
+    </main>
+  </body>
+</html>

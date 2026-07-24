@@ -1,0 +1,249 @@
+version: 1
+name: spatial-trace-deterministic-flow
+base_url: http://localhost:4304
+timezone: America/Asuncion
+data_mode: deterministic-local-stub
+authority_boundary: "Nenhuma ação do fluxo registra autoridade humana ou produz evidência canônica."
+
+viewports:
+  desktop:
+    width: 1440
+    height: 660
+  mobile:
+    width: 390
+    height: 660
+
+flows:
+  - id: lab-context
+    route: /
+    actions:
+      - load: /
+      - observe: "Primeiro viewport"
+    expect:
+      - heading: "Seu experimento continua no mesmo lugar."
+      - scope: "Retrieval Quality"
+      - workflow: "Respostas com fontes insuficientes"
+      - next_action: "Corrigir o limite de interações da variante direct-answer"
+      - stub_notice_visible: true
+      - chat_collapsed: true
+      - horizontal_overflow: false
+    evidence: qa/screenshots/01-lab-desktop.jpg
+
+  - id: projects-map-and-create
+    route: /projects
+    actions:
+      - click_link: "Projects"
+      - click_button: "Criar Project"
+      - click_button: "Criar draft"
+      - observe_error: "Informe um nome para o Project."
+      - fill:
+          label: "Nome do Project"
+          value: "Citation Boundary"
+      - fill:
+          label: "Objetivo local"
+          value: "Verificar fronteiras de citação em dados locais."
+      - click_button: "Criar draft"
+    expect:
+      - project_count: 4
+      - selected_project: "Citation Boundary"
+      - current_stage: "intent"
+      - workspace_linkage: "indisponível"
+      - project_is_filesystem_folder: false
+      - horizontal_overflow: false
+    evidence: qa/screenshots/02-projects-desktop.jpg
+
+  - id: study-admission-gate
+    route: /study
+    actions:
+      - load: /study
+      - observe_button:
+          name: "Adicionar à fila stub"
+          occurrence: "rejected Admission"
+      - click_button: "Corrigir em novo draft"
+    expect:
+      - scenario: "source-grounding-check"
+      - variants:
+          - direct-answer
+          - evidence-first
+      - repetitions: 1
+      - direct_answer_admission: rejected
+      - rejected_enqueue_disabled: true
+      - evidence_first_admission: admitted
+      - requested: "3 interações"
+      - supported: "1 interação"
+      - correction_creates_new_local_revision: true
+      - original_rejection_is_rewritten: false
+      - human_acceptance_recorded: false
+    evidence:
+      - qa/screenshots/03-study-admission-desktop.jpg
+      - qa/screenshots/04-admission-correction-desktop.jpg
+
+  - id: run-lifecycle-and-evidence
+    route: /runs
+    actions:
+      - load: /runs
+      - click_button: "Iniciar Stub Run"
+      - observe_in_order:
+          - queued
+          - preparing
+          - running
+          - evaluating
+          - completed
+      - click_button: "Falhou"
+    expect:
+      - queued_event: run.queued
+      - subject_events_only_for_stub_supported_run:
+          - subject.invoked
+          - tool.called
+          - tool.completed
+          - subject.responded
+      - terminal_event: run.completed
+      - failed_preview_event: run.failed
+      - job_is_child_of_run: true
+      - attempt_is_child_of_run: true
+      - bundle_profile:
+          artifact_content: references_only
+          portable: false
+          replayable: false
+      - subject_envelope_document_persisted: false
+      - pause_resume_controls_present: false
+    evidence:
+      - qa/screenshots/05-runs-completed-desktop.jpg
+      - qa/screenshots/06-runs-evidence-desktop.jpg
+
+  - id: adaptive-chat
+    route: /
+    actions:
+      - click_button: "Chat Agent ocioso"
+      - fill:
+          label: "Mensagem para o Lab Agent"
+          value: "Prepare um draft local"
+      - press: "Shift+Enter"
+      - type: "sem executar recursos reais"
+      - press: "Enter"
+      - click_button: "Alto"
+      - click_link: "Study"
+      - browser_history: back
+    expect:
+      - states_supported:
+          - idle
+          - running
+          - success
+          - failure
+      - blocks:
+          - User
+          - Agent
+          - Atividade observável
+          - Tool Call
+          - Tool Result
+      - tool_name: read_text
+      - tool_blocks_marked_stub: true
+      - thread_persists_across_routes: true
+      - browser_history_restores_route: true
+      - explicit_keyboard_snaps:
+          - Compacto
+          - Meio
+          - Alto
+          - Thread completo
+    evidence: qa/screenshots/07-chat-agent-desktop.jpg
+
+  - id: mobile-shell-and-sheet
+    route: /study
+    actions:
+      - set_viewport:
+          width: 390
+          height: 660
+      - load: /
+      - load: /study
+      - click_button: "Chat Agent ocioso"
+    expect:
+      - left_rail_visible: false
+      - bottom_navigation_visible: true
+      - bottom_navigation_usable_with_chat_open: true
+      - chat_behaves_as_bottom_sheet: true
+      - horizontal_overflow: false
+    evidence:
+      - qa/screenshots/08-lab-mobile.jpg
+      - qa/screenshots/09-study-mobile.jpg
+      - qa/screenshots/10-chat-mobile.jpg
+
+  - id: project-scope-fail-closed
+    route: /study
+    actions:
+      - open_project_switcher: true
+      - select_project: "Context Drift Review"
+      - load: /study
+      - load: /runs
+      - open_project_switcher: true
+      - select_project: "Tool Permission Audit"
+      - load: /runs
+    expect:
+      - selected_project_controls_projection: true
+      - unbound_study_heading: "Nenhuma Admission representada para este Project."
+      - unbound_runs_heading: "Nenhuma Run representada para este Project."
+      - retrieval_revision_visible: false
+      - admitted_enqueue_visible: false
+      - retrieval_run_visible: false
+      - start_run_visible: false
+      - evidence_bundle_visible: false
+    evidence:
+      - qa/screenshots/11-project-scope-study.png
+      - qa/screenshots/12-project-scope-runs.png
+
+  - id: new-project-trace-synchronization
+    route: /projects
+    actions:
+      - click_button: "Criar Project"
+      - fill:
+          label: "Nome do Project"
+          value: "Citation Boundary QA"
+      - fill:
+          label: "Objetivo local"
+          value: "Verificar fronteiras de citação sem herdar records de outro Project."
+      - click_button: "Criar draft"
+    expect:
+      - selected_project: "Citation Boundary QA"
+      - card_current_stage: intent
+      - trace_current_step: Intento
+      - trace_current_step_count: 1
+      - study_revision_current: false
+    evidence: qa/screenshots/13-new-project-intent-trace.png
+
+  - id: project-switcher-keyboard
+    route: /
+    actions:
+      - focus_button: "Project selecionado: Retrieval Quality. Abrir lista"
+      - press: "ArrowDown"
+      - press: "ArrowDown"
+      - press: "Enter"
+      - press: "ArrowDown"
+      - press: "Escape"
+      - press: "ArrowDown"
+      - press: "ArrowUp"
+      - press: "Space"
+    expect:
+      - selected_option_focused_on_open: true
+      - arrow_navigation: true
+      - enter_selects: true
+      - space_selects: true
+      - escape_closes: true
+      - trigger_focus_restored: true
+
+  - id: chat-focus-continuity
+    route: /
+    actions:
+      - click_button: "Chat Agent ocioso"
+      - fill:
+          label: "Mensagem para o Lab Agent"
+          value: "Prepare um draft local sem perder o foco"
+      - click_button: "Enviar mensagem"
+      - wait_for: "Atividade concluída"
+      - press: "Tab"
+    expect:
+      - focused_during_running: lab-agent-composer
+      - composer_read_only_during_running: true
+      - focused_after_terminal: lab-agent-composer
+      - composer_read_only_after_terminal: false
+      - body_receives_focus: false
+      - next_tab: "Segure para escolher o encaixe do Chat"
+    evidence: qa/screenshots/14-chat-focus-retained.png
