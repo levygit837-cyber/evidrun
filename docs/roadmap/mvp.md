@@ -6,7 +6,7 @@ status: accepted
 authority: planning
 owner: product
 created_at: 2026-07-22
-updated_at: 2026-07-23
+updated_at: 2026-07-24
 applies_to: product
 sources: []
 supersedes: []
@@ -41,10 +41,15 @@ verification_refs: []
 - ledger com phase gates, cross-links factuais e cobertura do EvaluationPlan no terminal completed;
 - Bundle v2 verificando lifecycle, contratos queued/terminal, comparison, evaluations e completude do
   artifact manifest.
+- Runtime Kernel duravel com queue, job, attempts, lease, heartbeat, fencing, worker e retry;
+- persistencia do SubjectEnvelope exato e Bundle v3 por Run, ainda `references_only`, nao portatil e
+  nao replayable;
+- Subject real opt-in, read tool confinada ao envelope e tracing factual;
+- cinco prototipos React isolados da Operator Console para exploracao visual; eles nao substituem a
+  implementacao de produto em `apps/web` nem representam backend conectado.
 
 ## Próximo
 
-- job queue com lease e worker realmente assíncrono;
 - enforcement ponta a ponta de classification e capture policy em snapshots e eventos;
 - adapter WebAuthn/passkey, cerimônia humana, enrollment/recovery e canal UI/CLI para produzir a
   attestation já contratada;
@@ -54,7 +59,6 @@ verification_refs: []
 - entrega de guidance `pre_run` ao runner e interações auditadas para `on_request`/`post_run`;
 - runtime de `bounded_exploration` conforme a taxonomia do ADR 0013, sem pass/fail;
 - Lab Agent com Pydantic AI;
-- Responses Subject Runner;
 - approvals e resume;
 - tool simulator e sandbox;
 - runtime real de tools, skills e nested agents;
