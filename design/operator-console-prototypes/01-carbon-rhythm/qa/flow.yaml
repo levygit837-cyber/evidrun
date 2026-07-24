@@ -1,0 +1,109 @@
+name: carbon-rhythm-operator-flow
+base_url: http://127.0.0.1:4301
+viewports:
+  desktop:
+    width: 1440
+    height: 940
+  tablet:
+    width: 834
+    height: 1112
+  mobile:
+    width: 390
+    height: 844
+flows:
+  - id: lab-agent-sequence
+    route: /
+    actions:
+      - observe: "Study, Project, traço, evento selecionado e próximo draft estão visíveis no primeiro viewport."
+      - fill:
+          label: "Novo draft para o Lab Agent"
+          value: "Quais sinais mudaram depois do deploy?"
+      - press: Enter
+      - wait_for: "Resposta capturada"
+      - expand: "Atividade observável"
+    expect:
+      - "A mensagem do Usuário aparece."
+      - "O Agent response é rotulado como Draft do Lab Agent."
+      - "A sequência mostra preparação, leitura autorizada, tool call, tool result e captura."
+      - "Nenhum chain-of-thought ou hidden grader aparece."
+      - "O envio fica indisponível durante running e volta ao final."
+
+  - id: adaptive-chat
+    route: /
+    actions:
+      - click: "Escolher posição e tamanho do Chat"
+      - click: "Meia altura"
+      - fill:
+          label: "Mensagem do Chat do operador"
+          value: "Nota persistente do operador"
+      - click: "Adicionar nota ao Chat"
+      - navigate: "/study"
+      - select:
+          label: "Trocar Project"
+          value: "Context Drift"
+      - observe: "A nota de Release Integrity não aparece e o thread informa que está vazio."
+      - select:
+          label: "Trocar Project"
+          value: "Release Integrity"
+      - click: "Compactar Chat"
+      - click: "Fechar Chat"
+    expect:
+      - "O cabeçalho declara Chat do operador e Fora do SubjectEnvelope."
+      - "O snap altera somente geometrias discretas."
+      - "A nota persiste ao mudar de rota, mas nunca atravessa a fronteira de Project."
+      - "Compactar e fechar são controles distintos."
+
+  - id: project-and-admission
+    route: /projects
+    actions:
+      - click: "Criar Project"
+      - click: "Criar Project"
+      - observe: "Erros inline aparecem para nome e intenção vazios."
+      - fill:
+          label: "Nome do Project"
+          value: "Deploy Signals"
+      - fill:
+          label: "Intenção"
+          value: "Comparar sinais autorizados de deploy em estado local."
+      - click: "Criar Project"
+      - navigate: "/study"
+      - observe: "Nenhuma Study vinculada"
+      - navigate: "/runs"
+      - observe: "Nenhuma Run disponível"
+      - select:
+          label: "Trocar Project"
+          value: "Release Integrity"
+      - navigate: "/study"
+      - click: "Criar revisão corrigida"
+      - click: "Enfileirar 2 RunSpecs"
+    expect:
+      - "Project novo existe apenas no estado local."
+      - "Workspace continua uma integração separada e pending."
+      - "Project novo não herda StudyRevision, Admission, Run, evidence ou Chat."
+      - "Rejected Admission mantém Enqueue disabled."
+      - "A revisão corrigida mostra dois AdmissionRecords admitted."
+      - "O fluxo termina em Runs com estado queued, sem alegar Run canônica."
+
+  - id: deterministic-run
+    route: /study
+    actions:
+      - click: "Criar revisão corrigida"
+      - click: "Enfileirar 2 RunSpecs"
+      - click: "Iniciar Run stub"
+      - wait_for: "terminal"
+      - click: "Failed"
+      - click: "Completed"
+    expect:
+      - "As fases queued, preparing, running, evaluating e terminal avançam em ordem."
+      - "Run, Job e Attempt aparecem separados."
+      - "Tool event está explicitamente marcado como ilustrativo."
+      - "SubjectEnvelope digest não é apresentado como exportável."
+      - "Bundle é references-only, não portátil e não replayable."
+
+responsive_checks:
+  - viewport: desktop
+    expect: "Command rail em uma linha, canvas amplo e dock com no máximo 320 px no modo compacto."
+  - viewport: tablet
+    expect: "Chat ocupa uma coluna lateral reservada, sem cobrir o canvas ou gerar overflow horizontal."
+  - viewport: mobile
+    expect: "Conteúdo em uma coluna, stepper vertical, Chat como bottom sheet e navegação sempre descoberta."

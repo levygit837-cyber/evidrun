@@ -1,0 +1,185 @@
+version: 1
+name: civic-console-primary-flow
+base_url: http://127.0.0.1:4302
+viewports:
+  desktop:
+    width: 1440
+    height: 940
+  tablet:
+    width: 834
+    height: 1112
+  mobile:
+    width: 390
+    height: 844
+flows:
+  - id: lab-draft
+    route: /
+    steps:
+      - expect:
+          role: heading
+          name: Retrieval Quality
+      - expect:
+          text: Nenhuma Run criada
+      - fill:
+          role: textbox
+          name: Mensagem para o Lab Agent
+          value: Verifique a cobertura de fontes autorizadas.
+      - click:
+          role: button
+          name: Enviar mensagem
+      - expect:
+          text: Atividade observável
+      - expect:
+          text: read_text
+      - expect:
+          text: Draft local
+  - id: correct-admission
+    route: /study
+    steps:
+      - expect_disabled:
+          role: button
+          name: Enfileirar
+          index: 0
+      - click:
+          role: button
+          name: Nova revisão local
+      - expect_checked:
+          role: checkbox
+          name: Cobertura de fontes autorizadas
+      - click:
+          role: button
+          name: Compilar e validar
+      - expect_enabled:
+          role: button
+          name: Enfileirar
+          index: 0
+  - id: stub-run
+    route: /runs
+    precondition: active local revision is admitted
+    steps:
+      - click:
+          role: button
+          name: Start Stub Run
+      - expect:
+          text: JOB-STUB-042
+      - expect:
+          text: ATTEMPT-STUB-01
+      - expect_eventually:
+          text: Completed
+      - expect:
+          text: Tool event ilustrativo
+  - id: adaptive-chat
+    route: /
+    steps:
+      - click:
+          role: button
+          name: Abrir Chat
+      - click:
+          role: button
+          name: Mostrar encaixes do Chat
+      - click:
+          role: option
+          name: Alto
+      - expect_attribute:
+          selector: "[aria-label='Chat']"
+          name: data-chat-state
+          value: tall
+      - click:
+          role: button
+          name: Recolher Chat
+      - expect:
+          label: Chat recolhido
+  - id: browser-history
+    route: /
+    steps:
+      - click_link: Projects
+      - click_link: Study
+      - browser_back: true
+      - expect:
+          role: heading
+          name: Escopo antes da execução
+  - id: project-scope-fail-closed
+    route: /projects
+    steps:
+      - click:
+          role: button
+          name: Disclosure Boundary Verificar o limite de disclosure antes da execução.
+      - click_link: Lab
+      - expect:
+          role: heading
+          name: Lab indisponível para este Project
+      - expect_absent:
+          text: REV-STUB-002
+      - click:
+          role: button
+          name: Abrir Chat
+      - expect:
+          text: Nenhuma conversa neste Project.
+  - id: rejected-run-presets
+    route: /runs
+    precondition: active revision has AdmissionRecord rejected
+    steps:
+      - expect_disabled:
+          role: button
+          name: Start Stub Run
+      - expect_disabled:
+          role: button
+          name: Completed
+      - expect:
+          text: Presets não criam uma Run sem AdmissionRecord admitted.
+      - expect_absent:
+          text: JOB-STUB-
+  - id: chat-state-survives-routes
+    route: /
+    steps:
+      - fill:
+          role: textbox
+          name: Mensagem para o Lab Agent
+          value: Draft persistente sem envio
+      - click:
+          role: button
+          name: Abrir Chat
+      - click_link: Projects
+      - click_link: Lab
+      - expect_value:
+          role: textbox
+          name: Mensagem para o Lab Agent
+          value: Draft persistente sem envio
+  - id: create-project-dialog-keyboard
+    route: /projects
+    steps:
+      - click:
+          role: button
+          name: Novo Project
+      - expect_focus:
+          role: textbox
+          name: Nome do Project
+      - click:
+          role: button
+          name: Criar Project
+      - expect_invalid:
+          role: textbox
+          name: Nome do Project
+      - press: Shift+Tab
+      - expect_focus:
+          role: button
+          name: Fechar diálogo
+      - press: Shift+Tab
+      - expect_focus:
+          role: button
+          name: Criar Project
+      - press: Escape
+      - expect_focus:
+          role: button
+          name: Novo Project
+accessibility:
+  keyboard:
+    - tab through navigation, dialogs, workflow actions, composer, Chat controls
+    - verify Enter sends and Shift+Enter inserts a newline
+    - verify Chat grip supports Enter and arrow snap selection
+  focus:
+    - visible focus ring on every control
+    - focus returns to composer after send without scrolling
+    - create Project dialog traps Tab and Shift+Tab, focuses the first invalid field, and returns focus to its trigger
+  motion:
+    - registration progress is static under prefers-reduced-motion
