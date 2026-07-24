@@ -6,7 +6,7 @@ status: implemented
 authority: normative
 owner: core
 created_at: 2026-07-22
-updated_at: 2026-07-23
+updated_at: 2026-07-24
 applies_to: repository
 sources: []
 supersedes: []
@@ -29,6 +29,7 @@ verification_refs:
 6. [Protocolo de benchmarks](benchmarks/protocol.md)
 7. [Runtime de providers](architecture/provider-runtime.md)
 8. [Roadmap](roadmap/mvp.md)
+9. [Planejamento temporal de implementacao](planning/README.md)
 
 O primeiro benchmark com Subject real está em
 [recuperação fundamentada por tool](benchmarks/live-read-agent.md).
@@ -48,6 +49,15 @@ O primeiro benchmark com Subject real está em
 ## Operação do Runtime Kernel
 
 - [Execução durável de Runs](operations/runtime-worker.md)
+
+## Planejamento executavel
+
+- [Mapa temporal de capabilities](planning/mvp-capability-map.md)
+- [Roadmap executavel do MVP](planning/mvp-implementation-roadmap.md)
+- [Dispatch e estado dos workstreams](planning/tasks/README.md)
+
+Planejamento registra intencao, dependencias e estado temporal. Ele nao substitui contratos, ADRs
+ou evidencia de comportamento implementado.
 
 ## Decisões sucessoras
 
