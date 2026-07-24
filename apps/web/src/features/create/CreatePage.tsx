@@ -1,6 +1,15 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Check, ExternalLink, LockKeyhole, Pencil, RotateCcw } from "lucide-react";
-import { useMemo, useRef, useState, type FormEvent } from "react";
+import {
+  ArrowRight,
+  Check,
+  ExternalLink,
+  LockKeyhole,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Trash2,
+} from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { creationAdapter } from "../../data/adapters";
 import type { CreationAdapter } from "../../data/contracts";
 import type { BootstrapDemoResult } from "../../types";
@@ -24,7 +33,17 @@ interface StudyDraft {
   objective: string;
   hypothesis: string;
   evaluationDisclosure: EvaluationDisclosure;
+  scenarios: StudyItem[];
+  variants: StudyItem[];
+  evaluationModules: StudyItem[];
 }
+
+interface StudyItem {
+  id: string;
+  name: string;
+}
+
+type StudyCollection = "scenarios" | "variants" | "evaluationModules";
 
 interface CompiledStudy extends StudyDraft {
   revision: number;
@@ -39,6 +58,12 @@ const initialStudy: StudyDraft = {
   objective: "Comparar a recuperação de contexto entre baseline e candidate.",
   hypothesis: "A variante candidate preserva evidência suficiente para responder com fundamento.",
   evaluationDisclosure: "none",
+  scenarios: [{ id: "scenario-1", name: "tool-result pressure" }],
+  variants: [
+    { id: "variant-1", name: "Full context" },
+    { id: "variant-2", name: "Tool-guided context" },
+  ],
+  evaluationModules: [{ id: "evaluation-1", name: "grounded retrieval" }],
 };
 
 const admissionCopy: Record<AdmissionState, { label: string; tone: "success" | "danger" | "warning" | "neutral" }> = {
@@ -73,14 +98,82 @@ function AdmissionBadge({ state }: { state: AdmissionState }) {
   return <StatusIndicator tone={copy.tone} label={copy.label} />;
 }
 
+interface StudyCollectionEditorProps {
+  title: string;
+  collection: StudyCollection;
+  items: StudyItem[];
+  addLabel: string;
+  placeholder: string;
+  defaultOpen?: boolean;
+  onAdd(collection: StudyCollection, name: string): void;
+  onChange(collection: StudyCollection, id: string, name: string): void;
+  onRemove(collection: StudyCollection, id: string): void;
+}
+
+function StudyCollectionEditor({
+  title,
+  collection,
+  items,
+  addLabel,
+  placeholder,
+  defaultOpen = false,
+  onAdd,
+  onChange,
+  onRemove,
+}: StudyCollectionEditorProps) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <details
+      className="create-collection"
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
+      <summary>
+        <span>{title}</span>
+        <small>{items.length}</small>
+      </summary>
+      <div className="create-collection-body">
+        {items.length ? (
+          items.map((item, index) => (
+            <div className="create-collection-row" key={item.id}>
+              <Input
+                aria-label={`${title} ${index + 1}`}
+                value={item.name}
+                onChange={(event) => onChange(collection, item.id, event.target.value)}
+              />
+              <Button
+                variant="quiet"
+                size="small"
+                aria-label={`Remover ${title} ${index + 1}`}
+                onClick={() => onRemove(collection, item.id)}
+              >
+                <Trash2 aria-hidden="true" size={13} />
+              </Button>
+            </div>
+          ))
+        ) : (
+          <p className="create-collection-empty">Nenhum item nesta seção local.</p>
+        )}
+        <Button variant="quiet" size="small" onClick={() => onAdd(collection, placeholder)}>
+          <Plus aria-hidden="true" size={13} />
+          {addLabel}
+        </Button>
+      </div>
+    </details>
+  );
+}
+
 export function CreatePage({ adapter = creationAdapter }: CreatePageProps) {
   const queryClient = useQueryClient();
   const [activeStep, setActiveStep] = useState<Step>(1);
+  const [maxReachedStep, setMaxReachedStep] = useState<Step>(1);
   const [study, setStudy] = useState<StudyDraft>(initialStudy);
   const [compiledStudy, setCompiledStudy] = useState<CompiledStudy | null>(null);
   const [downstreamState, setDownstreamState] = useState<DownstreamState>("empty");
   const [result, setResult] = useState<BootstrapDemoResult | null>(null);
+  const [showPendingSpinner, setShowPendingSpinner] = useState(false);
   const submissionInFlight = useRef(false);
+  const nextItemId = useRef(2);
 
   const bootstrap = useMutation({
     mutationFn: () => adapter.bootstrapCanonicalDemo(),
@@ -88,12 +181,22 @@ export function CreatePage({ adapter = creationAdapter }: CreatePageProps) {
       setResult(nextResult);
       setDownstreamState("fresh");
       setActiveStep(4);
+      setMaxReachedStep(4);
       await queryClient.invalidateQueries();
     },
     onSettled: () => {
       submissionInFlight.current = false;
     },
   });
+
+  useEffect(() => {
+    if (!bootstrap.isPending) {
+      setShowPendingSpinner(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setShowPendingSpinner(true), 150);
+    return () => window.clearTimeout(timer);
+  }, [bootstrap.isPending]);
 
   const admissionState = useMemo<AdmissionState>(() => {
     if (downstreamState === "stale") return "stale";
@@ -104,13 +207,38 @@ export function CreatePage({ adapter = creationAdapter }: CreatePageProps) {
   }, [bootstrap.error, compiledStudy?.evaluationDisclosure, downstreamState, result]);
 
   const markDownstreamStale = () => {
-    if (compiledStudy) setDownstreamState("stale");
+    if (compiledStudy) {
+      setDownstreamState("stale");
+      setMaxReachedStep(1);
+    }
     setResult(null);
     bootstrap.reset();
   };
 
   const updateStudy = <Key extends keyof StudyDraft>(key: Key, value: StudyDraft[Key]) => {
     setStudy((current) => ({ ...current, [key]: value }));
+    markDownstreamStale();
+  };
+
+  const updateStudyItem = (collection: StudyCollection, id: string, name: string) => {
+    setStudy((current) => ({
+      ...current,
+      [collection]: current[collection].map((item) => (item.id === id ? { ...item, name } : item)),
+    }));
+    markDownstreamStale();
+  };
+
+  const addStudyItem = (collection: StudyCollection, name: string) => {
+    const id = `${collection}-${nextItemId.current++}`;
+    setStudy((current) => ({ ...current, [collection]: [...current[collection], { id, name }] }));
+    markDownstreamStale();
+  };
+
+  const removeStudyItem = (collection: StudyCollection, id: string) => {
+    setStudy((current) => ({
+      ...current,
+      [collection]: current[collection].filter((item) => item.id !== id),
+    }));
     markDownstreamStale();
   };
 
@@ -121,11 +249,18 @@ export function CreatePage({ adapter = creationAdapter }: CreatePageProps) {
 
   const compileRunSpecs = (event: FormEvent) => {
     event.preventDefault();
-    setCompiledStudy({ ...study, revision: (compiledStudy?.revision ?? 0) + 1 });
+    setCompiledStudy({
+      ...study,
+      scenarios: study.scenarios.map((item) => ({ ...item })),
+      variants: study.variants.map((item) => ({ ...item })),
+      evaluationModules: study.evaluationModules.map((item) => ({ ...item })),
+      revision: (compiledStudy?.revision ?? 0) + 1,
+    });
     setDownstreamState("fresh");
     setResult(null);
     bootstrap.reset();
     setActiveStep(2);
+    setMaxReachedStep(2);
   };
 
   const runBootstrap = () => {
@@ -138,14 +273,20 @@ export function CreatePage({ adapter = creationAdapter }: CreatePageProps) {
     if (activeStep === 1) {
       return (
         <Button variant="primary" type="submit" form="create-study-form">
-          Compilar RunSpecs
+          Compilar preview Demo
           <ArrowRight aria-hidden="true" size={15} />
         </Button>
       );
     }
     if (activeStep === 2) {
       return (
-        <Button variant="primary" onClick={() => setActiveStep(3)}>
+        <Button
+          variant="primary"
+          onClick={() => {
+            setActiveStep(3);
+            setMaxReachedStep(3);
+          }}
+        >
           Revisar Admission
           <ArrowRight aria-hidden="true" size={15} />
         </Button>
@@ -162,8 +303,13 @@ export function CreatePage({ adapter = creationAdapter }: CreatePageProps) {
     if (activeStep === 3) {
       return (
         <Button variant="primary" disabled={bootstrap.isPending} onClick={runBootstrap}>
-          {bootstrap.isPending ? <Spinner label="Executando fixture no backend" /> : <RotateCcw aria-hidden="true" size={14} />}
-          {bootstrap.isPending ? "Executando fixture no backend" : bootstrap.error ? "Tentar fixture novamente" : "Executar fixture canônica"}
+          {showPendingSpinner ? <Spinner label="Executando CRL-CTX-002 no backend" /> : null}
+          {!bootstrap.isPending ? <RotateCcw aria-hidden="true" size={14} /> : null}
+          {bootstrap.isPending
+            ? "Executando CRL-CTX-002 no backend"
+            : bootstrap.error
+              ? "Tentar CRL-CTX-002 novamente"
+              : "Executar CRL-CTX-002"}
         </Button>
       );
     }
@@ -182,9 +328,9 @@ export function CreatePage({ adapter = creationAdapter }: CreatePageProps) {
     <section className="create-flow" aria-labelledby="create-title">
       <header className="create-heading">
         <div>
-          <span className="create-eyebrow">Novo experimento</span>
-          <h1 id="create-title">Study até Runs, sem esconder as fronteiras</h1>
-          <p>Configure localmente e execute a fixture canônica no backend quando a revisão estiver pronta.</p>
+          <span className="create-eyebrow">Create · Demo / integration_pending</span>
+          <h1 id="create-title">Study local e fixture canônica</h1>
+          <p>O draft local serve apenas como preview: ele não alimenta o bootstrap CRL-CTX-002.</p>
         </div>
         <span className="create-local-label">Draft local</span>
       </header>
@@ -192,15 +338,23 @@ export function CreatePage({ adapter = creationAdapter }: CreatePageProps) {
       <ol className="create-stepper" aria-label="Etapas de criação">
         {steps.map((step) => {
           const isActive = activeStep === step.id;
-          const isPast = step.id < activeStep;
+          const isPast = step.id < maxReachedStep && step.id !== activeStep;
+          const isLocked = step.id > maxReachedStep;
           const isStale = downstreamState === "stale" && step.id > 1;
           return (
             <li key={step.id} data-active={isActive || undefined} data-stale={isStale || undefined}>
-              <span className="create-step-number" aria-hidden="true">
-                {isPast && !isStale ? <Check size={12} /> : step.id}
-              </span>
-              <span>{step.label}</span>
-              {isStale ? <small>stale</small> : null}
+              <button
+                type="button"
+                aria-current={isActive ? "step" : undefined}
+                disabled={isLocked || (bootstrap.isPending && !isActive)}
+                onClick={() => setActiveStep(step.id)}
+              >
+                <span className="create-step-number" aria-hidden="true">
+                  {isPast && !isStale ? <Check size={12} /> : step.id}
+                </span>
+                <span>{step.label}</span>
+                {isStale ? <small>stale</small> : isLocked ? <small>bloqueado</small> : null}
+              </button>
             </li>
           );
         })}
@@ -214,9 +368,10 @@ export function CreatePage({ adapter = creationAdapter }: CreatePageProps) {
                 <span className="create-stage-index">1</span>
                 <div>
                   <h2>Study</h2>
-                  {activeStep !== 1 ? <p>{study.name} · revisão local {compiledStudy?.revision ?? 1}</p> : <p>Definição editável mantida apenas nesta tela.</p>}
+                  {activeStep !== 1 ? <p>{study.name} · preview Demo local {compiledStudy?.revision ?? 1}</p> : <p>Demo / integration_pending · não alimenta o bootstrap.</p>}
                 </div>
               </div>
+              <span className="create-stage-mode">Demo / integration_pending · não alimenta bootstrap</span>
               {activeStep !== 1 ? (
                 <Button variant="quiet" size="small" disabled={bootstrap.isPending} onClick={editStudy}>
                   <Pencil aria-hidden="true" size={13} />
@@ -259,6 +414,38 @@ export function CreatePage({ adapter = creationAdapter }: CreatePageProps) {
                 <InlineNotice title="Fronteira de disclosure">
                   O Subject recebe apenas objective e context. <code>pre_run</code> pode ser compilado, mas a admissão do runner atual deve rejeitá-lo.
                 </InlineNotice>
+
+                <StudyCollectionEditor
+                  title="Scenarios"
+                  collection="scenarios"
+                  items={study.scenarios}
+                  defaultOpen
+                  addLabel="Adicionar Scenario"
+                  placeholder="Novo Scenario"
+                  onAdd={addStudyItem}
+                  onChange={updateStudyItem}
+                  onRemove={removeStudyItem}
+                />
+                <StudyCollectionEditor
+                  title="Variants"
+                  collection="variants"
+                  items={study.variants}
+                  addLabel="Adicionar Variant"
+                  placeholder="Nova Variant"
+                  onAdd={addStudyItem}
+                  onChange={updateStudyItem}
+                  onRemove={removeStudyItem}
+                />
+                <StudyCollectionEditor
+                  title="Evaluation modules"
+                  collection="evaluationModules"
+                  items={study.evaluationModules}
+                  addLabel="Adicionar Evaluation module"
+                  placeholder="Novo Evaluation module"
+                  onAdd={addStudyItem}
+                  onChange={updateStudyItem}
+                  onRemove={removeStudyItem}
+                />
               </form>
             ) : null}
           </article>
@@ -269,16 +456,17 @@ export function CreatePage({ adapter = creationAdapter }: CreatePageProps) {
                 <span className="create-stage-index">2</span>
                 <div>
                   <h2>RunSpecs</h2>
-                  <p>{compiledStudy ? `2 snapshots imutáveis · revisão local ${compiledStudy.revision}` : "Aguardando Study"}</p>
+                  <p>{compiledStudy ? `Preview Demo imutável · revisão local ${compiledStudy.revision}` : "Aguardando preview Demo local"}</p>
                 </div>
               </div>
+              <span className="create-stage-mode">Demo / integration_pending · não alimenta bootstrap</span>
               {compiledStudy ? <StatusIndicator tone={downstreamState === "stale" ? "warning" : "success"} label={downstreamState === "stale" ? "stale" : "imutáveis"} /> : null}
             </header>
 
             {activeStep === 2 && compiledStudy ? (
               <div className="create-stage-body">
-                <InlineNotice title="Snapshots locais, ainda sem record canônico">
-                  O backend atribui IDs e digests durante o bootstrap. Esta tela não inventa um RunSpec persistido.
+                <InlineNotice title="Preview Demo · integration_pending">
+                  Estes RunSpecs são somente uma compilação local ilustrativa. Não são enviados nem usados pelo bootstrap CRL-CTX-002.
                 </InlineNotice>
                 <div className="create-spec-grid">
                   <section>
@@ -288,6 +476,7 @@ export function CreatePage({ adapter = creationAdapter }: CreatePageProps) {
                       <div><dt>interaction</dt><dd>single_turn</dd></div>
                       <div><dt>max_wall_seconds</dt><dd>budget suportado</dd></div>
                       <div><dt>disclosure</dt><dd>{compiledStudy.evaluationDisclosure}</dd></div>
+                      <div><dt>scenarios</dt><dd>{compiledStudy.scenarios.length}</dd></div>
                     </dl>
                   </section>
                   <section>
@@ -297,6 +486,7 @@ export function CreatePage({ adapter = creationAdapter }: CreatePageProps) {
                       <div><dt>interaction</dt><dd>single_turn</dd></div>
                       <div><dt>capability</dt><dd>read_text</dd></div>
                       <div><dt>disclosure</dt><dd>{compiledStudy.evaluationDisclosure}</dd></div>
+                      <div><dt>evaluations</dt><dd>{compiledStudy.evaluationModules.length}</dd></div>
                     </dl>
                   </section>
                 </div>
@@ -311,17 +501,18 @@ export function CreatePage({ adapter = creationAdapter }: CreatePageProps) {
                 <span className="create-stage-index">3</span>
                 <div>
                   <h2>Admission</h2>
-                  <p>Capability real e decisão factual permanecem distintas.</p>
+                  <p>Demo local não alimenta a repository_fixture CRL-CTX-002.</p>
                 </div>
               </div>
+              <span className="create-stage-mode">Demo / integration_pending · não alimenta bootstrap</span>
               {compiledStudy ? <AdmissionBadge state={admissionState} /> : null}
             </header>
 
             {activeStep === 3 && compiledStudy ? (
               <div className="create-stage-body">
                 {bootstrap.isPending ? (
-                  <InlineNotice title="Executando fixture no backend">
-                    Este é o único estado factual exposto enquanto a chamada está pendente.
+                  <InlineNotice title="Executando CRL-CTX-002 no backend">
+                    Esta repository_fixture não humana é independente do draft local.
                   </InlineNotice>
                 ) : bootstrap.error ? (
                   <InlineNotice tone="danger" title={`Admission ${admissionState}`}>
@@ -332,8 +523,8 @@ export function CreatePage({ adapter = creationAdapter }: CreatePageProps) {
                     Disclosure <code>pre_run</code> é compilável, mas indisponível no runner atual, que recebe somente objective e context.
                   </InlineNotice>
                 ) : (
-                  <InlineNotice title="Admission unavailable até o bootstrap">
-                    Nenhum AdmissionRecord foi afirmado. A fixture solicitará a admissão do RunSpec exato no backend.
+                  <InlineNotice tone="warning" title="O draft não será enviado">
+                    A ação executa a repository_fixture não humana <code>CRL-CTX-002</code>. Study, Scenarios, Variants, Evaluation modules e RunSpecs desta tela não alimentam o bootstrap.
                   </InlineNotice>
                 )}
 
@@ -361,16 +552,17 @@ export function CreatePage({ adapter = creationAdapter }: CreatePageProps) {
                 <span className="create-stage-index">4</span>
                 <div>
                   <h2>Runs</h2>
-                  <p>{result ? "Baseline e candidate retornados pelo backend" : "Nenhuma Run criada nesta tela"}</p>
+                  <p>{result ? "CRL-CTX-002 retornou baseline e candidate reais" : "Demo local não criou nenhuma Run"}</p>
                 </div>
               </div>
-              {result ? <StatusIndicator tone="success" label="resultado real" /> : null}
+              <span className="create-stage-mode">Demo / integration_pending · não alimenta bootstrap</span>
+              {result ? <StatusIndicator tone="success" label="resultado real · CRL-CTX-002" /> : null}
             </header>
 
             {activeStep === 4 && result ? (
               <div className="create-stage-body">
-                <InlineNotice tone="success" title="Fixture concluída no backend">
-                  Comparison <code>{result.comparison_id}</code> · validade <code>{result.validity}</code>. Os fatos abaixo apontam para Runs reais.
+                <InlineNotice tone="success" title="CRL-CTX-002 concluída no backend">
+                  A repository_fixture não humana retornou Comparison <code>{result.comparison_id}</code> · validade <code>{result.validity}</code>. O draft local não foi enviado.
                 </InlineNotice>
                 <div className="create-result-grid">
                   <a href={resultLink(result.baseline_run_id)}>
