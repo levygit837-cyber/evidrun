@@ -77,7 +77,7 @@ function event(sequence: number, type: string): RunEvent {
     classification: "internal",
     payload:
       type === "tool.completed"
-        ? { result_ref: { artifact_id: "artifact:tool-result", digest: "sha256:result" } }
+        ? { call_id: "call:orphan", result_ref: { artifact_id: "artifact:tool-result", digest: "sha256:result" } }
         : {},
     correlation_id: null,
     causation_id: null,
@@ -140,6 +140,7 @@ function adapter(): ObservabilityAdapter {
 function renderWorkspace(
   search: { q?: string; status?: string; period?: string; run?: string } = {},
   onSearchChange = vi.fn(),
+  customAdapter = adapter(),
 ) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -147,7 +148,7 @@ function renderWorkspace(
   const result = render(
     <QueryClientProvider client={queryClient}>
       <ObservabilityWorkspace
-        adapter={adapter()}
+        adapter={customAdapter}
         onSearchChange={onSearchChange}
         search={search}
       />
@@ -186,7 +187,8 @@ describe("Observability filters and search params", () => {
     });
     expect(onSearchChange).toHaveBeenLastCalledWith({ q: "incident" });
 
-    fireEvent.change(screen.getByRole("combobox", { name: "Status" }), {
+    fireEvent.click(screen.getByRole("button", { name: "Mais filtros" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "Status exato" }), {
       target: { value: "running" },
     });
     expect(onSearchChange).toHaveBeenLastCalledWith({ status: "running" });
@@ -212,7 +214,7 @@ describe("Observability layout and trace", () => {
     await screen.findByText("sha256:subject-envelope");
     expect(selected.container.querySelector("[data-layout='master-detail']")).toBeInTheDocument();
     expect(selected.container.querySelector(".obs-split-divider")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Voltar" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Voltar às Runs" })).toBeInTheDocument();
   });
 
   it("orders real events by sequence and exposes one complete forensic turn", async () => {
@@ -226,6 +228,7 @@ describe("Observability layout and trace", () => {
       expect.stringContaining("subject.responded"),
     ]);
     fireEvent.click(within(trace).getByRole("button", { name: /tool.completed/i }));
+    expect(screen.getByText(/Evento factual incompleto/)).toBeInTheDocument();
     expect(screen.getByText("Janela forense read-only")).toBeInTheDocument();
     expect(screen.getByText("1 turno disponível")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Copiar 1 turno" })).toBeInTheDocument();
@@ -244,7 +247,31 @@ describe("Observability layout and trace", () => {
     await screen.findByText("sha256:subject-envelope");
     fireEvent.click(screen.getByRole("tab", { name: "Evidence" }));
     await waitFor(() => expect(screen.getByText(/references_only/)).toBeInTheDocument());
+    expect(screen.getByText("Run events")).toBeInTheDocument();
+    expect(screen.getByText("Referência preservada; conteúdo indisponível")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /replay|reproduzir/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/replay disponível|reprodução disponível/i)).not.toBeInTheDocument();
+  });
+
+  it("wires complete tab ARIA and arrow-key roving focus", async () => {
+    renderWorkspace({ run: "run:active-001" });
+    const traceTab = await screen.findByRole("tab", { name: "Trace" });
+    const evaluationTab = screen.getByRole("tab", { name: "Evaluation" });
+    expect(traceTab).toHaveAttribute("aria-controls", "obs-panel-trace");
+    expect(evaluationTab).toHaveAttribute("tabindex", "-1");
+    fireEvent.keyDown(traceTab, { key: "ArrowRight" });
+    await waitFor(() => expect(evaluationTab).toHaveAttribute("aria-selected", "true"));
+    expect(screen.getByRole("tabpanel", { name: "Evaluation" })).toHaveAttribute("id", "obs-panel-evaluation");
+  });
+
+  it("shows endpoint errors separately and retries the list query", async () => {
+    const failing = adapter();
+    const listRuns = vi.fn().mockRejectedValueOnce(new Error("HTTP 500")).mockResolvedValueOnce(runs);
+    failing.listRuns = listRuns;
+    renderWorkspace({}, vi.fn(), failing);
+    expect(await screen.findByText("Falha no endpoint de Runs")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
+    await screen.findByText("run:active-001");
+    expect(listRuns).toHaveBeenCalledTimes(2);
   });
 });

@@ -174,6 +174,109 @@ export function collectEvidenceReferences(
   return [...refs].sort((left, right) => left.localeCompare(right));
 }
 
+export type EvidenceOrigin = "event" | "evaluation" | "checkpoint";
+
+export interface EvidenceProjection {
+  ref: string;
+  origin: EvidenceOrigin;
+  role: string;
+  sourceId: string;
+  sequence?: number;
+  timestamp?: string;
+  classification?: string;
+  gateStatus?: string;
+}
+
+function walkReferences(
+  value: unknown,
+  path: string,
+  emit: (ref: string, role: string) => void,
+): void {
+  if (typeof value === "string") {
+    if (/^(run|event|artifact):/.test(value)) emit(value, path || "reference");
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => walkReferences(item, `${path}[${index}]`, emit));
+    return;
+  }
+  if (value && typeof value === "object") {
+    Object.entries(value).forEach(([key, item]) =>
+      walkReferences(item, path ? `${path}.${key}` : key, emit),
+    );
+  }
+}
+
+export function projectEvidenceReferences(
+  events: RunEvent[],
+  evaluations: EvaluationRecordDto[],
+  checkpoints: unknown[],
+): EvidenceProjection[] {
+  const projected: EvidenceProjection[] = [];
+  for (const event of events) {
+    walkReferences(event.payload, "payload", (ref, role) => projected.push({
+      ref,
+      origin: "event",
+      role,
+      sourceId: event.event_id,
+      sequence: event.sequence,
+      timestamp: event.occurred_at_utc,
+      classification: event.classification,
+    }));
+  }
+  for (const evaluation of evaluations) {
+    evaluation.dimension_values.forEach((dimension) => {
+      dimension.evidence_refs.forEach(({ ref }) => projected.push({
+        ref,
+        origin: "evaluation",
+        role: `dimension:${dimension.dimension_id}`,
+        sourceId: evaluation.record_id,
+        timestamp: evaluation.created_at_utc,
+        gateStatus: evaluation.gate_status,
+      }));
+    });
+  }
+  checkpoints.forEach((checkpoint, index) => {
+    const record = checkpoint as Record<string, unknown>;
+    walkReferences(record, "checkpoint", (ref, role) => projected.push({
+      ref,
+      origin: "checkpoint",
+      role,
+      sourceId: typeof record.checkpoint_id === "string" ? record.checkpoint_id : `checkpoint:${index + 1}`,
+      sequence: typeof record.up_to_event_sequence === "number" ? record.up_to_event_sequence : undefined,
+      timestamp: typeof record.created_at_utc === "string" ? record.created_at_utc : undefined,
+    }));
+  });
+  return projected.sort((left, right) =>
+    left.origin.localeCompare(right.origin) || left.sourceId.localeCompare(right.sourceId) || left.ref.localeCompare(right.ref),
+  );
+}
+
+export function correlateToolEvents(events: RunEvent[]): Map<string, "complete" | "orphan-terminal"> {
+  const called = new Set<string>();
+  const terminals: Array<{ eventId: string; callId: string }> = [];
+  for (const event of events) {
+    const callId = typeof event.payload.call_id === "string" ? event.payload.call_id : null;
+    if (!callId) continue;
+    if (event.type === "tool.called") called.add(callId);
+    if (["tool.completed", "tool.denied", "tool.failed"].includes(event.type)) {
+      terminals.push({ eventId: event.event_id, callId });
+    }
+  }
+  const status = new Map<string, "complete" | "orphan-terminal">();
+  for (const event of events) {
+    const callId = typeof event.payload.call_id === "string" ? event.payload.call_id : null;
+    if (event.type === "tool.called" && callId && terminals.some((item) => item.callId === callId)) {
+      status.set(event.event_id, "complete");
+    }
+  }
+  terminals.forEach((terminal) => status.set(
+    terminal.eventId,
+    called.has(terminal.callId) ? "complete" : "orphan-terminal",
+  ));
+  return status;
+}
+
 export function cleanSearchState(search: ObservabilitySearchState): ObservabilitySearchState {
   return Object.fromEntries(
     Object.entries(search).filter(([, value]) => typeof value === "string" && value.length > 0),

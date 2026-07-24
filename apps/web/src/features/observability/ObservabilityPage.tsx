@@ -34,12 +34,13 @@ import {
   ATTENTION_RUN_STATUSES,
   TERMINAL_RUN_STATUSES,
   cleanSearchState,
-  collectEvidenceReferences,
+  correlateToolEvents,
   filterRuns,
   getForensicTurnWindow,
   mergeEvents,
   normalizePeriodFilter,
   normalizeStatusFilter,
+  projectEvidenceReferences,
   sortEvents,
   summarizeRuns,
   type ObservabilitySearchState,
@@ -162,12 +163,10 @@ function PageState({
 function RunList({
   runs,
   selectedRunId,
-  providerName,
   onSelect,
 }: {
   runs: Run[];
   selectedRunId?: string;
-  providerName: string;
   onSelect(runId: string): void;
 }) {
   return (
@@ -175,9 +174,9 @@ function RunList({
       <div className="obs-list-head" aria-hidden="true">
         <span>Run</span>
         <span>Study revision / variant</span>
-        <span>Provider / runner</span>
+        <span>Runner</span>
         <span>Status</span>
-        <span>Attempt</span>
+        <span>Detalhe</span>
         <span>Duração</span>
         <span>Horário</span>
       </div>
@@ -198,8 +197,7 @@ function RunList({
             <small className="mono" title={run.variant_id}>{run.variant_id}</small>
           </span>
           <span className="obs-run-provider">
-            <strong>{providerName}</strong>
-            <small className="mono" title={run.runner}>{shortId(run.runner)}</small>
+            <strong className="mono" title={run.runner}>{shortId(run.runner)}</strong>
           </span>
           <span><StatusMark status={run.status} /></span>
           <span className="mono">{run.contract_mode === "legacy_v1" ? "Legacy" : "Ver detalhe"}</span>
@@ -230,6 +228,10 @@ function GeneralFacts({ data }: { data: DetailData }) {
         <Fact label="AdmissionRecord">{run.admission_id ?? "Sem record"}</Fact>
         <Fact label="SubjectEnvelope digest">{run.subject_envelope_digest ?? "Não materializado"}</Fact>
         <Fact label="Runner">{run.runner}</Fact>
+        <Fact label="Duração">{formatDuration(run)}</Fact>
+        <Fact label="Retry of">{run.record?.retry_of ?? "Não é retry"}</Fact>
+        <Fact label="Job">{run.execution?.job.job_id ?? "Não informado"}</Fact>
+        <Fact label="Attempts">{run.execution?.attempts.length ?? "Não informado"}</Fact>
         <Fact label="Criada em">{formatDate(run.created_at)}</Fact>
         <Fact label="Terminal em">{formatDate(run.completed_at)}</Fact>
       </dl>
@@ -239,6 +241,7 @@ function GeneralFacts({ data }: { data: DetailData }) {
 
 function TracePanel({ events }: { events: RunEvent[] }) {
   const ordered = useMemo(() => sortEvents(events), [events]);
+  const toolCorrelations = useMemo(() => correlateToolEvents(ordered), [ordered]);
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const selectedEvent = ordered.find((event) => event.event_id === expandedEventId) ?? null;
@@ -270,7 +273,7 @@ function TracePanel({ events }: { events: RunEvent[] }) {
       <ol aria-label="Eventos ordenados por sequence">
         {ordered.map((event) => {
           const expanded = expandedEventId === event.event_id;
-          const isTool = event.type.startsWith("tool.");
+          const toolState = toolCorrelations.get(event.event_id);
           return (
             <li key={`${event.sequence}:${event.event_id}`} data-event-type={event.type}>
               <button
@@ -284,7 +287,7 @@ function TracePanel({ events }: { events: RunEvent[] }) {
               >
                 <span className="obs-event-sequence mono">{String(event.sequence).padStart(3, "0")}</span>
                 <span className="obs-event-type mono">
-                  {isTool ? <Box aria-hidden="true" size={13} /> : null}
+                  {toolState === "complete" ? <Box aria-hidden="true" size={13} /> : null}
                   {event.type}
                 </span>
                 <span className="obs-event-actor">{event.actor_type}</span>
@@ -293,7 +296,18 @@ function TracePanel({ events }: { events: RunEvent[] }) {
               </button>
               {expanded ? (
                 <div className="obs-event-expanded">
+                  {toolState === "complete" ? (
+                    <div className="obs-tool-state">Tool activity correlacionada por call_id.</div>
+                  ) : null}
+                  {toolState === "orphan-terminal" ? (
+                    <div className="obs-tool-state obs-tool-state-incomplete">Evento factual incompleto: tool.called correlacionado não foi carregado.</div>
+                  ) : null}
                   <dl>
+                    <Fact label="Sequence">{event.sequence}</Fact>
+                    <Fact label="Timestamp">{formatDate(event.occurred_at_utc)}</Fact>
+                    <Fact label="Classification">{event.classification || "Não informado"}</Fact>
+                    <Fact label="Correlation ID">{event.correlation_id ?? "Não informado"}</Fact>
+                    <Fact label="Causation ID">{event.causation_id ?? "Não informado"}</Fact>
                     <Fact label="Event ID">{event.event_id}</Fact>
                     <Fact label="Event hash">{event.event_hash}</Fact>
                     <Fact label="Prev hash">{event.prev_event_hash ?? "Primeiro evento"}</Fact>
@@ -385,9 +399,14 @@ function EvidencePanel({
   adapter: ObservabilityAdapter;
 }) {
   const refs = useMemo(
-    () => collectEvidenceReferences(data.events, data.evaluations, data.checkpoints),
+    () => projectEvidenceReferences(data.events, data.evaluations, data.checkpoints),
     [data.checkpoints, data.evaluations, data.events],
   );
+  const groupedRefs = useMemo(() => ({
+    event: refs.filter((item) => item.origin === "event"),
+    evaluation: refs.filter((item) => item.origin === "evaluation"),
+    checkpoint: refs.filter((item) => item.origin === "checkpoint"),
+  }), [refs]);
   const [exportedPath, setExportedPath] = useState<string | null>(null);
   const [revealError, setRevealError] = useState<string | null>(null);
   const exportBundle = useMutation({
@@ -448,14 +467,30 @@ function EvidencePanel({
           <span>{refs.length}</span>
         </header>
         {refs.length ? (
-          <ul>
-            {refs.map((ref) => (
-              <li key={ref}>
-                <code>{ref}</code>
-                <span>Referência preservada; conteúdo indisponível</span>
-              </li>
-            ))}
-          </ul>
+          <div className="obs-evidence-groups">
+            {(["event", "evaluation", "checkpoint"] as const).map((origin) => groupedRefs[origin].length ? (
+              <section key={origin}>
+                <h3>{origin === "event" ? "Run events" : origin === "evaluation" ? "Evaluation records" : "Checkpoint records"}</h3>
+                <ul>
+                  {groupedRefs[origin].map((item, index) => (
+                    <li key={`${item.sourceId}:${item.ref}:${index}`}>
+                      <code>{item.ref}</code>
+                      <dl>
+                        <Fact label="Origem">{item.origin}</Fact>
+                        <Fact label="Papel">{item.role || "Não informado"}</Fact>
+                        <Fact label="Record">{item.sourceId || "Não informado"}</Fact>
+                        <Fact label="Sequence">{item.sequence ?? "Não informado"}</Fact>
+                        <Fact label="Timestamp">{item.timestamp ? formatDate(item.timestamp) : "Não informado"}</Fact>
+                        <Fact label="Classification">{item.classification ?? "Não informado"}</Fact>
+                        <Fact label="Gate">{item.gateStatus ?? "Não informado"}</Fact>
+                      </dl>
+                      <span>Referência preservada; conteúdo indisponível</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null)}
+          </div>
         ) : (
           <PageState icon={<FileWarning size={20} />} title="Sem referências" role="status">
             Nenhuma ref run:, event: ou artifact: aparece nos records carregados.
@@ -559,12 +594,25 @@ function RunDetailPanel({
     { id: "execution", label: "Execution" },
   ];
 
+  function moveTab(current: DetailTab, key: string) {
+    const currentIndex = tabs.findIndex((tab) => tab.id === current);
+    let nextIndex = currentIndex;
+    if (key === "ArrowRight") nextIndex = (currentIndex + 1) % tabs.length;
+    else if (key === "ArrowLeft") nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+    else if (key === "Home") nextIndex = 0;
+    else if (key === "End") nextIndex = tabs.length - 1;
+    else return;
+    const next = tabs[nextIndex]!;
+    setActiveTab(next.id);
+    requestAnimationFrame(() => document.getElementById(`obs-tab-${next.id}`)?.focus());
+  }
+
   return (
     <div className="obs-detail-panel">
       <header className="obs-detail-header">
         <button className="obs-back-button" onClick={onBack} type="button">
           <ArrowLeft aria-hidden="true" size={15} />
-          Voltar
+          Voltar às Runs
         </button>
         <div>
           <code title={data.run.id}>{data.run.id}</code>
@@ -583,22 +631,24 @@ function RunDetailPanel({
         <nav className="obs-tabs" aria-label="Detalhes da Run" role="tablist">
           {tabs.map((tab) => (
             <button
+              aria-controls={`obs-panel-${tab.id}`}
               aria-selected={activeTab === tab.id}
+              id={`obs-tab-${tab.id}`}
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
+              onKeyDown={(event) => moveTab(tab.id, event.key)}
               role="tab"
+              tabIndex={activeTab === tab.id ? 0 : -1}
               type="button"
             >
               {tab.label}
             </button>
           ))}
         </nav>
-        <div className="obs-tab-panel" role="tabpanel">
-          {activeTab === "trace" ? <TracePanel events={data.events} /> : null}
-          {activeTab === "evaluation" ? <EvaluationPanel evaluations={data.evaluations} /> : null}
-          {activeTab === "evidence" ? <EvidencePanel adapter={adapter} data={data} /> : null}
-          {activeTab === "execution" ? <ExecutionPanel run={data.run} /> : null}
-        </div>
+        <div aria-labelledby="obs-tab-trace" className="obs-tab-panel" hidden={activeTab !== "trace"} id="obs-panel-trace" role="tabpanel"><TracePanel events={data.events} /></div>
+        <div aria-labelledby="obs-tab-evaluation" className="obs-tab-panel" hidden={activeTab !== "evaluation"} id="obs-panel-evaluation" role="tabpanel"><EvaluationPanel evaluations={data.evaluations} /></div>
+        <div aria-labelledby="obs-tab-evidence" className="obs-tab-panel" hidden={activeTab !== "evidence"} id="obs-panel-evidence" role="tabpanel"><EvidencePanel adapter={adapter} data={data} /></div>
+        <div aria-labelledby="obs-tab-execution" className="obs-tab-panel" hidden={activeTab !== "execution"} id="obs-panel-execution" role="tabpanel"><ExecutionPanel run={data.run} /></div>
       </div>
     </div>
   );
@@ -611,10 +661,6 @@ export function ObservabilityWorkspace({
 }: ObservabilityWorkspaceProps) {
   const queryClient = useQueryClient();
   const runsQuery = useQuery({ queryKey: ["observability", "runs"], queryFn: adapter.listRuns });
-  const providerQuery = useQuery({
-    queryKey: ["observability", "provider"],
-    queryFn: adapter.getProvider,
-  });
   const selectedRunId = search.run;
   const detailQuery = useQuery({
     queryKey: ["observability", "run", selectedRunId],
@@ -632,6 +678,7 @@ export function ObservabilityWorkspace({
   });
   const [streamState, setStreamState] = useState<RunStreamState>("closed");
   const [streamError, setStreamError] = useState<string | null>(null);
+  const [moreFiltersOpen, setMoreFiltersOpen] = useState(false);
 
   useEffect(() => {
     if (!selectedRunId) {
@@ -663,6 +710,14 @@ export function ObservabilityWorkspace({
   const summary = useMemo(() => summarizeRuns(runs), [runs]);
   const status = normalizeStatusFilter(search.status);
   const period = normalizePeriodFilter(search.period);
+  const filtersActive = Boolean(search.q || search.status || search.period);
+  const connectionLabel = runsQuery.isError
+    ? (runsQuery.error instanceof TypeError ? "Backend desconectado" : "Falha no endpoint")
+    : runsQuery.isPending
+      ? "Conectando"
+      : runsQuery.isFetching || streamState === "reconnecting"
+      ? "Reconectando"
+      : "Conectado";
   const selectedMissing = Boolean(selectedRunId && runsQuery.isSuccess && !runs.some((run) => run.id === selectedRunId));
 
   function updateSearch(patch: Partial<ObservabilitySearchState>) {
@@ -696,13 +751,7 @@ export function ObservabilityWorkspace({
           >
             <option value="all">Todos os status</option>
             <option value="active">Ativas</option>
-            <option value="queued">Queued</option>
-            <option value="preparing">Preparing</option>
-            <option value="running">Running</option>
-            <option value="evaluating">Evaluating</option>
             <option value="completed">Completed</option>
-            <option value="failed">Failed</option>
-            <option value="budget_exhausted">Budget exhausted</option>
             <option value="attention">Atenção</option>
           </select>
         </label>
@@ -719,10 +768,38 @@ export function ObservabilityWorkspace({
             <option value="30d">Últimos 30 dias</option>
           </select>
         </label>
-        <button className="obs-clear-button" onClick={clearFilters} type="button">Limpar</button>
+        <div className="obs-more-filters">
+          <button aria-expanded={moreFiltersOpen} className="obs-clear-button" onClick={() => setMoreFiltersOpen((value) => !value)} type="button">Mais filtros</button>
+          {moreFiltersOpen ? (
+            <div className="obs-filter-popover" role="dialog" aria-label="Mais filtros">
+              <label>
+                Status exato
+                <select aria-label="Status exato" onChange={(event) => updateSearch({ status: event.target.value === "all" ? undefined : event.target.value })} value={status}>
+                  <option value="all">Qualquer status</option>
+                  <option value="active">Ativas (grupo)</option>
+                  <option value="attention">Atenção (grupo)</option>
+                  <option value="queued">Queued</option>
+                  <option value="preparing">Preparing</option>
+                  <option value="running">Running</option>
+                  <option value="evaluating">Evaluating</option>
+                  <option value="completed">Completed</option>
+                  <option value="failed">Failed</option>
+                  <option value="budget_exhausted">Budget exhausted</option>
+                </select>
+              </label>
+              <p>Provider e trust não são atribuídos por Run pelo endpoint de lista. Runner pode ser pesquisado em q.</p>
+            </div>
+          ) : null}
+        </div>
+        {filtersActive ? <button className="obs-clear-button" onClick={clearFilters} type="button">Limpar filtros</button> : null}
+        <span className={`obs-command-connection ${runsQuery.isError ? "is-error" : connectionLabel === "Reconectando" ? "is-reconnecting" : ""}`} role="status">
+          {connectionLabel === "Reconectando" ? <RefreshCw className="obs-spin" size={12} /> : <Radio size={12} />}
+          {connectionLabel}
+        </span>
       </form>
 
       <nav className="obs-status-strip" aria-label="Agrupar Runs por estado">
+        <span className="obs-strip-label">Runs</span>
         {([
           ["all", "Todas", summary.all],
           ["active", "Ativas", summary.active],
@@ -745,9 +822,14 @@ export function ObservabilityWorkspace({
         <div className="obs-list-pane">
           {runsQuery.isPending ? <ListLoadingState /> : null}
           {runsQuery.isError ? (
-            <PageState icon={<AlertTriangle size={20} />} title="Falha ao carregar Runs" role="alert">
-              O backend não retornou a lista. Tente novamente quando a conexão estiver disponível.
-            </PageState>
+            <div className="obs-error-state" role="alert">
+              <AlertTriangle size={20} />
+              <div>
+                <strong>{runsQuery.error instanceof TypeError ? "Backend desconectado" : "Falha no endpoint de Runs"}</strong>
+                <span>{runsQuery.error instanceof TypeError ? "Não foi possível alcançar o backend local." : "O backend respondeu, mas a lista de Runs falhou."}</span>
+              </div>
+              <button className="obs-action-button" onClick={() => void runsQuery.refetch()} type="button">Tentar novamente</button>
+            </div>
           ) : null}
           {runsQuery.isSuccess && !runs.length ? (
             <PageState icon={<FileWarning size={20} />} title="Nenhuma Run registrada" role="status">
@@ -762,7 +844,6 @@ export function ObservabilityWorkspace({
           {filteredRuns.length ? (
             <RunList
               onSelect={(runId) => updateSearch({ run: runId })}
-              providerName={providerQuery.data?.id ?? "Provider não carregado"}
               runs={filteredRuns}
               selectedRunId={selectedRunId}
             />
@@ -779,7 +860,7 @@ export function ObservabilityWorkspace({
             <PageState icon={<AlertTriangle size={20} />} title="Run indisponível" role="alert">
               O parâmetro run não corresponde a um detalhe carregável.
               <button className="obs-text-button" onClick={() => updateSearch({ run: undefined })} type="button">
-                Voltar à lista
+                Voltar às Runs
               </button>
             </PageState>
           ) : null}
