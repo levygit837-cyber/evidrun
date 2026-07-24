@@ -36,8 +36,6 @@ incubacao. Ele nao promove nenhuma capability.
 
 - `main` observado: `ea0d8f94c40240b32e7cd7c5048fe53c8d4f0764`;
 - Runtime Kernel integrado por PR #4 em `ffc513137d343e015cede7f15f14ed5e749db2b4`;
-- exploracao visual da Operator Console integrada por PR #6 em
-  `b244bfc22ae8c6c83e3ce73842be20d79257e67e`;
 - orientacao de agentes integrada por PR #7 em
   `ea0d8f94c40240b32e7cd7c5048fe53c8d4f0764`;
 - este snapshot descreve o repositorio, nao uma worktree ativa.
@@ -71,7 +69,7 @@ incubacao. Ele nao promove nenhuma capability.
 | Tools/skills genericas | `accepted_only` | Inventario e eventos sao representaveis; fora da read tool da worktree, coordinators continuam ausentes. |
 | Interaction graph/nested agents | `accepted_only` | Contratos sao tipaveis e a admissao rejeita honestamente. |
 | Portable bundle/replay/fork | `accepted_only` | Audit bundles existem; blobs, grants, restore e lineage executavel nao. |
-| Console Web de operacao | `partial` | A UI de produto ainda mostra o demo CRL-CTX-002. Cinco prototipos React independentes exploram Lab, Projects, Study e Runs, mas nao sao `apps/web`, nao usam backend real e nao promovem capabilities. |
+| Console Web de operacao | `partial` | A UI de produto ainda mostra o demo CRL-CTX-002. A direcao anterior de UI/UX e seus prototipos foram descartados; o material do AIDesigner permanece apenas como research para uma redefinicao posterior. |
 | Canvas | `incubating` | Conceitos existem; nao e requisito do MVP operacional. |
 
 ## Integracoes encerradas neste snapshot
@@ -91,7 +89,7 @@ verificada.
 
 ## Claims proibidos neste snapshot
 
-- chamar prototipos de design de Console operacional conectada;
+- chamar research do AIDesigner de Console operacional conectada;
 - afirmar que todo `ArtifactRef` possui grant;
 - chamar o autenticador local de passkey de plataforma;
 - afirmar que o frontend cria Studies completos;

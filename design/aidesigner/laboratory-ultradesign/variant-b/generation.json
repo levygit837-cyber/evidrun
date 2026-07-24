@@ -1,0 +1,12 @@
+{
+  "editor_url": "https://aidesigner.ai/editor/27b16c64-f6b2-4eb6-9490-3392f2d6a7da",
+  "editor_session_id": "27b16c64-f6b2-4eb6-9490-3392f2d6a7da",
+  "run_id": null,
+  "status": "insufficient_credits",
+  "prompt_files": [
+    "design/aidesigner/laboratory-ultradesign/prompt-base.md",
+    "design/aidesigner/laboratory-ultradesign/variant-b-direction.md"
+  ],
+  "prompt_line_count": 325,
+  "html_size": 0
+}

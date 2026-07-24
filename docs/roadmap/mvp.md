@@ -45,8 +45,6 @@ verification_refs: []
 - persistencia do SubjectEnvelope exato e Bundle v3 por Run, ainda `references_only`, nao portatil e
   nao replayable;
 - Subject real opt-in, read tool confinada ao envelope e tracing factual;
-- cinco prototipos React isolados da Operator Console para exploracao visual; eles nao substituem a
-  implementacao de produto em `apps/web` nem representam backend conectado.
 
 ## Próximo
 

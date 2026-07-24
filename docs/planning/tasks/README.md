@@ -26,13 +26,11 @@ verification_refs: []
 | Estado | Brief | Proxima acao |
 | --- | --- | --- |
 | `done_on_main` | [WS-00 Runtime Kernel](00-runtime-kernel-integration.md) | Preservar os limites integrados pela PR #4 |
-| `queued` | [WS-10 Operator Console](10-mvp-operator-console.md) | Implementar em `apps/web` a partir de `origin/main`; usar os prototipos apenas como research visual |
 | `queued` | [WS-20 Artifact access/capture](20-artifact-access-and-capture.md) | Pode iniciar em paralelo com WS-40, com ownership separado |
 | `queued` | [WS-40 Trust sandbox/ReviewPackage](40-trust-sandbox-review-package.md) | Pode iniciar em paralelo com WS-20, sem criar falsa authority |
 
-WS-10 parte do Kernel ja integrado. Os cinco prototipos em
-`design/operator-console-prototypes` sao executaveis e testados como exploracao, mas nao devem ser
-copiados como se fossem a arquitetura final, nem apresentados como backend real.
+A direcao anterior de UI/UX da WS-10 foi descartada. Um novo brief deve ser aprovado antes de
+reativar esse workstream; o material preservado do AIDesigner continua research, nao implementacao.
 
 ## Regras de worktree
 
