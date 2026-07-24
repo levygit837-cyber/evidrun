@@ -1,0 +1,51 @@
+{
+  "editor_url": "https://aidesigner.ai/editor/844b8b73-ea42-499b-b0a6-4adbc1e4abf0",
+  "editor_session_id": "844b8b73-ea42-499b-b0a6-4adbc1e4abf0",
+  "canvas_id": "0d4a9a13-3f7e-40ca-aaf7-db218da1c94a",
+  "canvas_name": "Observabilidade Operacional",
+  "canvas_kind": "ui",
+  "canvas_version": 1,
+  "run_id": "4d6d2123-53f2-4065-ba15-ea7cd6885488",
+  "status": "succeeded",
+  "design_mode": "classic",
+  "viewport": "desktop",
+  "prompt_file": "design/aidesigner/observability-classic/prompt.md",
+  "html_path": "design/aidesigner/observability-classic/index.html",
+  "html_size_bytes": 57969,
+  "html_line_count": 1139,
+  "html_sha256": "57a397b7096581a31942768db3cd7afaf4b4bc97b0058d47415ea9680dd91a9c",
+  "retrieval": "mcp list_canvases -> get_canvas",
+  "local_qa_fixes": [
+    "complete period, status, Study, trust, provider and event-reference filters",
+    "separate Running and Evaluating counters",
+    "canonical run.* lifecycle names and status-compatible event sequences",
+    "inline event expansion with ARIA state",
+    "accessible tab state and keyboard Run selection",
+    "short Demo reconnect loading state that remains honestly disconnected",
+    "desktop inspector closed until Run selection",
+    "full-viewport mobile inspector overlay",
+    "mobile Run list layout",
+    "Bundle v3 portable=false and replayable=false disclosure",
+    "durable fencing state and Lab Agent incubation boundary",
+    "prefers-reduced-motion support"
+  ],
+  "validation": {
+    "html_parse": "passed",
+    "duplicate_ids": 0,
+    "inline_script_syntax": "passed",
+    "deterministic_dom_interaction_cycle": "passed",
+    "browser_desktop_1440x900": "passed",
+    "browser_mobile_390x844": "passed",
+    "browser_console_errors": 0
+  },
+  "qa_screenshots": [
+    "/Users/apple/.codex/visualizations/2026/07/24/019f950d-bf21-7a32-8de2-a6153d089232/observability-01-overview.png",
+    "/Users/apple/.codex/visualizations/2026/07/24/019f950d-bf21-7a32-8de2-a6153d089232/observability-02-inspector.png",
+    "/Users/apple/.codex/visualizations/2026/07/24/019f950d-bf21-7a32-8de2-a6153d089232/observability-03-mobile.png",
+    "/Users/apple/.codex/visualizations/2026/07/24/019f950d-bf21-7a32-8de2-a6153d089232/observability-04-mobile-inspector.png"
+  ],
+  "credits_before_generation": 2,
+  "credits_charged_observed": 2,
+  "credits_remaining_after_generation": 0,
+  "generated_at": "2026-07-24T17:42:01.103118+00:00"
+}
