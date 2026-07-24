@@ -6,7 +6,7 @@ status: draft
 authority: research
 owner: core
 created_at: 2026-07-22
-updated_at: 2026-07-22
+updated_at: 2026-07-24
 applies_to: discovery/run-contracts
 sources:
   - user-conversation:2026-07-22-scenario-oriented-discovery
@@ -14,7 +14,9 @@ sources:
 supersedes: []
 superseded_by: null
 implementation_refs: []
-verification_refs: []
+verification_refs:
+  - benchmarks/fixtures/run-evidence-boundaries/expected-run.md
+  - tests/acceptance/test_run_evidence_boundaries_fixture.py
 observed_at: 2026-07-22
 review_due: 2026-10-22
 ---
@@ -231,3 +233,13 @@ judge e revisão humana entram como módulos tipados ou records próprios.
 O gate está atendido no papel, mas não autoriza promoção imediata. A próxima decisão deve selecionar
 um contrato candidato de cada vez, testar seu schema fechado contra os três dossiers e criar ADR
 sucessor apenas quando uma decisão aceita realmente mudar.
+
+## Fixture executável mínima posterior
+
+A fixture em `benchmarks/fixtures/run-evidence-boundaries/` materializa uma única Run offline com os
+contratos e o Runtime Kernel já existentes. O teste de aceitação prova a separação entre intenção do
+Study, oracle oculto, SubjectEnvelope, RunRecord, ledger, EvaluationRecord e projeção Markdown.
+
+Essa evidência reduz a incerteza sobre o caso mínimo, mas não promove os contratos candidatos deste
+discovery, não define um schema de relatório e não fecha os gates de composição modular,
+workspace/grants, versionamento de projectors, supersession ou capabilities condicionais.
