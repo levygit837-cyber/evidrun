@@ -1,0 +1,63 @@
+name: Publish Wiki
+
+on:
+  workflow_dispatch:
+    inputs:
+      allow_stale_snapshot:
+        description: "Publish even when .wiki-meta.json was generated from another commit"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-wiki
+  cancel-in-progress: true
+
+jobs:
+  publish-wiki:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Clone the GitHub Wiki
+        run: |
+          git clone "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git" wiki
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Convert droid-wiki to GitHub Wiki format
+        shell: bash
+        run: |
+          SOURCE_COMMIT="$(python3 -c 'import json; print(json.load(open("droid-wiki/.wiki-meta.json"))["commitHash"])')"
+          EXTRA_ARGS=()
+          if [[ "${{ inputs.allow_stale_snapshot }}" == "true" ]]; then
+            EXTRA_ARGS+=(--allow-stale-source)
+          fi
+          python3 scripts/publish_wiki.py \
+            --source droid-wiki \
+            --output wiki \
+            --repo-blob-base "https://github.com/${GITHUB_REPOSITORY}/blob/${SOURCE_COMMIT}" \
+            --expected-source-commit "${GITHUB_SHA}" \
+            "${EXTRA_ARGS[@]}"
+
+      - name: Commit and push wiki changes
+        run: |
+          cd wiki
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No wiki changes to publish."
+          else
+            git commit -m "docs: refresh wiki from ${GITHUB_SHA::7}"
+            git push
+          fi
