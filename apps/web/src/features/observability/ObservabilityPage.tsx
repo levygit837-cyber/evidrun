@@ -16,7 +16,7 @@ import {
   Search,
   TerminalSquare,
 } from "lucide-react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { observabilityAdapter } from "../../data/adapters";
 import type {
   ObservabilityAdapter,
@@ -170,7 +170,7 @@ function RunList({
   onSelect(runId: string): void;
 }) {
   return (
-    <div className="obs-run-list" role="group" aria-label="Runs admitidas">
+    <div className="obs-run-list" role="group" aria-label="Lista de Runs">
       <div className="obs-list-head" aria-hidden="true">
         <span>Run</span>
         <span>Study revision / variant</span>
@@ -479,6 +479,8 @@ function EvidencePanel({
                         <Fact label="Origem">{item.origin}</Fact>
                         <Fact label="Papel">{item.role || "Não informado"}</Fact>
                         <Fact label="Record">{item.sourceId || "Não informado"}</Fact>
+                        <Fact label="Digest">{item.digest ?? "Não informado"}</Fact>
+                        <Fact label="Media type">{item.mediaType ?? "Não informado"}</Fact>
                         <Fact label="Sequence">{item.sequence ?? "Não informado"}</Fact>
                         <Fact label="Timestamp">{item.timestamp ? formatDate(item.timestamp) : "Não informado"}</Fact>
                         <Fact label="Classification">{item.classification ?? "Não informado"}</Fact>
@@ -679,6 +681,29 @@ export function ObservabilityWorkspace({
   const [streamState, setStreamState] = useState<RunStreamState>("closed");
   const [streamError, setStreamError] = useState<string | null>(null);
   const [moreFiltersOpen, setMoreFiltersOpen] = useState(false);
+  const moreFiltersRef = useRef<HTMLDivElement>(null);
+  const moreFiltersButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!moreFiltersOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setMoreFiltersOpen(false);
+      moreFiltersButtonRef.current?.focus();
+    };
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      if (event.target instanceof Node && !moreFiltersRef.current?.contains(event.target)) {
+        setMoreFiltersOpen(false);
+      }
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+      document.removeEventListener("pointerdown", closeOnOutsidePointer);
+    };
+  }, [moreFiltersOpen]);
 
   useEffect(() => {
     if (!selectedRunId) {
@@ -768,10 +793,10 @@ export function ObservabilityWorkspace({
             <option value="30d">Últimos 30 dias</option>
           </select>
         </label>
-        <div className="obs-more-filters">
-          <button aria-expanded={moreFiltersOpen} className="obs-clear-button" onClick={() => setMoreFiltersOpen((value) => !value)} type="button">Mais filtros</button>
+        <div className="obs-more-filters" ref={moreFiltersRef}>
+          <button aria-controls="obs-more-filters-popover" aria-expanded={moreFiltersOpen} className="obs-clear-button" onClick={() => setMoreFiltersOpen((value) => !value)} ref={moreFiltersButtonRef} type="button">Mais filtros</button>
           {moreFiltersOpen ? (
-            <div className="obs-filter-popover" role="dialog" aria-label="Mais filtros">
+            <div className="obs-filter-popover" id="obs-more-filters-popover" role="dialog" aria-label="Mais filtros">
               <label>
                 Status exato
                 <select aria-label="Status exato" onChange={(event) => updateSearch({ status: event.target.value === "all" ? undefined : event.target.value })} value={status}>

@@ -38,15 +38,13 @@ function advanceToAdmission() {
 }
 
 describe("CreatePage", () => {
-  it("navega por etapas alcançadas, bloqueia futuras e torna o downstream stale ao editar Study", () => {
+  it("navega por etapas alcançadas e só torna o downstream stale após alteração efetiva", () => {
     const adapter: CreationAdapter = {
       bootstrapCanonicalDemo: vi.fn().mockResolvedValue(bootstrapResult),
     };
     renderCreate(adapter);
 
-    expect(
-      screen.getAllByText("Demo / integration_pending · não alimenta bootstrap"),
-    ).toHaveLength(4);
+    expect(screen.getAllByText("Demo · integration_pending")).toHaveLength(4);
 
     const name = screen.getByRole("textbox", { name: /nome do study/i });
     fireEvent.change(name, { target: { value: "Study preservado" } });
@@ -66,6 +64,12 @@ describe("CreatePage", () => {
     fireEvent.click(screen.getByRole("button", { name: /editar study/i }));
 
     expect(screen.getByRole("textbox", { name: /nome do study/i })).toHaveValue("Study preservado");
+    expect(screen.queryByText("Downstream stale")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "RunSpecs" })).toBeEnabled();
+
+    fireEvent.change(screen.getByRole("textbox", { name: /nome do study/i }), {
+      target: { value: "Study realmente alterado" },
+    });
     expect(screen.getByText("Downstream stale")).toBeInTheDocument();
     expect(screen.getAllByText("stale").length).toBeGreaterThanOrEqual(3);
     expect(screen.getByRole("button", { name: /runspecs stale/i })).toBeDisabled();

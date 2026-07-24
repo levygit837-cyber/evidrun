@@ -3,11 +3,10 @@ import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
-  ChevronDown,
   CirclePlus,
   FlaskConical,
   Hexagon,
-  RadioTower,
+  type LucideIcon,
 } from "lucide-react";
 import { api } from "../api/client";
 import { useBackendRuntime } from "./BackendRuntimeProvider";
@@ -17,6 +16,12 @@ const routeNames: Record<string, string> = {
   "/laboratory": "Laboratory",
   "/create": "Create",
   "/observability": "Observability",
+};
+
+const routeIcons: Record<string, LucideIcon> = {
+  "/create": CirclePlus,
+  "/laboratory": FlaskConical,
+  "/observability": Activity,
 };
 
 export function AppShell() {
@@ -40,6 +45,7 @@ export function AppShell() {
     if (backendState.status === "failed") return "danger" as const;
     return "warning" as const;
   }, [backendState.status]);
+  const RouteIcon = routeIcons[pathname] ?? Hexagon;
 
   return (
     <div className={`app-shell platform-${platform}`}>
@@ -51,15 +57,33 @@ export function AppShell() {
 
         <div className="sidebar-label">Áreas</div>
         <nav className="sidebar-nav">
-          <Link to="/create" activeProps={{ className: "active" }}>
+          <Link
+            to="/create"
+            aria-label="Create"
+            title="Create"
+            data-tooltip="Create"
+            activeProps={{ className: "active" }}
+          >
             <CirclePlus aria-hidden="true" size={16} />
             <span>Create</span>
           </Link>
-          <Link to="/laboratory" activeProps={{ className: "active" }}>
+          <Link
+            to="/laboratory"
+            aria-label="Laboratory"
+            title="Laboratory"
+            data-tooltip="Laboratory"
+            activeProps={{ className: "active" }}
+          >
             <FlaskConical aria-hidden="true" size={16} />
             <span>Laboratory</span>
           </Link>
-          <Link to="/observability" activeProps={{ className: "active" }}>
+          <Link
+            to="/observability"
+            aria-label="Observability"
+            title="Observability"
+            data-tooltip="Observability"
+            activeProps={{ className: "active" }}
+          >
             <Activity aria-hidden="true" size={16} />
             <span>Observability</span>
           </Link>
@@ -67,10 +91,12 @@ export function AppShell() {
 
         <div className="sidebar-project">
           <span className="sidebar-label">Projeto</span>
-          <button type="button" aria-label="Projeto atual">
-            <span>Context Reliability Lab</span>
-            <ChevronDown aria-hidden="true" size={14} />
-          </button>
+          <div
+            className="sidebar-project-current"
+            aria-label="Projeto atual: Context Reliability Lab"
+          >
+            Context Reliability Lab
+          </div>
         </div>
 
         <div className="sidebar-system">
@@ -106,7 +132,7 @@ export function AppShell() {
       <section className="app-main">
         <header className="app-topbar">
           <div className="topbar-context">
-            <RadioTower aria-hidden="true" size={15} />
+            <RouteIcon aria-hidden="true" size={15} />
             <strong>{routeNames[pathname] ?? "Evidrun"}</strong>
           </div>
           <div className="topbar-runtime">

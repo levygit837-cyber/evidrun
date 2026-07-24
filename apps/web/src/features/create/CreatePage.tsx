@@ -243,7 +243,6 @@ export function CreatePage({ adapter = creationAdapter }: CreatePageProps) {
   };
 
   const editStudy = () => {
-    markDownstreamStale();
     setActiveStep(1);
   };
 
@@ -371,7 +370,7 @@ export function CreatePage({ adapter = creationAdapter }: CreatePageProps) {
                   {activeStep !== 1 ? <p>{study.name} · preview Demo local {compiledStudy?.revision ?? 1}</p> : <p>Demo / integration_pending · não alimenta o bootstrap.</p>}
                 </div>
               </div>
-              <span className="create-stage-mode">Demo / integration_pending · não alimenta bootstrap</span>
+              <span className="create-stage-mode">Demo · integration_pending</span>
               {activeStep !== 1 ? (
                 <Button variant="quiet" size="small" disabled={bootstrap.isPending} onClick={editStudy}>
                   <Pencil aria-hidden="true" size={13} />
@@ -459,7 +458,7 @@ export function CreatePage({ adapter = creationAdapter }: CreatePageProps) {
                   <p>{compiledStudy ? `Preview Demo imutável · revisão local ${compiledStudy.revision}` : "Aguardando preview Demo local"}</p>
                 </div>
               </div>
-              <span className="create-stage-mode">Demo / integration_pending · não alimenta bootstrap</span>
+              <span className="create-stage-mode">Demo · integration_pending</span>
               {compiledStudy ? <StatusIndicator tone={downstreamState === "stale" ? "warning" : "success"} label={downstreamState === "stale" ? "stale" : "imutáveis"} /> : null}
             </header>
 
@@ -504,7 +503,7 @@ export function CreatePage({ adapter = creationAdapter }: CreatePageProps) {
                   <p>Demo local não alimenta a repository_fixture CRL-CTX-002.</p>
                 </div>
               </div>
-              <span className="create-stage-mode">Demo / integration_pending · não alimenta bootstrap</span>
+              <span className="create-stage-mode">Demo · integration_pending</span>
               {compiledStudy ? <AdmissionBadge state={admissionState} /> : null}
             </header>
 
@@ -555,7 +554,7 @@ export function CreatePage({ adapter = creationAdapter }: CreatePageProps) {
                   <p>{result ? "CRL-CTX-002 retornou baseline e candidate reais" : "Demo local não criou nenhuma Run"}</p>
                 </div>
               </div>
-              <span className="create-stage-mode">Demo / integration_pending · não alimenta bootstrap</span>
+              <span className="create-stage-mode">Demo · integration_pending</span>
               {result ? <StatusIndicator tone="success" label="resultado real · CRL-CTX-002" /> : null}
             </header>
 

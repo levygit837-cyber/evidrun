@@ -54,6 +54,7 @@ O primeiro benchmark com Subject real está em
 
 - [Mapa temporal de capabilities](planning/mvp-capability-map.md)
 - [Roadmap executavel do MVP](planning/mvp-implementation-roadmap.md)
+- [Fatia multipágina do frontend Electron](planning/electron-frontend-slice.md)
 - [Dispatch e estado dos workstreams](planning/tasks/README.md)
 
 Planejamento registra intencao, dependencias e estado temporal. Ele nao substitui contratos, ADRs

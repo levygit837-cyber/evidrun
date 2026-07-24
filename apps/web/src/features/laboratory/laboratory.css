@@ -222,7 +222,7 @@
 .laboratory-disclosure-chevron,
 .laboratory-tool-chevron {
   flex: 0 0 auto;
-  color: var(--text-soft);
+  color: var(--text-muted);
   transition: transform var(--motion-state) var(--ease-standard);
 }
 
@@ -491,7 +491,7 @@
   border: 0;
   border-radius: 4px;
   background: transparent;
-  color: var(--text-soft);
+  color: var(--text-muted);
   cursor: pointer;
 }
 

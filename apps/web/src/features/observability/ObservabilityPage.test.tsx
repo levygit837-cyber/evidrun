@@ -77,7 +77,7 @@ function event(sequence: number, type: string): RunEvent {
     classification: "internal",
     payload:
       type === "tool.completed"
-        ? { call_id: "call:orphan", result_ref: { artifact_id: "artifact:tool-result", digest: "sha256:result" } }
+        ? { call_id: "call:orphan", result_ref: { artifact_id: "artifact:tool-result", digest: "sha256:result", media_type: "application/json", classification: "internal" } }
         : {},
     correlation_id: null,
     causation_id: null,
@@ -188,10 +188,16 @@ describe("Observability filters and search params", () => {
     expect(onSearchChange).toHaveBeenLastCalledWith({ q: "incident" });
 
     fireEvent.click(screen.getByRole("button", { name: "Mais filtros" }));
+    const moreFilters = screen.getByRole("button", { name: "Mais filtros" });
+    expect(moreFilters).toHaveAttribute("aria-controls", "obs-more-filters-popover");
     fireEvent.change(screen.getByRole("combobox", { name: "Status exato" }), {
       target: { value: "running" },
     });
     expect(onSearchChange).toHaveBeenLastCalledWith({ status: "running" });
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "Mais filtros" })).not.toBeInTheDocument();
+    expect(moreFilters).toHaveFocus();
 
     fireEvent.change(screen.getByRole("combobox", { name: "Período" }), {
       target: { value: "7d" },
@@ -249,6 +255,8 @@ describe("Observability layout and trace", () => {
     await waitFor(() => expect(screen.getByText(/references_only/)).toBeInTheDocument());
     expect(screen.getByText("Run events")).toBeInTheDocument();
     expect(screen.getByText("Referência preservada; conteúdo indisponível")).toBeInTheDocument();
+    expect(screen.getByText("sha256:result")).toBeInTheDocument();
+    expect(screen.getByText("application/json")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /replay|reproduzir/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/replay disponível|reprodução disponível/i)).not.toBeInTheDocument();
   });

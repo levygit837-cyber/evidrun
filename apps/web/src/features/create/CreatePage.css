@@ -36,8 +36,8 @@
 .create-eyebrow,
 .create-local-label,
 .create-spec-kicker {
-  color: var(--text-soft);
-  font-size: 9px;
+  color: var(--text-muted);
+  font-size: 11px;
   font-weight: 680;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -195,7 +195,7 @@
   max-width: 290px;
   color: #626873;
   font-family: "JetBrains Mono Variable", monospace;
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.35;
   text-align: right;
 }

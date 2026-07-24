@@ -178,6 +178,8 @@ export type EvidenceOrigin = "event" | "evaluation" | "checkpoint";
 
 export interface EvidenceProjection {
   ref: string;
+  digest?: string;
+  mediaType?: string;
   origin: EvidenceOrigin;
   role: string;
   sourceId: string;
@@ -187,13 +189,21 @@ export interface EvidenceProjection {
   gateStatus?: string;
 }
 
+interface WalkedReference {
+  ref: string;
+  role: string;
+  digest?: string;
+  mediaType?: string;
+  classification?: string;
+}
+
 function walkReferences(
   value: unknown,
   path: string,
-  emit: (ref: string, role: string) => void,
+  emit: (reference: WalkedReference) => void,
 ): void {
   if (typeof value === "string") {
-    if (/^(run|event|artifact):/.test(value)) emit(value, path || "reference");
+    if (/^(run|event|artifact):/.test(value)) emit({ ref: value, role: path || "reference" });
     return;
   }
   if (Array.isArray(value)) {
@@ -201,6 +211,17 @@ function walkReferences(
     return;
   }
   if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    if (typeof record.artifact_id === "string") {
+      emit({
+        ref: record.artifact_id,
+        role: path || "artifact_ref",
+        digest: typeof record.digest === "string" ? record.digest : undefined,
+        mediaType: typeof record.media_type === "string" ? record.media_type : undefined,
+        classification: typeof record.classification === "string" ? record.classification : undefined,
+      });
+      return;
+    }
     Object.entries(value).forEach(([key, item]) =>
       walkReferences(item, path ? `${path}.${key}` : key, emit),
     );
@@ -214,14 +235,16 @@ export function projectEvidenceReferences(
 ): EvidenceProjection[] {
   const projected: EvidenceProjection[] = [];
   for (const event of events) {
-    walkReferences(event.payload, "payload", (ref, role) => projected.push({
-      ref,
+    walkReferences(event.payload, "payload", (reference) => projected.push({
+      ref: reference.ref,
+      digest: reference.digest,
+      mediaType: reference.mediaType,
       origin: "event",
-      role,
+      role: reference.role,
       sourceId: event.event_id,
       sequence: event.sequence,
       timestamp: event.occurred_at_utc,
-      classification: event.classification,
+      classification: reference.classification ?? event.classification,
     }));
   }
   for (const evaluation of evaluations) {
@@ -238,13 +261,16 @@ export function projectEvidenceReferences(
   }
   checkpoints.forEach((checkpoint, index) => {
     const record = checkpoint as Record<string, unknown>;
-    walkReferences(record, "checkpoint", (ref, role) => projected.push({
-      ref,
+    walkReferences(record, "checkpoint", (reference) => projected.push({
+      ref: reference.ref,
+      digest: reference.digest,
+      mediaType: reference.mediaType,
       origin: "checkpoint",
-      role,
+      role: reference.role,
       sourceId: typeof record.checkpoint_id === "string" ? record.checkpoint_id : `checkpoint:${index + 1}`,
       sequence: typeof record.up_to_event_sequence === "number" ? record.up_to_event_sequence : undefined,
       timestamp: typeof record.created_at_utc === "string" ? record.created_at_utc : undefined,
+      classification: reference.classification,
     }));
   });
   return projected.sort((left, right) =>
