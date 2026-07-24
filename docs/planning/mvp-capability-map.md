@@ -69,7 +69,7 @@ incubacao. Ele nao promove nenhuma capability.
 | Tools/skills genericas | `accepted_only` | Inventario e eventos sao representaveis; fora da read tool da worktree, coordinators continuam ausentes. |
 | Interaction graph/nested agents | `accepted_only` | Contratos sao tipaveis e a admissao rejeita honestamente. |
 | Portable bundle/replay/fork | `accepted_only` | Audit bundles existem; blobs, grants, restore e lineage executavel nao. |
-| Console Web de operacao | `partial` | A UI de produto ainda mostra o demo CRL-CTX-002. A direcao anterior de UI/UX e seus prototipos foram descartados; o material do AIDesigner permanece apenas como research para uma redefinicao posterior. |
+| Console desktop de operacao | `partial` | A branch `task/electron-frontend` implementa shell multipágina, Laboratory Demo, draft local de Create e Observability conectada. O único corredor de criação real continua sendo a `repository_fixture` não humana CRL-CTX-002; autoria canônica completa, Lab Agent real, artifact access e authority no renderer permanecem ausentes. |
 | Canvas | `incubating` | Conceitos existem; nao e requisito do MVP operacional. |
 
 ## Integracoes encerradas neste snapshot
@@ -90,6 +90,7 @@ verificada.
 ## Claims proibidos neste snapshot
 
 - chamar research do AIDesigner de Console operacional conectada;
+- afirmar que o draft local da página Create alimenta o bootstrap canônico;
 - afirmar que todo `ArtifactRef` possui grant;
 - chamar o autenticador local de passkey de plataforma;
 - afirmar que o frontend cria Studies completos;

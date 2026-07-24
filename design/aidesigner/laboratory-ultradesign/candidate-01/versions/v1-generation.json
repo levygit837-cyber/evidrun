@@ -1,0 +1,21 @@
+{
+  "editor_url": "https://aidesigner.ai/editor/368c8836-a14e-48c0-ab0f-d250d8f8bf4e",
+  "editor_session_id": "368c8836-a14e-48c0-ab0f-d250d8f8bf4e",
+  "canvas_id": "479dee5d-c7f2-4d78-b88d-ee96cec4ff12",
+  "canvas_name": "Laboratório Ultradesign Chat",
+  "canvas_kind": "ui",
+  "canvas_version": 1,
+  "run_id": "7553d4b5-2af7-4d22-a2b1-f5fc344357f5",
+  "status": "succeeded",
+  "design_mode": "ultradesign",
+  "viewport": "desktop",
+  "prompt_files": [
+    "design/aidesigner/laboratory-ultradesign/prompt-base.md",
+    "design/aidesigner/laboratory-ultradesign/variant-a-direction.md"
+  ],
+  "html_path": "design/aidesigner/laboratory-ultradesign/candidate-01/index.html",
+  "html_size_bytes": 47317,
+  "html_sha256": "39c32494280eb70df712f298e7e07c2082f99868df77c8b90dcabd9ce24d6349",
+  "retrieval": "mcp list_canvases -> get_canvas",
+  "generated_at": "2026-07-24T16:58:22.394539+00:00"
+}

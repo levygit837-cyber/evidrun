@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<!--
+  aesthetic_dna: Structuralist Data Dense, Minimalist Engineering
+  ui_paradigm: Master/Detail Split View, Border-driven layout
+  palette: fcfcfd base, pure white surface, pure neutral lines, hyper-specific status accents
+-->
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EvidRun - Observability Operacional</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Phosphor Icons -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+  <!-- Tailwind Config Override -->
+  <script>
+    tailwind.config = {
+      darkMode: 'class', // Force manual, effectively disabling OS dark mode interference
+      theme: {
+        extend: {
+          colors: {
+            app: {
+              bg: '#fcfcfd',
+              surface: '#ffffff',
+              text: '#1a1d24',
+              muted: '#6b7280',
+              line: '#e2e4e9',
+              brand: '#3144eb',
+              success: '#10b981',
+              alert: '#f59e0b',
+              error: '#ef4444'
+            }
+          },
+          fontFamily: {
+            display: ['Archivo', 'sans-serif'],
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          transitionTimingFunction: {
+            'spring': 'cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+            'precise': 'cubic-bezier(0.4, 0, 0.2, 1)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Global Resets & Utilities */
+    body {
+      background-color: theme('colors.app.bg');
+      color: theme('colors.app.text');
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: theme('colors.app.line');
+      border-radius: 0px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: theme('colors.app.muted');
+    }
+
+    /* Staggered Row Animation */
+    .stagger-row {
+      opacity: 0;
+      transform: translateY(4px);
+      animation: fadeUpIn 240ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+      animation-delay: calc(var(--index) * 20ms);
+    }
+
+    @keyframes fadeUpIn {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Shimmer Loading */
+    .shimmer {
+      background: linear-gradient(90deg, transparent 0%, rgba(0,0,0,0.02) 50%, transparent 100%);
+      background-size: 200% 100%;
+      animation: shimmerMove 1.5s infinite linear;
+    }
+    @keyframes shimmerMove {
+      from { background-position: -200% 0; }
+      to { background-position: 200% 0; }
+    }
+
+    /* Timeline Styling */
+    .timeline-dot {
+      width: 9px;
+      height: 9px;
+      border: 2px solid theme('colors.app.surface');
+      border-radius: 50%;
+      position: absolute;
+      left: -4.5px;
+      top: 6px;
+      background-color: theme('colors.app.line');
+      transition: background-color 200ms ease;
+    }
+    .timeline-item.active .timeline-dot { background-color: theme('colors.app.brand'); }
+    .timeline-item.error .timeline-dot { background-color: theme('colors.app.error'); }
+    
+    .pulse-dot {
+      position: relative;
+    }
+    .pulse-dot::after {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: 50%;
+      background-color: inherit;
+      opacity: 0.4;
+      animation: pulseAnim 2s infinite ease-in-out;
+    }
+    @keyframes pulseAnim {
+      0% { transform: scale(1); opacity: 0.6; }
+      100% { transform: scale(2.5); opacity: 0; }
+    }
+
+    /* Simulation Progress Bar */
+    #sim-progress {
+      transform-origin: left;
+      transform: scaleX(0);
+      transition: transform 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Hidden Utilities */
+    .hide-scrollbar {
+      -ms-overflow-style: none;  /* IE and Edge */
+      scrollbar-width: none;  /* Firefox */
+    }
+    .hide-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+
+    .loading-row {
+      background: linear-gradient(90deg, #f4f5f7 0%, #ffffff 48%, #f4f5f7 100%);
+      background-size: 220% 100%;
+      animation: shimmerMove 1.2s linear infinite;
+    }
+
+    .inspector-closed {
+      display: none !important;
+    }
+
+    @media (max-width: 767px) {
+      #inspector-panel {
+        position: fixed !important;
+        inset: 0 !important;
+        width: 100%;
+        height: 100dvh;
+        z-index: 50;
+      }
+      #runs-table {
+        display: block;
+        min-width: 0;
+      }
+      #runs-table thead {
+        display: none;
+      }
+      #runs-table tbody {
+        display: block;
+      }
+      #runs-table-body tr {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 7px 14px;
+        padding: 13px 16px;
+      }
+      #runs-table-body td {
+        display: block;
+        max-width: none;
+        padding: 0;
+        text-align: left;
+      }
+      #runs-table-body td:nth-child(1) { grid-column: 2; grid-row: 1; }
+      #runs-table-body td:nth-child(2) { grid-column: 1; grid-row: 1; }
+      #runs-table-body td:nth-child(3) { grid-column: 1 / 3; grid-row: 2; }
+      #runs-table-body td:nth-child(4) { grid-column: 1; grid-row: 3; }
+      #runs-table-body td:nth-child(5) { display: none; }
+      #runs-table-body td:nth-child(6) { grid-column: 2; grid-row: 3; }
+      #runs-table-body td:nth-child(7) { grid-column: 2; grid-row: 4; }
+      #runs-table-body td:nth-child(8) { grid-column: 1; grid-row: 4; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 1ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 1ms !important;
+      }
+    }
+  </style>
+</head>
+<body class="font-sans antialiased h-screen overflow-hidden flex selection:bg-app-brand/20 selection:text-app-brand">
+
+  <!-- ================= LAYOUT MACRO: SIDEBAR ================= -->
+  <aside class="hidden md:flex flex-col w-[240px] border-r border-app-line bg-app-bg shrink-0 z-10 transition-transform duration-300">
+    <!-- Brand / Shell Header -->
+    <div class="h-14 px-4 flex items-center border-b border-app-line bg-app-surface shadow-[0_1px_0_0_rgba(255,255,255,1)]">
+      <div class="flex items-center gap-2">
+        <i class="ph-fill ph-hexagon text-app-brand text-lg"></i>
+        <span class="font-display font-semibold tracking-tight text-app-text text-[15px]">EVIDRUN</span>
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
+      <a href="#" class="flex items-center gap-3 px-3 py-2 text-sm text-app-muted hover:text-app-text rounded hover:bg-app-line/30 transition-colors focus:outline-none focus:ring-1 focus:ring-app-brand">
+        <i class="ph ph-plus-circle text-[16px]"></i>
+        Create
+      </a>
+      <a href="#" class="flex items-center gap-3 px-3 py-2 text-sm text-app-muted hover:text-app-text rounded hover:bg-app-line/30 transition-colors focus:outline-none focus:ring-1 focus:ring-app-brand">
+        <i class="ph ph-flask text-[16px]"></i>
+        Laboratory
+      </a>
+      <a href="#" class="flex items-center gap-3 px-3 py-2 text-sm text-app-brand font-medium bg-app-brand/5 rounded focus:outline-none focus:ring-1 focus:ring-app-brand" aria-current="page">
+        <i class="ph-fill ph-chart-polar text-[16px]"></i>
+        Observability
+      </a>
+    </nav>
+
+    <!-- Context Footer Info -->
+    <div class="p-4 border-t border-app-line text-xs font-mono text-app-muted leading-relaxed tracking-tight bg-app-surface/50">
+      <div class="flex items-center justify-between py-0.5">
+        <span>Projeto</span>
+        <span class="text-app-text truncate max-w-[100px]" title="Context Reliability Lab">Context Reliability...</span>
+      </div>
+      <div class="flex items-center justify-between py-0.5">
+        <span>Provider</span>
+        <span class="text-app-text">cliproxyapi-local</span>
+      </div>
+      <div class="flex items-center justify-between py-0.5">
+        <span>Authority</span>
+        <span class="text-app-alert">Indisponível</span>
+      </div>
+      <div class="flex items-center justify-between py-0.5 mt-2 pt-2 border-t border-app-line/50">
+        <span>Health</span>
+        <div class="flex items-center gap-1.5 text-app-success">
+          <div class="w-1.5 h-1.5 rounded-full bg-app-success"></div>
+          ok
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ================= LAYOUT MACRO: MAIN WORKSPACE ================= -->
+  <main class="flex-1 flex flex-col min-w-0 bg-app-surface relative">
+    
+    <!-- Mobile Header Fallback -->
+    <div class="md:hidden flex items-center justify-between h-14 px-4 border-b border-app-line bg-app-bg">
+      <div class="flex items-center gap-2">
+        <i class="ph-fill ph-hexagon text-app-brand"></i>
+        <span class="font-display font-semibold text-[15px]">Observability</span>
+      </div>
+      <button type="button" class="text-app-text" aria-label="Abrir navegação"><i class="ph ph-list text-xl"></i></button>
+    </div>
+
+    <!-- Header Section -->
+    <header class="px-5 pt-6 pb-4 border-b border-app-line bg-app-surface relative">
+      <div class="flex flex-col md:flex-row md:items-start justify-between gap-4">
+        
+        <div class="space-y-1.5 max-w-2xl">
+          <div class="flex items-center gap-3">
+            <h1 class="font-display text-2xl md:text-[28px] font-semibold tracking-tight text-app-text leading-none">Observability</h1>
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded border border-app-brand/20 bg-app-brand/5 text-[10px] font-medium font-mono text-app-brand uppercase tracking-wider">Dados de demonstração</span>
+          </div>
+          <p class="text-sm text-app-muted leading-snug">Inspeção operacional de Runs admitidas, rastreamento de execução do agente e preservação de evidências baseadas em references_only. <br class="hidden md:block"/>Não reflete métricas consolidadas.</p>
+        </div>
+
+        <!-- Action Controls -->
+        <div class="flex items-center gap-2 shrink-0">
+          <button type="button" onclick="resetData()" class="px-3 py-1.5 text-xs font-medium text-app-muted border border-app-line rounded hover:bg-app-bg transition-colors focus:outline-none focus:ring-2 focus:ring-app-brand/50 flex items-center gap-1.5">
+            <i class="ph ph-arrows-counter-clockwise"></i> Reset
+          </button>
+          <button type="button" onclick="simulateRun()" id="btn-simulate" disabled class="px-3 py-1.5 text-xs font-medium bg-app-text text-white border border-transparent rounded hover:bg-black transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-app-text flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
+            <i class="ph-fill ph-play"></i> Simular atualização Demo
+          </button>
+        </div>
+      </div>
+      
+      <!-- Linear Progress Bar for Simulation -->
+      <div class="absolute bottom-[-1px] left-0 w-full h-[2px] bg-app-line overflow-hidden hidden" id="sim-progress-container">
+        <div id="sim-progress" class="h-full w-full bg-app-brand origin-left"></div>
+      </div>
+    </header>
+
+    <!-- Contextual Disconnected Banner (Demo mode realism) -->
+    <div id="connection-banner" class="bg-app-alert/5 border-b border-app-line px-5 py-2 flex items-start sm:items-center gap-2.5 text-xs text-app-text" role="status" aria-live="polite">
+        <i class="ph ph-wifi-slash text-app-alert shrink-0 mt-0.5 sm:mt-0"></i>
+        <span id="connection-message" class="flex-1"><strong class="font-medium">Backend desconectado.</strong> O Coordinator de Checkpoints não é executável neste ambiente. Exibindo apenas fixtures em cache.</span>
+        <button id="btn-reconnect" type="button" onclick="simulateReconnect()" class="shrink-0 underline decoration-app-line hover:decoration-app-text focus:outline-none focus:ring-2 focus:ring-app-brand/50">Tentar novamente Demo</button>
+    </div>
+
+    <!-- Toolbar: Filters & Summary -->
+    <div class="border-b border-app-line bg-app-bg flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-app-line">
+      
+      <!-- Summary Strip -->
+      <div class="px-5 py-2.5 flex flex-wrap items-center gap-4 text-xs font-mono shrink-0">
+        <span class="text-app-muted uppercase tracking-wider text-[10px]">Current State</span>
+        <div class="flex items-center gap-1.5">
+          <div class="w-2 h-2 rounded-full bg-app-brand pulse-dot"></div>
+          <span>Running: <span id="count-running">1</span></span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <div class="w-2 h-2 rounded-full bg-app-brand"></div>
+          <span>Evaluating: <span id="count-evaluating">0</span></span>
+        </div>
+        <div class="w-px h-3 bg-app-line hidden sm:block"></div>
+        <div class="flex items-center gap-1.5">
+          <div class="w-2 h-2 rounded-full bg-app-success"></div>
+          <span>Completed: <span id="count-completed">3</span></span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <div class="w-2 h-2 rounded-full bg-app-error"></div>
+          <span>Failed: <span id="count-failed">1</span></span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <div class="w-2 h-2 rounded-full bg-app-alert"></div>
+          <span>Exhausted: <span id="count-exhausted">1</span></span>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="flex-1 px-3 py-2 flex flex-wrap items-center gap-2">
+        <div class="relative flex-1 min-w-[200px] max-w-sm">
+          <i class="ph ph-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-app-muted"></i>
+          <input type="search" id="filter-search" aria-label="Buscar Runs" placeholder="Run ID, Study, variant ou evento..." oninput="applyFilters()" class="w-full pl-8 pr-3 py-1.5 text-xs border border-app-line rounded bg-app-surface focus:outline-none focus:border-app-brand focus:ring-1 focus:ring-app-brand font-mono placeholder:font-sans transition-shadow">
+        </div>
+
+        <select id="filter-period" aria-label="Filtrar por período" onchange="applyFilters()" class="py-1.5 pl-2 pr-6 text-xs border border-app-line rounded bg-app-surface text-app-text focus:outline-none focus:border-app-brand">
+          <option value="all">Período: Todos</option>
+          <option value="today">Hoje</option>
+          <option value="24h">Últimas 24h</option>
+          <option value="7d">Últimos 7 dias</option>
+        </select>
+
+        <select id="filter-status" aria-label="Filtrar por status" onchange="applyFilters()" class="py-1.5 pl-2 pr-6 text-xs border border-app-line rounded bg-app-surface text-app-text focus:outline-none focus:border-app-brand">
+          <option value="all">Fase: All</option>
+          <option value="queued">Queued</option>
+          <option value="preparing">Preparing</option>
+          <option value="running">Running</option>
+          <option value="evaluating">Evaluating</option>
+          <option value="completed">Completed</option>
+          <option value="failed">Failed</option>
+          <option value="budget_exhausted">Budget exhausted</option>
+        </select>
+
+        <select id="filter-study" aria-label="Filtrar por Study" onchange="applyFilters()" class="py-1.5 pl-2 pr-6 text-xs border border-app-line rounded bg-app-surface text-app-text focus:outline-none focus:border-app-brand">
+          <option value="all">Study: All</option>
+          <option value="std:context-verify">context-verify</option>
+          <option value="std:hallucination">hallucination</option>
+          <option value="std:reasoning-chk">reasoning-chk</option>
+        </select>
+
+        <select id="filter-trust" aria-label="Filtrar por trust mode" onchange="applyFilters()" class="py-1.5 pl-2 pr-6 text-xs border border-app-line rounded bg-app-surface text-app-text focus:outline-none focus:border-app-brand">
+          <option value="all">Trust: All</option>
+          <option value="demo_mode">demo_mode</option>
+        </select>
+
+        <select id="filter-provider" aria-label="Filtrar por provider" onchange="applyFilters()" class="py-1.5 pl-2 pr-6 text-xs border border-app-line rounded bg-app-surface text-app-text focus:outline-none focus:border-app-brand">
+          <option value="all">Provider: All</option>
+          <option value="cliproxyapi-local">cliproxyapi-local</option>
+        </select>
+
+        <button type="button" onclick="clearFilters()" class="text-xs text-app-muted hover:text-app-text px-2 py-1 transition-colors underline decoration-app-line hover:decoration-app-text focus:outline-none focus:ring-2 focus:ring-app-brand/50">Limpar filtros</button>
+      </div>
+    </div>
+
+    <!-- Meso-Architecture: Core Workspace Split -->
+    <div class="flex-1 flex overflow-hidden relative">
+      
+      <!-- LEFT PANE: Runs List (Table) -->
+      <div class="flex-1 flex flex-col h-full bg-app-surface z-0 relative">
+        
+        <!-- Admission Rejection Issue (Static Demo Item out of Run flow) -->
+        <div class="border-b border-app-line bg-app-bg">
+          <button type="button" id="admission-issue-toggle" class="w-full px-5 py-3 hover:bg-app-bg/80 transition-colors cursor-pointer group text-left focus:outline-none focus:ring-2 focus:ring-inset focus:ring-app-brand/50" onclick="toggleAdmissionIssue()" aria-expanded="false" aria-controls="admission-issue-details">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <i class="ph-fill ph-shield-warning text-app-muted group-hover:text-app-text transition-colors"></i>
+              <span class="text-xs font-semibold text-app-text">Admission Rejected Queue (1)</span>
+              <span class="text-[10px] text-app-muted border border-app-line px-1 rounded">Out-of-band</span>
+            </div>
+            <span class="text-[10px] font-mono text-app-muted">Último disparo: 10:45:02</span>
+          </div>
+          </button>
+          <div id="admission-issue-details" class="hidden mx-5 mb-3 pt-3 border-t border-app-line/50 text-xs text-app-muted">
+            <div class="flex items-start gap-4">
+              <div class="font-mono bg-app-bg p-2 border border-app-line rounded whitespace-pre">req:7f8a9... -> [Rejected] Trust mode demo_mode incompatible with requested HumanReviewAuthority. No run generated.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- The Table -->
+        <div class="flex-1 overflow-auto bg-app-surface hide-scrollbar" id="table-scroll-container">
+          <table id="runs-table" class="w-full text-left border-collapse text-xs whitespace-nowrap min-w-[860px]" aria-label="Runs admitidas de demonstração">
+            <thead class="sticky top-0 bg-app-surface/90 backdrop-blur-sm z-10 shadow-[0_1px_0_0_#e2e4e9]">
+              <tr class="text-app-muted font-medium uppercase tracking-wider text-[10px]">
+                <th class="px-5 py-2.5 font-medium w-[110px]">Phase</th>
+                <th class="px-4 py-2.5 font-medium w-[180px]">Run ID</th>
+                <th class="px-4 py-2.5 font-medium">Study/Variant</th>
+                <th class="px-4 py-2.5 font-medium">Trust</th>
+                <th class="px-4 py-2.5 font-medium hidden lg:table-cell">Provider</th>
+                <th class="px-4 py-2.5 font-medium">Attempt</th>
+                <th class="px-4 py-2.5 font-medium text-right">Dur.</th>
+                <th class="px-5 py-2.5 font-medium text-right">Time</th>
+              </tr>
+            </thead>
+            <tbody id="runs-table-body" class="divide-y divide-app-line">
+              <!-- JS Injects Here -->
+            </tbody>
+          </table>
+          
+          <!-- Empty State (Hidden via JS) -->
+          <div id="empty-state" class="hidden flex flex-col items-center justify-center p-10 h-64 text-center">
+            <i class="ph ph-magnifying-glass text-3xl text-app-muted/50 mb-3"></i>
+            <h3 class="text-sm font-medium text-app-text mb-1">Nenhuma Run encontrada</h3>
+            <p class="text-xs text-app-muted max-w-xs">Os filtros aplicados não retornaram resultados nas fixtures em cache.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT PANE: Inspector (Slide Over on Mobile, Fixed inline on Desktop) -->
+      <!-- Added md:static, absolute on mobile, default hidden -->
+      <aside id="inspector-panel" class="absolute md:static top-0 right-0 h-full w-full md:w-[440px] xl:w-[480px] bg-app-surface shadow-[-10px_0_30px_rgba(0,0,0,0.05)] md:shadow-none border-l border-app-line transform translate-x-full md:translate-x-0 flex flex-col inspector-closed z-20 transition-transform duration-300" aria-label="Inspector da Run selecionada">
+        
+        <!-- Inspector Header -->
+        <div class="px-5 py-4 border-b border-app-line bg-app-bg shrink-0 flex items-start justify-between">
+          <div class="min-w-0">
+             <div class="flex items-center gap-2 mb-1.5">
+               <span class="text-[10px] uppercase font-bold tracking-widest text-app-muted">Inspector</span>
+               <div id="insp-status-badge" class="px-1.5 py-0.5 rounded border text-[10px] font-medium font-mono uppercase tracking-wide">
+                 <!-- Status injetado -->
+               </div>
+             </div>
+             <div class="flex items-center gap-2">
+               <i class="ph-fill ph-lightning text-app-muted"></i>
+               <h2 id="insp-run-id" class="font-mono font-medium text-app-text text-[15px] truncate max-w-[200px] md:max-w-[250px]">run:-------</h2>
+             </div>
+             <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[9px] font-mono text-app-muted">
+               <span id="insp-runspec">RunSpec runspec:demo</span>
+               <span id="insp-admission">AdmissionRecord admitted</span>
+               <span id="insp-envelope">SubjectEnvelope sha256:8a1f...</span>
+             </div>
+          </div>
+          <!-- Close btn mobile mostly -->
+          <button type="button" onclick="closeInspector()" aria-label="Fechar inspector" class="p-1 text-app-muted hover:text-app-text hover:bg-app-line rounded transition-colors focus:ring-2 focus:ring-app-brand md:pointer-events-none md:opacity-0 focus:opacity-100">
+            <i class="ph ph-x"></i>
+          </button>
+        </div>
+
+        <!-- Inspector Tabs Nav -->
+        <div class="flex overflow-x-auto hide-scrollbar px-2 border-b border-app-line shrink-0" role="tablist" aria-label="Detalhes da Run">
+          <button type="button" role="tab" aria-selected="true" aria-controls="tab-lifecycle" onclick="switchTab('lifecycle')" id="tab-btn-lifecycle" class="px-3 py-2.5 text-xs font-medium border-b-2 border-app-brand text-app-brand whitespace-nowrap transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-app-brand/50">Lifecycle</button>
+          <button type="button" role="tab" aria-selected="false" aria-controls="tab-agent" onclick="switchTab('agent')" id="tab-btn-agent" class="px-3 py-2.5 text-xs font-medium border-b-2 border-transparent text-app-muted hover:text-app-text whitespace-nowrap transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-app-brand/50">Agent activity</button>
+          <button type="button" role="tab" aria-selected="false" aria-controls="tab-evaluation" onclick="switchTab('evaluation')" id="tab-btn-evaluation" class="px-3 py-2.5 text-xs font-medium border-b-2 border-transparent text-app-muted hover:text-app-text whitespace-nowrap transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-app-brand/50">Evaluation</button>
+          <button type="button" role="tab" aria-selected="false" aria-controls="tab-infra" onclick="switchTab('infra')" id="tab-btn-infra" class="px-3 py-2.5 text-xs font-medium border-b-2 border-transparent text-app-muted hover:text-app-text whitespace-nowrap transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-app-brand/50">Infrastructure</button>
+        </div>
+
+        <!-- Inspector Content Area -->
+        <div class="flex-1 overflow-auto bg-app-surface p-5 text-sm" id="inspector-scroll-area">
+          
+          <!-- TAB: Lifecycle (Canonical Sequence) -->
+          <div id="tab-lifecycle" class="space-y-4" role="tabpanel" aria-labelledby="tab-btn-lifecycle">
+             <div class="text-xs text-app-muted border-b border-app-line pb-2 mb-4 font-mono flex items-center justify-between">
+                <span>AdmissionRecord</span>
+                <span class="text-app-text">admitted</span>
+             </div>
+             
+             <!-- Timeline wrapper -->
+             <div class="relative pl-3 border-l border-app-line space-y-6 pt-1" id="lifecycle-timeline">
+               <!-- Injected via JS based on state -->
+             </div>
+          </div>
+
+          <!-- TAB: Agent Activity -->
+          <div id="tab-agent" class="hidden space-y-5" role="tabpanel" aria-labelledby="tab-btn-agent">
+            <div class="p-3 bg-app-alert/5 border border-app-alert/20 rounded-sm text-[11px] text-app-text leading-relaxed">
+               <strong class="font-medium text-app-alert">Lab Agent incubating.</strong> O Runtime Kernel durável está verificado, mas o agente de laboratório e sua UI ainda não fecham o fluxo. Atividade restrita à ferramenta verificada (<code class="font-mono font-bold">read</code>).
+            </div>
+            
+            <div id="agent-activity-content">
+              <!-- Content inject -->
+            </div>
+          </div>
+
+          <!-- TAB: Evaluation -->
+          <div id="tab-evaluation" class="hidden space-y-4" role="tabpanel" aria-labelledby="tab-btn-evaluation">
+             <div class="flex items-center justify-between text-xs font-mono pb-2 border-b border-app-line relative">
+                <span class="text-app-muted">SubjectEnvelope digest</span>
+                <span class="text-app-text group cursor-pointer" title="Copy digest">sha256:8a1f...<i class="ph ph-copy ml-1 text-app-muted opacity-0 group-hover:opacity-100 transition-opacity"></i></span>
+             </div>
+
+             <!-- dimensions -->
+             <div class="space-y-1" id="eval-dimensions-container">
+               <!-- Injected -->
+             </div>
+
+             <div class="pt-3 border-t border-app-line text-[10px] text-app-muted">
+               Human review: unavailable nesta fixture. Nenhuma decisão humana é inferida sem HumanAttestationRecord verificável.
+             </div>
+          </div>
+
+          <!-- TAB: Infrastructure -->
+          <div id="tab-infra" class="hidden" role="tabpanel" aria-labelledby="tab-btn-infra">
+             
+             <div class="grid grid-cols-[110px_1fr] gap-y-3 text-xs border-b border-app-line pb-4 font-mono">
+               <div class="text-app-muted">Job ID</div>
+               <div class="text-app-text truncate" id="infra-job">job:---</div>
+               
+               <div class="text-app-muted">Attempt</div>
+               <div class="text-app-text" id="infra-attempt">1</div>
+               
+               <div class="text-app-muted">Trust Mode</div>
+               <div class="text-app-text text-app-alert">demo_mode</div>
+
+               <div class="text-app-muted">Bundle spec</div>
+               <div class="text-app-text">v3 (references_only)</div>
+
+               <div class="text-app-muted">Portable / replayable</div>
+               <div class="text-app-text">false / false</div>
+               
+               <div class="text-app-muted mt-2">Lease</div>
+               <div class="text-app-text mt-2 truncate" id="infra-lease">lease:---</div>
+               
+               <div class="text-app-muted">Heartbeat</div>
+               <div class="text-app-text" id="infra-heartbeat">--:--:--</div>
+               
+               <div class="text-app-muted">Fencing</div>
+               <div class="text-app-text" id="infra-fencing">enforced</div>
+             </div>
+
+             <div class="mt-4">
+               <span class="text-[10px] text-app-muted uppercase font-bold tracking-wider mb-2 block">Refs</span>
+               <div class="flex flex-col gap-1 text-xs font-mono" id="infra-refs">
+                 <!-- injected -->
+               </div>
+             </div>
+          </div>
+
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <script>
+    /* =========================================================
+       DATA MODELS & STATE
+       ========================================================= */
+    
+    // Canonical sequence definition
+    const LIFECYCLE_STEPS = [
+      'run.queued', 'run.preparing', 'context.composed', 'capability.offered',
+      'run.running', 'subject.invoked', 'tool.called', 'tool.completed',
+      'subject.responded', 'run.evaluating', 'evaluation.completed', 'run.completed'
+    ];
+
+    const initialMockRuns = [
+      { id: "run:a8b19e2f", study: "std:context-verify", variant: "v:read-baseline", trust: "demo_mode", provider: "cliproxyapi-local", status: "running", ageHours: 0, attempt: 1, duration: "n/a", timestamp: "14:02:11", job: "job:lab-run-001", lease:"lease:88a1b2", fencing: "token:12 enforced", refs: { event: "event:alpha01", artifact: "artifact:x9k1" } },
+      { id: "run:b92c4d11", study: "std:hallucination", variant: "v:inject-trap", trust: "demo_mode", provider: "cliproxyapi-local", status: "completed", ageHours: 1, attempt: 1, duration: "1.4s", timestamp: "13:50:22", job: "job:lab-run-002", lease:"lease:completed", fencing: "token:11 enforced", refs: { event: "event:beta02" }, dims: { factuality: {v: 0.98, pass:true}, relevance: {v:0.95, pass:true} } },
+      { id: "run:c11f8e00", study: "std:context-verify", variant: "v:read-heavy", trust: "demo_mode", provider: "cliproxyapi-local", status: "failed", ageHours: 2, attempt: 2, duration: "8.2s", timestamp: "13:45:00", retry_of: "run:c11f8df9", job: "job:lab-run-003", lease:"lease:expired", fencing: "token:10 rejected", refs: { event: "event:err05", error: "artifact:context-length-error" } },
+      { id: "run:d95a2b77", study: "std:context-verify", variant: "v:read-baseline", trust: "demo_mode", provider: "cliproxyapi-local", status: "completed", ageHours: 6, attempt: 1, duration: "1.1s", timestamp: "13:30:12", job: "job:lab-run-004", lease:"lease:completed", fencing: "token:9 enforced", refs: { event: "event:gamma3" }, dims: { factuality: {v: 0.99, pass:true} } },
+      { id: "run:e04f2a77", study: "std:reasoning-chk", variant: "v:logic-01", trust: "demo_mode", provider: "cliproxyapi-local", status: "budget_exhausted", ageHours: 18, attempt: 1, duration: "30.0s", timestamp: "13:15:00", job: "job:lab-run-005", lease:"lease:revoked", fencing: "token:8 enforced", refs: { event: "event:bud01"} },
+      { id: "run:f18c7d6e", study: "std:hallucination", variant: "v:inject-trap", trust: "demo_mode", provider: "cliproxyapi-local", status: "completed", ageHours: 30, attempt: 1, duration: "1.6s", timestamp: "12:50:45", job: "job:lab-run-006", lease:"lease:completed", fencing: "token:7 enforced", refs: {}, dims: { factuality: {v: 0.85, pass:true}, relevance: {v:0.40, pass:false} } },
+      { id: "run:g27ae91c", study: "std:context-verify", variant: "v:read-baseline", trust: "demo_mode", provider: "cliproxyapi-local", status: "queued", ageHours: 50, attempt: 1, duration: "n/a", timestamp: "ontem 16:21", job: "job:lab-run-007", lease:"lease:pending", fencing: "pending", refs: { event: "event:queue07" } },
+      { id: "run:h39bf02d", study: "std:reasoning-chk", variant: "v:logic-01", trust: "demo_mode", provider: "cliproxyapi-local", status: "preparing", ageHours: 120, attempt: 1, duration: "n/a", timestamp: "5 dias", job: "job:lab-run-008", lease:"lease:preparing", fencing: "token:6 enforced", refs: { event: "event:prep08" } },
+    ];
+
+    let appState = {
+      runs: JSON.parse(JSON.stringify(initialMockRuns)),
+      selectedRunId: null,
+      filter: { search: '', period: 'all', status: 'all', study: 'all', trust: 'all', provider: 'all' },
+      isSimulating: false,
+      isReconnecting: false,
+      activeTab: 'lifecycle'
+    };
+
+    let heartbeatInterval = null;
+    let expandedEventKey = null;
+
+    /* =========================================================
+       UTILITIES
+       ========================================================= */
+
+    function getStatusMeta(status) {
+      switch(status) {
+        case 'running': return { label: 'Running', color: 'text-app-brand', bg: 'bg-app-brand/10 border-app-brand/30', dot: 'bg-app-brand pulse-dot', icon: 'ph-circle-notch animate-spin' };
+        case 'evaluating': return { label: 'Evaluating', color: 'text-app-brand', bg: 'bg-app-brand/10 border-app-brand/30', dot: 'bg-app-brand', icon: 'ph-brain' };
+        case 'completed': return { label: 'Completed', color: 'text-app-success', bg: 'bg-app-success/10 border-app-success/30', dot: 'bg-app-success', icon: 'ph-check-circle' };
+        case 'failed': return { label: 'Failed', color: 'text-app-error', bg: 'bg-app-error/10 border-app-error/30', dot: 'bg-app-error', icon: 'ph-x-circle' };
+        case 'budget_exhausted': return { label: 'Budget Exhaust.', color: 'text-app-alert', bg: 'bg-app-alert/10 border-app-alert/30', dot: 'bg-app-alert', icon: 'ph-warning-circle' };
+        case 'queued': case 'preparing': return { label: status, color: 'text-app-muted', bg: 'bg-app-line border-app-line', dot: 'bg-app-muted', icon: 'ph-clock' };
+        default: return { label: status, color: 'text-app-text', bg: 'bg-app-line border-app-line', dot: 'bg-app-text', icon: 'ph-question' };
+      }
+    }
+
+    function formatTimeNow() {
+      const now = new Date();
+      return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+    }
+
+    function getLifecycleDescriptor(run) {
+      let cutoffIndex = LIFECYCLE_STEPS.length - 1;
+      let terminalEvent = null;
+      let isAnimated = false;
+
+      if (run.status === 'queued') {
+        cutoffIndex = LIFECYCLE_STEPS.indexOf('run.queued');
+        isAnimated = true;
+      } else if (run.status === 'preparing') {
+        cutoffIndex = LIFECYCLE_STEPS.indexOf('run.preparing');
+        isAnimated = true;
+      } else if (run.status === 'running') {
+        cutoffIndex = LIFECYCLE_STEPS.indexOf('subject.invoked');
+        isAnimated = true;
+      } else if (run.status === 'evaluating') {
+        cutoffIndex = LIFECYCLE_STEPS.indexOf('run.evaluating');
+        isAnimated = true;
+      } else if (run.status === 'failed' || run.status === 'budget_exhausted') {
+        cutoffIndex = LIFECYCLE_STEPS.indexOf('run.running');
+        terminalEvent = `run.${run.status}`;
+      }
+
+      const steps = LIFECYCLE_STEPS.slice(0, cutoffIndex + 1);
+      if (terminalEvent) steps.push(terminalEvent);
+      return { steps, isAnimated };
+    }
+
+    function renderLoadingRows() {
+      const tbody = document.getElementById('runs-table-body');
+      document.getElementById('empty-state').classList.add('hidden');
+      tbody.innerHTML = Array.from({ length: 5 }, (_, index) => `
+        <tr aria-hidden="true" style="--index:${index}">
+          <td colspan="8" class="px-5 py-3"><div class="loading-row h-8 border border-app-line rounded"></div></td>
+        </tr>
+      `).join('');
+    }
+
+    /* =========================================================
+       CORE RENDER LOGIC
+       ========================================================= */
+
+    function renderTable() {
+      const tbody = document.getElementById('runs-table-body');
+      const emptyState = document.getElementById('empty-state');
+      tbody.innerHTML = '';
+
+      if (appState.isReconnecting) {
+        renderLoadingRows();
+        return;
+      }
+      
+      let filtered = appState.runs.filter(r => {
+        const mStatus = appState.filter.status === 'all' || r.status === appState.filter.status;
+        const mStudy = appState.filter.study === 'all' || r.study === appState.filter.study;
+        const mTrust = appState.filter.trust === 'all' || r.trust === appState.filter.trust;
+        const mProvider = appState.filter.provider === 'all' || r.provider === appState.filter.provider;
+        const mPeriod = appState.filter.period === 'all'
+          || (appState.filter.period === 'today' && r.ageHours < 24)
+          || (appState.filter.period === '24h' && r.ageHours <= 24)
+          || (appState.filter.period === '7d' && r.ageHours <= 168);
+        const searchable = [
+          r.id, r.study, r.variant, r.status, r.provider, r.trust,
+          ...Object.values(r.refs || {}),
+          ...getLifecycleDescriptor(r).steps
+        ].join(' ').toLowerCase();
+        const mSearch = searchable.includes(appState.filter.search);
+        return mStatus && mStudy && mTrust && mProvider && mPeriod && mSearch;
+      });
+
+      // Update counters
+      document.getElementById('count-running').innerText = appState.runs.filter(r=>r.status==='running').length;
+      document.getElementById('count-evaluating').innerText = appState.runs.filter(r=>r.status==='evaluating').length;
+      document.getElementById('count-completed').innerText = appState.runs.filter(r=>r.status==='completed').length;
+      document.getElementById('count-failed').innerText = appState.runs.filter(r=>r.status==='failed').length;
+      document.getElementById('count-exhausted').innerText = appState.runs.filter(r=>r.status==='budget_exhausted').length;
+
+      if (filtered.length === 0) {
+        emptyState.classList.remove('hidden');
+        emptyState.classList.add('flex');
+        return;
+      }
+      
+      emptyState.classList.add('hidden');
+      emptyState.classList.remove('flex');
+
+      filtered.forEach((run, index) => {
+        const meta = getStatusMeta(run.status);
+        const isSelected = appState.selectedRunId === run.id;
+        
+        const tr = document.createElement('tr');
+        tr.className = `stagger-row cursor-pointer transition-colors border-l-2 outline-none ${isSelected ? 'bg-app-brand/[0.04] border-l-app-brand' : 'hover:bg-black/[0.02] border-l-transparent'} focus-within:bg-black/[0.02]`;
+        tr.style.setProperty('--index', index);
+        tr.setAttribute('aria-selected', isSelected);
+        tr.tabIndex = 0;
+        tr.onclick = () => selectRun(run.id);
+        tr.onkeydown = (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            selectRun(run.id);
+          }
+        };
+
+        let attemptHtml = `<span>${run.attempt}</span>`;
+        if (run.retry_of) attemptHtml = `<span class="flex items-center gap-1"><i class="ph ph-arrow-u-down-left text-app-muted"></i>${run.attempt}</span>`;
+
+        tr.innerHTML = `
+          <td class="px-5 py-3">
+             <div class="${meta.color} flex items-center gap-1.5 justify-end md:justify-start" title="${meta.label}">
+               <i class="${meta.icon} text-lg"></i>
+               <span class="text-[10px] font-mono uppercase">${meta.label}</span>
+             </div>
+          </td>
+          <td class="px-4 py-3 font-mono font-medium text-app-text lg:text-sm max-w-[150px] truncate">${run.id}</td>
+          <td class="px-4 py-3 min-w-[200px]">
+             <div class="flex flex-col">
+               <span class="text-app-text font-medium truncate">${run.study}</span>
+               <span class="text-app-muted text-[10px] font-mono mt-0.5 truncate">${run.variant}</span>
+             </div>
+          </td>
+          <td class="px-4 py-3 font-mono text-[10px] text-app-muted">${run.trust}</td>
+          <td class="px-4 py-3 text-app-muted truncate hidden lg:table-cell max-w-[120px]">${run.provider}</td>
+          <td class="px-4 py-3 font-mono text-app-muted">${attemptHtml}</td>
+          <td class="px-4 py-3 font-mono text-right ${run.status === 'running' ? 'text-app-brand animate-pulse' : 'text-app-text'}">${run.duration}</td>
+          <td class="px-5 py-3 font-mono text-right text-app-muted">${run.timestamp}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function selectRun(id) {
+      if (appState.isSimulating && id !== appState.selectedRunId) return; // block change during sim
+      appState.selectedRunId = id;
+      renderTable();
+      updateInspector();
+      openInspectorMobile();
+    }
+
+    /* =========================================================
+       INSPECTOR LOGIC
+       ========================================================= */
+
+    function updateInspector() {
+      const panel = document.getElementById('inspector-panel');
+      if (!appState.selectedRunId) {
+        panel.classList.add('inspector-closed');
+        return;
+      }
+      
+      const run = appState.runs.find(r => r.id === appState.selectedRunId);
+      if(!run) return;
+
+      // Make visible for desktop structure (not animation yet)
+      panel.classList.remove('inspector-closed');
+
+      const meta = getStatusMeta(run.status);
+      document.getElementById('insp-run-id').innerText = run.id;
+      document.getElementById('insp-runspec').innerText = `RunSpec runspec:${run.id.slice(4)}`;
+      document.getElementById('insp-admission').innerText = 'AdmissionRecord admitted';
+      document.getElementById('insp-envelope').innerText = `SubjectEnvelope sha256:${run.id.slice(4, 10)}...`;
+      
+      const badge = document.getElementById('insp-status-badge');
+      badge.className = `px-1.5 py-0.5 rounded border text-[10px] font-medium font-mono uppercase tracking-wide ${meta.bg} ${meta.color}`;
+      badge.innerText = meta.label;
+
+      renderLifecycleTab(run);
+      renderAgentTab(run);
+      renderEvaluationTab(run);
+      renderInfraTab(run);
+
+      // Heartbeat simulator
+      clearInterval(heartbeatInterval);
+      if (run.status === 'running') {
+        heartbeatInterval = setInterval(() => {
+           document.getElementById('infra-heartbeat').innerText = formatTimeNow();
+        }, 1000);
+      } else {
+        document.getElementById('infra-heartbeat').innerText = 'Terminal';
+      }
+
+      // Check simulate button state
+      const btnSim = document.getElementById('btn-simulate');
+      if (run.status === 'running') {
+         btnSim.disabled = false;
+         btnSim.classList.remove('opacity-50');
+      } else {
+         btnSim.disabled = true;
+         btnSim.classList.add('opacity-50');
+      }
+    }
+
+    function switchTab(tabId) {
+      appState.activeTab = tabId;
+      // Reset styling
+      const btns = ['lifecycle', 'agent', 'evaluation', 'infra'];
+      btns.forEach(b => {
+        const button = document.getElementById(`tab-btn-${b}`);
+        button.className = "px-3 py-2.5 text-xs font-medium border-b-2 border-transparent text-app-muted hover:text-app-text whitespace-nowrap transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-app-brand/50";
+        button.setAttribute('aria-selected', 'false');
+        button.tabIndex = -1;
+        document.getElementById(`tab-${b}`).classList.add('hidden');
+      });
+
+      // Active styling
+      const activeButton = document.getElementById(`tab-btn-${tabId}`);
+      activeButton.className = "px-3 py-2.5 text-xs font-medium border-b-2 border-app-brand text-app-brand whitespace-nowrap transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-app-brand/50";
+      activeButton.setAttribute('aria-selected', 'true');
+      activeButton.tabIndex = 0;
+      document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+    }
+
+    function renderLifecycleTab(run) {
+      const container = document.getElementById('lifecycle-timeline');
+      container.innerHTML = '';
+      const { steps: stepsToRender, isAnimated } = getLifecycleDescriptor(run);
+
+      stepsToRender.forEach((step, idx) => {
+        const isLast = idx === stepsToRender.length - 1;
+        const isError = step.includes('failed') || step.includes('exhausted');
+        const isActive = isLast && isAnimated;
+        const isPast = !isLast && !isError;
+        const eventKey = `${run.id}:${step}`;
+        const isExpanded = expandedEventKey === eventKey;
+        
+        let labelColor = isPast ? 'text-app-text' : 'text-app-muted';
+        if (isActive) labelColor = 'text-app-brand font-medium';
+        if (isError) labelColor = 'text-app-error font-medium';
+        
+        let detailHtml = '';
+        if (step === 'context.composed') detailHtml = `<div class="mt-1 text-[11px] text-app-muted truncate">using variant ${run.variant}</div>`;
+        if (step === 'tool.called') detailHtml = `<div class="mt-1 text-[10px] font-mono text-app-muted border border-app-line p-1 bg-app-bg inline-block rounded">tool: read</div>`;
+
+        const expandedHtml = isExpanded ? `
+          <div id="event-details-${idx}" class="mt-2 border-l-2 border-app-brand/30 pl-2 text-[10px] font-mono text-app-muted leading-relaxed">
+            <div>event_ref ${run.refs?.event || 'event:demo-fixture'}</div>
+            <div>record_ref ${step.startsWith('evaluation.') ? 'artifact:evaluation-record-demo' : run.id}</div>
+            <div>phase_gate verified for Demo sequence ${idx + 1}</div>
+          </div>
+        ` : '';
+
+        container.innerHTML += `
+          <div class="timeline-item relative ${isActive?'active':''} ${isError?'error':''} opacity-0 animate-[fadeUpIn_300ms_ease_forwards]" style="animation-delay: ${idx * 40}ms">
+             <div class="timeline-dot"></div>
+             <div class="-mt-1.5 ml-2">
+               <button type="button" class="flex items-center gap-1.5 text-left focus:outline-none focus:ring-2 focus:ring-app-brand/50 rounded-sm" aria-expanded="${isExpanded}" aria-controls="event-details-${idx}" onclick="toggleLifecycleEvent('${step}')">
+                 <span class="text-xs font-mono tracking-tight ${labelColor}">${step}</span>
+                 <i class="ph ${isExpanded ? 'ph-caret-up' : 'ph-caret-down'} text-app-muted text-[10px]"></i>
+               </button>
+               ${detailHtml}
+               ${expandedHtml}
+             </div>
+          </div>
+        `;
+      });
+    }
+
+    function toggleLifecycleEvent(step) {
+      const run = appState.runs.find(r => r.id === appState.selectedRunId);
+      if (!run) return;
+      const eventKey = `${run.id}:${step}`;
+      expandedEventKey = expandedEventKey === eventKey ? null : eventKey;
+      renderLifecycleTab(run);
+    }
+
+    function renderAgentTab(run) {
+      const container = document.getElementById('agent-activity-content');
+      
+      if (run.status === 'queued' || run.status === 'preparing') {
+        container.innerHTML = `<span class="text-xs text-app-muted italic">Aguardando invocação do sujeito...</span>`;
+        return;
+      }
+
+      let logData = `[14:02:11.120] run loop started
+[14:02:11.230] read_tool called { "ref": "doc_44" }
+[14:02:11.450] read_tool ok (204 bytes)
+`;
+      if (run.status === 'completed') {
+        logData += `[14:02:12.100] subject finished responding\n`;
+      } else if (run.status === 'failed') {
+        logData += `[14:02:12.900] err: context_length_exceeded\n`;
+      } else if (run.status === 'running') {
+        logData += `[14:02:12.010] waiting subject... <span class="animate-pulse">_</span>`;
+      }
+
+      container.innerHTML = `
+        <div class="text-[10px] uppercase font-bold text-app-muted mb-2 tracking-wider">Trace (References Only)</div>
+        <pre class="bg-app-bg text-[11px] font-mono text-app-muted p-3 border border-app-line rounded whitespace-pre-wrap leading-relaxed">${logData}</pre>
+      `;
+    }
+
+    function renderEvaluationTab(run) {
+      const container = document.getElementById('eval-dimensions-container');
+      
+      if (run.status !== 'completed' && run.status !== 'failed') {
+         container.innerHTML = `<div class="p-8 text-center text-xs text-app-muted italic">Avaliação não disponível (Run não finalizada).</div>`;
+         return;
+      }
+
+      if (!run.dims) {
+        container.innerHTML = `<div class="p-8 text-center text-xs text-app-muted italic">Fixture sem dados de avaliação.</div>`;
+         return;
+      }
+
+      container.innerHTML = '';
+      Object.entries(run.dims).forEach(([metric, data]) => {
+         const color = data.pass ? 'text-app-success border-app-success/30 bg-app-success/5' : 'text-app-error border-app-error/30 bg-app-error/5';
+         const icon = data.pass ? 'ph-check' : 'ph-x';
+         container.innerHTML += `
+           <div class="flex items-center justify-between p-2.5 border border-app-line rounded hover:bg-black/[0.01] transition-colors">
+              <span class="font-mono text-xs w-[120px] truncate">${metric}</span>
+              <div class="flex items-center gap-3">
+                <span class="font-mono text-[11px] text-app-muted">v. ${data.v.toFixed(3)}</span>
+                <span class="inline-flex items-center justify-center w-5 h-5 rounded ${color} border"><i class="ph ${icon}"></i></span>
+              </div>
+           </div>
+         `;
+      });
+    }
+
+    function renderInfraTab(run) {
+       document.getElementById('infra-job').innerText = run.job || '---';
+       document.getElementById('infra-attempt').innerText = run.attempt || '1';
+       document.getElementById('infra-lease').innerText = run.lease || '---';
+       document.getElementById('infra-fencing').innerText = run.fencing || 'not acquired';
+       
+       const refsContainer = document.getElementById('infra-refs');
+       refsContainer.innerHTML = '';
+       if (run.refs) {
+         Object.entries(run.refs).forEach(([key, val]) => {
+           refsContainer.innerHTML += `
+             <div class="flex bg-app-bg border border-app-line rounded px-2 py-1 items-center gap-2">
+               <span class="text-app-muted text-[10px] uppercase">${key}:</span>
+               <span class="truncate hover:text-app-brand cursor-text select-all" title="${val}">${val}</span>
+             </div>
+           `;
+         });
+       } else {
+         refsContainer.innerHTML = '<span class="text-app-muted">Nenhum artefato vinculado.</span>';
+       }
+    }
+
+    /* =========================================================
+       INTERACTIVE BEHAVIORS
+       ========================================================= */
+
+    function applyFilters() {
+      appState.filter.search = document.getElementById('filter-search').value.toLowerCase();
+      appState.filter.period = document.getElementById('filter-period').value;
+      appState.filter.status = document.getElementById('filter-status').value;
+      appState.filter.study = document.getElementById('filter-study').value;
+      appState.filter.trust = document.getElementById('filter-trust').value;
+      appState.filter.provider = document.getElementById('filter-provider').value;
+      renderTable();
+    }
+
+    function clearFilters() {
+      document.getElementById('filter-search').value = '';
+      document.getElementById('filter-period').value = 'all';
+      document.getElementById('filter-status').value = 'all';
+      document.getElementById('filter-study').value = 'all';
+      document.getElementById('filter-trust').value = 'all';
+      document.getElementById('filter-provider').value = 'all';
+      applyFilters();
+    }
+
+    function toggleAdmissionIssue() {
+       const details = document.getElementById('admission-issue-details');
+       const toggle = document.getElementById('admission-issue-toggle');
+       details.classList.toggle('hidden');
+       toggle.setAttribute('aria-expanded', String(!details.classList.contains('hidden')));
+    }
+
+    function simulateReconnect() {
+      if (appState.isReconnecting || appState.isSimulating) return;
+      appState.isReconnecting = true;
+      const message = document.getElementById('connection-message');
+      const button = document.getElementById('btn-reconnect');
+      message.innerHTML = '<strong class="font-medium">Reconectando Demo.</strong> Verificando disponibilidade sem alterar as fixtures.';
+      button.disabled = true;
+      button.innerText = 'Reconectando...';
+      renderTable();
+
+      setTimeout(() => {
+        appState.isReconnecting = false;
+        message.innerHTML = '<strong class="font-medium">Backend continua desconectado.</strong> Nenhuma integração foi afirmada; fixtures em cache preservadas.';
+        button.disabled = false;
+        button.innerText = 'Tentar novamente Demo';
+        renderTable();
+      }, 700);
+    }
+
+    function openInspectorMobile() {
+      if (window.innerWidth < 768) {
+        document.getElementById('inspector-panel').classList.remove('inspector-closed');
+        // Small delay to allow display:flex to apply before transition
+        setTimeout(() => {
+          document.getElementById('inspector-panel').classList.remove('translate-x-full');
+        }, 10);
+      }
+    }
+
+    function closeInspector() {
+      const panel = document.getElementById('inspector-panel');
+      if (window.innerWidth < 768) {
+        panel.classList.add('translate-x-full');
+        setTimeout(() => {
+           panel.classList.add('inspector-closed');
+        }, 300); // match transition duration
+      } else {
+        appState.selectedRunId = null;
+        expandedEventKey = null;
+        renderTable();
+        updateInspector();
+      }
+    }
+
+    // Escape Key support
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeInspector();
+      }
+    });
+
+    /* =========================================================
+       DEMO SIMULATION (The "Magic" part)
+       ========================================================= */
+       
+    function simulateRun() {
+      if (!appState.selectedRunId || appState.isSimulating) return;
+      const runIndex = appState.runs.findIndex(r => r.id === appState.selectedRunId);
+      if (runIndex === -1 || appState.runs[runIndex].status !== 'running') return;
+
+      appState.isSimulating = true;
+      const btnSim = document.getElementById('btn-simulate');
+      btnSim.disabled = true;
+      btnSim.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Simulando...';
+      
+      const progContainer = document.getElementById('sim-progress-container');
+      const progBar = document.getElementById('sim-progress');
+      progContainer.classList.remove('hidden');
+      
+      // Step 1: Evaluating
+      setTimeout(() => {
+        appState.runs[runIndex].status = 'evaluating';
+        appState.runs[runIndex].duration = '1.1s';
+        progBar.style.transform = 'scaleX(0.5)';
+        renderTable();
+        updateInspector();
+      }, 800);
+
+      // Step 2: Completed
+      setTimeout(() => {
+        appState.runs[runIndex].status = 'completed';
+        appState.runs[runIndex].duration = '1.2s';
+        appState.runs[runIndex].dims = { factuality: {v: 0.99, pass:true}, relevance: {v:0.87, pass:true} };
+        appState.runs[runIndex].lease = 'lease:completed';
+        appState.runs[runIndex].fencing = 'token:12 enforced';
+        appState.isSimulating = false;
+        
+        progBar.style.transform = 'scaleX(1)';
+        renderTable();
+        updateInspector();
+        
+        // Reset UI
+        setTimeout(() => {
+           progContainer.classList.add('hidden');
+           progBar.style.transform = 'scaleX(0)';
+           btnSim.innerHTML = '<i class="ph-fill ph-play"></i> Simular atualização Demo';
+           btnSim.disabled = true; // it's completed now
+           btnSim.classList.add('opacity-50');
+        }, 500);
+
+      }, 2500);
+    }
+
+    function resetData() {
+       if(appState.isSimulating) return;
+       clearInterval(heartbeatInterval);
+       appState.runs = JSON.parse(JSON.stringify(initialMockRuns));
+       appState.selectedRunId = null;
+       appState.activeTab = 'lifecycle';
+       appState.isReconnecting = false;
+       expandedEventKey = null;
+       clearFilters();
+       switchTab('lifecycle');
+       closeInspector();
+       document.getElementById('connection-message').innerHTML = '<strong class="font-medium">Backend desconectado.</strong> O Coordinator de Checkpoints não é executável neste ambiente. Exibindo apenas fixtures em cache.';
+       document.getElementById('btn-reconnect').disabled = false;
+       document.getElementById('btn-reconnect').innerText = 'Tentar novamente Demo';
+       document.getElementById('sim-progress-container').classList.add('hidden');
+       document.getElementById('sim-progress').style.transform = 'scaleX(0)';
+       document.getElementById('btn-simulate').innerHTML = '<i class="ph-fill ph-play"></i> Simular atualização Demo';
+       document.getElementById('btn-simulate').disabled = true;
+    }
+
+    // Handle Mobile Resize Logic gracefully
+    window.addEventListener('resize', () => {
+      const panel = document.getElementById('inspector-panel');
+      if (window.innerWidth >= 768) {
+         panel.classList.remove('translate-x-full'); // clear mobile slide class
+         if(!appState.selectedRunId) panel.classList.add('inspector-closed'); // respect logic
+      } else {
+         if(appState.selectedRunId && !panel.classList.contains('translate-x-full')) {
+           // It's open on desktop, moving to mobile keep it open
+         } else {
+           panel.classList.add('translate-x-full'); // ensure closed state default on resize down
+         }
+      }
+    });
+
+    // Init
+    renderTable();
+    
+  </script>
+</body>
+</html>

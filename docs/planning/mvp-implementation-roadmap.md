@@ -87,7 +87,7 @@ Uma UI bonita que apenas chama `/demo/bootstrap` nao satisfaz esse criterio.
 flowchart LR
     W0["WS-00 Runtime Kernel integrado"] --> W2["WS-20 Artifact access e capture"]
     W0 --> W4["WS-40 Trust sandbox e ReviewPackage"]
-    W1["Nova direcao de UI/UX a definir"] --> W6["Integracao frontend real"]
+    W1["Fatia Electron multipágina implementada"] --> W6["Integração frontend completa"]
     W2 --> W3["WS-30 Evaluation, checkpoints e progress"]
     W4 --> W5["WS-50 Lab Agent e bounded exploration"]
     W3 --> W5
@@ -104,9 +104,10 @@ flowchart LR
 ### Onda 0 — concluida em `main`
 
 - **WS-00:** Runtime Kernel, Subject real e read tool foram integrados pela PR #4.
-- **UI/UX:** a direcao anterior, os cinco prototipos e o brief de implementacao foram descartados.
-  O material do AIDesigner permanece somente como research; um novo brief precisa ser aprovado
-  antes de outra implementacao de Console.
+- **UI/UX:** a direção anterior e os protótipos descartados continuam históricos. Uma nova fatia
+  multipágina foi implementada em `task/electron-frontend`, usando referências selecionadas do
+  AIDesigner sem promover suas fixtures a fatos do produto. Laboratory continua Demo; Create só
+  conecta o bootstrap canônico; Observability consome os endpoints atuais.
 
 ### Onda 1 — fronteira de dados e confianca
 
@@ -150,7 +151,7 @@ Subject.
 | ID | Workstream | Dependencias | Pode rodar em paralelo | Nao inclui |
 | --- | --- | --- | --- | --- |
 | WS-00 | Runtime Kernel integration | authority em `main` | encerrado | generic skills, graph, replay |
-| WS-10 | Nova direcao da Operator Console | brief de UI/UX ainda nao aprovado | WS-00 | reutilizar a implementacao ou os prototipos descartados |
+| WS-10 | Fatia multipágina do frontend Electron | referências selecionadas e boundaries atuais | WS-20, WS-30, WS-40 e WS-50 | Lab Agent real, autoria canônica completa, artifact access, authority no renderer ou replay |
 | WS-20 | Artifact access/capture | WS-00 | WS-40 | portable bundle, restricted data |
 | WS-30 | Evaluation/checkpoint/progress | WS-00 + WS-20 | frontend adapters | restore, replay, fork |
 | WS-40 | Trust sandbox/ReviewPackage | authority + WS-00 | WS-20 | falsa aceitacao humana |

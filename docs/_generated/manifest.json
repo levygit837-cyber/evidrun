@@ -541,6 +541,17 @@
       "review_due": "2026-07-30"
     },
     {
+      "id": "planning-electron-frontend-slice",
+      "path": "docs/planning/electron-frontend-slice.md",
+      "type": "planning",
+      "title": "Fatia multipágina do frontend Electron",
+      "status": "implemented",
+      "authority": "planning",
+      "owner": "product-engineering",
+      "updated_at": "2026-07-24",
+      "review_due": "2026-07-31"
+    },
+    {
       "id": "planning-mvp-capability-map",
       "path": "docs/planning/mvp-capability-map.md",
       "type": "planning",

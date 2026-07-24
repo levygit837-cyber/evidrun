@@ -1,27 +1,64 @@
-import type { BackendConnection, DashboardData, ProviderProfile } from "../types";
+import type {
+  BackendConnection,
+  BootstrapDemoResult,
+  CheckpointRecordDto,
+  DashboardData,
+  EvaluationRecordDto,
+  ProviderProfile,
+  Run,
+  RunDetail,
+  RunEvent,
+} from "../types";
+import type { RunEventStream, RunStreamState } from "../data/contracts";
 
 let cachedConnection: BackendConnection | null = null;
+let pendingConnection: Promise<BackendConnection> | null = null;
+
+export class ApiError extends Error {
+  constructor(
+    public readonly status: number,
+    public readonly detail: string,
+  ) {
+    super(`API ${status}: ${detail}`);
+  }
+}
+
+export function invalidateBackendConnection(): void {
+  cachedConnection = null;
+  pendingConnection = null;
+}
 
 async function connection(): Promise<BackendConnection> {
   if (cachedConnection) return cachedConnection;
-  if (window.evidrunDesktop) {
-    cachedConnection = await window.evidrunDesktop.getBackendConnection();
+  if (pendingConnection) return pendingConnection;
+  pendingConnection = window.evidrunDesktop
+    ? window.evidrunDesktop.getBackendConnection()
+    : Promise.resolve({ baseUrl: "", token: "", instanceId: "browser" });
+  try {
+    cachedConnection = await pendingConnection;
     return cachedConnection;
+  } finally {
+    pendingConnection = null;
   }
-  cachedConnection = { baseUrl: "", token: "", instanceId: "browser" };
-  return cachedConnection;
 }
 
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+async function authenticatedHeaders(init?: RequestInit): Promise<Headers> {
   const backend = await connection();
   const headers = new Headers(init?.headers);
-  headers.set("Content-Type", "application/json");
+  if (init?.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   if (backend.token) headers.set("Authorization", `Bearer ${backend.token}`);
+  return headers;
+}
+
+export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const backend = await connection();
+  const headers = await authenticatedHeaders(init);
   const response = await fetch(`${backend.baseUrl}${path}`, { ...init, headers });
   if (!response.ok) {
     const detail = await response.text();
-    throw new Error(`API ${response.status}: ${detail}`);
+    throw new ApiError(response.status, detail);
   }
+  if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
 
@@ -29,7 +66,123 @@ export const api = {
   dashboard: () => apiFetch<DashboardData>("/api/v1/dashboard"),
   defaultProvider: () => apiFetch<ProviderProfile>("/api/v1/providers/default"),
   bootstrapDemo: () =>
-    apiFetch<{ comparison_id: string }>("/api/v1/demo/bootstrap", { method: "POST" }),
-  exportBundle: (comparisonId: string) =>
-    apiFetch<{ path: string }>(`/api/v1/evidence-bundles/${comparisonId}`, { method: "POST" }),
+    apiFetch<BootstrapDemoResult>("/api/v1/demo/bootstrap", { method: "POST" }),
+  runs: () => apiFetch<Run[]>("/api/v1/runs"),
+  runDetail: (runId: string) => apiFetch<RunDetail>(`/api/v1/runs/${encodeURIComponent(runId)}`),
+  runEvents: (runId: string) =>
+    apiFetch<RunEvent[]>(`/api/v1/runs/${encodeURIComponent(runId)}/events`),
+  runEvaluations: (runId: string) =>
+    apiFetch<EvaluationRecordDto[]>(`/api/v1/runs/${encodeURIComponent(runId)}/evaluations`),
+  runCheckpoints: (runId: string) =>
+    apiFetch<CheckpointRecordDto[]>(`/api/v1/runs/${encodeURIComponent(runId)}/checkpoints`),
+  exportRunBundle: (runId: string) =>
+    apiFetch<{ path: string; run_id: string; schema_version: "3" }>(
+      `/api/v1/runs/${encodeURIComponent(runId)}/evidence-bundles`,
+      { method: "POST" },
+    ),
+  exportComparisonBundle: (comparisonId: string) =>
+    apiFetch<{ path: string }>(`/api/v1/evidence-bundles/${encodeURIComponent(comparisonId)}`, {
+      method: "POST",
+    }),
+};
+
+const terminalEvents = new Set([
+  "run.completed",
+  "run.failed",
+  "run.cancelled",
+  "run.budget_exhausted",
+  "run.guardrail_stopped",
+]);
+
+function parseEventBlock(block: string): RunEvent | null {
+  const data = block
+    .split("\n")
+    .filter((line) => line.startsWith("data:"))
+    .map((line) => line.slice(5).trimStart())
+    .join("\n");
+  if (!data) return null;
+  return JSON.parse(data) as RunEvent;
+}
+
+async function consumeEventStream(
+  runId: string,
+  signal: AbortSignal,
+  onEvent: (event: RunEvent) => void,
+  onState: (state: RunStreamState) => void,
+): Promise<void> {
+  const backend = await connection();
+  const response = await fetch(
+    `${backend.baseUrl}/api/v1/runs/${encodeURIComponent(runId)}/stream`,
+    {
+      headers: backend.token ? { Authorization: `Bearer ${backend.token}` } : undefined,
+      signal,
+    },
+  );
+  if (!response.ok || !response.body) {
+    throw new ApiError(response.status, await response.text());
+  }
+  onState("open");
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  while (!signal.aborted) {
+    const { done, value } = await reader.read();
+    buffer += decoder.decode(value, { stream: !done }).replaceAll("\r\n", "\n");
+    let boundary = buffer.indexOf("\n\n");
+    while (boundary >= 0) {
+      const block = buffer.slice(0, boundary);
+      buffer = buffer.slice(boundary + 2);
+      const event = parseEventBlock(block);
+      if (event) onEvent(event);
+      boundary = buffer.indexOf("\n\n");
+    }
+    if (done) return;
+  }
+}
+
+export const runEventStream: RunEventStream = {
+  subscribe(runId, callbacks) {
+    const controller = new AbortController();
+    const seen = new Set<string>();
+    let reconnectAttempt = 0;
+    let terminal = false;
+
+    const deliver = (event: RunEvent) => {
+      const key = `${event.sequence}:${event.event_id}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      callbacks.onEvent(event);
+      if (terminalEvents.has(event.type)) terminal = true;
+    };
+
+    const run = async () => {
+      callbacks.onState("connecting");
+      while (!controller.signal.aborted && !terminal) {
+        try {
+          await consumeEventStream(runId, controller.signal, deliver, callbacks.onState);
+          if (terminal || controller.signal.aborted) break;
+        } catch (error) {
+          if (controller.signal.aborted) break;
+          callbacks.onError(error instanceof Error ? error : new Error("Falha no stream da Run"));
+        }
+        callbacks.onState("reconnecting");
+        const delay = Math.min(500 * 2 ** reconnectAttempt, 5_000);
+        reconnectAttempt += 1;
+        await new Promise<void>((resolve) => {
+          const timeout = window.setTimeout(resolve, delay);
+          controller.signal.addEventListener(
+            "abort",
+            () => {
+              window.clearTimeout(timeout);
+              resolve();
+            },
+            { once: true },
+          );
+        });
+      }
+      callbacks.onState("closed");
+    };
+    void run();
+    return () => controller.abort();
+  },
 };
