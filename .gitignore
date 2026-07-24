@@ -27,3 +27,10 @@ test-results/
 *.db-shm
 *.db-wal
 *.evidrun.zip
+
+# Local creative-production sources and rendered media (Hypeframe/Remotion, etc.)
+/artifacts/video/
+/artifacts/video-assets/
+*.mp4
+*.mov
+*.webm

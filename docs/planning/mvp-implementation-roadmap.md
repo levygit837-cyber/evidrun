@@ -87,7 +87,7 @@ Uma UI bonita que apenas chama `/demo/bootstrap` nao satisfaz esse criterio.
 flowchart LR
     W0["WS-00 Runtime Kernel integrado"] --> W2["WS-20 Artifact access e capture"]
     W0 --> W4["WS-40 Trust sandbox e ReviewPackage"]
-    W1["WS-10 Console Web com ports/mocks"] --> W6["Integracao frontend real"]
+    W1["Nova direcao de UI/UX a definir"] --> W6["Integracao frontend real"]
     W2 --> W3["WS-30 Evaluation, checkpoints e progress"]
     W4 --> W5["WS-50 Lab Agent e bounded exploration"]
     W3 --> W5
@@ -104,11 +104,9 @@ flowchart LR
 ### Onda 0 — concluida em `main`
 
 - **WS-00:** Runtime Kernel, Subject real e read tool foram integrados pela PR #4.
-- **WS-10 / exploracao visual:** cinco prototipos React isolados foram integrados pela PR #6. Eles
-  validam direcoes e interacoes, mas nao constituem a Console de produto em `apps/web`.
-
-A implementacao real de WS-10 continua `queued` e deve usar capability detection. Fixtures sao
-permitidas em teste e prototipo; nunca podem aparecer como backend conectado em producao.
+- **UI/UX:** a direcao anterior, os cinco prototipos e o brief de implementacao foram descartados.
+  O material do AIDesigner permanece somente como research; um novo brief precisa ser aprovado
+  antes de outra implementacao de Console.
 
 ### Onda 1 — fronteira de dados e confianca
 
@@ -152,7 +150,7 @@ Subject.
 | ID | Workstream | Dependencias | Pode rodar em paralelo | Nao inclui |
 | --- | --- | --- | --- | --- |
 | WS-00 | Runtime Kernel integration | authority em `main` | encerrado | generic skills, graph, replay |
-| WS-10 | MVP operator console | API atual + fixtures | WS-00 | Canvas, editor visual de grafo |
+| WS-10 | Nova direcao da Operator Console | brief de UI/UX ainda nao aprovado | WS-00 | reutilizar a implementacao ou os prototipos descartados |
 | WS-20 | Artifact access/capture | WS-00 | WS-40 | portable bundle, restricted data |
 | WS-30 | Evaluation/checkpoint/progress | WS-00 + WS-20 | frontend adapters | restore, replay, fork |
 | WS-40 | Trust sandbox/ReviewPackage | authority + WS-00 | WS-20 | falsa aceitacao humana |

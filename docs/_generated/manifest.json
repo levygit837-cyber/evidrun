@@ -563,17 +563,6 @@
       "review_due": "2026-07-30"
     },
     {
-      "id": "planning-prompt-operator-console-subagents-html",
-      "path": "docs/planning/operator-console-subagents-html-prompt.md",
-      "type": "implementation-task",
-      "title": "Prompt de exploração da Operator Console com sub-agents e HTML",
-      "status": "draft",
-      "authority": "planning",
-      "owner": "web",
-      "updated_at": "2026-07-23",
-      "review_due": null
-    },
-    {
       "id": "planning-task-runtime-kernel-integration",
       "path": "docs/planning/tasks/00-runtime-kernel-integration.md",
       "type": "implementation-task",
@@ -583,17 +572,6 @@
       "owner": "runtime",
       "updated_at": "2026-07-24",
       "review_due": "2026-07-25"
-    },
-    {
-      "id": "planning-task-mvp-operator-console",
-      "path": "docs/planning/tasks/10-mvp-operator-console.md",
-      "type": "implementation-task",
-      "title": "WS-10 Console operacional do MVP",
-      "status": "accepted",
-      "authority": "planning",
-      "owner": "web",
-      "updated_at": "2026-07-24",
-      "review_due": "2026-07-30"
     },
     {
       "id": "planning-task-artifact-access-capture",
@@ -715,6 +693,17 @@
       "owner": "product",
       "updated_at": "2026-07-22",
       "review_due": null
+    },
+    {
+      "id": "research-aidesigner-ultradesign-integration",
+      "path": "docs/research/aidesigner-ultradesign-integration.md",
+      "type": "research",
+      "title": "Integração do AIDesigner para gerações Ultradesign longas",
+      "status": "draft",
+      "authority": "research",
+      "owner": "core",
+      "updated_at": "2026-07-24",
+      "review_due": "2026-08-24"
     },
     {
       "id": "research-context-reliability-origins",

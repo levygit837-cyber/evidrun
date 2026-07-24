@@ -85,7 +85,6 @@ O template reutilizavel esta em
 - [Mapa de capabilities do MVP](mvp-capability-map.md)
 - [Roadmap de implementacao do MVP](mvp-implementation-roadmap.md)
 - [Integracao do Runtime Kernel](tasks/00-runtime-kernel-integration.md)
-- [Console operacional do MVP](tasks/10-mvp-operator-console.md)
 - [Acesso e materializacao de artifacts](tasks/20-artifact-access-and-capture.md)
 - [Evaluation, checkpoints e Progress Artifacts](tasks/30-evaluation-checkpoint-progress.md)
 - [Trust modes, sandbox e ReviewPackage](tasks/40-trust-sandbox-review-package.md)
