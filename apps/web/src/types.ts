@@ -1,3 +1,13 @@
+import type {
+  CheckpointRecord,
+  EvaluationRecord,
+  RunExecutionAttempt,
+  RunExecutionJob,
+  RunRecord,
+} from "./generated/contracts";
+
+export type DataMode = "live" | "demo" | "integration_pending" | "unavailable";
+
 export interface Grade {
   id: string;
   score: number;
@@ -21,6 +31,9 @@ export interface ContextSnapshot {
 export interface Run {
   id: string;
   experiment_revision_id: string;
+  contract_mode: "study_v1" | "legacy_v1";
+  run_spec_id: string | null;
+  admission_id: string | null;
   variant_id: string;
   status: string;
   runner: string;
@@ -30,6 +43,46 @@ export interface Run {
   completed_at: string | null;
   grade: Grade | null;
   context_snapshot: ContextSnapshot | null;
+}
+
+export interface RunEvent {
+  event_id: string;
+  schema_version: "1";
+  run_id: string;
+  sequence: number;
+  type: string;
+  occurred_at_utc: string;
+  actor_type: string;
+  actor_id: string;
+  classification: string;
+  payload: Record<string, unknown>;
+  correlation_id: string | null;
+  causation_id: string | null;
+  prev_event_hash: string | null;
+  event_hash: string;
+}
+
+export type EvaluationRecordDto = EvaluationRecord & { digest: string };
+export type CheckpointRecordDto = CheckpointRecord & { checkpoint_hash: string };
+
+export interface RunDetail extends Run {
+  record: RunRecord | null;
+  events: RunEvent[];
+  execution: {
+    job: RunExecutionJob & { digest: string };
+    attempts: Array<RunExecutionAttempt & { digest: string }>;
+  } | null;
+  subject_envelope_digest: string | null;
+}
+
+export interface BootstrapDemoResult {
+  experiment_revision_id: string;
+  study_revision: Record<string, unknown>;
+  comparison_id: string;
+  baseline_run_id: string;
+  candidate_run_id: string;
+  validity: string;
+  context_diff: Record<string, unknown>;
 }
 
 export interface Comparison {

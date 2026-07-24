@@ -7,7 +7,7 @@ export function createMainWindow(preloadPath: string): BrowserWindow {
     height: 940,
     minWidth: 880,
     minHeight: 650,
-    backgroundColor: "#0a0c0b",
+    backgroundColor: "#fcfcfd",
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
     show: false,
     webPreferences: {
