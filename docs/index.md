@@ -30,6 +30,16 @@ verification_refs:
 7. [Runtime de providers](architecture/provider-runtime.md)
 8. [Roadmap](roadmap/mvp.md)
 
+## Planejamento temporal de implementacao
+
+Os documentos abaixo sao briefs temporais para coordenar worktrees e agentes. Eles nao substituem
+ADRs, contratos ou arquitetura normativa:
+
+- [Como usar o planejamento temporal](planning/README.md)
+- [Mapa atual de capabilities do MVP](planning/mvp-capability-map.md)
+- [Roadmap executavel ate o MVP operacional](planning/mvp-implementation-roadmap.md)
+- [Tasks e prompts de dispatch para agentes](planning/tasks/README.md)
+
 ## Contratos de execução
 
 - [Study, revisions e Run canônica v1](contracts/study-run-v1.md)
@@ -52,7 +62,8 @@ verification_refs:
 ## Autoridade
 
 Contratos e ADRs aceitos são normativos. Arquitetura descreve o estado atual. Research é temporal.
-Roadmap é intenção futura. Relatórios são projeções geradas de evidência e não são mantidos à mão.
+Roadmap é intenção futura. Planning registra snapshots e briefs temporais. Relatórios são projeções
+geradas de evidência e não são mantidos à mão.
 
 O manifest completo é gerado em `_generated/manifest.json` a partir do frontmatter dos documentos.
 

@@ -41,32 +41,35 @@ verification_refs: []
 - ledger com phase gates, cross-links factuais e cobertura do EvaluationPlan no terminal completed;
 - Bundle v2 verificando lifecycle, contratos queued/terminal, comparison, evaluations e completude do
   artifact manifest.
+- authority humana local opt-in com subject assinado, challenge de uso unico, autenticador de
+  software, revogacao, verifier e API/CLI; o default continua fail-closed quando a feature esta
+  desabilitada.
 
-## Próximo
+## Em execucao fora de `main`
 
-- job queue com lease e worker realmente assíncrono;
-- enforcement ponta a ponta de classification e capture policy em snapshots e eventos;
-- adapter WebAuthn/passkey, cerimônia humana, enrollment/recovery e canal UI/CLI para produzir a
-  attestation já contratada;
-- pipeline executável de `human_review` e adjudicação required, preservando suas relações distintas;
-- Artifact Access Grants e records de materialização;
-- observer, scheduler, persistência e geração em background de Progress Artifact;
-- entrega de guidance `pre_run` ao runner e interações auditadas para `on_request`/`post_run`;
-- runtime de `bounded_exploration` conforme a taxonomia do ADR 0013, sem pass/fail;
-- Lab Agent com Pydantic AI;
-- Responses Subject Runner;
-- approvals e resume;
-- tool simulator e sandbox;
-- runtime real de tools, skills e nested agents;
-- execução de protocolos em grafo;
-- executor genérico de `EvaluationPlan`, incluindo triggers e todos os stages;
-- runtime de triggers e validators de `CheckpointPolicy`;
-- restore, replay, context extraction e fork por checkpoint;
-- export `portable` separado do Bundle v2 auditável;
-- repetições e análise estatística;
-- LLM judges calibrados;
-- PyInstaller, assinatura e notarização;
-- analytics DuckDB/Parquet;
-- sync opcional somente após ADR específico.
+A worktree `task/implementar-runtime-kernel-genrico` implementa queue duravel, job/attempt,
+lease/heartbeat/fencing, worker, SubjectEnvelope persistido, API/CLI de execucao, Bundle v3 e um
+primeiro Subject real com read tool fechada. Esse trabalho permanece temporalmente
+`implemented_in_worktree`: ainda precisa ser congelado, rebaseado sobre a authority ja mesclada,
+revisado, validado e integrado antes de ser descrito como comportamento de `main`.
+
+O brief de integracao esta em
+[WS-00](../planning/tasks/00-runtime-kernel-integration.md).
+
+## Proximas ondas
+
+1. integrar o Runtime Kernel e o Subject real sem perder authority;
+2. construir a Console Web do MVP em paralelo, inicialmente por ports e fixtures honestas;
+3. implementar Artifact Access Grants, materializacao e capture/classification ponta a ponta;
+4. tornar EvaluationPlan, CheckpointPolicy e Progress Artifact executaveis;
+5. criar trust mode `unverified_sandbox` e ReviewPackage sem falsa autoridade humana;
+6. implementar Lab Agent limitado a drafts e runtime de `bounded_exploration`;
+7. integrar frontend, sidecar e worker em dossiers end-to-end do MVP.
+
+Depois do MVP entram generic tools/skills, approvals/resume, graph/nested agents, portable bundle,
+restore/replay/fork, Canvas, analytics, packaging e sync.
+
+O detalhamento, dependencias e gates estao em
+[Roadmap executavel do MVP](../planning/mvp-implementation-roadmap.md).
 
 Roadmap não é comportamento existente. Cada item muda para implemented apenas com referências.

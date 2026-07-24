@@ -82,3 +82,17 @@ uv run python scripts/validate_docs.py
 ```
 
 O benchmark `CRL-CTX-002` deve continuar offline e determinístico.
+
+## Agent skills
+
+### Issue tracker
+
+Issues e PRDs ficam como issues do GitHub (`gh` CLI). Consulte `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Cinco labels canônicas com nomes padrão (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). Consulte `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Layout single-context: `CONTEXT.md` + `docs/adr/` na raiz. Consulte `docs/agents/domain.md`.
