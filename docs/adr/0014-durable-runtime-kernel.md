@@ -15,7 +15,7 @@ sources:
 supersedes: []
 superseded_by: null
 implementation_refs:
-  - src/evidrun/runs/coordinator.py
+  - src/evidrun/runs/coordinator/attempt.py
   - src/evidrun/runs/worker.py
   - src/evidrun/runs/adapters/catalog.py
   - src/evidrun/infrastructure/database/repository.py

@@ -14,7 +14,7 @@ from sqlalchemy.exc import OperationalError
 import evidrun.infrastructure.database.clock as db_clock_module
 import evidrun.infrastructure.database.evaluation.records as evaluation_records_module
 import evidrun.infrastructure.database.queue.preparation as preparation_module
-import evidrun.runs.coordinator as coordinator_module
+import evidrun.runs.coordinator.budget as budget_module
 from evidrun.contracts import GoalStateTerminalResult
 from evidrun.contracts.compiler import StudyCompiler
 from evidrun.evidence.bundle import EvidenceBundleService
@@ -23,6 +23,9 @@ from evidrun.infrastructure.database import Database, LeaseLost, Repository
 from evidrun.runs import DurableRunWorker, RuntimeAdapterCatalog, build_runtime_kernel
 from evidrun.runs.adapters import ScriptedLogInvestigatorAdapter
 from evidrun.runs.coordinator import RunExecutionCoordinator
+from evidrun.runs.coordinator.prepare import prepare as prepare_phase
+from evidrun.runs.coordinator.response import persist_evaluation, persist_response
+from evidrun.runs.coordinator.terminal import terminal as terminal_phase
 from evidrun.shared.settings import Settings
 from evidrun.shared.types import Classification, utc_now
 from tests.support.human_attestation import (
@@ -315,7 +318,7 @@ def test_expired_worker_after_run_running_is_recovered_by_attempt_two(
     claimed_job, attempt_one = claim_one
     contracts = fixture.repository.read_model.get_run_contracts(run_id)
     assert contracts is not None
-    kernel.coordinator._prepare(claimed_job, attempt_one, *contracts)
+    prepare_phase(kernel.coordinator.context, claimed_job, attempt_one, *contracts)
     assert fixture.repository.read_model.get_run(run_id).status == "running"
 
     claim_two = fixture.repository.lease.claim_next_job(
@@ -364,7 +367,7 @@ def test_crash_after_subject_invocation_fails_without_reinvocation_and_retry_is_
     claimed_job, attempt_one = claim_one
     contracts = fixture.repository.read_model.get_run_contracts(run_id)
     assert contracts is not None
-    envelope, _ = kernel.coordinator._prepare(claimed_job, attempt_one, *contracts)
+    envelope, _ = prepare_phase(kernel.coordinator.context, claimed_job, attempt_one, *contracts)
     fixture.repository.ledger.append_event(
         run_id=run_id,
         event_type="subject.invoked",
@@ -554,10 +557,10 @@ def test_recovery_with_exhausted_wall_budget_does_not_invoke_subject(
     assert claim_one is not None
     contracts = fixture.repository.read_model.get_run_contracts(run_id)
     assert contracts is not None
-    kernel.coordinator._prepare(*claim_one, *contracts)
+    prepare_phase(kernel.coordinator.context, *claim_one, *contracts)
     prepared_events = fixture.repository.read_model.get_run_events(run_id)
     running = next(item for item in prepared_events if item["type"] == "run.running")
-    started_at = coordinator_module.datetime.fromisoformat(str(running["occurred_at_utc"]))
+    started_at = budget_module.datetime.fromisoformat(str(running["occurred_at_utc"]))
     claim_two = fixture.repository.lease.claim_next_job(
         worker_id="budget-recovery-worker",
         lease_seconds=30,
@@ -566,7 +569,7 @@ def test_recovery_with_exhausted_wall_budget_does_not_invoke_subject(
     )
     assert claim_two is not None
     frozen_now = started_at.replace(tzinfo=UTC) + timedelta(seconds=10)
-    monkeypatch.setattr(coordinator_module, "utc_now", lambda: frozen_now)
+    monkeypatch.setattr(budget_module, "utc_now", lambda: frozen_now)
     monkeypatch.setattr(db_clock_module, "utc_now", lambda: frozen_now)
     asyncio.run(kernel.coordinator.execute_attempt(*claim_two))
     assert fixture.repository.read_model.get_run(run_id).status == "budget_exhausted"
@@ -598,8 +601,12 @@ def test_repeating_prepare_response_evaluation_and_finish_is_idempotent(
     claimed_job, attempt = claim
     contracts = fixture.repository.read_model.get_run_contracts(run_id)
     assert contracts is not None
-    envelope_one, inputs_one = kernel.coordinator._prepare(claimed_job, attempt, *contracts)
-    envelope_two, inputs_two = kernel.coordinator._prepare(claimed_job, attempt, *contracts)
+    envelope_one, inputs_one = prepare_phase(
+        kernel.coordinator.context, claimed_job, attempt, *contracts
+    )
+    envelope_two, inputs_two = prepare_phase(
+        kernel.coordinator.context, claimed_job, attempt, *contracts
+    )
     assert envelope_one == envelope_two
     assert inputs_one == inputs_two
     lease = (
@@ -621,8 +628,12 @@ def test_repeating_prepare_response_evaluation_and_finish_is_idempotent(
         lease=lease,
     )
     result = asyncio.run(kernel.catalog.subject.execute(envelope_one, inputs_one))
-    response_one = kernel.coordinator._persist_response(claimed_job, attempt, contracts[0], result)
-    response_two = kernel.coordinator._persist_response(claimed_job, attempt, contracts[0], result)
+    response_one = persist_response(
+        kernel.coordinator.context, claimed_job, attempt, contracts[0], result
+    )
+    response_two = persist_response(
+        kernel.coordinator.context, claimed_job, attempt, contracts[0], result
+    )
     assert response_one.id == response_two.id
     outcome = kernel.catalog.evaluator.evaluate(
         run_id=run_id,
@@ -632,16 +643,16 @@ def test_repeating_prepare_response_evaluation_and_finish_is_idempotent(
         response_sequence=response_one.sequence,
         response_event_hash=response_one.event_hash,
     )
-    kernel.coordinator._persist_evaluation(claimed_job, attempt, outcome)
-    kernel.coordinator._persist_evaluation(claimed_job, attempt, outcome)
-    kernel.coordinator._terminal(
+    persist_evaluation(kernel.coordinator.context, claimed_job, attempt, outcome)
+    persist_evaluation(kernel.coordinator.context, claimed_job, attempt, outcome)
+    terminal_phase(kernel.coordinator.context, 
         claimed_job,
         attempt,
         event_type="run.completed",
         goal_result=GoalStateTerminalResult(state="achieved"),
         cause="idempotent terminal",
     )
-    kernel.coordinator._terminal(
+    terminal_phase(kernel.coordinator.context, 
         claimed_job,
         attempt,
         event_type="run.completed",
@@ -687,7 +698,7 @@ def test_prepare_transaction_rolls_back_all_facts_on_mid_commit_failure(
         fail_on_context,
     )
     with pytest.raises(RuntimeError, match="injected preparation"):
-        kernel.coordinator._prepare(*claim, *contracts)
+        prepare_phase(kernel.coordinator.context, *claim, *contracts)
     assert fixture.repository.read_model.get_run(run_id).status == "queued"
     rolled_back_events = fixture.repository.read_model.get_run_events(run_id)
     assert [item["type"] for item in rolled_back_events] == ["run.queued"]
@@ -719,7 +730,7 @@ def test_evaluation_transaction_rolls_back_record_grade_and_event_together(
     claimed_job, attempt = claim
     contracts = fixture.repository.read_model.get_run_contracts(run_id)
     assert contracts is not None
-    envelope, inputs = kernel.coordinator._prepare(claimed_job, attempt, *contracts)
+    envelope, inputs = prepare_phase(kernel.coordinator.context, claimed_job, attempt, *contracts)
     lease = (
         job.job_id,
         attempt.attempt_id,
@@ -739,7 +750,9 @@ def test_evaluation_transaction_rolls_back_record_grade_and_event_together(
         lease=lease,
     )
     result = asyncio.run(kernel.catalog.subject.execute(envelope, inputs))
-    response = kernel.coordinator._persist_response(claimed_job, attempt, contracts[0], result)
+    response = persist_response(
+        kernel.coordinator.context, claimed_job, attempt, contracts[0], result
+    )
     outcome = kernel.catalog.evaluator.evaluate(
         run_id=run_id,
         spec=contracts[0],
@@ -761,7 +774,7 @@ def test_evaluation_transaction_rolls_back_record_grade_and_event_together(
         fail_on_evaluation_event,
     )
     with pytest.raises(RuntimeError, match="injected evaluation"):
-        kernel.coordinator._persist_evaluation(claimed_job, attempt, outcome)
+        persist_evaluation(kernel.coordinator.context, claimed_job, attempt, outcome)
     assert fixture.repository.read_model.get_evaluation_records(run_id) == []
     with pytest.raises(KeyError):
         fixture.repository.read_model.get_grade(run_id)
