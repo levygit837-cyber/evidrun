@@ -122,7 +122,9 @@ evidrun/
 ├── schemas/generated/             OpenAPI + JSON Schema, gerados
 ├── docs/{adr,architecture,contracts,benchmarks,operations,planning,governance,agents,product}/
 ├── code-budget.toml               política + ratchet do orçamento estrutural
-└── scripts/                       validate_docs, generate_schemas, check_code_budget, hooks
+└── scripts/                       validate_docs, generate_schemas, hooks
+    ├── check_code_budget.py       CLI do gate
+    └── code_budget/               policy, measure, report (violação vs. aviso), baseline
 ```
 
 `▲` marca arquivo no ratchet do orçamento. `⛔` marca o God Object.

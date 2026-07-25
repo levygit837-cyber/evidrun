@@ -61,6 +61,14 @@ métodos públicos é rasa por definição: a interface é tão complexa quanto 
 `[baseline]` com sua métrica medida. Uma métrica no baseline pode encolher, nunca crescer. Quando ela
 volta para dentro do orçamento do grupo, o gate exige a remoção da entrada. O ratchet só aperta.
 
+**Aviso antes de violação.** Uma métrica que passa de `warn_at_ratio` do orçamento do grupo (default
+0.8, declarável por grupo em `code-budget.toml`) é reportada como AVISO e **não** altera o exit code.
+A razão de não falhar é operacional: aviso que quebra CI vira ruído que alguém silencia, e o valor
+aqui é que um arquivo recém-extraído perto do teto seja visto antes de a próxima capability empurrá-lo
+de volta ao `[baseline]`. A superfície escolhida é a saída do próprio gate, no job Python que já roda
+em todo push — não um comentário de PR, que só apareceria depois do trabalho estar feito. Como a
+medição parte de `git ls-files`, arquivo fora do índice não é medido, e portanto não avisa.
+
 **Custo zero de CI.** O gate roda como um passo do job Python já existente, não como job novo, e há
 um hook `pre-push` opcional (`scripts/install_git_hooks.py`) que faz a mesma verificação localmente.
 No mesmo movimento, o trigger `on: push` passou a filtrar `branches: [main]`, porque um PR de branch

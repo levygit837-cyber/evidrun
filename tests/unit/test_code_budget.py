@@ -1,15 +1,20 @@
 from __future__ import annotations
 
-import importlib.util
 import sys
 from collections.abc import Mapping
 from pathlib import Path
-from types import ModuleType
 from typing import Any
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
+
+# `scripts/` is not an installed package: the gate runs as a file, so the test puts
+# it on the path the same way the CLI entrypoint does.
+if str(ROOT / "scripts") not in sys.path:
+    sys.path.insert(0, str(ROOT / "scripts"))
+
+import code_budget as budget  # noqa: E402
 
 POLICY = """
 [[groups]]
@@ -33,18 +38,26 @@ max_public_methods = 25
 """
 
 
-def load_module() -> ModuleType:
-    spec = importlib.util.spec_from_file_location(
-        "check_code_budget", ROOT / "scripts/check_code_budget.py"
-    )
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+def run_check(root: Path, baseline: Mapping[str, Mapping[str, int]] | None = None) -> list[Any]:
+    """Findings de violação, que é o que decide o gate."""
+
+    return budget.violations(_findings(root, baseline))
 
 
-budget = load_module()
+def run_warnings(root: Path) -> list[Any]:
+    return budget.warnings(_findings(root))
+
+
+def _findings(root: Path, baseline: Mapping[str, Mapping[str, int]] | None = None) -> list[Any]:
+    config = root / "code-budget.toml"
+    if baseline is not None:
+        config.write_text(
+            budget.render_baseline(config.read_text(encoding="utf-8"), baseline), encoding="utf-8"
+        )
+    policy = budget.load_policy(config)
+    tracked = sorted(str(path.relative_to(root)) for path in root.rglob("*") if path.is_file())
+    measurements = budget.measure_all(root, policy, tracked)
+    return budget.check(policy, measurements)
 
 
 @pytest.fixture
@@ -72,18 +85,6 @@ def python_class(public: int, private: int = 0) -> str:
     methods = "".join(f"    def action_{index}(self) -> None: ...\n" for index in range(public))
     methods += "".join(f"    def _hidden_{index}(self) -> None: ...\n" for index in range(private))
     return f"class Service:\n{methods}"
-
-
-def run_check(root: Path, baseline: Mapping[str, Mapping[str, int]] | None = None) -> list[Any]:
-    config = root / "code-budget.toml"
-    if baseline is not None:
-        config.write_text(
-            budget.render_baseline(config.read_text(encoding="utf-8"), baseline), encoding="utf-8"
-        )
-    policy = budget.load_policy(config)
-    tracked = sorted(str(path.relative_to(root)) for path in root.rglob("*") if path.is_file())
-    measurements = budget.measure_all(root, policy, tracked)
-    return budget.check(policy, measurements)
 
 
 def test_file_within_budget_passes(workspace: Path) -> None:
@@ -224,6 +225,20 @@ def test_render_baseline_round_trips_through_load_policy(workspace: Path) -> Non
     assert [group.name for group in reloaded.groups] == ["exempt", "tests", "source"]
 
 
+def test_render_baseline_keeps_groups_when_the_header_is_mentioned_in_prose() -> None:
+    """O `[baseline]` citado em comentário não é o início do bloco.
+
+    O `code-budget.toml` do repositório documenta o ratchet no cabeçalho, então um corte
+    por substring apagava todos os `[[groups]]` ao regravar o baseline.
+    """
+
+    original = (ROOT / "code-budget.toml").read_text(encoding="utf-8")
+    assert "[baseline]" in original.split("[[groups]]")[0], "cabeçalho perdeu a menção em prosa"
+    rendered = budget.render_baseline(original, {"src/evidrun/a.py": {"file_lines": 900}})
+    assert rendered.count("[[groups]]") == original.count("[[groups]]")
+
+
+
 def test_unparseable_python_is_reported_as_violation(workspace: Path) -> None:
     write_file(workspace, "src/evidrun/broken.py", "def oops(:\n")
     (violation,) = run_check(workspace)
@@ -237,6 +252,49 @@ def test_unknown_baseline_metric_is_rejected(workspace: Path) -> None:
     )
     with pytest.raises(ValueError, match="métrica desconhecida"):
         budget.load_policy(config)
+
+
+def test_file_near_budget_warns_without_failing(workspace: Path) -> None:
+    write_file(workspace, "src/evidrun/close.py", python_module(460))
+    assert run_check(workspace) == []
+    (warning,) = run_warnings(workspace)
+    assert warning.kind == "headroom"
+    assert warning.severity == "warning"
+    assert warning.measured == 460
+    assert warning.limit == 500
+    assert "40 de folga" in warning.message
+
+
+def test_file_far_from_budget_stays_silent(workspace: Path) -> None:
+    write_file(workspace, "src/evidrun/small.py", python_module(399))
+    assert run_warnings(workspace) == []
+
+
+def test_file_over_budget_reports_violation_and_no_warning(workspace: Path) -> None:
+    write_file(workspace, "src/evidrun/big.py", python_module(501))
+    (violation,) = run_check(workspace)
+    assert violation.kind == "budget"
+    assert run_warnings(workspace) == []
+
+
+def test_baseline_file_is_not_warned_about(workspace: Path) -> None:
+    write_file(workspace, "src/evidrun/big.py", python_module(700))
+    assert budget.warnings(_findings(workspace, {"src/evidrun/big.py": {"file_lines": 700}})) == []
+
+
+def test_group_can_set_its_own_warn_ratio(workspace: Path) -> None:
+    config = workspace / "code-budget.toml"
+    config.write_text(POLICY.replace('name = "source"', 'name = "source"\nwarn_at_ratio = 0.5'))
+    write_file(workspace, "src/evidrun/half.py", python_module(260))
+    assert [finding.measured for finding in run_warnings(workspace)] == [260]
+
+
+def test_warn_ratio_outside_the_open_unit_interval_is_rejected(workspace: Path) -> None:
+    config = workspace / "code-budget.toml"
+    config.write_text(POLICY.replace('name = "source"', 'name = "source"\nwarn_at_ratio = 1.0'))
+    with pytest.raises(ValueError, match="entre 0 e 1"):
+        budget.load_policy(config)
+
 
 
 def test_repository_policy_and_baseline_hold_together() -> None:

@@ -9,6 +9,12 @@
 # Regrave o baseline apenas de forma deliberada e manual:
 #
 #     uv run python scripts/check_code_budget.py --update-baseline
+#
+# `warn_at_ratio` é a fração do orçamento a partir da qual o gate AVISA sem falhar.
+# Default 0.8, aplicado a todo grupo que não declara o seu. O aviso existe para que
+# um arquivo perto do teto seja visto antes de virar violação; ele nunca muda o exit
+# code. Só arquivos rastreados pelo git são medidos: nada ainda fora do índice aparece
+# como aviso ou violação.
 
 [[groups]]
 name = "exempt"
@@ -37,8 +43,8 @@ patterns = [
   "src/**/*.py",
   "apps/**/*.ts",
   "apps/**/*.tsx",
-  "scripts/*.py",
-  "scripts/*.mjs",
+  "scripts/**/*.py",
+  "scripts/**/*.mjs",
 ]
 max_file_lines = 500
 max_function_lines = 120
