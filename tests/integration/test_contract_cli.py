@@ -24,8 +24,8 @@ def test_contract_cli_validates_registers_and_fails_closed_without_human_verifie
     database = Database(data_dir / "evidrun.db")
     database.create_all()
     repository = Repository(database)
-    workspace = repository.create_workspace("CLI workspace")
-    project = repository.create_project(workspace.id, "CLI project")
+    workspace = repository.catalog.create_workspace("CLI workspace")
+    project = repository.catalog.create_project(workspace.id, "CLI project")
     database.dispose()
 
     goal = GoalRevision(
@@ -97,7 +97,7 @@ def test_contract_cli_validates_registers_and_fails_closed_without_human_verifie
 
     verify_database = Database(data_dir / "evidrun.db")
     verify_database.create_all()
-    revisions = Repository(verify_database).list_contract_revisions()
+    revisions = Repository(verify_database).read_model.list_contract_revisions()
     verify_database.dispose()
     stored = next(item for item in revisions if item["logical_id"] == goal.logical_id)
     assert stored["status"] == "proposed"

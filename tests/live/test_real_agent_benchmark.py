@@ -46,8 +46,8 @@ def test_real_model_completes_fresh_tool_grounded_study(tmp_path: Path) -> None:
     database = Database(settings.database_path)
     database.create_all()
     repository = Repository(database, TestHumanAttestationVerifier())
-    workspace = repository.create_workspace(f"Live benchmark {nonce}")
-    project = repository.create_project(workspace.id, f"Fresh retrieval {nonce}")
+    workspace = repository.catalog.create_workspace(f"Live benchmark {nonce}")
+    project = repository.catalog.create_project(workspace.id, f"Fresh retrieval {nonce}")
     artifact_store = ArtifactStore(settings.artifacts_dir)
     source = artifact_store.put_ref(
         fresh_incident_memo(expected).encode("utf-8"),
@@ -62,14 +62,14 @@ def test_real_model_completes_fresh_tool_grounded_study(tmp_path: Path) -> None:
         profile=profile,
     )
     for revision in revisions:
-        repository.save_contract_revision(revision, status="proposed")
-        repository.decide_contract_revision(accepted_decision(revision))
-    spec = StudyCompiler(repository.contract_registry(project.id)).compile(study)[0]
-    spec_row = repository.save_run_spec(spec)
+        repository.registry.save_contract_revision(revision, status="proposed")
+        repository.registry.decide_contract_revision(accepted_decision(revision))
+    spec = StudyCompiler(repository.registry.contract_registry(project.id)).compile(study)[0]
+    spec_row = repository.catalog.save_run_spec(spec)
     kernel = build_runtime_kernel(repository, settings.artifacts_dir)
     admission = kernel.coordinator.admission_service.admit(spec)
     assert admission.decision == "admitted", admission.model_dump(mode="json")
-    admission_row = repository.save_admission_record(spec_row.id, admission)
+    admission_row = repository.catalog.save_admission_record(spec_row.id, admission)
     run_id, job = kernel.coordinator.enqueue(
         run_spec_id=spec_row.id,
         admission_id=admission_row.id,
@@ -105,8 +105,8 @@ def test_real_model_completes_fresh_tool_grounded_study(tmp_path: Path) -> None:
     reopened_database = Database(settings.database_path)
     reopened_database.create_all()
     reopened = Repository(reopened_database)
-    run = reopened.get_run(run_id)
-    events = reopened.get_run_events(run_id)
+    run = reopened.read_model.get_run(run_id)
+    events = reopened.read_model.get_run_events(run_id)
     assert run.status == "completed", events
     event_types = [event["type"] for event in events]
     assert event_types[:6] == [
@@ -128,8 +128,8 @@ def test_real_model_completes_fresh_tool_grounded_study(tmp_path: Path) -> None:
     assert tool_event_types == ["tool.called", "tool.completed"] * (
         len(tool_event_types) // 2
     )
-    assert reopened.get_evaluation_records(run_id)[0].gate_status == "passed"
-    execution = reopened.get_run_execution(run_id)
+    assert reopened.read_model.get_evaluation_records(run_id)[0].gate_status == "passed"
+    execution = reopened.lease.get_run_execution(run_id)
     assert execution is not None
     assert execution[0].job_id == job.job_id
     assert execution[0].status == "completed"

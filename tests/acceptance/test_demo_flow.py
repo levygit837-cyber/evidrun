@@ -14,7 +14,7 @@ def test_demo_runs_end_to_end_and_bundle_verifies(
     repository: Repository, tmp_path: Path
 ) -> None:
     result = EvidrunService(repository).bootstrap_demo(ROOT / "benchmarks")
-    dashboard = repository.latest_dashboard()
+    dashboard = repository.read_model.latest_dashboard()
 
     assert dashboard["summary"]["runs"] == 2
     assert dashboard["summary"]["comparisons"] == 1
@@ -31,7 +31,7 @@ def test_demo_runs_end_to_end_and_bundle_verifies(
         for run in runs.values()
     )
     terminal_by_variant = {
-        variant_id: repository.get_run_events(run["id"])[-1]["payload"]
+        variant_id: repository.read_model.get_run_events(run["id"])[-1]["payload"]
         for variant_id, run in runs.items()
     }
     assert terminal_by_variant["head-truncation"]["goal_result"] == {

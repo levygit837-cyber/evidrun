@@ -29,9 +29,9 @@ def test_checkpoint_record_is_anchored_to_the_exact_run_ledger(
     repository: Repository,
 ) -> None:
     result = EvidrunService(repository).bootstrap_demo(ROOT / "benchmarks")
-    source_run = repository.get_run(result["baseline_run_id"])
+    source_run = repository.read_model.get_run(result["baseline_run_id"])
     assert source_run.run_spec_id is not None
-    spec = repository.get_run_spec(source_run.run_spec_id)
+    spec = repository.read_model.get_run_spec(source_run.run_spec_id)
 
     validator_ref = capability_ref("evidrun.checkpoint", "integrity")
     policy = CheckpointPolicySpec(
@@ -59,8 +59,8 @@ def test_checkpoint_record_is_anchored_to_the_exact_run_ledger(
             "checkpoint_policy": policy,
         }
     )
-    spec_row = repository.save_run_spec(checkpoint_spec)
-    source_contracts = repository.get_run_contracts(source_run.id)
+    spec_row = repository.catalog.save_run_spec(checkpoint_spec)
+    source_contracts = repository.read_model.get_run_contracts(source_run.id)
     assert source_contracts is not None
     _, source_admission = source_contracts
     # This test exercises checkpoint persistence as if a checkpoint-capable runtime
@@ -73,8 +73,8 @@ def test_checkpoint_record_is_anchored_to_the_exact_run_ledger(
             "created_at_utc": utc_now(),
         }
     )
-    admission_row = repository.save_admission_record(spec_row.id, admission)
-    run = repository.create_run(
+    admission_row = repository.catalog.save_admission_record(spec_row.id, admission)
+    run = repository.catalog.create_run(
         experiment_revision_id=source_run.experiment_revision_id,
         variant_id="checkpoint-test",
         runner=checkpoint_spec.agent_inventory.subject_id,
@@ -82,7 +82,7 @@ def test_checkpoint_record_is_anchored_to_the_exact_run_ledger(
         run_spec_id=spec_row.id,
         admission_id=admission_row.id,
     )
-    boundary = repository.append_event(
+    boundary = repository.ledger.append_event(
         run_id=run.id,
         event_type="run.queued",
         payload={
@@ -93,7 +93,7 @@ def test_checkpoint_record_is_anchored_to_the_exact_run_ledger(
         },
     )
     snapshot_content = "authorized checkpoint context"
-    snapshot = repository.save_snapshot(
+    snapshot = repository.checkpoints.save_snapshot(
         run.id,
         {
             "policy_id": "checkpoint-test",
@@ -126,15 +126,15 @@ def test_checkpoint_record_is_anchored_to_the_exact_run_ledger(
         replayability_limitations=("Private model state is unavailable.",),
         created_at_utc=utc_now(),
     )
-    saved = repository.save_checkpoint_record(record)
+    saved = repository.checkpoints.save_checkpoint_record(record)
     assert saved.checkpoint_hash == record.checkpoint_hash
-    assert repository.get_checkpoint_records(run.id)[0] == record
+    assert repository.read_model.get_checkpoint_records(run.id)[0] == record
 
     tampered = record.model_copy(
         update={"checkpoint_id": new_id("checkpoint"), "event_hash": "e" * 64}
     )
     with pytest.raises(ValueError, match="boundary"):
-        repository.save_checkpoint_record(tampered)
+        repository.checkpoints.save_checkpoint_record(tampered)
 
     missing_capture = record.model_copy(
         update={
@@ -143,7 +143,7 @@ def test_checkpoint_record_is_anchored_to_the_exact_run_ledger(
         }
     )
     with pytest.raises(ValueError, match="capture does not match"):
-        repository.save_checkpoint_record(missing_capture)
+        repository.checkpoints.save_checkpoint_record(missing_capture)
 
     substituted_validator = record.model_copy(
         update={
@@ -158,7 +158,7 @@ def test_checkpoint_record_is_anchored_to_the_exact_run_ledger(
         }
     )
     with pytest.raises(ValueError, match="definition validators"):
-        repository.save_checkpoint_record(substituted_validator)
+        repository.checkpoints.save_checkpoint_record(substituted_validator)
 
     replay_overclaim = record.model_copy(
         update={
@@ -168,4 +168,4 @@ def test_checkpoint_record_is_anchored_to_the_exact_run_ledger(
         }
     )
     with pytest.raises(ValueError, match="replayability is unsupported"):
-        repository.save_checkpoint_record(replay_overclaim)
+        repository.checkpoints.save_checkpoint_record(replay_overclaim)

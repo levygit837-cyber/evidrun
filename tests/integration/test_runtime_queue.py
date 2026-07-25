@@ -11,7 +11,9 @@ from typing import Any
 import pytest
 from sqlalchemy.exc import OperationalError
 
-import evidrun.infrastructure.database.repository as repository_module
+import evidrun.infrastructure.database.clock as db_clock_module
+import evidrun.infrastructure.database.evaluation.records as evaluation_records_module
+import evidrun.infrastructure.database.queue.preparation as preparation_module
 import evidrun.runs.coordinator as coordinator_module
 from evidrun.contracts import GoalStateTerminalResult
 from evidrun.contracts.compiler import StudyCompiler
@@ -45,8 +47,8 @@ def _runtime_fixture(tmp_path: Path) -> RuntimeFixture:
     database = Database(settings.database_path)
     database.create_all()
     repository = Repository(database, TestHumanAttestationVerifier())
-    workspace = repository.create_workspace("Queue workspace")
-    project = repository.create_project(workspace.id, "Queue project")
+    workspace = repository.catalog.create_workspace("Queue workspace")
+    project = repository.catalog.create_project(workspace.id, "Queue project")
     source = ArtifactStore(settings.artifacts_dir).put_ref(
         b"start\nROOT_CAUSE=SEARCH_INDEX_LAG\nend\n",
         project_id=project.id,
@@ -55,15 +57,15 @@ def _runtime_fixture(tmp_path: Path) -> RuntimeFixture:
     )
     revisions, study = build_runtime_study(project_id=project.id, source=source)
     for revision in revisions:
-        repository.save_contract_revision(revision, status="proposed")
-        repository.decide_contract_revision(accepted_decision(revision))
-    spec = StudyCompiler(repository.contract_registry(project.id)).compile(study)[0]
-    spec_row = repository.save_run_spec(spec)
+        repository.registry.save_contract_revision(revision, status="proposed")
+        repository.registry.decide_contract_revision(accepted_decision(revision))
+    spec = StudyCompiler(repository.registry.contract_registry(project.id)).compile(study)[0]
+    spec_row = repository.catalog.save_run_spec(spec)
     admission = build_runtime_kernel(
         repository, settings.artifacts_dir
     ).coordinator.admission_service.admit(spec)
     assert admission.decision == "admitted"
-    admission_row = repository.save_admission_record(spec_row.id, admission)
+    admission_row = repository.catalog.save_admission_record(spec_row.id, admission)
     return RuntimeFixture(
         settings=settings,
         database=database,
@@ -93,9 +95,9 @@ def test_enqueue_is_idempotent_and_two_connections_cannot_claim_same_attempt(
         first_job.job_id,
     )
     second_admission = kernel.coordinator.admission_service.admit(
-        fixture.repository.get_run_spec(fixture.spec_id)
+        fixture.repository.read_model.get_run_spec(fixture.spec_id)
     )
-    second_admission_row = fixture.repository.save_admission_record(
+    second_admission_row = fixture.repository.catalog.save_admission_record(
         fixture.spec_id, second_admission
     )
     with pytest.raises(ValueError, match="idempotency key"):
@@ -104,25 +106,25 @@ def test_enqueue_is_idempotent_and_two_connections_cannot_claim_same_attempt(
             admission_id=second_admission_row.id,
             idempotency_key="same-request",
         )
-    original_spec = fixture.repository.get_run_spec(fixture.spec_id)
-    divergent_spec_row = fixture.repository.save_run_spec(
+    original_spec = fixture.repository.read_model.get_run_spec(fixture.spec_id)
+    divergent_spec_row = fixture.repository.catalog.save_run_spec(
         original_spec.model_copy(update={"variant_id": "divergent-variant"})
     )
-    runs_before_divergence = len(fixture.repository.latest_dashboard()["runs"])
+    runs_before_divergence = len(fixture.repository.read_model.latest_dashboard()["runs"])
     with pytest.raises(ValueError, match="exact RunSpec"):
         kernel.coordinator.enqueue(
             run_spec_id=divergent_spec_row.id,
             admission_id=fixture.admission_id,
             idempotency_key="divergent-contracts",
         )
-    assert len(fixture.repository.latest_dashboard()["runs"]) == runs_before_divergence
+    assert len(fixture.repository.read_model.latest_dashboard()["runs"]) == runs_before_divergence
 
     databases = [Database(fixture.settings.database_path) for _ in range(2)]
     repositories = [Repository(item) for item in databases]
     with ThreadPoolExecutor(max_workers=2) as pool:
         concurrent_enqueues = list(
             pool.map(
-                lambda item: item.enqueue_run(
+                lambda item: item.enqueue.enqueue_run(
                     run_spec_id=fixture.spec_id,
                     admission_id=fixture.admission_id,
                     idempotency_key="concurrent-same-request",
@@ -135,7 +137,7 @@ def test_enqueue_is_idempotent_and_two_connections_cannot_claim_same_attempt(
     with ThreadPoolExecutor(max_workers=2) as pool:
         claims = list(
             pool.map(
-                lambda item: item.claim_next_job(
+                lambda item: item.lease.claim_next_job(
                     worker_id=f"worker-{id(item)}",
                     lease_seconds=30,
                     job_id=first_job.job_id,
@@ -144,7 +146,7 @@ def test_enqueue_is_idempotent_and_two_connections_cannot_claim_same_attempt(
             )
         )
     assert sum(item is not None for item in claims) == 1
-    execution = fixture.repository.get_run_execution(first_run_id)
+    execution = fixture.repository.lease.get_run_execution(first_run_id)
     assert execution is not None
     assert len(execution[1]) == 1
     for database in databases:
@@ -182,16 +184,15 @@ def test_transient_storage_error_before_invocation_requeues_job(
     )
     assert asyncio.run(worker.process_once(job_id=job.job_id)) is True
 
-    execution = fixture.repository.get_run_execution(run_id)
+    execution = fixture.repository.lease.get_run_execution(run_id)
     assert execution is not None
     requeued_job, attempts = execution
     assert requeued_job.status == "queued"
     assert requeued_job.active_attempt_id is None
     assert [attempt.status for attempt in attempts] == ["released"]
     assert attempts[0].reason_code == "transient_storage_error"
-    assert not any(
-        event["type"] == "subject.invoked" for event in fixture.repository.get_run_events(run_id)
-    )
+    events = fixture.repository.read_model.get_run_events(run_id)
+    assert not any(event["type"] == "subject.invoked" for event in events)
     fixture.database.dispose()
 
 
@@ -204,7 +205,7 @@ def test_heartbeat_expiry_fencing_release_and_reject(tmp_path: Path) -> None:
         idempotency_key="lease-expiry",
     )
     leased_at = utc_now()
-    claim = fixture.repository.claim_next_job(
+    claim = fixture.repository.lease.claim_next_job(
         worker_id="worker-one",
         lease_seconds=4,
         job_id=job.job_id,
@@ -212,7 +213,7 @@ def test_heartbeat_expiry_fencing_release_and_reject(tmp_path: Path) -> None:
     )
     assert claim is not None
     _, attempt_one = claim
-    heartbeat = fixture.repository.heartbeat_lease(
+    heartbeat = fixture.repository.lease.heartbeat_lease(
         job_id=job.job_id,
         attempt_id=attempt_one.attempt_id,
         worker_id="worker-one",
@@ -222,7 +223,7 @@ def test_heartbeat_expiry_fencing_release_and_reject(tmp_path: Path) -> None:
     )
     assert heartbeat.lease_expires_at_utc == leased_at + timedelta(seconds=6)
     with pytest.raises(LeaseLost):
-        fixture.repository.heartbeat_lease(
+        fixture.repository.lease.heartbeat_lease(
             job_id=job.job_id,
             attempt_id=attempt_one.attempt_id,
             worker_id="worker-one",
@@ -230,7 +231,7 @@ def test_heartbeat_expiry_fencing_release_and_reject(tmp_path: Path) -> None:
             lease_seconds=4,
             now=leased_at + timedelta(seconds=7),
         )
-    second_claim = fixture.repository.claim_next_job(
+    second_claim = fixture.repository.lease.claim_next_job(
         worker_id="worker-two",
         lease_seconds=30,
         job_id=job.job_id,
@@ -241,11 +242,11 @@ def test_heartbeat_expiry_fencing_release_and_reject(tmp_path: Path) -> None:
     assert attempt_two.ordinal == 2
     assert attempt_two.lease_generation == 2
     with pytest.raises(LeaseLost):
-        fixture.repository.append_event(
+        fixture.repository.ledger.append_event(
             run_id=run_id,
             event_type="run.preparing",
             payload={
-                "scenario_ref": fixture.repository.get_run_spec(
+                "scenario_ref": fixture.repository.read_model.get_run_spec(
                     fixture.spec_id
                 ).scenario_ref.model_dump(mode="json")
             },
@@ -257,14 +258,14 @@ def test_heartbeat_expiry_fencing_release_and_reject(tmp_path: Path) -> None:
                 attempt_one.lease_generation,
             ),
         )
-    fixture.repository.release_lease(
+    fixture.repository.lease.release_lease(
         job_id=job.job_id,
         attempt_id=attempt_two.attempt_id,
         worker_id=attempt_two.worker_id,
         lease_generation=attempt_two.lease_generation,
         now=leased_at + timedelta(seconds=8),
     )
-    third_claim = fixture.repository.claim_next_job(
+    third_claim = fixture.repository.lease.claim_next_job(
         worker_id="worker-three",
         lease_seconds=30,
         job_id=job.job_id,
@@ -272,7 +273,7 @@ def test_heartbeat_expiry_fencing_release_and_reject(tmp_path: Path) -> None:
     )
     assert third_claim is not None
     _, attempt_three = third_claim
-    fixture.repository.reject_lease(
+    fixture.repository.lease.reject_lease(
         job_id=job.job_id,
         attempt_id=attempt_three.attempt_id,
         worker_id=attempt_three.worker_id,
@@ -280,9 +281,9 @@ def test_heartbeat_expiry_fencing_release_and_reject(tmp_path: Path) -> None:
         reason_code="canonical_contract_failure",
         now=leased_at + timedelta(seconds=10),
     )
-    assert fixture.repository.get_execution_job(job.job_id).status == "rejected"
+    assert fixture.repository.lease.get_execution_job(job.job_id).status == "rejected"
     assert (
-        fixture.repository.claim_next_job(
+        fixture.repository.lease.claim_next_job(
             worker_id="worker-four",
             lease_seconds=30,
             job_id=job.job_id,
@@ -304,7 +305,7 @@ def test_expired_worker_after_run_running_is_recovered_by_attempt_two(
         idempotency_key="recover-running",
     )
     leased_at = utc_now()
-    claim_one = fixture.repository.claim_next_job(
+    claim_one = fixture.repository.lease.claim_next_job(
         worker_id="crashed-worker",
         lease_seconds=1,
         job_id=job.job_id,
@@ -312,12 +313,12 @@ def test_expired_worker_after_run_running_is_recovered_by_attempt_two(
     )
     assert claim_one is not None
     claimed_job, attempt_one = claim_one
-    contracts = fixture.repository.get_run_contracts(run_id)
+    contracts = fixture.repository.read_model.get_run_contracts(run_id)
     assert contracts is not None
     kernel.coordinator._prepare(claimed_job, attempt_one, *contracts)
-    assert fixture.repository.get_run(run_id).status == "running"
+    assert fixture.repository.read_model.get_run(run_id).status == "running"
 
-    claim_two = fixture.repository.claim_next_job(
+    claim_two = fixture.repository.lease.claim_next_job(
         worker_id="recovery-worker",
         lease_seconds=30,
         job_id=job.job_id,
@@ -325,15 +326,15 @@ def test_expired_worker_after_run_running_is_recovered_by_attempt_two(
     )
     assert claim_two is not None
     asyncio.run(kernel.coordinator.execute_attempt(*claim_two))
-    assert fixture.repository.get_run(run_id).status == "completed"
-    execution = fixture.repository.get_run_execution(run_id)
+    assert fixture.repository.read_model.get_run(run_id).status == "completed"
+    execution = fixture.repository.lease.get_run_execution(run_id)
     assert execution is not None
     assert [item.status for item in execution[1]] == ["expired", "completed"]
     assert (
         len(
             [
                 event
-                for event in fixture.repository.get_run_events(run_id)
+                for event in fixture.repository.read_model.get_run_events(run_id)
                 if event["type"] == "run.running"
             ]
         )
@@ -353,7 +354,7 @@ def test_crash_after_subject_invocation_fails_without_reinvocation_and_retry_is_
         idempotency_key="indeterminate-invocation",
     )
     leased_at = utc_now()
-    claim_one = fixture.repository.claim_next_job(
+    claim_one = fixture.repository.lease.claim_next_job(
         worker_id="invoking-worker",
         lease_seconds=1,
         job_id=job.job_id,
@@ -361,10 +362,10 @@ def test_crash_after_subject_invocation_fails_without_reinvocation_and_retry_is_
     )
     assert claim_one is not None
     claimed_job, attempt_one = claim_one
-    contracts = fixture.repository.get_run_contracts(run_id)
+    contracts = fixture.repository.read_model.get_run_contracts(run_id)
     assert contracts is not None
     envelope, _ = kernel.coordinator._prepare(claimed_job, attempt_one, *contracts)
-    fixture.repository.append_event(
+    fixture.repository.ledger.append_event(
         run_id=run_id,
         event_type="subject.invoked",
         payload={
@@ -381,7 +382,7 @@ def test_crash_after_subject_invocation_fails_without_reinvocation_and_retry_is_
             attempt_one.lease_generation,
         ),
     )
-    claim_two = fixture.repository.claim_next_job(
+    claim_two = fixture.repository.lease.claim_next_job(
         worker_id="recovery-worker",
         lease_seconds=30,
         job_id=job.job_id,
@@ -389,8 +390,8 @@ def test_crash_after_subject_invocation_fails_without_reinvocation_and_retry_is_
     )
     assert claim_two is not None
     asyncio.run(kernel.coordinator.execute_attempt(*claim_two))
-    assert fixture.repository.get_run(run_id).status == "failed"
-    events = fixture.repository.get_run_events(run_id)
+    assert fixture.repository.read_model.get_run(run_id).status == "failed"
+    events = fixture.repository.read_model.get_run_events(run_id)
     assert sum(item["type"] == "subject.invoked" for item in events) == 1
     assert not any(item["type"] == "subject.responded" for item in events)
 
@@ -403,7 +404,9 @@ def test_crash_after_subject_invocation_fails_without_reinvocation_and_retry_is_
         )
 
     new_admission = kernel.coordinator.admission_service.admit(contracts[0])
-    new_admission_row = fixture.repository.save_admission_record(fixture.spec_id, new_admission)
+    new_admission_row = fixture.repository.catalog.save_admission_record(
+        fixture.spec_id, new_admission
+    )
     retry_run_id, retry_job = kernel.coordinator.enqueue(
         run_spec_id=fixture.spec_id,
         admission_id=new_admission_row.id,
@@ -411,13 +414,13 @@ def test_crash_after_subject_invocation_fails_without_reinvocation_and_retry_is_
         retry_of=run_id,
     )
     assert retry_run_id != run_id
-    assert fixture.repository.get_run(retry_run_id).retry_of == run_id
-    retry_claim = fixture.repository.claim_next_job(
+    assert fixture.repository.read_model.get_run(retry_run_id).retry_of == run_id
+    retry_claim = fixture.repository.lease.claim_next_job(
         worker_id="retry-worker", lease_seconds=30, job_id=retry_job.job_id
     )
     assert retry_claim is not None
     asyncio.run(kernel.coordinator.execute_attempt(*retry_claim))
-    assert fixture.repository.get_run(retry_run_id).status == "completed"
+    assert fixture.repository.read_model.get_run(retry_run_id).status == "completed"
     fixture.database.dispose()
 
 
@@ -446,13 +449,13 @@ def test_runner_exception_is_sanitized_and_adapter_mismatch_is_rejected(
         admission_id=fixture.admission_id,
         idempotency_key="runner-exception",
     )
-    claim = fixture.repository.claim_next_job(
+    claim = fixture.repository.lease.claim_next_job(
         worker_id="exception-worker", lease_seconds=30, job_id=job.job_id
     )
     assert claim is not None
     asyncio.run(coordinator.execute_attempt(*claim))
-    assert fixture.repository.get_run(run_id).status == "failed"
-    serialized_events = str(fixture.repository.get_run_events(run_id))
+    assert fixture.repository.read_model.get_run(run_id).status == "failed"
+    serialized_events = str(fixture.repository.read_model.get_run_events(run_id))
     assert "must-not-enter-ledger" not in serialized_events
     assert "Subject runner execution failed" in serialized_events
     failed_bundle = tmp_path / "failed-run.evidrun.zip"
@@ -460,7 +463,7 @@ def test_runner_exception_is_sanitized_and_adapter_mismatch_is_rejected(
     bundle_service.export_run_v3(run_id, failed_bundle)
     assert bundle_service.verify(failed_bundle)["valid"] is True
 
-    original = fixture.repository.get_run_spec(fixture.spec_id)
+    original = fixture.repository.read_model.get_run_spec(fixture.spec_id)
     binding = original.scenario.input_bindings[0]
     bad_source = binding.source.model_copy(update={"media_type": "application/json"})
     bad_binding = binding.model_copy(update={"source": bad_source})
@@ -498,7 +501,7 @@ def test_artifact_removed_after_admission_fails_closed_and_rejects_job(
 ) -> None:
     fixture = _runtime_fixture(tmp_path)
     kernel = build_runtime_kernel(fixture.repository, fixture.settings.artifacts_dir)
-    spec = fixture.repository.get_run_spec(fixture.spec_id)
+    spec = fixture.repository.read_model.get_run_spec(fixture.spec_id)
     ArtifactStore(fixture.settings.artifacts_dir).purge(
         spec.scenario.input_bindings[0].source.artifact_id
     )
@@ -513,13 +516,13 @@ def test_artifact_removed_after_admission_fails_closed_and_rejects_job(
         worker_id="artifact-failure-worker",
     )
     assert asyncio.run(worker.process_once(job_id=job.job_id)) is True
-    assert fixture.repository.get_run(run_id).status == "failed"
-    execution = fixture.repository.get_run_execution(run_id)
+    assert fixture.repository.read_model.get_run(run_id).status == "failed"
+    execution = fixture.repository.lease.get_run_execution(run_id)
     assert execution is not None
     assert execution[0].status == "rejected"
     assert execution[1][0].status == "rejected"
     assert "Runtime execution could not be completed safely" in str(
-        fixture.repository.get_run_events(run_id)[-1]
+        fixture.repository.read_model.get_run_events(run_id)[-1]
     )
     failed_bundle = tmp_path / "preparation-failure-v3.zip"
     bundle_service = EvidenceBundleService(fixture.repository)
@@ -542,42 +545,33 @@ def test_recovery_with_exhausted_wall_budget_does_not_invoke_subject(
         idempotency_key="recovery-budget",
     )
     leased_at = utc_now()
-    claim_one = fixture.repository.claim_next_job(
+    claim_one = fixture.repository.lease.claim_next_job(
         worker_id="budget-crash-worker",
         lease_seconds=1,
         job_id=job.job_id,
         now=leased_at,
     )
     assert claim_one is not None
-    contracts = fixture.repository.get_run_contracts(run_id)
+    contracts = fixture.repository.read_model.get_run_contracts(run_id)
     assert contracts is not None
     kernel.coordinator._prepare(*claim_one, *contracts)
-    running = next(
-        item for item in fixture.repository.get_run_events(run_id) if item["type"] == "run.running"
-    )
+    prepared_events = fixture.repository.read_model.get_run_events(run_id)
+    running = next(item for item in prepared_events if item["type"] == "run.running")
     started_at = coordinator_module.datetime.fromisoformat(str(running["occurred_at_utc"]))
-    claim_two = fixture.repository.claim_next_job(
+    claim_two = fixture.repository.lease.claim_next_job(
         worker_id="budget-recovery-worker",
         lease_seconds=30,
         job_id=job.job_id,
         now=leased_at + timedelta(seconds=2),
     )
     assert claim_two is not None
-    monkeypatch.setattr(
-        coordinator_module,
-        "utc_now",
-        lambda: started_at.replace(tzinfo=UTC) + timedelta(seconds=10),
-    )
-    monkeypatch.setattr(
-        repository_module,
-        "utc_now",
-        lambda: started_at.replace(tzinfo=UTC) + timedelta(seconds=10),
-    )
+    frozen_now = started_at.replace(tzinfo=UTC) + timedelta(seconds=10)
+    monkeypatch.setattr(coordinator_module, "utc_now", lambda: frozen_now)
+    monkeypatch.setattr(db_clock_module, "utc_now", lambda: frozen_now)
     asyncio.run(kernel.coordinator.execute_attempt(*claim_two))
-    assert fixture.repository.get_run(run_id).status == "budget_exhausted"
-    assert not any(
-        item["type"] == "subject.invoked" for item in fixture.repository.get_run_events(run_id)
-    )
+    assert fixture.repository.read_model.get_run(run_id).status == "budget_exhausted"
+    recovered_events = fixture.repository.read_model.get_run_events(run_id)
+    assert not any(item["type"] == "subject.invoked" for item in recovered_events)
     bundle_path = tmp_path / "recovered-budget-exhausted-v3.zip"
     bundle_service = EvidenceBundleService(fixture.repository)
     bundle_service.export_run_v3(run_id, bundle_path)
@@ -597,12 +591,12 @@ def test_repeating_prepare_response_evaluation_and_finish_is_idempotent(
         admission_id=fixture.admission_id,
         idempotency_key="repeat-phases",
     )
-    claim = fixture.repository.claim_next_job(
+    claim = fixture.repository.lease.claim_next_job(
         worker_id="idempotency-worker", lease_seconds=30, job_id=job.job_id
     )
     assert claim is not None
     claimed_job, attempt = claim
-    contracts = fixture.repository.get_run_contracts(run_id)
+    contracts = fixture.repository.read_model.get_run_contracts(run_id)
     assert contracts is not None
     envelope_one, inputs_one = kernel.coordinator._prepare(claimed_job, attempt, *contracts)
     envelope_two, inputs_two = kernel.coordinator._prepare(claimed_job, attempt, *contracts)
@@ -614,7 +608,7 @@ def test_repeating_prepare_response_evaluation_and_finish_is_idempotent(
         attempt.worker_id,
         attempt.lease_generation,
     )
-    kernel.coordinator.repository.append_event(
+    kernel.coordinator.repository.ledger.append_event(
         run_id=run_id,
         event_type="subject.invoked",
         payload={
@@ -654,10 +648,10 @@ def test_repeating_prepare_response_evaluation_and_finish_is_idempotent(
         goal_result=GoalStateTerminalResult(state="achieved"),
         cause="idempotent terminal",
     )
-    event_types = [item["type"] for item in fixture.repository.get_run_events(run_id)]
+    event_types = [item["type"] for item in fixture.repository.read_model.get_run_events(run_id)]
     assert len(event_types) == len(set(event_types))
-    assert len(fixture.repository.get_evaluation_records(run_id)) == 1
-    execution = fixture.repository.get_run_execution(run_id)
+    assert len(fixture.repository.read_model.get_evaluation_records(run_id)) == 1
+    execution = fixture.repository.lease.get_run_execution(run_id)
     assert execution is not None
     assert execution[0].status == "completed"
     fixture.database.dispose()
@@ -674,13 +668,13 @@ def test_prepare_transaction_rolls_back_all_facts_on_mid_commit_failure(
         admission_id=fixture.admission_id,
         idempotency_key="prepare-rollback",
     )
-    claim = fixture.repository.claim_next_job(
+    claim = fixture.repository.lease.claim_next_job(
         worker_id="prepare-rollback-worker", lease_seconds=30, job_id=job.job_id
     )
     assert claim is not None
-    contracts = fixture.repository.get_run_contracts(run_id)
+    contracts = fixture.repository.read_model.get_run_contracts(run_id)
     assert contracts is not None
-    original = Repository._append_event_once_in_session
+    original = preparation_module.append_event_once_in_session
 
     def fail_on_context(session: Any, **kwargs: Any) -> Any:
         if kwargs["event_type"] == "context.composed":
@@ -688,22 +682,20 @@ def test_prepare_transaction_rolls_back_all_facts_on_mid_commit_failure(
         return original(session, **kwargs)
 
     monkeypatch.setattr(
-        Repository,
-        "_append_event_once_in_session",
-        staticmethod(fail_on_context),
+        preparation_module,
+        "append_event_once_in_session",
+        fail_on_context,
     )
     with pytest.raises(RuntimeError, match="injected preparation"):
         kernel.coordinator._prepare(*claim, *contracts)
-    assert fixture.repository.get_run(run_id).status == "queued"
-    assert [item["type"] for item in fixture.repository.get_run_events(run_id)] == ["run.queued"]
+    assert fixture.repository.read_model.get_run(run_id).status == "queued"
+    rolled_back_events = fixture.repository.read_model.get_run_events(run_id)
+    assert [item["type"] for item in rolled_back_events] == ["run.queued"]
     with pytest.raises(KeyError):
-        fixture.repository.get_subject_envelope(run_id)
-    assert (
-        next(
-            item for item in fixture.repository.latest_dashboard()["runs"] if item["id"] == run_id
-        )["context_snapshot"]
-        is None
-    )
+        fixture.repository.read_model.get_subject_envelope(run_id)
+    dashboard_runs = fixture.repository.read_model.latest_dashboard()["runs"]
+    dashboard_run = next(item for item in dashboard_runs if item["id"] == run_id)
+    assert dashboard_run["context_snapshot"] is None
     fixture.database.dispose()
 
 
@@ -718,14 +710,14 @@ def test_evaluation_transaction_rolls_back_record_grade_and_event_together(
         admission_id=fixture.admission_id,
         idempotency_key="evaluation-rollback",
     )
-    claim = fixture.repository.claim_next_job(
+    claim = fixture.repository.lease.claim_next_job(
         worker_id="evaluation-rollback-worker",
         lease_seconds=30,
         job_id=job.job_id,
     )
     assert claim is not None
     claimed_job, attempt = claim
-    contracts = fixture.repository.get_run_contracts(run_id)
+    contracts = fixture.repository.read_model.get_run_contracts(run_id)
     assert contracts is not None
     envelope, inputs = kernel.coordinator._prepare(claimed_job, attempt, *contracts)
     lease = (
@@ -734,7 +726,7 @@ def test_evaluation_transaction_rolls_back_record_grade_and_event_together(
         attempt.worker_id,
         attempt.lease_generation,
     )
-    fixture.repository.append_event(
+    fixture.repository.ledger.append_event(
         run_id=run_id,
         event_type="subject.invoked",
         payload={
@@ -756,7 +748,7 @@ def test_evaluation_transaction_rolls_back_record_grade_and_event_together(
         response_sequence=response.sequence,
         response_event_hash=response.event_hash,
     )
-    original = Repository._append_event_once_in_session
+    original = evaluation_records_module.append_event_once_in_session
 
     def fail_on_evaluation_event(session: Any, **kwargs: Any) -> Any:
         if kwargs["event_type"] == "evaluation.completed":
@@ -764,16 +756,15 @@ def test_evaluation_transaction_rolls_back_record_grade_and_event_together(
         return original(session, **kwargs)
 
     monkeypatch.setattr(
-        Repository,
-        "_append_event_once_in_session",
-        staticmethod(fail_on_evaluation_event),
+        evaluation_records_module,
+        "append_event_once_in_session",
+        fail_on_evaluation_event,
     )
     with pytest.raises(RuntimeError, match="injected evaluation"):
         kernel.coordinator._persist_evaluation(claimed_job, attempt, outcome)
-    assert fixture.repository.get_evaluation_records(run_id) == []
+    assert fixture.repository.read_model.get_evaluation_records(run_id) == []
     with pytest.raises(KeyError):
-        fixture.repository.get_grade(run_id)
-    assert not any(
-        item["type"] == "evaluation.completed" for item in fixture.repository.get_run_events(run_id)
-    )
+        fixture.repository.read_model.get_grade(run_id)
+    evaluated_events = fixture.repository.read_model.get_run_events(run_id)
+    assert not any(item["type"] == "evaluation.completed" for item in evaluated_events)
     fixture.database.dispose()

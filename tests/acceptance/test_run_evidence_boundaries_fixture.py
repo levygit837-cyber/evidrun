@@ -106,8 +106,8 @@ def test_minimal_run_fixture_preserves_evidence_boundaries(tmp_path: Path) -> No
     database = Database(settings.database_path)
     database.create_all()
     repository = Repository(database, TestHumanAttestationVerifier())
-    workspace = repository.create_workspace("Fixture workspace")
-    project = repository.create_project(workspace.id, "Run evidence boundaries")
+    workspace = repository.catalog.create_workspace("Fixture workspace")
+    project = repository.catalog.create_project(workspace.id, "Run evidence boundaries")
     source_ref = ArtifactStore(settings.artifacts_dir).put_ref(
         source,
         project_id=project.id,
@@ -118,17 +118,17 @@ def test_minimal_run_fixture_preserves_evidence_boundaries(tmp_path: Path) -> No
     revisions, study = build_runtime_study(project_id=project.id, source=source_ref)
     assert study.payload.intent.purpose == LAB_INTENT
     for revision in revisions:
-        repository.save_contract_revision(revision, status="proposed")
-        repository.decide_contract_revision(accepted_decision(revision))
+        repository.registry.save_contract_revision(revision, status="proposed")
+        repository.registry.decide_contract_revision(accepted_decision(revision))
 
-    specs = StudyCompiler(repository.contract_registry(project.id)).compile(study)
+    specs = StudyCompiler(repository.registry.contract_registry(project.id)).compile(study)
     assert len(specs) == 1
     spec = specs[0]
-    spec_row = repository.save_run_spec(spec)
+    spec_row = repository.catalog.save_run_spec(spec)
     kernel = build_runtime_kernel(repository, settings.artifacts_dir)
     admission = kernel.coordinator.admission_service.admit(spec)
     assert admission.decision == "admitted"
-    admission_row = repository.save_admission_record(spec_row.id, admission)
+    admission_row = repository.catalog.save_admission_record(spec_row.id, admission)
     run_id, job = kernel.coordinator.enqueue(
         run_spec_id=spec_row.id,
         admission_id=admission_row.id,
@@ -141,16 +141,16 @@ def test_minimal_run_fixture_preserves_evidence_boundaries(tmp_path: Path) -> No
     )
     assert asyncio.run(worker.process_once(job_id=job.job_id)) is True
 
-    run_record = repository.get_run_record(run_id)
+    run_record = repository.read_model.get_run_record(run_id)
     assert run_record is not None
     assert run_record.run_id == run_id
     assert run_record.run_spec_id == spec_row.id
     assert run_record.admission_id == admission_row.id
     assert run_record.run_spec_digest == spec.digest
     assert run_record.admission_digest == admission.digest
-    envelope = repository.get_subject_envelope(run_id).envelope
-    events = repository.get_run_events(run_id)
-    evaluations = repository.get_evaluation_records(run_id)
+    envelope = repository.read_model.get_subject_envelope(run_id).envelope
+    events = repository.read_model.get_run_events(run_id)
+    evaluations = repository.read_model.get_evaluation_records(run_id)
     assert len(evaluations) == 1
     evaluation = evaluations[0]
 
@@ -170,7 +170,7 @@ def test_minimal_run_fixture_preserves_evidence_boundaries(tmp_path: Path) -> No
         "state": "achieved",
     }
     assert evaluation.gate_status == "passed"
-    assert repository.get_checkpoint_records(run_id) == []
+    assert repository.read_model.get_checkpoint_records(run_id) == []
     assert evaluation.boundary.up_to_event_sequence == events[5]["sequence"]
     assert evaluation.boundary.event_hash == events[5]["event_hash"]
     assert envelope.inputs[0].source.digest == source_ref.digest

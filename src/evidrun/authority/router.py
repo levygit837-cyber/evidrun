@@ -155,7 +155,7 @@ def create_authority_router(
                 project_id=payload.project_id,
             )
             decision = payload.subject.build_decision(attestation)
-            row = repository.decide_contract_revision(decision)
+            row = repository.registry.decide_contract_revision(decision)
         except (ChallengeUnavailable, CredentialUnavailable) as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except HumanAttestationError as exc:
@@ -199,7 +199,7 @@ def create_authority_router(
                 project_id=payload.project_id,
             )
             record = payload.subject.build_evaluation(attestation)
-            row = repository.save_evaluation_record(record)
+            row = repository.evaluation.save_evaluation_record(record)
         except (ChallengeUnavailable, CredentialUnavailable) as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except HumanAttestationError as exc:

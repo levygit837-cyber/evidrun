@@ -34,8 +34,8 @@ def test_generic_run_survives_restart_and_executes_in_worker_subprocess(
     database = Database(settings.database_path)
     database.create_all()
     repository = Repository(database, TestHumanAttestationVerifier())
-    workspace = repository.create_workspace("Workspace Runtime Kernel")
-    project = repository.create_project(workspace.id, "Projeto Runtime Kernel")
+    workspace = repository.catalog.create_workspace("Workspace Runtime Kernel")
+    project = repository.catalog.create_project(workspace.id, "Projeto Runtime Kernel")
     source = ArtifactStore(settings.artifacts_dir).put_ref(
         b"2026-07-23T10:00:00Z search replica healthy\n"
         b"2026-07-23T10:00:01Z queue delay rising\n"
@@ -46,16 +46,16 @@ def test_generic_run_survives_restart_and_executes_in_worker_subprocess(
     )
     revisions, study = build_runtime_study(project_id=project.id, source=source)
     for revision in revisions:
-        repository.save_contract_revision(revision, status="proposed")
-        repository.decide_contract_revision(accepted_decision(revision))
+        repository.registry.save_contract_revision(revision, status="proposed")
+        repository.registry.decide_contract_revision(accepted_decision(revision))
 
-    specs = StudyCompiler(repository.contract_registry(project.id)).compile(study)
+    specs = StudyCompiler(repository.registry.contract_registry(project.id)).compile(study)
     assert len(specs) == 1
-    spec_row = repository.save_run_spec(specs[0])
+    spec_row = repository.catalog.save_run_spec(specs[0])
     kernel = build_runtime_kernel(repository, settings.artifacts_dir)
     admission = kernel.coordinator.admission_service.admit(specs[0])
     assert admission.decision == "admitted"
-    admission_row = repository.save_admission_record(spec_row.id, admission)
+    admission_row = repository.catalog.save_admission_record(spec_row.id, admission)
     run_id, job = kernel.coordinator.enqueue(
         run_spec_id=spec_row.id,
         admission_id=admission_row.id,
@@ -84,14 +84,14 @@ def test_generic_run_survives_restart_and_executes_in_worker_subprocess(
     reopened = Database(settings.database_path)
     reopened.create_all()
     durable_repository = Repository(reopened)
-    assert durable_repository.get_run(run_id).status == "completed"
-    execution = durable_repository.get_run_execution(run_id)
+    assert durable_repository.read_model.get_run(run_id).status == "completed"
+    execution = durable_repository.lease.get_run_execution(run_id)
     assert execution is not None
     assert execution[0].job_id == job.job_id
     assert execution[0].status == "completed"
     assert [item.ordinal for item in execution[1]] == [1]
     assert execution[1][0].worker_id == "transverse-subprocess-worker"
-    event_types = [item["type"] for item in durable_repository.get_run_events(run_id)]
+    event_types = [item["type"] for item in durable_repository.read_model.get_run_events(run_id)]
     assert event_types == [
         "run.queued",
         "run.preparing",
@@ -103,8 +103,8 @@ def test_generic_run_survives_restart_and_executes_in_worker_subprocess(
         "evaluation.completed",
         "run.completed",
     ]
-    assert durable_repository.get_evaluation_records(run_id)[0].gate_status == "passed"
-    envelope = durable_repository.get_subject_envelope(run_id)
+    assert durable_repository.read_model.get_evaluation_records(run_id)[0].gate_status == "passed"
+    envelope = durable_repository.read_model.get_subject_envelope(run_id)
     assert envelope.digest == envelope.envelope.digest
     bundle_path = tmp_path / "generic-run.evidrun.zip"
     bundle_service = EvidenceBundleService(durable_repository)
@@ -189,9 +189,9 @@ def test_admission_rejects_artifact_owned_by_another_project(tmp_path: Path) -> 
     database = Database(settings.database_path)
     database.create_all()
     repository = Repository(database, TestHumanAttestationVerifier())
-    workspace = repository.create_workspace("Cross-project workspace")
-    project = repository.create_project(workspace.id, "Benchmark project")
-    foreign_project = repository.create_project(workspace.id, "Foreign artifact project")
+    workspace = repository.catalog.create_workspace("Cross-project workspace")
+    project = repository.catalog.create_project(workspace.id, "Benchmark project")
+    foreign_project = repository.catalog.create_project(workspace.id, "Foreign artifact project")
     source = ArtifactStore(settings.artifacts_dir).put_ref(
         b"ROOT_CAUSE=FOREIGN_PROJECT_DATA\n",
         project_id=foreign_project.id,
@@ -200,9 +200,9 @@ def test_admission_rejects_artifact_owned_by_another_project(tmp_path: Path) -> 
     )
     revisions, study = build_runtime_study(project_id=project.id, source=source)
     for revision in revisions:
-        repository.save_contract_revision(revision, status="proposed")
-        repository.decide_contract_revision(accepted_decision(revision))
-    spec = StudyCompiler(repository.contract_registry(project.id)).compile(study)[0]
+        repository.registry.save_contract_revision(revision, status="proposed")
+        repository.registry.decide_contract_revision(accepted_decision(revision))
+    spec = StudyCompiler(repository.registry.contract_registry(project.id)).compile(study)[0]
     kernel = build_runtime_kernel(repository, settings.artifacts_dir)
 
     admission = kernel.coordinator.admission_service.admit(spec)

@@ -40,17 +40,17 @@ class EvidenceBundleService:
         self.repository = repository
 
     def export_comparison(self, comparison_id: str, output_path: Path) -> Path:
-        comparison = self.repository.get_comparison(comparison_id)
-        experiment = self.repository.get_experiment(comparison.experiment_revision_id)
-        baseline = self.repository.get_run(comparison.baseline_run_id)
-        candidate = self.repository.get_run(comparison.candidate_run_id)
+        comparison = self.repository.read_model.get_comparison(comparison_id)
+        experiment = self.repository.read_model.get_experiment(comparison.experiment_revision_id)
+        baseline = self.repository.read_model.get_run(comparison.baseline_run_id)
+        candidate = self.repository.read_model.get_run(comparison.candidate_run_id)
         grades = [
-            self._grade_dict(self.repository.get_grade(baseline.id)),
-            self._grade_dict(self.repository.get_grade(candidate.id)),
+            self._grade_dict(self.repository.read_model.get_grade(baseline.id)),
+            self._grade_dict(self.repository.read_model.get_grade(candidate.id)),
         ]
         events = {
-            baseline.id: self.repository.get_run_events(baseline.id),
-            candidate.id: self.repository.get_run_events(candidate.id),
+            baseline.id: self.repository.read_model.get_run_events(baseline.id),
+            candidate.id: self.repository.read_model.get_run_events(candidate.id),
         }
         files: dict[str, bytes] = {
             "manifest.json": self._json_bytes(json.loads(experiment.manifest_json)),
@@ -86,14 +86,14 @@ class EvidenceBundleService:
         return output_path
 
     def export_comparison_v2(self, comparison_id: str, output_path: Path) -> Path:
-        comparison = self.repository.get_comparison(comparison_id)
+        comparison = self.repository.read_model.get_comparison(comparison_id)
         run_rows = [
-            self.repository.get_run(comparison.baseline_run_id),
-            self.repository.get_run(comparison.candidate_run_id),
+            self.repository.read_model.get_run(comparison.baseline_run_id),
+            self.repository.read_model.get_run(comparison.candidate_run_id),
         ]
         run_contracts: dict[str, tuple[RunSpec, AdmissionRecord]] = {}
         for run in run_rows:
-            contracts = self.repository.get_run_contracts(run.id)
+            contracts = self.repository.read_model.get_run_contracts(run.id)
             if contracts is None:
                 raise ValueError("Evidence Bundle v2 requires Study-based Runs")
             run_contracts[run.id] = contracts
@@ -136,29 +136,29 @@ class EvidenceBundleService:
             files[f"admissions/{run.admission_id}.json"] = self._json_bytes(
                 self._record_dict(admission)
             )
-            run_record = self.repository.get_run_record(run.id)
+            run_record = self.repository.read_model.get_run_record(run.id)
             if run_record is None:
                 raise ValueError("Evidence Bundle v2 requires a canonical RunRecord")
             files[f"runs/{run.id}.json"] = self._json_bytes(semantic_model_dump(run_record))
             files[f"events/{run.id}.jsonl"] = self._jsonl_bytes(
-                self.repository.get_run_events(run.id)
+                self.repository.read_model.get_run_events(run.id)
             )
             files[f"evaluations/{run.id}.json"] = self._json_bytes(
                 [
                     self._record_dict(record)
-                    for record in self.repository.get_evaluation_records(run.id)
+                    for record in self.repository.read_model.get_evaluation_records(run.id)
                 ]
             )
             files[f"checkpoints/{run.id}.json"] = self._json_bytes(
                 [
                     self._record_dict(record, digest_field="checkpoint_hash")
-                    for record in self.repository.get_checkpoint_records(run.id)
+                    for record in self.repository.read_model.get_checkpoint_records(run.id)
                 ]
             )
             artifact_entries.extend(self._spec_artifact_entries(run.id, spec))
             artifact_entries.extend(
                 self._checkpoint_artifact_entries(
-                    run.id, self.repository.get_checkpoint_records(run.id)
+                    run.id, self.repository.read_model.get_checkpoint_records(run.id)
                 )
             )
             refs = (
@@ -198,7 +198,7 @@ class EvidenceBundleService:
                 ] = reference
 
         for (contract_type, logical_id, revision_number), reference in revision_refs.items():
-            revision = self.repository.get_contract_revision_by_ref(reference)
+            revision = self.repository.read_model.get_contract_revision_by_ref(reference)
             safe_id = logical_id.replace("/", "_")
             files[f"contracts/{contract_type}/{safe_id}@{revision_number}.json"] = self._json_bytes(
                 self._record_dict(revision)
@@ -228,8 +228,8 @@ class EvidenceBundleService:
         return output_path
 
     def export_run_v3(self, run_id: str, output_path: Path) -> Path:
-        run = self.repository.get_run(run_id)
-        contracts = self.repository.get_run_contracts(run_id)
+        run = self.repository.read_model.get_run(run_id)
+        contracts = self.repository.read_model.get_run_contracts(run_id)
         if contracts is None or run.run_spec_id is None or run.admission_id is None:
             raise ValueError("Evidence Bundle v3 requires a Study-based Run")
         if run.status not in {
@@ -241,15 +241,15 @@ class EvidenceBundleService:
         }:
             raise ValueError("Evidence Bundle v3 requires a terminal Run")
         spec, admission = contracts
-        run_record = self.repository.get_run_record(run_id)
+        run_record = self.repository.read_model.get_run_record(run_id)
         if run_record is None:
             raise ValueError("Evidence Bundle v3 requires a canonical RunRecord")
-        events = self.repository.get_run_events(run_id)
+        events = self.repository.read_model.get_run_events(run_id)
         try:
-            subject_record = self.repository.get_subject_envelope(run_id)
+            subject_record = self.repository.read_model.get_subject_envelope(run_id)
         except KeyError:
             subject_record = None
-        execution = self.repository.get_run_execution(run_id)
+        execution = self.repository.lease.get_run_execution(run_id)
         if execution is None:
             raise ValueError("Evidence Bundle v3 requires durable execution records")
         job, attempts = execution
@@ -272,13 +272,13 @@ class EvidenceBundleService:
             f"evaluations/{run_id}.json": self._json_bytes(
                 [
                     self._record_dict(record)
-                    for record in self.repository.get_evaluation_records(run_id)
+                    for record in self.repository.read_model.get_evaluation_records(run_id)
                 ]
             ),
             f"checkpoints/{run_id}.json": self._json_bytes(
                 [
                     self._record_dict(record, digest_field="checkpoint_hash")
-                    for record in self.repository.get_checkpoint_records(run_id)
+                    for record in self.repository.read_model.get_checkpoint_records(run_id)
                 ]
             ),
             f"execution/jobs/{job.job_id}.json": self._json_bytes(self._record_dict(job)),
@@ -308,7 +308,7 @@ class EvidenceBundleService:
             if item is not None
         )
         for reference in (*revision_refs, *optional_refs):
-            revision = self.repository.get_contract_revision_by_ref(reference)
+            revision = self.repository.read_model.get_contract_revision_by_ref(reference)
             safe_id = reference.logical_id.replace("/", "_")
             files[
                 f"contracts/{reference.contract_type.value}/{safe_id}@{reference.revision}.json"
@@ -320,7 +320,7 @@ class EvidenceBundleService:
         entries.extend(self._event_artifact_entries(run_id, events))
         entries.extend(
             self._checkpoint_artifact_entries(
-                run_id, self.repository.get_checkpoint_records(run_id)
+                run_id, self.repository.read_model.get_checkpoint_records(run_id)
             )
         )
         unique_entries = {
