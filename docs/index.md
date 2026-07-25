@@ -6,7 +6,7 @@ status: implemented
 authority: normative
 owner: core
 created_at: 2026-07-22
-updated_at: 2026-07-24
+updated_at: 2026-07-25
 applies_to: repository
 sources: []
 supersedes: []
@@ -56,6 +56,8 @@ O primeiro benchmark com Subject real está em
 - [Mapa temporal de capabilities](planning/mvp-capability-map.md)
 - [Roadmap executavel do MVP](planning/mvp-implementation-roadmap.md)
 - [Dispatch e estado dos workstreams](planning/tasks/README.md)
+- [Achados sobre admissao, scoring e fronteira de evidencia](planning/admission-and-scoring-findings.md)
+- [Plano de exclusao da worktree obsoleta 2280](planning/worktree-cleanup-plan.md)
 
 Planejamento registra intencao, dependencias e estado temporal. Ele nao substitui contratos, ADRs
 ou evidencia de comportamento implementado.

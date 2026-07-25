@@ -504,7 +504,7 @@
       "status": "implemented",
       "authority": "normative",
       "owner": "core",
-      "updated_at": "2026-07-24",
+      "updated_at": "2026-07-25",
       "review_due": null
     },
     {
@@ -561,6 +561,17 @@
       "owner": "product-engineering",
       "updated_at": "2026-07-23",
       "review_due": "2026-07-30"
+    },
+    {
+      "id": "planning-admission-and-scoring-findings",
+      "path": "docs/planning/admission-and-scoring-findings.md",
+      "type": "planning",
+      "title": "Achados sobre admissão, scoring e fronteira de evidência",
+      "status": "draft",
+      "authority": "planning",
+      "owner": "product-engineering",
+      "updated_at": "2026-07-25",
+      "review_due": "2026-08-08"
     },
     {
       "id": "planning-mvp-capability-map",
@@ -693,6 +704,17 @@
       "owner": "product-engineering",
       "updated_at": "2026-07-24",
       "review_due": "2026-08-07"
+    },
+    {
+      "id": "planning-worktree-cleanup-plan",
+      "path": "docs/planning/worktree-cleanup-plan.md",
+      "type": "planning",
+      "title": "Plano de exclusao da worktree obsoleta 2280",
+      "status": "draft",
+      "authority": "planning",
+      "owner": "core",
+      "updated_at": "2026-07-25",
+      "review_due": "2026-08-08"
     },
     {
       "id": "product-charter",
