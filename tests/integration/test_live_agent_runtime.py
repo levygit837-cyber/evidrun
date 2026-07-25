@@ -12,6 +12,7 @@ from typing import Any
 
 import pytest
 
+import evidrun.runs.coordinator.attempt as attempt_module
 from evidrun.contracts import ExtensionRef
 from evidrun.contracts.authoring import AggregationSpec, BlindingPolicy
 from evidrun.contracts.compiler import StudyCompiler
@@ -369,8 +370,8 @@ def test_encrypted_response_recovers_after_sqlite_restart_without_reinvocation(
         raise RuntimeError("simulated crash after durable Subject response")
 
     monkeypatch.setattr(
-        fixture.coordinator,
-        "_persist_evaluation",
+        attempt_module,
+        "persist_evaluation",
         crash_before_evaluation,
     )
     with pytest.raises(RuntimeError, match="simulated crash"):
