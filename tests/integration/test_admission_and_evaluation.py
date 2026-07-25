@@ -12,16 +12,17 @@ from evidrun.contracts import (
     EvaluationRecord,
     EvidenceRef,
 )
+from evidrun.contracts.admission import (
+    AdmissionService,
+    CapabilityCatalogEntry,
+    RuntimeCapabilityEnvelope,
+)
 from evidrun.contracts.authoring import (
     CapabilityRequirement,
     EvaluationDimension,
     EvaluationPlanSpec,
     EvaluationStage,
     EvaluationTrigger,
-)
-from evidrun.contracts.compiler import (
-    AdmissionService,
-    CapabilityCatalogEntry,
 )
 from evidrun.contracts.legacy import capability_ref
 from evidrun.contracts.runtime import DimensionValue, EvaluationBoundary
@@ -37,7 +38,9 @@ def test_rejected_admission_cannot_create_a_run(repository: Repository) -> None:
     source_run = repository.read_model.get_run(result["baseline_run_id"])
     assert source_run.run_spec_id is not None
     spec = repository.read_model.get_run_spec(source_run.run_spec_id)
-    rejected = AdmissionService(runners=()).admit(spec)
+    rejected = AdmissionService(
+        envelope=RuntimeCapabilityEnvelope.declare(runners=())
+    ).admit(spec)
     assert rejected.decision == "rejected"
     spec_row = repository.catalog.save_run_spec(spec)
     admission_row = repository.catalog.save_admission_record(spec_row.id, rejected)
@@ -351,15 +354,17 @@ def test_admission_persistence_rejects_extra_subject_capability_context(
     )
     spec_row = repository.catalog.save_run_spec(spec)
     admission = AdmissionService(
-        runners=(spec.agent_inventory.runner_ref,),
-        capabilities=(
-            CapabilityCatalogEntry(
-                ref=tool_ref,
-                adapter="review-context-adapter@1",
-                allowed_permissions=frozenset(),
-                compatible_interface_versions=frozenset({"1"}),
+        envelope=RuntimeCapabilityEnvelope.declare(
+            runners=(spec.agent_inventory.runner_ref,),
+            capabilities=(
+                CapabilityCatalogEntry(
+                    ref=tool_ref,
+                    adapter="review-context-adapter@1",
+                    allowed_permissions=frozenset(),
+                    compatible_interface_versions=frozenset({"1"}),
+                ),
             ),
-        ),
+        )
     ).admit(spec)
     assert admission.decision == "admitted"
     repository.catalog.save_admission_record(spec_row.id, admission)

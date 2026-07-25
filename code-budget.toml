@@ -59,8 +59,7 @@ file_lines = 918
 file_lines = 871
 
 [baseline."src/evidrun/contracts/compiler.py"]
-file_lines = 1156
-function_lines = 567
+file_lines = 530
 
 [baseline."src/evidrun/contracts/legacy.py"]
 function_lines = 257

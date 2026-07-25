@@ -6,7 +6,7 @@ status: accepted
 authority: normative
 owner: core
 created_at: 2026-07-24
-updated_at: 2026-07-24
+updated_at: 2026-07-25
 applies_to: repository
 sources:
   - docs/adr/0003-modular-monolith.md
@@ -18,8 +18,12 @@ superseded_by: null
 implementation_refs:
   - scripts/check_code_budget.py
   - code-budget.toml
+  - src/evidrun/contracts/admission/service.py
+  - src/evidrun/contracts/admission/envelope.py
+  - src/evidrun/runs/admission/catalog_checks.py
 verification_refs:
   - tests/unit/test_code_budget.py
+  - tests/unit/test_admission_oracle.py
 ---
 
 # Layout da codebase
@@ -64,13 +68,15 @@ evidrun/
 │   │   ├── base.py         (356)  ContractModel, ArtifactRef, RevisionEnvelope, autoridade humana
 │   │   ├── authoring.py    (871)  65 classes: Goal/Scenario/Study/Workspace/Protocol/Evaluation   ▲
 │   │   ├── runtime.py     (1060)  46 classes: RunSpec, records, payloads de evento               ▲
-│   │   ├── compiler.py    (1156)  StudyCompiler + AdmissionService.admit (567 linhas)            ▲
+│   │   ├── compiler.py     (530)  StudyCompiler + compiladores de envelope                        ▲
+│   │   ├── admission/             ✅ service + envelope + checks/ por família
 │   │   ├── evaluation.py          EvaluationValidator
 │   │   ├── authority.py           HumanAttestationVerifier (Protocol) + Unavailable*
 │   │   ├── legacy.py       (356)  convert() legado → v1 (257 linhas numa função)                 ▲
 │   │   └── __init__.py     (143)  hub de re-export: 90 símbolos
 │   ├── runs/                      execution plane
-│   │   ├── adapters.py    (1043)  catálogo + 2 Subjects + 2 graders + validate_spec              ▲
+│   │   ├── adapters.py     (873)  catálogo + envelope + 2 Subjects + 2 graders                    ▲
+│   │   ├── admission/             ✅ catalog_checks + scripted_checks + real_checks
 │   │   ├── coordinator.py  (773)  RunExecutionCoordinator.execute_attempt (190 linhas)           ▲
 │   │   ├── composition.py         build_runtime_kernel: a única raiz de composição do runtime
 │   │   ├── service.py             bootstrap_demo
@@ -85,7 +91,7 @@ evidrun/
 │   │   ├── database/
 │   │   │   ├── engine.py   (114)  Database: engine, sessionmaker, migrations aditivas
 │   │   │   ├── models.py   (298)  20 Row classes SQLAlchemy
-│   │   │   └── repository.py (2942)  ⛔ God Object: 1 classe, 72 métodos, 50 públicos          ▲▲▲
+│   │   │   ├── repository.py  (53)  ✅ raiz de composição: 9 agregados, zero query
 │   │   ├── artifacts/store.py     CAS por projeto, cifrado
 │   │   └── providers/             openai_responses, credentials (Keychain)
 │   ├── contexts/engine.py         composição de contexto
@@ -178,60 +184,74 @@ renderizar nada. É o padrão que as outras duas páginas web ainda não seguem.
 
 ### Onde o desenho está errado
 
-**`Repository` é um módulo raso com implementação enorme.** 2.942 linhas, uma classe, 72 métodos,
-50 públicos. Cinco responsabilidades convivem sem costura entre elas:
+**`Repository` deixou de ser um módulo raso com implementação enorme.** Era 2.942 linhas, uma classe,
+72 métodos, 50 públicos, com seis responsabilidades convivendo sem costura. Hoje `repository.py` tem
+53 linhas e é raiz de composição: expõe nove agregados que compartilham um `UnitOfWork` e não executa
+nenhuma query. A tabela abaixo é o estado atual dos agregados extraídos.
 
-| Agregado | Métodos | Linhas | Fronteira transacional |
-| --- | --- | --- | --- |
-| ledger | `append_event` (481), `_event_transition` (61), `_append_event_once_in_session` (71), `save_subject_response` (66), `_validate_evidence_boundary` | ~700 | escreve evento e avança `RunRow.status` na mesma transação |
-| fila/lease | `enqueue_run` (154), `claim_next_job` (85), `heartbeat/assert/release/reject/complete_lease`, `prepare_run_execution` (139), 7 helpers de fencing | ~640 | `BEGIN IMMEDIATE`, expiração de lease, `lease_generation` |
-| contract registry | `save_contract_revision` (52), `decide_contract_revision`, `import_legacy_contract_package` (60), `_persist_contract_decision` (58), `contract_registry` (35), 3 getters | ~250 | verificação de autoridade humana no mesmo commit da decisão |
-| evaluation/checkpoint | `save_evaluation_record` (223), `save_deterministic_evaluation` (126), `save_checkpoint_record` (118), `save_grade`, 2 validadores de fronteira | ~510 | grava record + evento factual atomicamente |
-| catalog | `create_workspace`, `create_project`, `create_run` (58), `save_run_spec`, `save_admission_record` (70), `save_experiment_revision`, `save_comparison`, `save_snapshot`, `create_chat_session`, `add_chat_message`, `save_subject_envelope` | ~380 | uma transação por escrita, sem fencing |
-| read-model | `latest_dashboard` (45), 12 getters, 7 `_*_dict` | ~380 | somente leitura |
+| Agregado | Módulo | Fronteira transacional |
+| --- | --- | --- |
+| ledger | `ledger/{store,appender,transitions,handlers}` | escreve evento e avança `RunRow.status` na mesma transação |
+| fila/lease | `queue/{enqueue,lease,preparation,fencing}` | `BEGIN IMMEDIATE`, expiração de lease, `lease_generation` |
+| contract registry | `registry.py` | verificação de autoridade humana no mesmo commit da decisão |
+| evaluation/checkpoint | `evaluation/{records,checkpoints}` | grava record + evento factual atomicamente |
+| catalog | `catalog.py` | uma transação por escrita, sem fencing |
+| read-model | `read_model/{queries,dashboard,projections}` | somente leitura |
 
-Dois fatos medidos que decidem o desenho da decomposição:
+A costura de sessão que a decomposição promoveu a módulo (`unit_of_work.py`) já existia como
+convenção privada: no baseline nenhum método público recebia sessão, e o único que operava dentro de
+sessão alheia era `_append_event_once_in_session`. Como o estado de instância era mínimo
+(`self.database` e `self.human_attestation_verifier`, sem cache mutável), a decomposição pôde ser por
+composição de colaboradores.
 
-1. **Nenhum método público recebe sessão.** Todos abrem `with self.database.session()`. O único que
-   opera dentro de uma sessão alheia é `_append_event_once_in_session`, um `@staticmethod` que
-   recebe `session` explicitamente. A costura de sessão portanto **já existe** como convenção
-   privada — a decomposição a promove, não a inventa.
-2. **O estado de instância é mínimo:** `self.database` e `self.human_attestation_verifier`. Nada de
-   cache mutável compartilhado. Decompor por composição de colaboradores é possível sem inventar
-   contexto.
+**A decisão de admissão está fatiada em duas camadas, agora nomeadas.** `AdmissionService.admit`
+(`contracts/admission/service.py`) não decide nada por conta própria: roda um checker por família
+contra um `RuntimeCapabilityEnvelope` explícito e depois os validadores do par concreto de adapters,
+dobrando os achados acumulados em um `AdmissionRecord`. **Toda chamada a `admit()` continua
+executando as duas camadas**, sempre.
 
-Só dois métodos públicos não têm nenhum chamador externo (`update_run`, `project_id_for_run_spec`).
-Os outros 48 são interface real, o que significa que a extração é um trabalho de migração de
-chamadores, não de renomeação interna.
+A divisão, antes implícita, hoje é declarada pelos tipos:
 
-**A decisão de admissão está fatiada em duas camadas que ninguém declarou.** `AdmissionService.admit`
-faz 26 checagens em 567 linhas acumulando quatro listas locais (`missing`, `denied_policies`,
-`warnings`, `issues`). Na linha 990 ela chama `self.execution_validators`, que
-`RuntimeAdapterCatalog.admission_service()` preenche com `self.validate_spec` — outras 24 checagens
-em `runs/adapters.py`. Ou seja: **toda chamada a `admit()` executa as duas camadas**, sempre.
+- `contracts/admission/checks/` decide contra o **envelope de capacidade declarado**
+  (`RuntimeCapabilityEnvelope`), produzido por `RuntimeAdapterCatalog.capability_envelope()`;
+- `runs/admission/` decide contra o **par concreto de adapters** resolvido para aquele RunSpec
+  (`catalog_checks`, `scripted_checks`, `real_checks`), e sabe coisas que o envelope não representa.
 
-A divisão entre elas não é arbitrária, mas também não é explícita em lugar nenhum:
+O envelope deixou de ser oito kwargs montados à mão: `capability_envelope()` é a única fonte, e uma
+capability só entra nele quando o adapter correspondente está montado — é por isso que o bloco de
+provider, o catálogo de tools e a flag de raw capture ligam todos junto com `real_subject`.
 
-- `admit` decide contra um **envelope de capacidade declarado** que o catálogo injeta
-  (`network_modes`, `supported_budget_fields`, `supports_raw_encrypted_capture`,
-  `runtime_capabilities`, `workspace_runtime_kinds`, `interaction_modes`);
-- `validate_spec` decide contra o **par concreto de adapters** resolvido para aquele RunSpec
-  (scripted vs. real), e sabe coisas que o envelope não representa.
+### Camada dona de cada eixo de sobreposição
 
-O risco é deriva silenciosa: `admission_service()` monta o envelope à mão a partir dos mesmos
-adapters que `validate_spec` inspeciona. Duas leituras da mesma verdade, sincronizadas por atenção
-humana. Há sobreposição semântica confirmada em rede (`network_modes` no envelope vs.
-`offline_network`/`provider_network` nos adapters), capture (`supports_raw_encrypted_capture` vs.
-`offline_raw_capture`/`recoverable_subject_output`) e budgets (`supported_budget_fields` vs.
-`offline_tool_budget`/`max_tool_calls`). Nenhuma duplicata produz mensagem idêntica, então hoje isso
-não é bug observável — é dívida que só aparece quando alguém adiciona uma capability em um lado.
+Os quatro eixos onde as duas camadas afirmam a mesma verdade têm dona declarada. A regra é: o
+envelope responde "este runtime declara suportar a forma?"; o adapter responde "o par resolvido
+executa exatamente isto?". As duas perguntas são distintas, então ambas continuam sendo feitas.
 
-**Nenhum teste asserta `reason.code` nem `reason.detail`.** A suíte cobre decisão
-(`admitted`/`rejected`) e tokens de `missing_requirements`, não as mensagens. Consequência direta
-para o refactor: a rede de segurança existente **não** detecta troca de mensagem ou de código de
-rejeição. Ramos sem cobertura nenhuma que localizamos: digest divergente de runner no registry,
-`mount_authority`, `read_write_mount`, `runtime_kind` não suportado, e
-`credential_available=False` em `_validate_real_spec`.
+| Eixo | Dona da forma declarada | Dona do requisito concreto |
+| --- | --- | --- |
+| rede | `checks/workspace.py` via `envelope.network_modes` | `scripted_checks` (`offline_network`), `real_checks` (`provider_network`) |
+| capture | `checks/interaction.py` via `envelope.supports_raw_encrypted_capture` | `scripted_checks` (`offline_raw_capture`), `real_checks` (`recoverable_subject_output`) |
+| budgets | `checks/unsupported.py` via `envelope.supported_budget_fields` | `scripted_checks` (`offline_tool_budget`), `real_checks` (`max_tool_calls`) |
+| evaluator | `checks/unsupported.py` (`runtime:evaluation_pipeline`) | `catalog_checks` (`evaluator_adapter`), `scripted_checks`, `real_checks` |
+
+**A ordem de acumulação é contrato, não detalhe.** `missing_requirements`, `denied_policies` e
+`issues` são tuplas persistidas que o ledger e o bundle leem de volta. Reordenar as chamadas de
+checker em `service.py` muda a saída observável de qualquer spec que viole mais de uma família, e a
+cadeia `elif` de workspace permanece uma decisão ordenada única por esse motivo.
+
+**O oráculo de equivalência agora existe.** `tests/unit/test_admission_oracle.py` percorre 62
+RunSpecs cobrindo cada ramo das duas camadas e trava decisão, statuses, `missing_requirements`,
+`denied_policies`, warnings, inventário resolvido e a tripla
+`(category, subject_ref, reason.code, reason.detail, blocking)` de cada issue, byte a byte, contra
+`tests/unit/admission_oracle.json`. Os cinco ramos antes sem cobertura nenhuma — digest divergente de
+runner, `mount_authority`, `read_write_mount`, `runtime_kind` não suportado e
+`credential_available=False` — passaram a ser exercitados.
+
+Um defeito latente apareceu ao exercitar o ramo de provider pela primeira vez: `admit` preenchia
+`provider_profile_id` sem digest, model, reasoning e adapter quando o profile não era resolvido, e o
+validador de `ResolvedAgentInventory` rejeitava essa combinação — `admit()` levantava
+`ValidationError` em vez de devolver `decision=rejected`. Corrigido: um profile não resolvido deixa o
+bloco de provider inteiro vazio.
 
 **`bundle.py` mistura três formatos e sua verificação.** Export v1 (42–87), v2 (88–229), v3
 (230–345), `verify` (347–563) despachando por `schema_version`, `_verify_v2_*` (564–919),
@@ -253,7 +273,10 @@ regra de fase de Run — isso é regra de domínio executando na camada de infra
 
 ## Alvo
 
-Nada nesta seção está implementado. Cada bloco é um workstream com issue própria.
+A árvore abaixo é o destino, não um retrato do disco. Dois blocos já aterrissaram e estão marcados
+com `✅ ENTREGUE`: `infrastructure/database/` (WS-11) e os dois pacotes `admission/` (WS-12). Todo o
+resto continua sendo workstream futuro com issue própria, e nada não marcado descreve comportamento
+implementado.
 
 ### Princípio
 
@@ -284,10 +307,12 @@ src/evidrun/
 │   │   ├── events.py               payloads + EVENT_ALLOWED_RUN_STATUSES
 │   │   │                           + UNSUPPORTED_RUNTIME_EVENT_TYPES
 │   │   └── execution.py            RunExecutionJob, RunExecutionAttempt
-│   ├── admission/                  ← AdmissionService.admit (567) virado composição   [WS-12]
+│   ├── admission/                  ✅ ENTREGUE em WS-12                               [WS-12]
 │   │   ├── service.py              orquestra: roda checkers, monta AdmissionRecord
 │   │   ├── envelope.py             RuntimeCapabilityEnvelope: o que o runtime declara suportar
-│   │   ├── checks/                 um módulo por família; cada checker é (spec, env) -> issues
+│   │   ├── checks/                 um módulo por família; entregue agrupado em quatro módulos
+│   │   │                           (inventory, workspace, interaction, unsupported) em vez dos
+│   │   │                           dez abaixo; a divisão fina permanece alvo
 │   │   │   ├── runner.py           runner registrado + digest
 │   │   │   ├── provider.py         profile disponível + digest
 │   │   │   ├── capability.py       registry, interface version, permissões, authority_constraints
@@ -305,12 +330,13 @@ src/evidrun/
 │   ├── evaluation.py  authority.py
 │   └── __init__.py                 hub de re-export (mantém: é a interface pública do vocabulário)
 ├── runs/
-│   ├── admission/                  a 2ª camada, agora nomeada                          [WS-12]
+│   ├── admission/                  ✅ ENTREGUE em WS-12: a 2ª camada, agora nomeada   [WS-12]
 │   │   ├── catalog_checks.py        ← validate_spec: o que só o par de adapters sabe
 │   │   ├── scripted_checks.py       ← _validate_scripted_spec
 │   │   └── real_checks.py           ← _validate_real_spec
-│   ├── adapters/                   ← adapters.py (1043) dividido por papel
+│   ├── adapters/                   ← adapters.py (873) dividido por papel
 │   │   ├── catalog.py              RuntimeAdapterCatalog + declaração do envelope
+│   │   │                           ⚠ o envelope já é declarado, mas ainda em adapters.py
 │   │   ├── subject_scripted.py  subject_responses.py
 │   │   ├── grader_cause.py  grader_read_answer.py
 │   │   ├── tool_read_text.py  materializer.py
@@ -322,7 +348,7 @@ src/evidrun/
 │   ├── export/{comparison_v1,comparison_v2,run_v3}.py
 │   ├── verify/{dispatch,v2,v3,records}.py
 │   └── archive.py                  zip, checksum, manifest
-├── infrastructure/database/                                                            [WS-11]
+├── infrastructure/database/         ✅ ENTREGUE em WS-11                              [WS-11]
 │   ├── engine.py                   (mantém)
 │   ├── models.py                   (mantém)
 │   ├── unit_of_work.py             ★ a costura nova: sessão explícita + agregados vinculados

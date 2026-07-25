@@ -41,6 +41,10 @@ from evidrun.contracts import (
     normalize_event_payload,
     semantic_model_dump,
 )
+from evidrun.contracts.admission import (
+    CapabilityCatalogEntry,
+    ProviderCatalogEntry,
+)
 from evidrun.contracts.authoring import (
     AlwaysTrigger,
     CapabilityRequirement,
@@ -71,12 +75,9 @@ from evidrun.contracts.authoring import (
 from evidrun.contracts.authority import HumanAttestationUnavailable
 from evidrun.contracts.base import ContractModel
 from evidrun.contracts.compiler import (
-    AdmissionService,
-    CapabilityCatalogEntry,
     EvaluatorEnvelopeCompiler,
     ExtensionSchemaRegistry,
     InMemoryContractRegistry,
-    ProviderCatalogEntry,
     StudyCompiler,
     SubjectEnvelopeCompiler,
 )
@@ -99,6 +100,10 @@ from evidrun.shared.types import (
     sha256_json,
     utc_now,
 )
+from tests.support import admission_specs
+
+_declared_service = admission_specs.declared_admission_service
+_scripted_service = admission_specs.scripted_admission_service
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -335,8 +340,8 @@ def test_legacy_study_compiles_two_specs_and_hides_laboratory_data() -> None:
     assert {spec.variant_id for spec in specs} == {"head-truncation", "tail-preservation"}
     assert all(spec.repetition_index == 1 for spec in specs)
 
-    admission_service = AdmissionService(
-        runners=(capability_ref("evidrun.runner", "scripted-log-investigator-v1"),)
+    admission_service = _scripted_service(
+        capability_ref("evidrun.runner", "scripted-log-investigator-v1")
     )
     baseline = next(spec for spec in specs if spec.variant_id == manifest.baseline_variant)
     admission = admission_service.admit(baseline)
@@ -432,9 +437,7 @@ def test_progress_artifact_policy_compiles_but_fails_admission_without_observer(
             summarizer_ref=capability_ref("evidrun.observer", "unsafe"),
             authority_constraints=(),
         )
-    admission = AdmissionService(
-        runners=(specs[0].agent_inventory.runner_ref,)
-    ).admit(specs[0])
+    admission = _scripted_service(specs[0].agent_inventory.runner_ref).admit(specs[0])
     assert admission.decision == "rejected"
     assert "runtime:background_progress_observer" in admission.missing_requirements
     observer_issue = next(
@@ -542,15 +545,11 @@ def test_pre_run_evaluation_disclosure_is_minimal_and_explicit() -> None:
     )
     accept(registry, study)
     spec = StudyCompiler(registry).compile(study)[0]
-    service = AdmissionService(
-        runners=(spec.agent_inventory.runner_ref,)
-    )
+    service = _scripted_service(spec.agent_inventory.runner_ref)
     admission = service.admit(spec)
     assert admission.decision == "rejected"
-    assert (
-        "runtime:subject_evaluation_guidance_delivery"
-        in admission.missing_requirements
-    )
+    missing = admission.missing_requirements
+    assert "runtime:subject_evaluation_guidance_delivery" in missing
     base_spec = StudyCompiler(registry).compile(base_study)[0]
     base_admission = service.admit(base_spec)
     assert base_admission.decision == "admitted"
@@ -738,7 +737,7 @@ def test_required_and_optional_capabilities_have_different_admission_results() -
         update={"capability_requirements": (required_requirement,)}
     )
     required_spec = baseline.model_copy(update={"agent_inventory": required_agent})
-    service = AdmissionService(runners=(baseline.agent_inventory.runner_ref,))
+    service = _scripted_service(baseline.agent_inventory.runner_ref)
 
     rejected = service.admit(required_spec)
     assert rejected.decision == "rejected"
@@ -792,8 +791,8 @@ def test_admission_records_exact_capability_permissions_and_provider_resolution(
     provider_digest = sha256_json(
         {"id": "test-provider", "model": "test-model", "reasoning": "max"}
     )
-    service = AdmissionService(
-        runners=(baseline.agent_inventory.runner_ref,),
+    service = _declared_service(
+        baseline.agent_inventory.runner_ref,
         capabilities=(
             CapabilityCatalogEntry(
                 ref=tool_ref,
@@ -873,8 +872,8 @@ def test_admission_records_exact_capability_permissions_and_provider_resolution(
     assert incompatible_admission.decision == "rejected"
     assert incompatible_admission.resolved_inventory.capabilities[0].status == "unsupported"
 
-    unconstrained_service = AdmissionService(
-        runners=(baseline.agent_inventory.runner_ref,),
+    unconstrained_service = _declared_service(
+        baseline.agent_inventory.runner_ref,
         capabilities=(
             CapabilityCatalogEntry(
                 ref=tool_ref,
@@ -883,7 +882,7 @@ def test_admission_records_exact_capability_permissions_and_provider_resolution(
                 compatible_interface_versions=frozenset({"1"}),
             ),
         ),
-        providers=service.providers.values(),
+        providers=service.envelope.providers.values(),
     )
     authority_denied = unconstrained_service.admit(spec)
     assert authority_denied.decision == "rejected"
@@ -998,7 +997,7 @@ def test_nested_agent_graph_and_checkpoints_compile_but_admission_rejects_runtim
         if spec.checkpoint_policy
     )
     for spec in specs:
-        admission = AdmissionService(runners=(spec.agent_inventory.runner_ref,)).admit(spec)
+        admission = _scripted_service(spec.agent_inventory.runner_ref).admit(spec)
         assert admission.decision == "rejected"
         assert admission.interaction_status == "unsupported"
         assert "runtime:nested_agents" in admission.missing_requirements
@@ -1011,7 +1010,7 @@ def test_nested_agent_graph_and_checkpoints_compile_but_admission_rejects_runtim
 def test_admission_rejects_workspace_interaction_and_capture_features_not_executed() -> None:
     _, _, _, specs = baseline_specs()
     baseline = specs[0]
-    service = AdmissionService(runners=(baseline.agent_inventory.runner_ref,))
+    service = _scripted_service(baseline.agent_inventory.runner_ref)
 
     writable = baseline.model_copy(
         update={
@@ -1177,7 +1176,7 @@ def test_exploratory_study_has_default_variant_and_no_aggregate_score() -> None:
     assert len(specs) == 1
     assert specs[0].variant_id == "default"
     assert specs[0].evaluation_plan.aggregation is None
-    admission = AdmissionService(runners=(specs[0].agent_inventory.runner_ref,)).admit(specs[0])
+    admission = _scripted_service(specs[0].agent_inventory.runner_ref).admit(specs[0])
     assert admission.decision == "rejected"
     assert "runtime:bounded_exploration_terminal" in admission.missing_requirements
     assert "runtime:evaluation_pipeline" in admission.missing_requirements
