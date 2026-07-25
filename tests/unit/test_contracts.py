@@ -77,7 +77,6 @@ from evidrun.contracts.base import ContractModel
 from evidrun.contracts.compiler import (
     EvaluatorEnvelopeCompiler,
     ExtensionSchemaRegistry,
-    InMemoryContractRegistry,
     StudyCompiler,
     SubjectEnvelopeCompiler,
 )
@@ -86,6 +85,7 @@ from evidrun.contracts.legacy import (
     LegacyStudyPackage,
     capability_ref,
 )
+from evidrun.contracts.registry import InMemoryContractRegistry
 from evidrun.contracts.runtime import (
     CheckpointValidation,
     DimensionValue,
