@@ -18,8 +18,8 @@ from evidrun.contracts import (
     semantic_model_dump,
 )
 from evidrun.contracts.authority import HumanAttestationVerifier
-from evidrun.contracts.compiler import InMemoryContractRegistry
 from evidrun.contracts.legacy import LegacyStudyPackage
+from evidrun.contracts.registry import InMemoryContractRegistry
 from evidrun.infrastructure.database import clock
 from evidrun.infrastructure.database.models import ContractDecisionRow, ContractRevisionRow
 from evidrun.infrastructure.database.unit_of_work import UnitOfWork

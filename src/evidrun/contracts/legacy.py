@@ -48,6 +48,7 @@ from evidrun.contracts.base import (
     RevisionEnvelope,
 )
 from evidrun.experiments import ExperimentManifest
+from evidrun.experiments.models import ContextPolicySpec
 from evidrun.shared.capabilities import capability_ref
 from evidrun.shared.types import Classification, sha256_bytes, sha256_json, utc_now
 
@@ -89,20 +90,79 @@ class ExperimentManifestV1Adapter:
         fixture_path: Path | None = None,
         fixture_ref: ArtifactRef | None = None,
     ) -> LegacyStudyPackage:
-        if fixture_ref is None:
-            if fixture_path is None:
-                raise ValueError("legacy conversion requires fixture_path or fixture_ref")
-            fixture_bytes = fixture_path.read_bytes()
-            fixture_ref = ArtifactRef(
-                artifact_id=f"fixture:{manifest.scenario_refs[0]}",
-                digest=sha256_bytes(fixture_bytes),
-                media_type="text/plain",
-                classification=Classification.INTERNAL,
-            )
-        elif fixture_path is not None:
-            raise ValueError("legacy conversion accepts only one fixture materialization source")
+        """Translate a v1 manifest into the accepted contract revisions.
 
-        goal = GoalRevision(
+        Each section below is built independently from the manifest; only
+        `project_id` and the resolved fixture cross between them. The Study is last
+        because it references the refs the other sections produced.
+        """
+
+        source = self._resolve_fixture(
+            manifest, fixture_path=fixture_path, fixture_ref=fixture_ref
+        )
+        scenario_id, scenario_revision = self._parse_scenario_ref(manifest.scenario_refs[0])
+
+        goal = self._goal(manifest, project_id=project_id)
+        scenario = self._scenario(
+            project_id=project_id,
+            scenario_id=scenario_id,
+            revision=scenario_revision,
+            source=source,
+        )
+        agent = self._agent_inventory(manifest, project_id=project_id)
+        workspace = self._workspace(manifest, project_id=project_id, source=source)
+        interaction = self._interaction(manifest, project_id=project_id)
+        evaluation = self._evaluation_plan(manifest, project_id=project_id)
+        study = self._study(
+            manifest,
+            project_id=project_id,
+            scenario_id=scenario_id,
+            goal=goal,
+            scenario=scenario,
+            agent=agent,
+            workspace=workspace,
+            interaction=interaction,
+            evaluation=evaluation,
+        )
+
+        revisions: tuple[RevisionEnvelope, ...] = (
+            goal,
+            scenario,
+            agent,
+            workspace,
+            interaction,
+            evaluation,
+            study,
+        )
+        return LegacyStudyPackage(revisions=revisions, study=study)
+
+    @staticmethod
+    def _resolve_fixture(
+        manifest: ExperimentManifest,
+        *,
+        fixture_path: Path | None,
+        fixture_ref: ArtifactRef | None,
+    ) -> ArtifactRef:
+        """Exactly one materialization source: a path to hash, or a ref already known."""
+
+        if fixture_ref is not None:
+            if fixture_path is not None:
+                raise ValueError(
+                    "legacy conversion accepts only one fixture materialization source"
+                )
+            return fixture_ref
+        if fixture_path is None:
+            raise ValueError("legacy conversion requires fixture_path or fixture_ref")
+        return ArtifactRef(
+            artifact_id=f"fixture:{manifest.scenario_refs[0]}",
+            digest=sha256_bytes(fixture_path.read_bytes()),
+            media_type="text/plain",
+            classification=Classification.INTERNAL,
+        )
+
+    @staticmethod
+    def _goal(manifest: ExperimentManifest, *, project_id: str) -> GoalRevision:
+        return GoalRevision(
             logical_id=f"{manifest.id}-goal",
             revision=1,
             project_id=project_id,
@@ -135,10 +195,13 @@ class ExperimentManifestV1Adapter:
             ),
         )
 
-        scenario_id, scenario_revision = self._parse_scenario_ref(manifest.scenario_refs[0])
-        scenario = ScenarioRevision(
+    @staticmethod
+    def _scenario(
+        *, project_id: str, scenario_id: str, revision: int, source: ArtifactRef
+    ) -> ScenarioRevision:
+        return ScenarioRevision(
             logical_id=scenario_id,
-            revision=scenario_revision,
+            revision=revision,
             project_id=project_id,
             title=f"Scenario — {scenario_id}",
             payload=ScenarioSpec(
@@ -147,7 +210,7 @@ class ExperimentManifestV1Adapter:
                     InputBinding(
                         id="incident-log",
                         role="source_log",
-                        source=fixture_ref,
+                        source=source,
                         visibility="subject_and_evaluator",
                         mount_name="incident-log",
                     ),
@@ -164,20 +227,27 @@ class ExperimentManifestV1Adapter:
             ),
         )
 
-        runner_ref = capability_ref("evidrun.runner", manifest.subject_profile.runner)
-        agent = AgentInventoryRevision(
+    @staticmethod
+    def _agent_inventory(
+        manifest: ExperimentManifest, *, project_id: str
+    ) -> AgentInventoryRevision:
+        return AgentInventoryRevision(
             logical_id=f"{manifest.id}-agent",
             revision=1,
             project_id=project_id,
             title=f"Agent inventory — {manifest.subject_profile.runner}",
             payload=AgentInventorySpec(
                 subject_id=manifest.subject_profile.runner,
-                runner_ref=runner_ref,
+                runner_ref=capability_ref("evidrun.runner", manifest.subject_profile.runner),
                 provider_profile_id=None,
             ),
         )
 
-        workspace = WorkspaceTemplateRevision(
+    @staticmethod
+    def _workspace(
+        manifest: ExperimentManifest, *, project_id: str, source: ArtifactRef
+    ) -> WorkspaceTemplateRevision:
+        return WorkspaceTemplateRevision(
             logical_id=f"{manifest.id}-workspace",
             revision=1,
             project_id=project_id,
@@ -187,7 +257,7 @@ class ExperimentManifestV1Adapter:
                 mounts=(
                     WorkspaceMount(
                         name="incident-log",
-                        source=fixture_ref,
+                        source=source,
                         access="read_only",
                         target="context-source",
                     ),
@@ -197,7 +267,11 @@ class ExperimentManifestV1Adapter:
             ),
         )
 
-        interaction = InteractionProtocolRevision(
+    @staticmethod
+    def _interaction(
+        manifest: ExperimentManifest, *, project_id: str
+    ) -> InteractionProtocolRevision:
+        return InteractionProtocolRevision(
             logical_id=f"{manifest.id}-interaction",
             revision=1,
             project_id=project_id,
@@ -205,9 +279,12 @@ class ExperimentManifestV1Adapter:
             payload=InteractionProtocolSpec(mode="single_turn", max_turns=1),
         )
 
+    @staticmethod
+    def _evaluation_plan(
+        manifest: ExperimentManifest, *, project_id: str
+    ) -> EvaluationPlanRevision:
         grader = manifest.graders[0]
-        grader_ref = capability_ref("evidrun.evaluator", "exact-root-cause-legacy-v1")
-        evaluation = EvaluationPlanRevision(
+        return EvaluationPlanRevision(
             logical_id=f"{manifest.id}-evaluation",
             revision=1,
             project_id=project_id,
@@ -224,7 +301,9 @@ class ExperimentManifestV1Adapter:
                     EvaluationStage(
                         id=grader.id,
                         kind="deterministic_grader",
-                        evaluator_ref=grader_ref,
+                        evaluator_ref=capability_ref(
+                            "evidrun.evaluator", "exact-root-cause-legacy-v1"
+                        ),
                         trigger=EvaluationTrigger(
                             kind="event", reference="subject.responded"
                         ),
@@ -239,6 +318,19 @@ class ExperimentManifestV1Adapter:
             ),
         )
 
+    def _study(
+        self,
+        manifest: ExperimentManifest,
+        *,
+        project_id: str,
+        scenario_id: str,
+        goal: GoalRevision,
+        scenario: ScenarioRevision,
+        agent: AgentInventoryRevision,
+        workspace: WorkspaceTemplateRevision,
+        interaction: InteractionProtocolRevision,
+        evaluation: EvaluationPlanRevision,
+    ) -> StudyRevision:
         policy_by_id = {policy.id: policy for policy in manifest.context_policies}
         baseline_policy = policy_by_id[
             next(
@@ -247,46 +339,7 @@ class ExperimentManifestV1Adapter:
                 if item.id == manifest.baseline_variant
             )
         ]
-        variants: list[VariantSpec] = []
-        for variant in manifest.variants:
-            context_policy = policy_by_id[variant.context_policy]
-            override = (
-                VariantOverrides()
-                if variant.id == manifest.baseline_variant
-                else VariantOverrides(context_policy=context_policy)
-            )
-            variants.append(
-                VariantSpec(
-                    id=variant.id,
-                    label=variant.label,
-                    overrides=override,
-                    confounders=variant.confounders,
-                )
-            )
-
-        comparisons = tuple(
-            ComparisonPlan(
-                baseline_variant=manifest.baseline_variant,
-                candidate_variant=variant.id,
-                primary_variable="context_policy",
-            )
-            for variant in manifest.variants
-            if variant.id != manifest.baseline_variant
-        )
-        raw_max_wall_seconds = cast(object, manifest.budgets.get("max_wall_seconds", 60))
-        max_wall_seconds = (
-            raw_max_wall_seconds
-            if isinstance(raw_max_wall_seconds, int) and not isinstance(raw_max_wall_seconds, bool)
-            else 60
-        )
-        raw_capture_default = cast(object, manifest.capture_policy.get("default", "redacted"))
-        capture_default = (
-            raw_capture_default if isinstance(raw_capture_default, str) else "redacted"
-        )
-        if capture_default not in {"metadata", "redacted", "raw_encrypted", "disabled"}:
-            capture_default = "redacted"
-
-        study = StudyRevision(
+        return StudyRevision(
             logical_id=manifest.id,
             revision=1,
             project_id=project_id,
@@ -307,20 +360,22 @@ class ExperimentManifestV1Adapter:
                     interaction_protocol_ref=interaction.ref,
                     evaluation_plan_ref=evaluation.ref,
                     context_policy=baseline_policy,
-                    budgets=BudgetSpec(max_wall_seconds=max_wall_seconds, max_turns=1),
+                    budgets=BudgetSpec(
+                        max_wall_seconds=self._max_wall_seconds(manifest), max_turns=1
+                    ),
                     stop_conditions=(
                         StopCondition(kind="goal_complete"),
                         StopCondition(kind="budget_exhausted"),
                     ),
                     capture_policy=CapturePolicySpec(
-                        default_mode=cast_capture_mode(capture_default),
+                        default_mode=cast_capture_mode(self._capture_default(manifest)),
                         raw_sensitive="disabled",
                     ),
                 ),
-                variants=tuple(variants),
+                variants=self._variants(manifest, policy_by_id=policy_by_id),
                 repetitions=manifest.repetitions,
                 seed_strategy=SeedStrategy(kind="deterministic"),
-                comparisons=comparisons,
+                comparisons=self._comparisons(manifest),
                 limitations=(
                     "Compatibility import of ExperimentManifest v1.",
                 ),
@@ -328,16 +383,57 @@ class ExperimentManifestV1Adapter:
             ),
         )
 
-        revisions: tuple[RevisionEnvelope, ...] = (
-            goal,
-            scenario,
-            agent,
-            workspace,
-            interaction,
-            evaluation,
-            study,
+    @staticmethod
+    def _variants(
+        manifest: ExperimentManifest, *, policy_by_id: dict[str, ContextPolicySpec]
+    ) -> tuple[VariantSpec, ...]:
+        """The baseline carries no override; every other variant overrides the policy."""
+
+        return tuple(
+            VariantSpec(
+                id=variant.id,
+                label=variant.label,
+                overrides=(
+                    VariantOverrides()
+                    if variant.id == manifest.baseline_variant
+                    else VariantOverrides(context_policy=policy_by_id[variant.context_policy])
+                ),
+                confounders=variant.confounders,
+            )
+            for variant in manifest.variants
         )
-        return LegacyStudyPackage(revisions=revisions, study=study)
+
+    @staticmethod
+    def _comparisons(manifest: ExperimentManifest) -> tuple[ComparisonPlan, ...]:
+        return tuple(
+            ComparisonPlan(
+                baseline_variant=manifest.baseline_variant,
+                candidate_variant=variant.id,
+                primary_variable="context_policy",
+            )
+            for variant in manifest.variants
+            if variant.id != manifest.baseline_variant
+        )
+
+    @staticmethod
+    def _max_wall_seconds(manifest: ExperimentManifest) -> int:
+        """The manifest budget map is untyped; a non-int value falls back to 60."""
+
+        raw = cast(object, manifest.budgets.get("max_wall_seconds", 60))
+        if isinstance(raw, int) and not isinstance(raw, bool):
+            return raw
+        return 60
+
+    @staticmethod
+    def _capture_default(manifest: ExperimentManifest) -> str:
+        """An unknown or non-string capture mode falls back to redacted."""
+
+        raw = cast(object, manifest.capture_policy.get("default", "redacted"))
+        if not isinstance(raw, str):
+            return "redacted"
+        if raw not in {"metadata", "redacted", "raw_encrypted", "disabled"}:
+            return "redacted"
+        return raw
 
     @staticmethod
     def _parse_scenario_ref(value: str) -> tuple[str, int]:

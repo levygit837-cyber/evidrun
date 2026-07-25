@@ -15,18 +15,13 @@ from evidrun.contracts.authoring import (
     VariantSpec,
     WorkspaceTemplateRevision,
 )
-from evidrun.contracts.authority import (
-    HumanAttestationVerifier,
-    UnavailableHumanAttestationVerifier,
-)
 from evidrun.contracts.base import (
     ArtifactRef,
     ContractRef,
-    ContractType,
     ExtensionRef,
-    RevisionDecisionRecord,
     RevisionEnvelope,
 )
+from evidrun.contracts.registry import ContractResolver
 from evidrun.contracts.runtime import (
     AdmissionRecord,
     EvaluatorEnvelope,
@@ -39,10 +34,6 @@ from evidrun.contracts.runtime import (
 from evidrun.shared.types import EvidenceMode
 
 RevisionT = TypeVar("RevisionT", bound=RevisionEnvelope)
-
-
-class ContractResolver(Protocol):
-    def resolve(self, reference: ContractRef) -> RevisionEnvelope: ...
 
 
 class ExtensionValidator(Protocol):
@@ -71,104 +62,6 @@ class ExtensionSchemaRegistry:
                 raise ValueError(f"unregistered required extension schema: {extension.namespace}")
             return
         validator.validate(extension.payload_ref)
-
-
-class InMemoryContractRegistry(ContractResolver):
-    def __init__(
-        self,
-        human_attestation_verifier: HumanAttestationVerifier | None = None,
-        *,
-        allow_repository_fixture: bool = False,
-    ) -> None:
-        self._revisions: dict[tuple[ContractType, str, int], RevisionEnvelope] = {}
-        self._decisions: dict[tuple[ContractType, str, int], RevisionDecisionRecord] = {}
-        self._human_attestation_verifier = (
-            human_attestation_verifier or UnavailableHumanAttestationVerifier()
-        )
-        self._allow_repository_fixture = allow_repository_fixture
-
-    @staticmethod
-    def _key(reference: ContractRef | RevisionEnvelope) -> tuple[ContractType, str, int]:
-        ref = reference if isinstance(reference, ContractRef) else reference.ref
-        return (ref.contract_type, ref.logical_id, ref.revision)
-
-    def add(self, revision: RevisionEnvelope) -> None:
-        key = self._key(revision)
-        existing = self._revisions.get(key)
-        if existing is not None:
-            if (
-                existing.digest != revision.digest
-                or existing.semantic_document() != revision.semantic_document()
-            ):
-                raise ValueError(
-                    "an immutable contract revision already exists with different content"
-                )
-            return
-        if existing is None:
-            prior_revisions = [
-                candidate.revision
-                for candidate in self._revisions.values()
-                if candidate.ref.contract_type == revision.ref.contract_type
-                and candidate.logical_id == revision.logical_id
-            ]
-            expected = max(prior_revisions, default=0) + 1
-            if revision.revision != expected:
-                raise ValueError(
-                    f"contract revision must be monotonic; expected {expected}, "
-                    f"received {revision.revision}"
-                )
-        self._revisions[key] = revision
-
-    def decide(self, decision: RevisionDecisionRecord) -> None:
-        if decision.authority.kind == "verified_human":
-            self._human_attestation_verifier.verify(
-                decision.authority.attestation,
-                expected_subject_digest=decision.human_subject_digest(),
-            )
-        elif not self._allow_repository_fixture:
-            raise PermissionError(
-                "repository fixture acceptance is restricted to the legacy import path"
-            )
-        key = self._key(decision.revision_ref)
-        revision = self._revisions.get(key)
-        if revision is None or revision.digest != decision.revision_ref.digest:
-            raise ValueError("decision references an unknown or mismatched revision")
-        existing = self._decisions.get(key)
-        if existing is None and decision.decision == "superseded":
-            raise ValueError("only an accepted revision can be superseded")
-        if (
-            existing is not None
-            and existing.decision != decision.decision
-            and not (
-                existing.decision == "accepted" and decision.decision == "superseded"
-            )
-        ):
-            raise ValueError("contract revision already has a conflicting decision")
-        self._decisions[key] = decision
-
-    def add_accepted(self, revision: RevisionEnvelope, decision: RevisionDecisionRecord) -> None:
-        self.add(revision)
-        self.decide(decision)
-
-    def resolve(self, reference: ContractRef) -> RevisionEnvelope:
-        key = self._key(reference)
-        revision = self._revisions.get(key)
-        if revision is None:
-            raise KeyError(
-                f"contract revision not found: {reference.logical_id}@{reference.revision}"
-            )
-        if revision.digest != reference.digest:
-            raise ValueError("contract reference digest mismatch")
-        decision = self._decisions.get(key)
-        if decision is None or decision.decision != "accepted":
-            raise ValueError("only accepted contract revisions can be resolved")
-        return revision
-
-    def revisions(self) -> tuple[RevisionEnvelope, ...]:
-        return tuple(self._revisions.values())
-
-    def decisions(self) -> tuple[RevisionDecisionRecord, ...]:
-        return tuple(self._decisions.values())
 
 
 class VariantDiffer:

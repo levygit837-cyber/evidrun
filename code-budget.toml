@@ -58,12 +58,6 @@ file_lines = 918
 [baseline."src/evidrun/contracts/authoring.py"]
 file_lines = 871
 
-[baseline."src/evidrun/contracts/compiler.py"]
-file_lines = 530
-
-[baseline."src/evidrun/contracts/legacy.py"]
-function_lines = 257
-
 [baseline."src/evidrun/contracts/runtime.py"]
 file_lines = 1060
 
