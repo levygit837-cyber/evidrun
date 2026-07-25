@@ -11,7 +11,8 @@ from evidrun.authority.verifier import LocalWebAuthnVerifier
 from evidrun.contracts import GoalRevision, GoalSpec
 from evidrun.contracts.authoring import GoalOutcome
 from evidrun.contracts.authority import UnavailableHumanAttestationVerifier
-from evidrun.entrypoints.cli.app import _components, app
+from evidrun.entrypoints.cli.app import app
+from evidrun.entrypoints.cli.shared import components as _components
 from evidrun.infrastructure.database import Database, Repository
 
 
