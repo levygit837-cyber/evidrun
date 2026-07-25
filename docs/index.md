@@ -24,12 +24,13 @@ verification_refs:
 1. [Charter](product/charter.md)
 2. [Glossário](product/glossary.md)
 3. [Arquitetura do sistema](architecture/system.md)
-4. [Agentes e autoridade](architecture/agents-and-authority.md)
-5. [Dados e evidência](architecture/data-and-evidence.md)
-6. [Protocolo de benchmarks](benchmarks/protocol.md)
-7. [Runtime de providers](architecture/provider-runtime.md)
-8. [Roadmap](roadmap/mvp.md)
-9. [Planejamento temporal de implementacao](planning/README.md)
+4. [Layout da codebase, costuras e orçamento estrutural](architecture/codebase-layout.md)
+5. [Agentes e autoridade](architecture/agents-and-authority.md)
+6. [Dados e evidência](architecture/data-and-evidence.md)
+7. [Protocolo de benchmarks](benchmarks/protocol.md)
+8. [Runtime de providers](architecture/provider-runtime.md)
+9. [Roadmap](roadmap/mvp.md)
+10. [Planejamento temporal de implementacao](planning/README.md)
 
 O primeiro benchmark com Subject real está em
 [recuperação fundamentada por tool](benchmarks/live-read-agent.md).
@@ -54,7 +55,6 @@ O primeiro benchmark com Subject real está em
 
 - [Mapa temporal de capabilities](planning/mvp-capability-map.md)
 - [Roadmap executavel do MVP](planning/mvp-implementation-roadmap.md)
-- [Fatia multipágina do frontend Electron](planning/electron-frontend-slice.md)
 - [Dispatch e estado dos workstreams](planning/tasks/README.md)
 
 Planejamento registra intencao, dependencias e estado temporal. Ele nao substitui contratos, ADRs
@@ -69,6 +69,7 @@ ou evidencia de comportamento implementado.
 - [ADR 0014 — Runtime Kernel durável](adr/0014-durable-runtime-kernel.md)
 - [ADR 0015 — HumanSubjectEnvelope, autenticador local e ciclo de vida de credencial](adr/0015-human-subject-envelope-and-authenticator-lifecycle.md)
 - [ADR 0016 — Subject real, read tool e tracing](adr/0016-real-subject-read-tool-and-tracing.md)
+- [ADR 0017 — orçamento estrutural e costuras nomeadas](adr/0017-structural-budget-and-named-seams.md)
 
 ## Autoridade
 
