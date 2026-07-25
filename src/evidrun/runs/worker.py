@@ -32,7 +32,7 @@ class DurableRunWorker:
         self.poll_interval = poll_interval
 
     async def process_once(self, *, job_id: str | None = None) -> bool:
-        claim = self.repository.claim_next_job(
+        claim = self.repository.lease.claim_next_job(
             worker_id=self.worker_id,
             lease_seconds=self.lease_seconds,
             job_id=job_id,
@@ -64,7 +64,7 @@ class DurableRunWorker:
             return True
         except OperationalError:
             try:
-                self.repository.release_lease(
+                self.repository.lease.release_lease(
                     job_id=job.job_id,
                     attempt_id=attempt.attempt_id,
                     worker_id=attempt.worker_id,
@@ -116,7 +116,7 @@ class DurableRunWorker:
     async def _heartbeat(self, job_id: str, attempt_id: str, lease_generation: int) -> None:
         while True:
             await asyncio.sleep(self.heartbeat_seconds)
-            self.repository.heartbeat_lease(
+            self.repository.lease.heartbeat_lease(
                 job_id=job_id,
                 attempt_id=attempt_id,
                 worker_id=self.worker_id,

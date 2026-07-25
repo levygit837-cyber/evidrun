@@ -34,17 +34,17 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def test_rejected_admission_cannot_create_a_run(repository: Repository) -> None:
     result = EvidrunService(repository).bootstrap_demo(ROOT / "benchmarks")
-    source_run = repository.get_run(result["baseline_run_id"])
+    source_run = repository.read_model.get_run(result["baseline_run_id"])
     assert source_run.run_spec_id is not None
-    spec = repository.get_run_spec(source_run.run_spec_id)
+    spec = repository.read_model.get_run_spec(source_run.run_spec_id)
     rejected = AdmissionService(runners=()).admit(spec)
     assert rejected.decision == "rejected"
-    spec_row = repository.save_run_spec(spec)
-    admission_row = repository.save_admission_record(spec_row.id, rejected)
-    run_count = repository.latest_dashboard()["summary"]["runs"]
+    spec_row = repository.catalog.save_run_spec(spec)
+    admission_row = repository.catalog.save_admission_record(spec_row.id, rejected)
+    run_count = repository.read_model.latest_dashboard()["summary"]["runs"]
 
     with pytest.raises(ValueError, match="requires an admitted record"):
-        repository.create_run(
+        repository.catalog.create_run(
             experiment_revision_id=source_run.experiment_revision_id,
             variant_id=spec.variant_id,
             runner=spec.agent_inventory.subject_id,
@@ -53,28 +53,28 @@ def test_rejected_admission_cannot_create_a_run(repository: Repository) -> None:
             admission_id=admission_row.id,
         )
 
-    assert repository.latest_dashboard()["summary"]["runs"] == run_count
+    assert repository.read_model.latest_dashboard()["summary"]["runs"] == run_count
 
 
 def test_run_identity_and_lifecycle_are_enforced_by_canonical_contracts(
     repository: Repository,
 ) -> None:
     result = EvidrunService(repository).bootstrap_demo(ROOT / "benchmarks")
-    source_run = repository.get_run(result["baseline_run_id"])
+    source_run = repository.read_model.get_run(result["baseline_run_id"])
     assert source_run.run_spec_id is not None
     assert source_run.admission_id is not None
-    spec = repository.get_run_spec(source_run.run_spec_id)
-    admission = repository.get_admission_record(source_run.admission_id)
+    spec = repository.read_model.get_run_spec(source_run.run_spec_id)
+    admission = repository.read_model.get_admission_record(source_run.admission_id)
 
     with pytest.raises(ValueError, match="new Runs require"):
-        repository.create_run(
+        repository.catalog.create_run(
             experiment_revision_id=source_run.experiment_revision_id,
             variant_id=spec.variant_id,
             runner=spec.agent_inventory.runner_ref.name,
             objective=spec.goal.instruction,
         )
     with pytest.raises(ValueError, match="identity must match"):
-        repository.create_run(
+        repository.catalog.create_run(
             experiment_revision_id=source_run.experiment_revision_id,
             variant_id="forged-variant",
             runner=spec.agent_inventory.runner_ref.name,
@@ -83,7 +83,7 @@ def test_run_identity_and_lifecycle_are_enforced_by_canonical_contracts(
             admission_id=source_run.admission_id,
         )
 
-    run = repository.create_run(
+    run = repository.catalog.create_run(
         experiment_revision_id=source_run.experiment_revision_id,
         variant_id=spec.variant_id,
         runner=spec.agent_inventory.runner_ref.name,
@@ -93,12 +93,12 @@ def test_run_identity_and_lifecycle_are_enforced_by_canonical_contracts(
         admission_id=source_run.admission_id,
     )
     with pytest.raises(ValueError, match=r"run\.queued must be the first"):
-        repository.append_event(
+        repository.ledger.append_event(
             run_id=run.id,
             event_type="run.preparing",
             payload={"scenario_ref": spec.scenario_ref.model_dump(mode="json")},
         )
-    repository.append_event(
+    repository.ledger.append_event(
         run_id=run.id,
         event_type="run.queued",
         payload={
@@ -109,7 +109,7 @@ def test_run_identity_and_lifecycle_are_enforced_by_canonical_contracts(
         },
     )
     with pytest.raises(ValueError, match="not valid while the Run is queued"):
-        repository.append_event(
+        repository.ledger.append_event(
             run_id=run.id,
             event_type="evaluation.completed",
             payload={
@@ -122,7 +122,7 @@ def test_run_identity_and_lifecycle_are_enforced_by_canonical_contracts(
         ValueError,
         match=r"invalid Run lifecycle transition|completed Run requires",
     ):
-        repository.append_event(
+        repository.ledger.append_event(
             run_id=run.id,
             event_type="run.completed",
             payload={
@@ -134,36 +134,36 @@ def test_run_identity_and_lifecycle_are_enforced_by_canonical_contracts(
                 "terminal_cause": "forged direct completion",
             },
         )
-    assert repository.get_run(run.id).status == "queued"
+    assert repository.read_model.get_run(run.id).status == "queued"
 
-    repository.append_event(
+    repository.ledger.append_event(
         run_id=run.id,
         event_type="run.preparing",
         payload={"scenario_ref": spec.scenario_ref.model_dump(mode="json")},
     )
-    repository.append_event(
+    repository.ledger.append_event(
         run_id=run.id,
         event_type="run.running",
         payload={"from_status": "preparing", "reason": "Test runtime is ready."},
     )
     with pytest.raises(ValueError, match="before a Subject response"):
-        repository.append_event(
+        repository.ledger.append_event(
             run_id=run.id,
             event_type="run.evaluating",
             payload={"from_status": "running", "reason": "Forged empty evaluation."},
         )
-    assert repository.get_run(run.id).status == "running"
+    assert repository.read_model.get_run(run.id).status == "running"
 
 
 def test_ledger_rejects_unverified_human_progress_and_capture_bypass(
     repository: Repository,
 ) -> None:
     result = EvidrunService(repository).bootstrap_demo(ROOT / "benchmarks")
-    terminal_run = repository.get_run(result["baseline_run_id"])
+    terminal_run = repository.read_model.get_run(result["baseline_run_id"])
     assert terminal_run.run_spec_id is not None
     assert terminal_run.admission_id is not None
-    spec = repository.get_run_spec(terminal_run.run_spec_id)
-    admission = repository.get_admission_record(terminal_run.admission_id)
+    spec = repository.read_model.get_run_spec(terminal_run.run_spec_id)
+    admission = repository.read_model.get_admission_record(terminal_run.admission_id)
     valid_response_payload: dict[str, object] = {
         "output_digest": "a" * 64,
         "capture_mode": spec.capture_policy.default_mode,
@@ -172,7 +172,7 @@ def test_ledger_rejects_unverified_human_progress_and_capture_bypass(
         valid_response_payload["output"] = "[REDACTED]"
 
     with pytest.raises(ValueError, match="cannot claim human authority"):
-        repository.append_event(
+        repository.ledger.append_event(
             run_id=terminal_run.id,
             event_type="subject.responded",
             payload=valid_response_payload,
@@ -180,19 +180,19 @@ def test_ledger_rejects_unverified_human_progress_and_capture_bypass(
             actor_id="agent-self-asserted",
         )
     with pytest.raises(ValueError, match="event type is reserved"):
-        repository.append_event(
+        repository.ledger.append_event(
             run_id=terminal_run.id,
             event_type="progress.artifact_created",
             payload={},
         )
     with pytest.raises(ValueError, match="after a terminal lifecycle event"):
-        repository.append_event(
+        repository.ledger.append_event(
             run_id=terminal_run.id,
             event_type="subject.responded",
             payload=valid_response_payload,
         )
 
-    run = repository.create_run(
+    run = repository.catalog.create_run(
         experiment_revision_id=terminal_run.experiment_revision_id,
         variant_id=spec.variant_id,
         runner=spec.agent_inventory.runner_ref.name,
@@ -201,7 +201,7 @@ def test_ledger_rejects_unverified_human_progress_and_capture_bypass(
         run_spec_id=terminal_run.run_spec_id,
         admission_id=terminal_run.admission_id,
     )
-    repository.append_event(
+    repository.ledger.append_event(
         run_id=run.id,
         event_type="run.queued",
         payload={
@@ -211,19 +211,19 @@ def test_ledger_rejects_unverified_human_progress_and_capture_bypass(
             "admission_digest": admission.digest,
         },
     )
-    repository.append_event(
+    repository.ledger.append_event(
         run_id=run.id,
         event_type="run.preparing",
         payload={"scenario_ref": spec.scenario_ref.model_dump(mode="json")},
     )
-    repository.append_event(
+    repository.ledger.append_event(
         run_id=run.id,
         event_type="run.running",
         payload={"from_status": "preparing", "reason": "Test runtime is ready."},
     )
-    canonical_envelope = repository.get_subject_envelope(terminal_run.id).envelope
-    repository.save_subject_envelope(run.id, canonical_envelope)
-    repository.append_event(
+    canonical_envelope = repository.read_model.get_subject_envelope(terminal_run.id).envelope
+    repository.catalog.save_subject_envelope(run.id, canonical_envelope)
+    repository.ledger.append_event(
         run_id=run.id,
         event_type="subject.invoked",
         payload={
@@ -238,7 +238,7 @@ def test_ledger_rejects_unverified_human_progress_and_capture_bypass(
         else "metadata"
     )
     with pytest.raises(ValueError, match="does not match the RunSpec policy"):
-        repository.append_event(
+        repository.ledger.append_event(
             run_id=run.id,
             event_type="subject.responded",
             payload={
@@ -246,18 +246,18 @@ def test_ledger_rejects_unverified_human_progress_and_capture_bypass(
                 "capture_mode": mismatched_mode,
             },
         )
-    response_event = repository.append_event(
+    response_event = repository.ledger.append_event(
         run_id=run.id,
         event_type="subject.responded",
         payload=valid_response_payload,
     )
-    repository.append_event(
+    repository.ledger.append_event(
         run_id=run.id,
         event_type="run.evaluating",
         payload={"from_status": "running", "reason": "The Subject turn is complete."},
     )
     with pytest.raises(ValueError, match="requires a Subject response and evaluation records"):
-        repository.append_event(
+        repository.ledger.append_event(
             run_id=run.id,
             event_type="run.completed",
             payload={
@@ -290,8 +290,8 @@ def test_ledger_rejects_unverified_human_progress_and_capture_bypass(
         status="final",
         created_at_utc=utc_now(),
     )
-    repository.save_evaluation_record(evaluation)
-    repository.append_event(
+    repository.evaluation.save_evaluation_record(evaluation)
+    repository.ledger.append_event(
         run_id=run.id,
         event_type="evaluation.completed",
         payload={
@@ -301,7 +301,7 @@ def test_ledger_rejects_unverified_human_progress_and_capture_bypass(
         },
     )
     with pytest.raises(ValueError, match="every persisted EvaluationRecord exactly"):
-        repository.append_event(
+        repository.ledger.append_event(
             run_id=run.id,
             event_type="run.failed",
             payload={
@@ -313,16 +313,16 @@ def test_ledger_rejects_unverified_human_progress_and_capture_bypass(
                 "terminal_cause": "Forged omission of a persisted evaluation.",
             },
         )
-    assert repository.get_run(run.id).status == "evaluating"
+    assert repository.read_model.get_run(run.id).status == "evaluating"
 
 
 def test_admission_persistence_rejects_extra_subject_capability_context(
     repository: Repository,
 ) -> None:
     result = EvidrunService(repository).bootstrap_demo(ROOT / "benchmarks")
-    source_run = repository.get_run(result["baseline_run_id"])
+    source_run = repository.read_model.get_run(result["baseline_run_id"])
     assert source_run.run_spec_id is not None
-    base_spec = repository.get_run_spec(source_run.run_spec_id)
+    base_spec = repository.read_model.get_run_spec(source_run.run_spec_id)
     tool_ref = capability_ref("example.tool", "review-context-boundary")
     declared_instruction = ArtifactRef(
         artifact_id="declared-instruction",
@@ -349,7 +349,7 @@ def test_admission_persistence_rejects_extra_subject_capability_context(
             ),
         }
     )
-    spec_row = repository.save_run_spec(spec)
+    spec_row = repository.catalog.save_run_spec(spec)
     admission = AdmissionService(
         runners=(spec.agent_inventory.runner_ref,),
         capabilities=(
@@ -362,7 +362,7 @@ def test_admission_persistence_rejects_extra_subject_capability_context(
         ),
     ).admit(spec)
     assert admission.decision == "admitted"
-    repository.save_admission_record(spec_row.id, admission)
+    repository.catalog.save_admission_record(spec_row.id, admission)
     assert admission.resolved_inventory.capabilities[0].context_refs == (
         declared_instruction,
     )
@@ -383,16 +383,16 @@ def test_admission_persistence_rejects_extra_subject_capability_context(
     )
 
     with pytest.raises(ValueError, match="does not satisfy its interface or authority"):
-        repository.save_admission_record(spec_row.id, tampered)
+        repository.catalog.save_admission_record(spec_row.id, tampered)
 
 
 def test_unsupported_hard_gate_pipeline_is_rejected_before_run(
     repository: Repository,
 ) -> None:
     result = EvidrunService(repository).bootstrap_demo(ROOT / "benchmarks")
-    source_run = repository.get_run(result["baseline_run_id"])
+    source_run = repository.read_model.get_run(result["baseline_run_id"])
     assert source_run.run_spec_id is not None
-    base_spec = repository.get_run_spec(source_run.run_spec_id)
+    base_spec = repository.read_model.get_run_spec(source_run.run_spec_id)
     plan_ref = ContractRef(
         contract_type=ContractType.EVALUATION_PLAN,
         logical_id="hard-gate-plan",
@@ -441,13 +441,13 @@ def test_unsupported_hard_gate_pipeline_is_rejected_before_run(
             "evaluation_plan": plan,
         }
     )
-    spec_row = repository.save_run_spec(spec)
+    spec_row = repository.catalog.save_run_spec(spec)
     admission = EvidrunService(repository).admission_service.admit(spec)
-    admission_row = repository.save_admission_record(spec_row.id, admission)
+    admission_row = repository.catalog.save_admission_record(spec_row.id, admission)
     assert admission.decision == "rejected"
     assert "runtime:evaluation_pipeline" in admission.missing_requirements
     with pytest.raises(ValueError, match="requires an admitted record"):
-        repository.create_run(
+        repository.catalog.create_run(
             experiment_revision_id=source_run.experiment_revision_id,
             variant_id="hard-gate-test",
             runner=spec.agent_inventory.subject_id,
@@ -462,9 +462,9 @@ def test_wall_time_exhaustion_writes_a_terminal_event(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     result = EvidrunService(repository).bootstrap_demo(ROOT / "benchmarks")
-    source_run = repository.get_run(result["baseline_run_id"])
+    source_run = repository.read_model.get_run(result["baseline_run_id"])
     assert source_run.run_spec_id is not None
-    spec = repository.get_run_spec(source_run.run_spec_id)
+    spec = repository.read_model.get_run_spec(source_run.run_spec_id)
     service = EvidrunService(repository)
 
     async def timeout_runner(_objective: str, _context: str) -> None:
@@ -472,7 +472,7 @@ def test_wall_time_exhaustion_writes_a_terminal_event(
 
     monkeypatch.setattr(service.runner, "execute", timeout_runner)
     run_ids_before = {
-        item["id"] for item in repository.latest_dashboard()["runs"]
+        item["id"] for item in repository.read_model.latest_dashboard()["runs"]
     }
     source = (
         ROOT / "benchmarks/scenarios/crl-ctx-002/fixtures/long.log"
@@ -487,13 +487,13 @@ def test_wall_time_exhaustion_writes_a_terminal_event(
         )
     new_runs = [
         item
-        for item in repository.latest_dashboard()["runs"]
+        for item in repository.read_model.latest_dashboard()["runs"]
         if item["id"] not in run_ids_before
     ]
     assert len(new_runs) == 1
-    timed_out_run = repository.get_run(new_runs[0]["id"])
+    timed_out_run = repository.read_model.get_run(new_runs[0]["id"])
     assert timed_out_run.status == "budget_exhausted"
-    assert repository.get_run_events(timed_out_run.id)[-1]["type"] == (
+    assert repository.read_model.get_run_events(timed_out_run.id)[-1]["type"] == (
         "run.budget_exhausted"
     )
 
@@ -503,16 +503,16 @@ def test_runner_failure_writes_a_terminal_event_without_leaking_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     result = EvidrunService(repository).bootstrap_demo(ROOT / "benchmarks")
-    source_run = repository.get_run(result["baseline_run_id"])
+    source_run = repository.read_model.get_run(result["baseline_run_id"])
     assert source_run.run_spec_id is not None
-    spec = repository.get_run_spec(source_run.run_spec_id)
+    spec = repository.read_model.get_run_spec(source_run.run_spec_id)
     service = EvidrunService(repository)
 
     async def failing_runner(_objective: str, _context: str) -> None:
         raise RuntimeError("sensitive provider response must not reach the ledger")
 
     monkeypatch.setattr(service.runner, "execute", failing_runner)
-    run_ids_before = {item["id"] for item in repository.latest_dashboard()["runs"]}
+    run_ids_before = {item["id"] for item in repository.read_model.latest_dashboard()["runs"]}
     source = (
         ROOT / "benchmarks/scenarios/crl-ctx-002/fixtures/long.log"
     ).read_text()
@@ -528,13 +528,13 @@ def test_runner_failure_writes_a_terminal_event_without_leaking_error(
 
     new_runs = [
         item
-        for item in repository.latest_dashboard()["runs"]
+        for item in repository.read_model.latest_dashboard()["runs"]
         if item["id"] not in run_ids_before
     ]
     assert len(new_runs) == 1
-    failed_run = repository.get_run(new_runs[0]["id"])
+    failed_run = repository.read_model.get_run(new_runs[0]["id"])
     assert failed_run.status == "failed"
-    terminal_event = repository.get_run_events(failed_run.id)[-1]
+    terminal_event = repository.read_model.get_run_events(failed_run.id)[-1]
     assert terminal_event["type"] == "run.failed"
     assert terminal_event["payload"]["terminal_cause"] == (
         "Subject runner execution failed"

@@ -135,8 +135,8 @@ def _fixture(
     database = Database(settings.database_path)
     database.create_all()
     repository = Repository(database, TestHumanAttestationVerifier())
-    workspace = repository.create_workspace("Live agent workspace")
-    project = repository.create_project(workspace.id, "Live agent project")
+    workspace = repository.catalog.create_workspace("Live agent workspace")
+    project = repository.catalog.create_project(workspace.id, "Live agent project")
     key_provider = MemoryKeyProvider()
     artifact_store = ArtifactStore(settings.artifacts_dir, key_provider)
     source = artifact_store.put_ref(
@@ -152,10 +152,10 @@ def _fixture(
         profile=_profile(),
     )
     for revision in revisions:
-        repository.save_contract_revision(revision, status="proposed")
-        repository.decide_contract_revision(accepted_decision(revision))
-    spec = StudyCompiler(repository.contract_registry(project.id)).compile(study)[0]
-    spec_row = repository.save_run_spec(spec)
+        repository.registry.save_contract_revision(revision, status="proposed")
+        repository.registry.decide_contract_revision(accepted_decision(revision))
+    spec = StudyCompiler(repository.registry.contract_registry(project.id)).compile(study)[0]
+    spec_row = repository.catalog.save_run_spec(spec)
     provider = SequencedProvider(responses)
     real_subject = ResponsesReadAgentAdapter(
         provider,
@@ -169,7 +169,7 @@ def _fixture(
     coordinator = RunExecutionCoordinator(repository, artifact_store, catalog)
     admission = coordinator.admission_service.admit(spec)
     assert admission.decision == "admitted", admission.model_dump(mode="json")
-    admission_row = repository.save_admission_record(spec_row.id, admission)
+    admission_row = repository.catalog.save_admission_record(spec_row.id, admission)
     return LiveFixture(
         settings=settings,
         database=database,
@@ -208,8 +208,8 @@ def test_real_agent_adapter_traces_tool_and_completes_grounded_run(
     )
     assert asyncio.run(worker.process_once(job_id=job.job_id)) is True
 
-    assert fixture.repository.get_run(run_id).status == "completed"
-    events = fixture.repository.get_run_events(run_id)
+    assert fixture.repository.read_model.get_run(run_id).status == "completed"
+    events = fixture.repository.read_model.get_run_events(run_id)
     assert [event["type"] for event in events] == [
         "run.queued",
         "run.preparing",
@@ -235,7 +235,7 @@ def test_real_agent_adapter_traces_tool_and_completes_grounded_run(
     assert responded["payload"]["evidence"] == [
         f"artifact:{responded['payload']['output_ref']['artifact_id']}"
     ]
-    evaluation = fixture.repository.get_evaluation_records(run_id)[0]
+    evaluation = fixture.repository.read_model.get_evaluation_records(run_id)[0]
     assert evaluation.gate_status == "passed"
     assert evaluation.dimension_values[0].value is True
     assert fixture.provider.requests[0]["tool_choice"] == "auto"
@@ -328,12 +328,12 @@ def test_out_of_envelope_tool_request_is_denied_and_scores_false(
     )
     assert asyncio.run(worker.process_once(job_id=job.job_id)) is True
 
-    assert fixture.repository.get_run(run_id).status == "completed"
-    events = fixture.repository.get_run_events(run_id)
+    assert fixture.repository.read_model.get_run(run_id).status == "completed"
+    events = fixture.repository.read_model.get_run_events(run_id)
     assert "tool.called" in [event["type"] for event in events]
     assert "tool.denied" in [event["type"] for event in events]
     assert "tool.completed" not in [event["type"] for event in events]
-    evaluation = fixture.repository.get_evaluation_records(run_id)[0]
+    evaluation = fixture.repository.read_model.get_evaluation_records(run_id)[0]
     assert evaluation.gate_status == "failed"
     assert evaluation.dimension_values[0].value is False
     assert events[-1]["payload"]["goal_result"]["state"] == "not_achieved"
@@ -356,7 +356,7 @@ def test_encrypted_response_recovers_after_sqlite_restart_without_reinvocation(
         idempotency_key="fake-live-response-recovery",
     )
     leased_at = utc_now()
-    claim_one = fixture.repository.claim_next_job(
+    claim_one = fixture.repository.lease.claim_next_job(
         worker_id="crash-after-response",
         lease_seconds=1,
         job_id=job.job_id,
@@ -375,9 +375,8 @@ def test_encrypted_response_recovers_after_sqlite_restart_without_reinvocation(
     )
     with pytest.raises(RuntimeError, match="simulated crash"):
         asyncio.run(fixture.coordinator.execute_attempt(*claim_one))
-    assert any(
-        event["type"] == "subject.responded" for event in fixture.repository.get_run_events(run_id)
-    )
+    crashed_events = fixture.repository.read_model.get_run_events(run_id)
+    assert any(event["type"] == "subject.responded" for event in crashed_events)
     assert not fixture.provider.responses
     fixture.database.dispose()
 
@@ -402,7 +401,7 @@ def test_encrypted_response_recovers_after_sqlite_restart_without_reinvocation(
         reopened_store,
         reopened_catalog,
     )
-    claim_two = reopened_repository.claim_next_job(
+    claim_two = reopened_repository.lease.claim_next_job(
         worker_id="recover-response",
         lease_seconds=30,
         job_id=job.job_id,
@@ -411,10 +410,10 @@ def test_encrypted_response_recovers_after_sqlite_restart_without_reinvocation(
     assert claim_two is not None
     asyncio.run(reopened_coordinator.execute_attempt(*claim_two))
 
-    assert reopened_repository.get_run(run_id).status == "completed"
+    assert reopened_repository.read_model.get_run(run_id).status == "completed"
     assert provider_that_must_not_run.requests == []
-    assert reopened_repository.get_evaluation_records(run_id)[0].gate_status == "passed"
-    execution = reopened_repository.get_run_execution(run_id)
+    assert reopened_repository.read_model.get_evaluation_records(run_id)[0].gate_status == "passed"
+    execution = reopened_repository.lease.get_run_execution(run_id)
     assert execution is not None
     assert [attempt.status for attempt in execution[1]] == ["expired", "completed"]
     reopened_database.dispose()
@@ -423,7 +422,7 @@ def test_encrypted_response_recovers_after_sqlite_restart_without_reinvocation(
 def test_live_spec_variations_reject_without_enqueuing(tmp_path: Path) -> None:
     expected = "THERMAL_RELAY_TEST_NONCE_74"
     fixture = _fixture(tmp_path, [], expected=expected)
-    spec = fixture.repository.get_run_spec(fixture.spec_id)
+    spec = fixture.repository.read_model.get_run_spec(fixture.spec_id)
     source = spec.scenario.input_bindings[0].source
     extra_evaluator_input = spec.scenario.input_bindings[0].model_copy(
         update={
@@ -515,7 +514,7 @@ def test_live_spec_variations_reject_without_enqueuing(tmp_path: Path) -> None:
         admission = fixture.coordinator.admission_service.admit(variant)
         assert admission.decision == "rejected"
         assert admission.issues
-    assert fixture.repository.latest_dashboard()["runs"] == []
+    assert fixture.repository.read_model.latest_dashboard()["runs"] == []
     fixture.database.dispose()
 
 
@@ -546,13 +545,13 @@ def test_tool_call_budget_exhaustion_is_an_explicit_terminal(
     )
     assert asyncio.run(worker.process_once(job_id=job.job_id)) is True
 
-    assert fixture.repository.get_run(run_id).status == "budget_exhausted"
-    events = fixture.repository.get_run_events(run_id)
+    assert fixture.repository.read_model.get_run(run_id).status == "budget_exhausted"
+    events = fixture.repository.read_model.get_run_events(run_id)
     assert [event["type"] for event in events].count("tool.called") == 3
     assert [event["type"] for event in events].count("tool.denied") == 3
     assert events[-1]["type"] == "run.budget_exhausted"
     assert events[-1]["payload"]["goal_result"]["state"] == "not_assessable"
-    assert fixture.repository.get_evaluation_records(run_id) == []
+    assert fixture.repository.read_model.get_evaluation_records(run_id) == []
     fixture.database.dispose()
 
 
@@ -597,10 +596,10 @@ def test_strict_grader_rejects_ungrounded_or_shape_bypass_attempts(
         heartbeat_seconds=5,
     )
     assert asyncio.run(worker.process_once(job_id=job.job_id)) is True
-    assert fixture.repository.get_run(run_id).status == "completed"
-    assert fixture.repository.get_evaluation_records(run_id)[0].gate_status == "failed"
+    assert fixture.repository.read_model.get_run(run_id).status == "completed"
+    assert fixture.repository.read_model.get_evaluation_records(run_id)[0].gate_status == "failed"
     assert (
-        fixture.repository.get_run_events(run_id)[-1]["payload"]["goal_result"]["state"]
+        fixture.repository.read_model.get_run_events(run_id)[-1]["payload"]["goal_result"]["state"]
         == "not_achieved"
     )
     fixture.database.dispose()

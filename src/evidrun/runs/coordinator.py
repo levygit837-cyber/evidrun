@@ -73,7 +73,7 @@ class _PersistedToolTrace(ToolTraceSink):
             media_type="application/json",
             classification=Classification.INTERNAL,
         )
-        self.repository.append_event(
+        self.repository.ledger.append_event(
             run_id=self.run_id,
             event_type="tool.called",
             payload={
@@ -102,7 +102,7 @@ class _PersistedToolTrace(ToolTraceSink):
             media_type="application/json",
             classification=classification,
         )
-        self.repository.append_event(
+        self.repository.ledger.append_event(
             run_id=self.run_id,
             event_type="tool.completed",
             payload={
@@ -118,7 +118,7 @@ class _PersistedToolTrace(ToolTraceSink):
         )
 
     def denied(self, *, call_id: str, reason: str) -> None:
-        self.repository.append_event(
+        self.repository.ledger.append_event(
             run_id=self.run_id,
             event_type="tool.denied",
             payload={
@@ -139,7 +139,7 @@ class _PersistedToolTrace(ToolTraceSink):
         call_id: str,
         reason: str,
     ) -> None:
-        self.repository.append_event(
+        self.repository.ledger.append_event(
             run_id=self.run_id,
             event_type="tool.failed",
             payload={
@@ -167,7 +167,7 @@ class RunExecutionCoordinator:
         self.catalog = catalog or RuntimeAdapterCatalog()
         if self.catalog.materializer is None:
             self.catalog.materializer = ArtifactInputMaterializer(artifact_store)
-        self.catalog.project_id_for_spec = self.repository.project_id_for_run_spec
+        self.catalog.project_id_for_spec = self.repository.read_model.project_id_for_run_spec
         self.admission_service = self.catalog.admission_service()
         self.composer = ContextComposer()
 
@@ -180,7 +180,7 @@ class RunExecutionCoordinator:
         retry_of: str | None = None,
         experiment_revision_id: str | None = None,
     ) -> tuple[str, RunExecutionJob]:
-        run, job = self.repository.enqueue_run(
+        run, job = self.repository.enqueue.enqueue_run(
             run_spec_id=run_spec_id,
             admission_id=admission_id,
             idempotency_key=idempotency_key,
@@ -200,18 +200,18 @@ class RunExecutionCoordinator:
 
         self._assert_lease(job, attempt)
         try:
-            contracts = self.repository.get_run_contracts(job.run_id)
+            contracts = self.repository.read_model.get_run_contracts(job.run_id)
         except KeyError, ValueError:
             contracts = None
-        run = self.repository.get_run(job.run_id)
+        run = self.repository.read_model.get_run(job.run_id)
         if (
             contracts is not None
             and contracts[1].decision == "admitted"
             and contracts[1].run_spec_digest == contracts[0].digest
             and run.status not in TERMINAL_RUN_STATUSES
         ):
-            evaluations = self.repository.get_evaluation_records(run.id)
-            self.repository.append_event(
+            evaluations = self.repository.read_model.get_evaluation_records(run.id)
+            self.repository.ledger.append_event(
                 run_id=run.id,
                 event_type="run.failed",
                 payload={
@@ -227,7 +227,7 @@ class RunExecutionCoordinator:
                 reject_execution_code=reason_code,
             )
             return
-        self.repository.reject_lease(
+        self.repository.lease.reject_lease(
             job_id=job.job_id,
             attempt_id=attempt.attempt_id,
             worker_id=attempt.worker_id,
@@ -241,11 +241,11 @@ class RunExecutionCoordinator:
         attempt: RunExecutionAttempt,
     ) -> None:
         self._assert_lease(job, attempt)
-        run = self.repository.get_run(job.run_id)
+        run = self.repository.read_model.get_run(job.run_id)
         if run.status in TERMINAL_RUN_STATUSES:
             self._complete_lease(job, attempt)
             return
-        contracts = self.repository.get_run_contracts(run.id)
+        contracts = self.repository.read_model.get_run_contracts(run.id)
         if contracts is None:
             raise ValueError("execution job references a legacy Run without contracts")
         spec, admission = contracts
@@ -263,12 +263,12 @@ class RunExecutionCoordinator:
         self.catalog.evaluator_for(spec)
 
         envelope, materialized_inputs = self._prepare(job, attempt, spec, admission)
-        run = self.repository.get_run(run.id)
+        run = self.repository.read_model.get_run(run.id)
         if run.status in TERMINAL_RUN_STATUSES:
             self._complete_lease(job, attempt)
             return
 
-        events = self.repository.get_run_events(run.id)
+        events = self.repository.read_model.get_run_events(run.id)
         invocation_count = sum(item["type"] == "subject.invoked" for item in events)
         response_count = sum(item["type"] == "subject.responded" for item in events)
         if invocation_count > response_count:
@@ -281,7 +281,7 @@ class RunExecutionCoordinator:
                 repository=self.repository,
                 artifact_store=self.artifact_store,
                 run_id=run.id,
-                project_id=self.repository.project_id_for_run(run.id),
+                project_id=self.repository.read_model.project_id_for_run(run.id),
                 actor_id=subject_adapter.name,
                 lease=self._lease(job, attempt),
             )
@@ -320,7 +320,7 @@ class RunExecutionCoordinator:
             )
             return
         self._assert_lease(job, attempt)
-        self.repository.append_event(
+        self.repository.ledger.append_event(
             run_id=run.id,
             event_type="subject.invoked",
             payload={
@@ -346,7 +346,7 @@ class RunExecutionCoordinator:
             repository=self.repository,
             artifact_store=self.artifact_store,
             run_id=run.id,
-            project_id=self.repository.project_id_for_run(run.id),
+            project_id=self.repository.read_model.project_id_for_run(run.id),
             actor_id=subject_adapter.name,
             lease=self._lease(job, attempt),
         )
@@ -411,11 +411,11 @@ class RunExecutionCoordinator:
             response_event_hash=response.event_hash,
             tool_events=tuple(
                 item
-                for item in self.repository.get_run_events(run.id)
+                for item in self.repository.read_model.get_run_events(run.id)
                 if item["type"].startswith("tool.")
             ),
             artifact_store=self.artifact_store,
-            project_id=self.repository.project_id_for_run(run.id),
+            project_id=self.repository.read_model.project_id_for_run(run.id),
         )
         self._persist_evaluation(job, attempt, outcome)
         self._terminal(
@@ -433,12 +433,12 @@ class RunExecutionCoordinator:
         spec: RunSpec,
         admission: AdmissionRecord,
     ) -> tuple[Any, dict[str, str]]:
-        run = self.repository.get_run(job.run_id)
+        run = self.repository.read_model.get_run(job.run_id)
         if run.status not in {"queued", "preparing", "running", "evaluating"}:
             raise ValueError(f"Run cannot be prepared while {run.status}")
 
         try:
-            envelope_record = self.repository.get_subject_envelope(run.id)
+            envelope_record = self.repository.read_model.get_subject_envelope(run.id)
             envelope = envelope_record.envelope
         except KeyError:
             visible_inputs = tuple(
@@ -453,7 +453,7 @@ class RunExecutionCoordinator:
             declared = visible_inputs[0]
             if self.catalog.materializer is None:
                 raise ValueError("active catalog has no ArtifactInputMaterializer") from None
-            project_id = self.repository.project_id_for_run(run.id)
+            project_id = self.repository.read_model.project_id_for_run(run.id)
             source = self.catalog.materializer.resolve_text(
                 declared.source,
                 project_id=project_id,
@@ -480,7 +480,7 @@ class RunExecutionCoordinator:
             envelope = SubjectEnvelopeCompiler.compile(
                 spec, admission, materialized_inputs=(materialized,)
             )
-            self.repository.prepare_run_execution(
+            self.repository.preparation.prepare_run_execution(
                 run_id=run.id,
                 spec=spec,
                 admission=admission,
@@ -492,14 +492,14 @@ class RunExecutionCoordinator:
         materialized_inputs = {
             item.id: self.artifact_store.get_verified(
                 item.source,
-                project_id=self.repository.project_id_for_run(run.id),
+                project_id=self.repository.read_model.project_id_for_run(run.id),
             ).decode("utf-8")
             for item in envelope.inputs
         }
-        run = self.repository.get_run(run.id)
+        run = self.repository.read_model.get_run(run.id)
         if run.status == "preparing":
             self._assert_lease(job, attempt)
-            self.repository.append_event(
+            self.repository.ledger.append_event(
                 run_id=run.id,
                 event_type="run.running",
                 payload={
@@ -540,14 +540,14 @@ class RunExecutionCoordinator:
             }
             output_ref = self.artifact_store.put_ref(
                 canonical_json(result_document).encode("utf-8"),
-                project_id=self.repository.project_id_for_run(run_id),
+                project_id=self.repository.read_model.project_id_for_run(run_id),
                 media_type="application/json",
                 classification=Classification.SENSITIVE,
                 raw_authorized=True,
                 ttl_days=spec.capture_policy.sensitive_ttl_days,
             )
             captured_evidence = [f"artifact:{output_ref.artifact_id}"]
-        return self.repository.save_subject_response(
+        return self.repository.ledger.save_subject_response(
             run_id=run_id,
             spec=spec,
             response_payload={
@@ -572,7 +572,7 @@ class RunExecutionCoordinator:
     ) -> None:
         self._assert_lease(job, attempt)
         lease = self._lease(job, attempt)
-        self.repository.save_deterministic_evaluation(
+        self.repository.evaluation.save_deterministic_evaluation(
             record=outcome.record,
             score=outcome.score,
             passed=outcome.passed,
@@ -587,10 +587,10 @@ class RunExecutionCoordinator:
         attempt: RunExecutionAttempt,
         spec: RunSpec,
     ) -> None:
-        records = self.repository.get_evaluation_records(job.run_id)
-        run = self.repository.get_run(job.run_id)
+        records = self.repository.read_model.get_evaluation_records(job.run_id)
+        run = self.repository.read_model.get_run(job.run_id)
         if run.status == "running":
-            self.repository.append_event(
+            self.repository.ledger.append_event(
                 run_id=job.run_id,
                 event_type="run.evaluating",
                 payload={
@@ -601,7 +601,7 @@ class RunExecutionCoordinator:
                 lease=self._lease(job, attempt),
             )
         if not records:
-            events = self.repository.get_run_events(job.run_id)
+            events = self.repository.read_model.get_run_events(job.run_id)
             response_event = next(item for item in events if item["type"] == "subject.responded")
             payload = response_event["payload"]
             output_ref_document = payload.get("output_ref")
@@ -618,7 +618,7 @@ class RunExecutionCoordinator:
             result_document = _json_object.validate_json(
                 self.artifact_store.get_verified(
                     output_ref,
-                    project_id=self.repository.project_id_for_run(job.run_id),
+                    project_id=self.repository.read_model.project_id_for_run(job.run_id),
                 )
             )
             output_value = result_document.get("output")
@@ -658,7 +658,7 @@ class RunExecutionCoordinator:
                 response_event_hash=str(response_event["event_hash"]),
                 tool_events=tuple(item for item in events if item["type"].startswith("tool.")),
                 artifact_store=self.artifact_store,
-                project_id=self.repository.project_id_for_run(job.run_id),
+                project_id=self.repository.read_model.project_id_for_run(job.run_id),
             )
             self._persist_evaluation(job, attempt, outcome)
             self._terminal(
@@ -672,7 +672,7 @@ class RunExecutionCoordinator:
         for record in records:
             dimension = record.dimension_values[0]
             passed = bool(dimension.value)
-            self.repository.save_grade(
+            self.repository.evaluation.save_grade(
                 run_id=record.run_id,
                 grader_id=record.stage_id,
                 score=1.0 if passed else 0.0,
@@ -681,7 +681,7 @@ class RunExecutionCoordinator:
                 evidence=tuple(item.ref for item in dimension.evidence_refs),
                 lease=self._lease(job, attempt),
             )
-            self.repository.append_event(
+            self.repository.ledger.append_event(
                 run_id=job.run_id,
                 event_type="evaluation.completed",
                 payload={
@@ -711,14 +711,14 @@ class RunExecutionCoordinator:
         goal_result: GoalStateTerminalResult,
         cause: str,
     ) -> None:
-        run = self.repository.get_run(job.run_id)
+        run = self.repository.read_model.get_run(job.run_id)
         if run.status in TERMINAL_RUN_STATUSES:
             self._complete_lease(job, attempt)
             return
         self._assert_lease(job, attempt)
         if run.status not in TERMINAL_RUN_STATUSES:
-            evaluations = self.repository.get_evaluation_records(run.id)
-            self.repository.append_event(
+            evaluations = self.repository.read_model.get_evaluation_records(run.id)
+            self.repository.ledger.append_event(
                 run_id=run.id,
                 event_type=event_type,
                 payload={
@@ -733,9 +733,8 @@ class RunExecutionCoordinator:
             )
 
     def _remaining_wall_seconds(self, run_id: str, spec: RunSpec) -> float:
-        running = next(
-            item for item in self.repository.get_run_events(run_id) if item["type"] == "run.running"
-        )
+        events = self.repository.read_model.get_run_events(run_id)
+        running = next(item for item in events if item["type"] == "run.running")
         started = datetime.fromisoformat(str(running["occurred_at_utc"]))
         if started.tzinfo is None:
             started = started.replace(tzinfo=UTC)
@@ -743,7 +742,7 @@ class RunExecutionCoordinator:
         return max(0.0, spec.budgets.max_wall_seconds - elapsed)
 
     def _assert_lease(self, job: RunExecutionJob, attempt: RunExecutionAttempt) -> None:
-        self.repository.assert_lease(
+        self.repository.lease.assert_lease(
             job_id=job.job_id,
             attempt_id=attempt.attempt_id,
             worker_id=attempt.worker_id,
@@ -761,13 +760,13 @@ class RunExecutionCoordinator:
 
     def _complete_lease(self, job: RunExecutionJob, attempt: RunExecutionAttempt) -> None:
         try:
-            self.repository.complete_lease(
+            self.repository.lease.complete_lease(
                 job_id=job.job_id,
                 attempt_id=attempt.attempt_id,
                 worker_id=attempt.worker_id,
                 lease_generation=attempt.lease_generation,
             )
         except LeaseLost:
-            execution = self.repository.get_run_execution(job.run_id)
+            execution = self.repository.lease.get_run_execution(job.run_id)
             if execution is None or execution[0].status != "completed":
                 raise

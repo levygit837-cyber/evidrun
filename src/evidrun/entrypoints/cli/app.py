@@ -197,7 +197,7 @@ def register_contract(
     _, database, repository = _components(data_dir)
     try:
         revision = parse_revision(yaml.safe_load(path.read_text()))
-        row = repository.save_contract_revision(revision, status=status)
+        row = repository.registry.save_contract_revision(revision, status=status)
         console.print_json(
             data={
                 "id": row.id,
@@ -219,12 +219,12 @@ def compile_study(
 ) -> None:
     _, database, repository = _components(data_dir)
     try:
-        revision = repository.get_contract_revision(revision_id)
+        revision = repository.read_model.get_contract_revision(revision_id)
         if not isinstance(revision, StudyRevision):
             raise typer.BadParameter("contract revision is not a StudyRevision")
-        registry = repository.contract_registry(revision.project_id)
+        registry = repository.registry.contract_registry(revision.project_id)
         specs = StudyCompiler(registry).compile(revision)
-        rows = [repository.save_run_spec(spec) for spec in specs]
+        rows = [repository.catalog.save_run_spec(spec) for spec in specs]
         console.print_json(
             data=[
                 {
@@ -247,19 +247,19 @@ def inspect_run(
     data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
 ) -> None:
     _, database, repository = _components(data_dir)
-    runs = [item for item in repository.latest_dashboard()["runs"] if item["id"] == run_id]
+    runs = [r for r in repository.read_model.latest_dashboard()["runs"] if r["id"] == run_id]
     if not runs:
         database.dispose()
         raise typer.BadParameter("run not found")
-    execution = repository.get_run_execution(run_id)
+    execution = repository.lease.get_run_execution(run_id)
     try:
-        subject_envelope_digest = repository.get_subject_envelope(run_id).digest
+        subject_envelope_digest = repository.read_model.get_subject_envelope(run_id).digest
     except KeyError:
         subject_envelope_digest = None
     console.print_json(
         data={
             **runs[0],
-            "events": repository.get_run_events(run_id),
+            "events": repository.read_model.get_run_events(run_id),
             "execution": (
                 {
                     "job": execution[0].model_dump(mode="json"),
@@ -281,10 +281,10 @@ def admit_run_spec(
 ) -> None:
     _, database, repository = _components(data_dir)
     try:
-        spec = repository.get_run_spec(run_spec_id)
+        spec = repository.read_model.get_run_spec(run_spec_id)
         service = EvidrunService(repository)
         admission = service.admission_service.admit(spec)
-        row = repository.save_admission_record(run_spec_id, admission)
+        row = repository.catalog.save_admission_record(run_spec_id, admission)
         console.print_json(
             data={
                 "id": row.id,
@@ -334,7 +334,7 @@ def retry_run(
 ) -> None:
     _, database, repository = _components(data_dir)
     try:
-        source = repository.get_run(run_id)
+        source = repository.read_model.get_run(run_id)
         if source.run_spec_id is None:
             raise typer.BadParameter("legacy Run is not eligible for retry")
         if source.admission_id == admission_id:
@@ -406,7 +406,7 @@ def export_run_bundle(
 @chat_app.command("list")
 def list_chats(data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None) -> None:
     _, database, repository = _components(data_dir)
-    console.print_json(data=repository.latest_dashboard()["chats"])
+    console.print_json(data=repository.read_model.latest_dashboard()["chats"])
     database.dispose()
 
 
@@ -574,7 +574,7 @@ def authority_accept(
     settings, database, repository = _components(data_dir)
     try:
         service, _ = _authority_service(database, settings)
-        revision = repository.get_contract_revision(revision_id)
+        revision = repository.read_model.get_contract_revision(revision_id)
         subject = RevisionDecisionSubject(
             revision_ref=revision.ref,
             decision="accepted",
@@ -586,7 +586,7 @@ def authority_accept(
             credential_id=credential_id,
             project_id=revision.project_id,
         )
-        row = repository.decide_contract_revision(subject.build_decision(attestation))
+        row = repository.registry.decide_contract_revision(subject.build_decision(attestation))
         console.print_json(
             data={
                 "id": row.id,

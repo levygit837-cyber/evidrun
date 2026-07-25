@@ -20,9 +20,9 @@ def test_run_api_enqueues_idempotently_and_exposes_execution_state(
     fixture = _runtime_fixture(tmp_path)
     kernel = build_runtime_kernel(fixture.repository, fixture.settings.artifacts_dir)
     second_admission = kernel.coordinator.admission_service.admit(
-        fixture.repository.get_run_spec(fixture.spec_id)
+        fixture.repository.read_model.get_run_spec(fixture.spec_id)
     )
-    second_admission_row = fixture.repository.save_admission_record(
+    second_admission_row = fixture.repository.catalog.save_admission_record(
         fixture.spec_id, second_admission
     )
     fixture.database.dispose()

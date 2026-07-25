@@ -40,11 +40,11 @@ class EvidrunService:
             yaml.safe_load(manifest_path.read_text())
         )
 
-        dashboard = self.repository.latest_dashboard()
+        dashboard = self.repository.read_model.latest_dashboard()
         if dashboard["workspaces"]:
             workspace_id = dashboard["workspaces"][0]["id"]
         else:
-            workspace_id = self.repository.create_workspace("Laboratório local").id
+            workspace_id = self.repository.catalog.create_workspace("Laboratório local").id
         project = next(
             (p for p in dashboard["projects"] if p["name"] == "Context Reliability Lab"),
             None,
@@ -52,11 +52,11 @@ class EvidrunService:
         project_id = (
             project["id"]
             if project
-            else self.repository.create_project(
+            else self.repository.catalog.create_project(
                 workspace_id, "Context Reliability Lab"
             ).id
         )
-        revision = self.repository.save_experiment_revision(
+        revision = self.repository.catalog.save_experiment_revision(
             project_id=project_id, manifest=manifest.model_dump(mode="json")
         )
         fixture_ref = self.runtime.artifact_store.put_ref(
@@ -70,8 +70,8 @@ class EvidrunService:
             project_id=project_id,
             fixture_ref=fixture_ref,
         )
-        self.repository.import_legacy_contract_package(package)
-        registry = self.repository.contract_registry(project_id)
+        self.repository.registry.import_legacy_contract_package(package)
+        registry = self.repository.registry.contract_registry(project_id)
         run_specs = StudyCompiler(registry).compile(package.study)
 
         runs: dict[str, dict[str, Any]] = {}
@@ -103,7 +103,7 @@ class EvidrunService:
             candidate_score=candidate_score,
             context_diff=diff,
         )
-        comparison = self.repository.save_comparison(
+        comparison = self.repository.catalog.save_comparison(
             experiment_revision_id=revision.id,
             baseline_run_id=baseline["run"]["id"],
             candidate_run_id=candidate["run"]["id"],
@@ -130,9 +130,9 @@ class EvidrunService:
         source: str,
     ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
         del source
-        spec_row = self.repository.save_run_spec(spec)
+        spec_row = self.repository.catalog.save_run_spec(spec)
         admission = self.admission_service.admit(spec)
-        admission_row = self.repository.save_admission_record(spec_row.id, admission)
+        admission_row = self.repository.catalog.save_admission_record(spec_row.id, admission)
         if admission.decision != "admitted":
             reasons = admission.missing_requirements or admission.denied_policies
             raise ValueError("deterministic RunSpec was rejected: " + ", ".join(reasons))
@@ -150,18 +150,17 @@ class EvidrunService:
             worker_id=f"demo-worker:{run_id}",
         )
         await worker.process_once(job_id=job.job_id)
-        run = self.repository.get_run(run_id)
+        run = self.repository.read_model.get_run(run_id)
         if run.status not in {"completed", "failed", "budget_exhausted"}:
             raise RuntimeError(f"demo Runtime Kernel stopped with Run status {run.status}")
         if run.status != "completed":
-            last = self.repository.get_run_events(run_id)[-1]
+            last = self.repository.read_model.get_run_events(run_id)[-1]
             if last["type"] == "run.budget_exhausted":
                 raise TimeoutError(str(last["payload"]["terminal_cause"]))
             raise RuntimeError(str(last["payload"]["terminal_cause"]))
-        dashboard_run = next(
-            item for item in self.repository.latest_dashboard()["runs"] if item["id"] == run_id
-        )
-        envelope = self.repository.get_subject_envelope(run_id).envelope
+        dashboard_runs = self.repository.read_model.latest_dashboard()["runs"]
+        dashboard_run = next(item for item in dashboard_runs if item["id"] == run_id)
+        envelope = self.repository.read_model.get_subject_envelope(run_id).envelope
         selected_content = self.runtime.artifact_store.get_verified(
             envelope.inputs[0].source
         ).decode("utf-8")
@@ -169,7 +168,7 @@ class EvidrunService:
             **dashboard_run["context_snapshot"],
             "selected_content": selected_content,
         }
-        grade_row = self.repository.get_grade(run_id)
+        grade_row = self.repository.read_model.get_grade(run_id)
         grade = {
             "score": grade_row.score,
             "passed": grade_row.passed,

@@ -79,11 +79,6 @@ file_lines = 609
 file_lines = 1624
 function_lines = 323
 
-[baseline."src/evidrun/infrastructure/database/repository.py"]
-file_lines = 2942
-function_lines = 481
-public_methods = 50
-
 [baseline."src/evidrun/runs/adapters.py"]
 file_lines = 1043
 function_lines = 153

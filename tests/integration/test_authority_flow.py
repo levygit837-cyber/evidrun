@@ -40,8 +40,8 @@ class AuthorityHarness:
         )
 
     def project(self) -> str:
-        workspace = self.repository.create_workspace("Authority WS")
-        project = self.repository.create_project(workspace.id, "Authority Project")
+        workspace = self.repository.catalog.create_workspace("Authority WS")
+        project = self.repository.catalog.create_project(workspace.id, "Authority Project")
         return project.id
 
     def goal_revision(self, project_id: str) -> GoalRevision:
@@ -88,7 +88,7 @@ def _subject(revision: GoalRevision) -> RevisionDecisionSubject:
 def test_verified_human_accepts_a_revision(harness: AuthorityHarness) -> None:
     project_id = harness.project()
     revision = harness.goal_revision(project_id)
-    harness.repository.save_contract_revision(revision, status="proposed")
+    harness.repository.registry.save_contract_revision(revision, status="proposed")
     credential = harness.service.enroll(
         principal_id="alice",
         display_name="Alice",
@@ -102,20 +102,20 @@ def test_verified_human_accepts_a_revision(harness: AuthorityHarness) -> None:
         credential_id=credential.credential_id,
         project_id=project_id,
     )
-    row = harness.repository.decide_contract_revision(subject.build_decision(attestation))
+    row = harness.repository.registry.decide_contract_revision(subject.build_decision(attestation))
     assert row.decision == "accepted"
     assert row.actor_type == "verified_human"
     assert row.actor_id == "alice"
 
     # Registry replay re-verifies every decision; must remain valid and idempotent.
-    registry = harness.repository.contract_registry(project_id)
+    registry = harness.repository.registry.contract_registry(project_id)
     assert registry is not None
 
 
 def test_replayed_challenge_is_rejected(harness: AuthorityHarness) -> None:
     project_id = harness.project()
     revision = harness.goal_revision(project_id)
-    harness.repository.save_contract_revision(revision, status="proposed")
+    harness.repository.registry.save_contract_revision(revision, status="proposed")
     credential = harness.service.enroll(
         principal_id="alice",
         display_name="Alice",
@@ -153,7 +153,7 @@ def test_completion_subject_must_match_the_issued_challenge(
 ) -> None:
     project_id = harness.project()
     revision = harness.goal_revision(project_id)
-    harness.repository.save_contract_revision(revision, status="proposed")
+    harness.repository.registry.save_contract_revision(revision, status="proposed")
     credential = harness.service.enroll(
         principal_id="alice",
         display_name="Alice",
@@ -191,7 +191,7 @@ def test_completion_subject_must_match_the_issued_challenge(
 def test_revoked_credential_cannot_confirm(harness: AuthorityHarness) -> None:
     project_id = harness.project()
     revision = harness.goal_revision(project_id)
-    harness.repository.save_contract_revision(revision, status="proposed")
+    harness.repository.registry.save_contract_revision(revision, status="proposed")
     credential = harness.service.enroll(
         principal_id="alice",
         display_name="Alice",
@@ -218,8 +218,8 @@ def test_default_repository_fails_closed(tmp_path: Path) -> None:
         authenticator=MemoryAuthenticator(),
         artifacts=artifacts,
     )
-    workspace = repository.create_workspace("WS")
-    project = repository.create_project(workspace.id, "Project")
+    workspace = repository.catalog.create_workspace("WS")
+    project = repository.catalog.create_project(workspace.id, "Project")
     revision = GoalRevision(
         logical_id="closed-goal",
         revision=1,
@@ -236,7 +236,7 @@ def test_default_repository_fails_closed(tmp_path: Path) -> None:
             ),
         ),
     )
-    repository.save_contract_revision(revision, status="proposed")
+    repository.registry.save_contract_revision(revision, status="proposed")
     credential = service.enroll(
         principal_id="alice",
         display_name="Alice",
@@ -255,5 +255,5 @@ def test_default_repository_fails_closed(tmp_path: Path) -> None:
         project_id=project.id,
     )
     with pytest.raises(HumanAttestationUnavailable):
-        repository.decide_contract_revision(subject.build_decision(attestation))
+        repository.registry.decide_contract_revision(subject.build_decision(attestation))
     database.dispose()
