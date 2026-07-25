@@ -73,6 +73,7 @@
 ```bash
 uv run pytest
 uv run ruff check .
+uv run python scripts/check_code_budget.py
 uv run pyright
 pnpm typecheck:web
 pnpm typecheck:desktop

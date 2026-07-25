@@ -1,0 +1,14 @@
+#!/bin/sh
+# Gate de orçamento estrutural antes do push. Custo zero de CI: roda local.
+# Instale com: uv run python scripts/install_git_hooks.py
+# Pule uma vez com: git push --no-verify
+set -eu
+
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+
+if ! uv run python scripts/check_code_budget.py; then
+  echo "pre-push abortado: orçamento estrutural violado." >&2
+  echo "Reduza o arquivo/função ou ajuste code-budget.toml deliberadamente." >&2
+  exit 1
+fi
