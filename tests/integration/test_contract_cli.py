@@ -3,18 +3,23 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 import yaml
 from typer.testing import CliRunner
 
+from evidrun.authority.verifier import LocalWebAuthnVerifier
 from evidrun.contracts import GoalRevision, GoalSpec
 from evidrun.contracts.authoring import GoalOutcome
-from evidrun.entrypoints.cli.app import app
+from evidrun.contracts.authority import UnavailableHumanAttestationVerifier
+from evidrun.entrypoints.cli.app import _components, app
 from evidrun.infrastructure.database import Database, Repository
 
 
 def test_contract_cli_validates_registers_and_fails_closed_without_human_verifier(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.delenv("EVIDRUN_AUTHORITY", raising=False)
     data_dir = tmp_path / "data"
     database = Database(data_dir / "evidrun.db")
     database.create_all()
@@ -63,12 +68,25 @@ def test_contract_cli_validates_registers_and_fails_closed_without_human_verifie
     assert registered["digest"] == goal.digest
     assert registered["status"] == "proposed"
 
+    # Acceptance requires verified human authority. Without EVIDRUN_AUTHORITY the CLI
+    # installs no trusted verifier, so the ceremony must fail closed and persist nothing.
+    settings, cli_database, cli_repository = _components(data_dir)
+    try:
+        assert settings.authority_enabled is False
+        assert isinstance(
+            cli_repository.human_attestation_verifier, UnavailableHumanAttestationVerifier
+        )
+    finally:
+        cli_database.dispose()
+
     acceptance = runner.invoke(
         app,
         [
-            "contract",
+            "authority",
             "accept",
             registered["id"],
+            "--credential-id",
+            "hcred-absent",
             "--reason",
             "Explicitly accepted by the CLI integration test.",
             "--data-dir",
@@ -76,7 +94,6 @@ def test_contract_cli_validates_registers_and_fails_closed_without_human_verifie
         ],
     )
     assert acceptance.exit_code == 1
-    assert "Verified human authority is unavailable" in acceptance.output
 
     verify_database = Database(data_dir / "evidrun.db")
     verify_database.create_all()
@@ -84,3 +101,24 @@ def test_contract_cli_validates_registers_and_fails_closed_without_human_verifie
     verify_database.dispose()
     stored = next(item for item in revisions if item["logical_id"] == goal.logical_id)
     assert stored["status"] == "proposed"
+
+
+def test_authority_enabled_cli_installs_a_trusted_verifier(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With authority enabled every CLI command must read decisions through a real verifier.
+
+    A CLI that persists a verified-human acceptance but rebuilds its Repository without a
+    verifier writes evidence it can never resolve again: `study compile` would fail closed
+    on data the same CLI just accepted.
+    """
+
+    monkeypatch.setenv("EVIDRUN_AUTHORITY", "1")
+    data_dir = tmp_path / "data"
+    settings, database, repository = _components(data_dir)
+    try:
+        assert settings.authority_enabled is True
+        assert isinstance(repository.human_attestation_verifier, LocalWebAuthnVerifier)
+    finally:
+        database.dispose()
