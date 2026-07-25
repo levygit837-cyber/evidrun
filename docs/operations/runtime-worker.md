@@ -48,6 +48,10 @@ Os defaults são poll de 1 segundo, lease de 30 segundos e heartbeat de 10 segun
 ser estritamente menor que metade do lease. `--worker-id` é opcional; sem ele, o identificador combina
 hostname, PID e UUID.
 
+O aplicativo Electron ainda não supervisiona esse processo: ele faz spawn apenas de
+`evidrun serve --desktop-handshake`, que sobe a API. Uma Run enfileirada pela interface permanece
+`queued` até que um worker seja iniciado por fora. Fechar essa lacuna é a WS-02.
+
 # API e CLI
 
 Enqueue e retry exigem uma AdmissionRecord admitida para o RunSpec exato e uma chave de

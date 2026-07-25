@@ -14,7 +14,6 @@ sources:
   - docs/adr/0011-progress-artifacts-and-bundle-boundaries.md
   - docs/architecture/data-and-evidence.md
   - docs/contracts/capture-and-retention.md
-  - docs/planning/tasks/00-runtime-kernel-integration.md
 supersedes: []
 superseded_by: null
 implementation_refs: []
@@ -31,7 +30,8 @@ Transformar `ArtifactRef` de identidade passiva em uma cadeia auditavel de autor
 reintroduzir locator. Uma Run deve conseguir materializar um input permitido, provar quem recebeu o
 conteudo e aplicar capture/classification a snapshot, tool arguments/results e Subject output.
 
-Esta task comeca somente depois de WS-00 estar em `main`.
+Esta task comeca somente depois das costuras do dominio (WS-11/12) estarem em `main`. O Runtime
+Kernel de que ela depende ja esta integrado.
 
 ## Escopo
 
@@ -71,7 +71,7 @@ Esta task comeca somente depois de WS-00 estar em `main`.
 
 ```text
 TASK_ID=WS-20
-BASE_REQUIRES=WS-00:done_on_main
+BASE_REQUIRES=WS-11:done_on_main,WS-12:done_on_main
 MAX_REPAIR_LOOPS=10
 FULL_GATE_INTERVAL=3
 ALLOW_RESTRICTED=0
