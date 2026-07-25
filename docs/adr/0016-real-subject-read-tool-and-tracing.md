@@ -15,7 +15,8 @@ sources:
 supersedes: []
 superseded_by: null
 implementation_refs:
-  - src/evidrun/runs/adapters.py
+  - src/evidrun/runs/adapters/subject_responses.py
+  - src/evidrun/runs/adapters/tool_read_text.py
   - src/evidrun/runs/coordinator.py
   - src/evidrun/infrastructure/providers/openai_responses.py
   - src/evidrun/infrastructure/database/repository.py

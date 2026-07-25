@@ -65,10 +65,6 @@ file_lines = 1060
 file_lines = 1624
 function_lines = 323
 
-[baseline."src/evidrun/runs/adapters.py"]
-file_lines = 1043
-function_lines = 153
-
 [baseline."src/evidrun/runs/coordinator.py"]
 file_lines = 773
 function_lines = 190

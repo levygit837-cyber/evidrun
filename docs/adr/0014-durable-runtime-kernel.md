@@ -17,7 +17,7 @@ superseded_by: null
 implementation_refs:
   - src/evidrun/runs/coordinator.py
   - src/evidrun/runs/worker.py
-  - src/evidrun/runs/adapters.py
+  - src/evidrun/runs/adapters/catalog.py
   - src/evidrun/infrastructure/database/repository.py
   - alembic/versions/0004_runtime_kernel.py
 verification_refs:
