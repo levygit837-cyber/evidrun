@@ -581,7 +581,7 @@
       "status": "accepted",
       "authority": "planning",
       "owner": "product-engineering",
-      "updated_at": "2026-07-24",
+      "updated_at": "2026-07-25",
       "review_due": "2026-08-07"
     },
     {
@@ -622,10 +622,10 @@
       "path": "docs/planning/tasks/11-domain-seams.md",
       "type": "implementation-task",
       "title": "WS-11/12 Costuras do dominio para paralelismo real",
-      "status": "proposed",
+      "status": "verified",
       "authority": "planning",
       "owner": "core",
-      "updated_at": "2026-07-24",
+      "updated_at": "2026-07-25",
       "review_due": "2026-08-07"
     },
     {

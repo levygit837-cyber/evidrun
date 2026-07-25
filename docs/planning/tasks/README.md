@@ -37,7 +37,7 @@ O layout-alvo de arquivos e o grafo de conversa entre pastas estao em
 | `queued` | [WS-01 Superficie de Workspace/Project](01-workspace-project-surface.md) | Pode iniciar imediatamente, em paralelo com WS-02 e WS-03 |
 | `queued` | [WS-02 Lifecycle do worker no desktop](02-desktop-worker-lifecycle.md) | Pode iniciar imediatamente; nao toca dominio Python |
 | `queued` | [WS-03 Decisao de autoria default](03-default-authoring-authority.md) | ADR sucessor; decisao humana, precede WS-40 |
-| `blocked` | [WS-11/12 Costuras do dominio](11-domain-seams.md) | Aguarda Onda 0; serial por natureza |
+| `delivered` | [WS-11/12 Costuras do dominio](11-domain-seams.md) | Entregue em `812b330` e `62ddec8`; desbloqueia WS-20/30/40 |
 | `blocked` | [WS-20 Artifact access/capture](20-artifact-access-and-capture.md) | Aguarda costuras |
 | `blocked` | [WS-30 Evaluation/checkpoint/progress](30-evaluation-checkpoint-progress.md) | Aguarda costuras |
 | `blocked` | [WS-40 Trust sandbox/ReviewPackage](40-trust-sandbox-review-package.md) | Aguarda WS-03 e costuras |
@@ -54,9 +54,9 @@ paginas existentes sem mudar o que elas fazem.
 O paralelismo e limitado por arquivo compartilhado, nao por vontade:
 
 - Onda 0 tem tres frentes sem intersecao de arquivo. Pode correr junto.
-- As costuras de dominio (WS-11/12) sao serial e inline. Toda capability nova precisa editar
-  `Repository` e `AdmissionService.admit`; abrir essas costuras antes evita que tres branches disputem
-  o mesmo trecho.
+- As costuras de dominio (WS-11/12) foram seriais e inline, e ja aterrissaram: `Repository` virou raiz
+  de composicao e `admit` virou composicao de checkers. Uma capability nova agora nasce em
+  `contracts/admission/checks/` mais o envelope do catalogo, sem editar o mesmo trecho de arquivo.
 - WS-13 (`apps/web/`) e a costura de `bundle.py` dentro de WS-30 (`evidence/`) tocam arvores disjuntas
   de WS-11/12 e podem correr em paralelo com elas.
 - Onda 2 e paralela de verdade porque, depois das costuras, cada frente tem ownership distinto.
