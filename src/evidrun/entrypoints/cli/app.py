@@ -63,7 +63,12 @@ def _components(data_dir: Path | None = None) -> tuple[Settings, Database, Repos
     settings.ensure_directories()
     database = Database(settings.database_path)
     database.create_all()
-    return settings, database, Repository(database)
+    verifier: LocalWebAuthnVerifier | None = None
+    if settings.authority_enabled:
+        verifier = LocalWebAuthnVerifier(
+            AuthorityRepository(database), ArtifactStore(settings.artifacts_dir)
+        )
+    return settings, database, Repository(database, human_attestation_verifier=verifier)
 
 
 @app.callback()
@@ -205,20 +210,6 @@ def register_contract(
         )
     finally:
         database.dispose()
-
-
-@contract_app.command("accept")
-def accept_contract(
-    revision_id: str,
-    reason: Annotated[str, typer.Option("--reason")],
-    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
-) -> None:
-    del revision_id, reason, data_dir
-    console.print(
-        "Verified human authority is unavailable. "
-        "A trusted WebAuthn verifier must complete contract acceptance."
-    )
-    raise typer.Exit(code=1)
 
 
 @study_app.command("compile")
@@ -582,10 +573,7 @@ def authority_accept(
     """Confirm a verified-human acceptance of a contract revision (offline authenticator)."""
     settings, database, repository = _components(data_dir)
     try:
-        service, authority_repository = _authority_service(database, settings)
-        repository.human_attestation_verifier = LocalWebAuthnVerifier(
-            authority_repository, ArtifactStore(settings.artifacts_dir)
-        )
+        service, _ = _authority_service(database, settings)
         revision = repository.get_contract_revision(revision_id)
         subject = RevisionDecisionSubject(
             revision_ref=revision.ref,

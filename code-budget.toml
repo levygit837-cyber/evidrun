@@ -1,0 +1,96 @@
+# Orçamento estrutural verificado por `scripts/check_code_budget.py`.
+#
+# Grupos são avaliados na ordem de declaração: o primeiro glob que casa define o
+# orçamento do arquivo. Métrica ausente em um grupo significa "sem limite".
+#
+# A tabela [baseline] é um ratchet dos arquivos que já violavam a política quando
+# o gate foi ligado. Uma métrica listada pode encolher, nunca crescer; quando ela
+# volta para dentro do orçamento do grupo, o gate exige a remoção da entrada.
+# Regrave o baseline apenas de forma deliberada e manual:
+#
+#     uv run python scripts/check_code_budget.py --update-baseline
+
+[[groups]]
+name = "exempt"
+exempt = true
+patterns = [
+  "apps/web/src/generated/**",
+  "schemas/generated/**",
+  "docs/_generated/**",
+  "**/*.lock",
+  "pnpm-lock.yaml",
+  "uv.lock",
+]
+
+[[groups]]
+name = "tests"
+patterns = [
+  "tests/**/*.py",
+  "apps/**/*.test.ts",
+  "apps/**/*.test.tsx",
+]
+max_file_lines = 800
+
+[[groups]]
+name = "source"
+patterns = [
+  "src/**/*.py",
+  "apps/**/*.ts",
+  "apps/**/*.tsx",
+  "scripts/*.py",
+  "scripts/*.mjs",
+]
+max_file_lines = 500
+max_function_lines = 120
+max_public_methods = 25
+
+[baseline]
+
+[baseline."apps/web/src/features/create/CreatePage.tsx"]
+file_lines = 597
+
+[baseline."apps/web/src/features/laboratory/LaboratoryPage.tsx"]
+file_lines = 818
+
+[baseline."apps/web/src/features/observability/ObservabilityPage.tsx"]
+file_lines = 918
+
+[baseline."src/evidrun/contracts/authoring.py"]
+file_lines = 871
+
+[baseline."src/evidrun/contracts/compiler.py"]
+file_lines = 1156
+function_lines = 567
+
+[baseline."src/evidrun/contracts/legacy.py"]
+function_lines = 257
+
+[baseline."src/evidrun/contracts/runtime.py"]
+file_lines = 1060
+
+[baseline."src/evidrun/entrypoints/api/app.py"]
+file_lines = 623
+function_lines = 542
+
+[baseline."src/evidrun/entrypoints/cli/app.py"]
+file_lines = 609
+
+[baseline."src/evidrun/evidence/bundle.py"]
+file_lines = 1624
+function_lines = 323
+
+[baseline."src/evidrun/infrastructure/database/repository.py"]
+file_lines = 2942
+function_lines = 481
+public_methods = 50
+
+[baseline."src/evidrun/runs/adapters.py"]
+file_lines = 1043
+function_lines = 153
+
+[baseline."src/evidrun/runs/coordinator.py"]
+file_lines = 773
+function_lines = 190
+
+[baseline."tests/unit/test_contracts.py"]
+file_lines = 1594

@@ -8,11 +8,12 @@ owner: product-engineering
 created_at: 2026-07-23
 updated_at: 2026-07-24
 observed_at: 2026-07-24
-review_due: 2026-07-30
+review_due: 2026-08-07
 applies_to: agent-workstreams
 sources:
   - docs/planning/README.md
   - docs/planning/mvp-implementation-roadmap.md
+  - docs/architecture/codebase-layout.md
 supersedes: []
 superseded_by: null
 implementation_refs: []
@@ -23,14 +24,44 @@ verification_refs: []
 
 ## Agora
 
+A espinha canonica ja atravessa registro, aceitacao verificada, compile, admissao, fila, worker,
+terminal e bundle verificado. O corte atual nao adiciona capability: ele torna essa espinha
+alcancavel por um usuario e abre as costuras que a largura consome.
+
+O layout-alvo de arquivos e o grafo de conversa entre pastas estao em
+[Layout da codebase](../../architecture/codebase-layout.md), com a decisao normativa no
+[ADR 0017](../../adr/0017-structural-budget-and-named-seams.md). Nenhum brief redefine o alvo.
+
 | Estado | Brief | Proxima acao |
 | --- | --- | --- |
-| `done_on_main` | [WS-00 Runtime Kernel](00-runtime-kernel-integration.md) | Preservar os limites integrados pela PR #4 |
-| `queued` | [WS-20 Artifact access/capture](20-artifact-access-and-capture.md) | Pode iniciar em paralelo com WS-40, com ownership separado |
-| `queued` | [WS-40 Trust sandbox/ReviewPackage](40-trust-sandbox-review-package.md) | Pode iniciar em paralelo com WS-20, sem criar falsa authority |
+| `queued` | [WS-01 Superficie de Workspace/Project](01-workspace-project-surface.md) | Pode iniciar imediatamente, em paralelo com WS-02 e WS-03 |
+| `queued` | [WS-02 Lifecycle do worker no desktop](02-desktop-worker-lifecycle.md) | Pode iniciar imediatamente; nao toca dominio Python |
+| `queued` | [WS-03 Decisao de autoria default](03-default-authoring-authority.md) | ADR sucessor; decisao humana, precede WS-40 |
+| `blocked` | [WS-11/12 Costuras do dominio](11-domain-seams.md) | Aguarda Onda 0; serial por natureza |
+| `blocked` | [WS-20 Artifact access/capture](20-artifact-access-and-capture.md) | Aguarda costuras |
+| `blocked` | [WS-30 Evaluation/checkpoint/progress](30-evaluation-checkpoint-progress.md) | Aguarda costuras |
+| `blocked` | [WS-40 Trust sandbox/ReviewPackage](40-trust-sandbox-review-package.md) | Aguarda WS-03 e costuras |
+| `queued` | [WS-13 Costuras das paginas web](13-web-page-seams.md) | Pode iniciar imediatamente; so toca `apps/web/src/features/**` |
+| `blocked` | [WS-50 Lab Agent/bounded exploration](50-lab-agent-bounded-exploration.md) | Aguarda WS-20, WS-30 e WS-40 |
 
-A direcao anterior de UI/UX da WS-10 foi descartada. Um novo brief deve ser aprovado antes de
-reativar esse workstream; o material preservado do AIDesigner continua research, nao implementacao.
+O frontend nao tem brief de integracao ativo. A fatia multipagina existe em `main`: Observability
+consome endpoints reais, Create e rascunho local mais bootstrap da fixture, Laboratory e mock. A
+integracao real pertence a WS-51 e depende de WS-41 e WS-50. WS-13 e ortogonal a isso: extrai as
+paginas existentes sem mudar o que elas fazem.
+
+## Regra de paralelismo
+
+O paralelismo e limitado por arquivo compartilhado, nao por vontade:
+
+- Onda 0 tem tres frentes sem intersecao de arquivo. Pode correr junto.
+- As costuras de dominio (WS-11/12) sao serial e inline. Toda capability nova precisa editar
+  `Repository` e `AdmissionService.admit`; abrir essas costuras antes evita que tres branches disputem
+  o mesmo trecho.
+- WS-13 (`apps/web/`) e a costura de `bundle.py` dentro de WS-30 (`evidence/`) tocam arvores disjuntas
+  de WS-11/12 e podem correr em paralelo com elas.
+- Onda 2 e paralela de verdade porque, depois das costuras, cada frente tem ownership distinto.
+- O orcamento estrutural (`uv run python scripts/check_code_budget.py`) e gate de todas as frentes.
+  Entrada de `[baseline]` em `code-budget.toml` so pode ser removida, nunca aumentada.
 
 ## Regras de worktree
 
@@ -40,17 +71,7 @@ reativar esse workstream; o material preservado do AIDesigner continua research,
 - migrations sao numeradas conforme a ordem real de merge;
 - shared files (`docs/index.md`, package lock, generated contracts) ficam para o commit de integracao;
 - se duas branches precisarem alterar o mesmo contrato normativo, interrompa o paralelo e resolva a
-  decisao antes de continuar;
-- merge de WS-00 precede a integracao real de WS-10.
-
-## Sequencia restante
-
-| Ordem | Brief | Pode compartilhar onda |
-| --- | --- | --- |
-| 1 | [WS-20 Artifact access/capture](20-artifact-access-and-capture.md) | WS-40, com migrations separadas |
-| 1 | [WS-40 Trust sandbox/ReviewPackage](40-trust-sandbox-review-package.md) | WS-20 |
-| 2 | [WS-30 Evaluation/checkpoint/progress](30-evaluation-checkpoint-progress.md) | frontend adapters |
-| 3 | [WS-50 Lab Agent/bounded exploration](50-lab-agent-bounded-exploration.md) | integracao final da UI |
+  decisao antes de continuar.
 
 ## Handoff entre agentes
 

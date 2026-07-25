@@ -23,6 +23,7 @@
     "generate:schemas": "uv run python scripts/generate_schemas.py",
     "generate:contracts": "pnpm generate:schemas && node scripts/generate_contract_types.mjs",
     "check:contracts": "uv run python scripts/generate_schemas.py --check && node scripts/generate_contract_types.mjs --check",
+    "check:budget": "uv run python scripts/check_code_budget.py",
     "test": "pnpm check:contracts && pnpm test:web && pnpm test:desktop",
     "package:desktop": "pnpm build && electron-forge package",
     "make:desktop": "pnpm build && electron-forge make"

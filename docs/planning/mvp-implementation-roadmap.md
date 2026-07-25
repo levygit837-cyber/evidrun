@@ -8,7 +8,7 @@ owner: product-engineering
 created_at: 2026-07-23
 updated_at: 2026-07-24
 observed_at: 2026-07-24
-review_due: 2026-07-30
+review_due: 2026-08-07
 applies_to: mvp-implementation
 sources:
   - docs/roadmap/mvp.md
@@ -28,134 +28,146 @@ verification_refs: []
 O MVP nao exige Canvas, nested agents ou replay. Ele exige que um usuario consiga, pelo aplicativo
 local, transformar uma hipotese em uma Run auditavel sem editar o banco ou chamar scripts internos.
 
-O fluxo de saida e:
+## O que ja atravessa o pipeline
+
+O corredor canonico foi exercitado ponta a ponta em `main` usando somente superficies publicas:
 
 ```text
-projeto + artifacts
--> drafts de Study e modulos
--> sandbox explicito ou pacote humanamente aceito
--> compile
--> admit
--> enqueue
--> worker
--> Subject deterministico ou modelo real
--> evaluation
--> checkpoint/progress quando configurados
--> terminal
--> inspecao no frontend
--> bundle auditavel verificado
+contract register -> authority accept -> study compile -> run admit -> run enqueue
+  -> worker --once -> run.completed -> bundle export -> bundle verify
 ```
 
-## Definicao de backend funcional
+O ledger emitiu a sequencia completa (`run.queued`, `run.preparing`, `context.composed`,
+`run.running`, `subject.invoked`, `subject.responded`, `run.evaluating`, `evaluation.completed`,
+`run.completed`) e o Bundle v3 verificou todos os grupos de records.
 
-O backend do MVP esta funcional somente quando:
+Isso significa que o problema do MVP **nao e** a espinha de execucao. A espinha existe e e auditavel.
+O problema e que ela esta inalcancavel para um usuario e estreita demais para um Study real.
 
-- um Study novo, nao legado, atravessa autoria, compilacao, admissao, fila, worker e terminal;
-- existe um caminho rapido `unverified_sandbox` que nao afirma autoridade humana;
-- existe um caminho verificado usando a authority opt-in ja implementada;
-- o Subject real recebe e usa apenas o `SubjectEnvelope` persistido;
-- artifacts possuem identidade, autorizacao de audiencia e materializacao auditavel;
-- capture/classification sao impostas nas escritas reais do runtime;
-- um EvaluationPlan com mais de um stage deterministico e opcional model judge pode executar;
-- checkpoints e Progress Artifacts sao produzidos automaticamente quando a policy os solicitar;
-- bounded exploration termina por disposition/stop reason, nunca por pass/fail inventado;
-- falhas, timeout, lease expiry, retry e restart convergem sem duplicar fatos;
-- o bundle exportado verifica contratos, envelopes, events, evaluations, checkpoints e manifest;
-- API e CLI usam o mesmo dominio e nao possuem atalhos de autoridade.
+## Os tres bloqueios que impedem uso
 
-## Definicao de frontend trabalhavel
+Estes bloqueios foram reproduzidos, nao inferidos. Nenhum deles e uma capability nova: sao lacunas de
+superficie e de lifecycle em cima de dominio que ja funciona.
 
-O frontend esta trabalhavel quando um usuario consegue:
+| # | Bloqueio | Evidencia observada |
+| --- | --- | --- |
+| B1 | Nao existe como criar Workspace ou Project | Banco novo tem zero projects. `create_workspace`/`create_project` existem apenas como metodos de `Repository`; nao ha comando CLI nem rota `POST`. `contract register` falha com `FOREIGN KEY constraint failed`. O unico caminho e `evidrun demo`, que importa a fixture legada. |
+| B2 | O desktop empacotado nunca processa Runs | `backend-lifecycle.ts` faz spawn de `evidrun serve --desktop-handshake`; `serve` sobe apenas uvicorn. Nenhum path do produto inicia `evidrun-worker`. A UI enfileira Runs que ninguem executa. |
+| B3 | Autoria verificada e opt-in e desligada por padrao | `Settings.authority_enabled` default `False`. Sem `EVIDRUN_AUTHORITY=1`, `StudyCompiler.resolve` recusa toda revision, porque `decide` exige verifier confiavel. Por padrao o unico corredor que aceita revisions e o `repository_fixture` nao humano. |
 
-- criar/selecionar projeto;
-- importar ou editar documentos de contract em formulario/JSON assistido;
-- validar, registrar e comparar revisions;
-- escolher sandbox ou abrir confirmacao humana quando aplicavel;
-- compilar e ver o tamanho da matriz antes de executar;
-- inspecionar admission issues sem ler JSON bruto;
-- enfileirar e acompanhar Run/job/attempt em tempo real;
-- navegar pelo ledger, SubjectEnvelope digest, tool events, evaluations e artifacts permitidos;
-- ver checkpoints e Progress Artifacts sem confundi-los com fatos canonicos;
-- exportar/verificar bundle;
-- distinguir claramente `mock`, `sandbox`, `verified`, `rejected`, `failed` e `unsupported`.
+Corrigido neste ciclo, pela mesma investigacao: a CLI reconstruia `Repository` sem verifier, entao
+gravava aceitacao verificada que ela mesma nao conseguia reler; `authority accept` sobrescrevia o
+verifier ignorando o gate do ADR 0015; e `contract accept` era um stub morto que duplicava
+`authority accept`.
 
-Uma UI bonita que apenas chama `/demo/bootstrap` nao satisfaz esse criterio.
+## Por que esta ordem
+
+A ordem nao segue a numeracao dos workstreams. Ela segue duas perguntas: *o que torna o produto
+utilizavel* e *o que precisa existir antes de varias frentes poderem editar em paralelo*.
+
+1. **Espinha alcancavel primeiro.** Enquanto B1/B2/B3 existem, qualquer capability nova nasce
+   inalcancavel. Uma feature que so pode ser exercitada por teste de integracao nao e entrega de
+   produto. Estes tres itens sao pequenos, independentes entre si e desbloqueiam todo o resto.
+2. **Costuras antes da largura.** Tres arquivos concentram o que WS-20, WS-30 e WS-40 precisam
+   editar: `Repository` (2943 linhas, cinco contextos numa classe), `AdmissionService.admit` (uma
+   funcao de ~570 linhas com ~25 checagens sequenciais) e `RuntimeAdapterCatalog.validate_spec`, que
+   duplica parte da decisao de admissao. Toda capability nova exige um `if` novo na mesma funcao e um
+   metodo novo na mesma classe. Paralelizar antes de abrir essas costuras nao produz paralelismo:
+   produz conflito de merge no mesmo trecho.
+3. **Largura depois.** Com superficie utilizavel e costuras abertas, as frentes de evidencia,
+   artifacts e confianca sao genuinamente independentes e podem correr juntas.
+4. **Frontend por ultimo, por dependencia real.** A pagina Observability ja consome endpoints reais.
+   O wizard de Create so pode deixar de ser rascunho local quando existir criacao de Project e um
+   caminho de aceitacao usavel. Laboratory so deixa de ser mock quando o Lab Agent existir. Integrar
+   UI antes disso produz tela que mente.
+
+## Ondas de execucao
+
+### Onda 0 — espinha alcancavel
+
+Tres fatias independentes, sem arquivo compartilhado entre elas. Executam em paralelo.
+
+- **WS-01 Superficie de Workspace/Project:** rotas `POST` e comandos CLI, com os mesmos invariantes
+  do dominio. Resolve B1.
+- **WS-02 Lifecycle do worker no desktop:** o app local passa a supervisionar execucao, nao apenas a
+  API. Resolve B2. Inclui reinicio observavel e o gate de CI que hoje nao roda (`test:handshake`).
+- **WS-03 Decisao de autoria default:** ADR sucessor que define como um usuario aceita uma revision
+  no produto instalado, sem afirmar falsa autoridade humana. Resolve B3 e fixa o contrato que a
+  WS-40 vai implementar.
+
+WS-03 e decisao, nao codigo: ela precisa aterrissar antes da Onda 2 porque define o vocabulario de
+trust que WS-40 e o frontend consomem.
+
+### Onda 1 — costuras do dominio
+
+Serial e inline. Nao ha paralelismo honesto aqui: e exatamente o trabalho que todos os demais
+consomem.
+
+- **WS-11 Fatiar `Repository` por agregado:** ledger, fila/lease, contract registry, evaluation e
+  read-model do dashboard passam a ser colaboradores separados, sem mudanca de comportamento.
+- **WS-12 Registro de checkers de admissao:** `AdmissionService.admit` vira composicao de checkers
+  por capability, e `validate_spec` deixa de ser segunda fonte de verdade sobre o que e executavel.
+
+Criterio de saida das duas: nenhuma mudanca de comportamento observavel, suite completa verde,
+mesma decisao de admissao para os mesmos specs.
+
+### Onda 2 — largura real
+
+Paralelo amplo. Cada frente tem ownership de arquivo distinto depois das costuras.
+
+- **WS-20 Artifact access e capture:** grants, materialization records e enforcement de capture.
+- **WS-30 Evaluation executavel:** multiplos stages, model judge, CheckpointCoordinator e
+  ProgressObserver.
+- **WS-40 Trust modes e ReviewPackage:** implementa a decisao da WS-03.
+- **WS-41 Contratos tipados de HTTP:** os DTOs de resposta consumidos pelo frontend passam pelo
+  gerador, fechando o drift que hoje existe entre `apps/web/src/types.ts` e os schemas reais.
+
+### Onda 3 — laboratorio util
+
+- **WS-50 Lab Agent e bounded exploration.**
+- **WS-51 Integracao do frontend:** Create passa a criar entidades reais; Laboratory passa a
+  consumir o Lab Agent; a UI distingue `sandbox`, `verified`, `rejected`, `failed` e `unsupported`.
+
+### Onda 4 — fechamento
+
+Dossiers determinístico, com modelo real e bounded; fluxo sandbox e fluxo verificado; E2E web +
+sidecar + worker; threat review e recovery; documentacao atualizada somente depois da evidencia.
 
 ## Grafo de dependencias
 
 ```mermaid
 flowchart LR
-    W0["WS-00 Runtime Kernel integrado"] --> W2["WS-20 Artifact access e capture"]
-    W0 --> W4["WS-40 Trust sandbox e ReviewPackage"]
-    W1["Fatia Electron multipágina implementada"] --> W6["Integração frontend completa"]
-    W2 --> W3["WS-30 Evaluation, checkpoints e progress"]
-    W4 --> W5["WS-50 Lab Agent e bounded exploration"]
-    W3 --> W5
-    W0 --> W6
-    W2 --> W6
-    W3 --> W6
-    W4 --> W6
-    W5 --> W6
-    W6 --> MVP["MVP operacional"]
+    W01["WS-01 Workspace/Project"] --> SEAM
+    W02["WS-02 Worker no desktop"] --> SEAM
+    W03["WS-03 Autoria default (ADR)"] --> SEAM
+    SEAM["WS-11/12 Costuras"] --> W20["WS-20 Artifacts"]
+    SEAM --> W30["WS-30 Evaluation"]
+    SEAM --> W40["WS-40 Trust"]
+    SEAM --> W41["WS-41 Tipos HTTP"]
+    W03 --> W40
+    W20 --> W50["WS-50 Lab Agent"]
+    W30 --> W50
+    W40 --> W50
+    W41 --> W51["WS-51 Frontend"]
+    W50 --> W51
+    W51 --> MVP["MVP operacional"]
 ```
-
-## Ondas de execucao
-
-### Onda 0 — concluida em `main`
-
-- **WS-00:** Runtime Kernel, Subject real e read tool foram integrados pela PR #4.
-- **UI/UX:** a direção anterior e os protótipos descartados continuam históricos. Uma nova fatia
-  multipágina foi implementada em `task/electron-frontend`, usando referências selecionadas do
-  AIDesigner sem promover suas fixtures a fatos do produto. Laboratory continua Demo; Create só
-  conecta o bootstrap canônico; Observability consome os endpoints atuais.
-
-### Onda 1 — fronteira de dados e confianca
-
-Com o Kernel em `main`, duas worktrees podem avancar com ownership separado:
-
-- **WS-20:** grants/materializacao/capture no backend e ArtifactStore;
-- **WS-40:** successor ADR, Sandbox Run e ReviewPackage no Control Plane.
-
-Essas branches nao devem editar a mesma migration. A primeira a entrar define o proximo head; a
-segunda rebaseia e cria sua migration depois.
-
-### Onda 2 — Evidence Plane executavel
-
-- **WS-30:** executor de EvaluationPlan, CheckpointCoordinator e ProgressObserver.
-
-Esse trabalho depende dos artifacts autorizados de WS-20 e do lifecycle duravel de WS-00. Deve ser
-uma unica linha de integracao porque evaluations, checkpoints e progress compartilham boundaries,
-terminal coverage e Bundle verifier.
-
-### Onda 3 — laboratorio util
-
-- **WS-50:** Lab Agent limitado a drafts/requests e runtime de bounded exploration;
-- a Console Web integra authoring, approval, monitoramento e evidence views reais.
-
-Lab Agent nao recebe autoridade humana, nao altera Run terminal e nao usa chats como evidencia do
-Subject.
-
-### Onda 4 — fechamento do MVP
-
-- um dossier deterministico offline;
-- um dossier com modelo real e read tool;
-- uma investigacao bounded com checkpoint e Progress Artifact;
-- um fluxo sandbox sem attestation humana;
-- um fluxo verificado com attestation;
-- testes E2E web + sidecar + worker;
-- threat review, recovery de banco e bundle verification;
-- documentacao atualizada somente depois de evidencia executavel.
 
 ## Workstreams e cortes
 
-| ID | Workstream | Dependencias | Pode rodar em paralelo | Nao inclui |
+| ID | Workstream | Dependencias | Paralelo com | Nao inclui |
 | --- | --- | --- | --- | --- |
-| WS-00 | Runtime Kernel integration | authority em `main` | encerrado | generic skills, graph, replay |
-| WS-10 | Fatia multipágina do frontend Electron | referências selecionadas e boundaries atuais | WS-20, WS-30, WS-40 e WS-50 | Lab Agent real, autoria canônica completa, artifact access, authority no renderer ou replay |
-| WS-20 | Artifact access/capture | WS-00 | WS-40 | portable bundle, restricted data |
-| WS-30 | Evaluation/checkpoint/progress | WS-00 + WS-20 | frontend adapters | restore, replay, fork |
-| WS-40 | Trust sandbox/ReviewPackage | authority + WS-00 | WS-20 | falsa aceitacao humana |
-| WS-50 | Lab Agent/bounded exploration | WS-30 + WS-40 | frontend integration | nested agents, external effects |
+| WS-01 | Superficie de Workspace/Project | nenhuma | WS-02, WS-03 | autoria assistida, importacao em massa |
+| WS-02 | Lifecycle do worker no desktop | nenhuma | WS-01, WS-03 | packaging assinado, distribuicao publica |
+| WS-03 | Decisao de autoria default | nenhuma | WS-01, WS-02 | implementacao de sandbox (e WS-40) |
+| WS-11 | Fatiar `Repository` | Onda 0 | serial | mudanca de comportamento |
+| WS-12 | Registro de checkers de admissao | WS-11 | serial | promover capability rejeitada |
+| WS-20 | Artifact access/capture | costuras | WS-30, WS-40, WS-41 | portable bundle, restricted data |
+| WS-30 | Evaluation/checkpoint/progress | costuras | WS-20, WS-40, WS-41 | restore, replay, fork |
+| WS-40 | Trust sandbox/ReviewPackage | WS-03 + costuras | WS-20, WS-30, WS-41 | falsa aceitacao humana |
+| WS-41 | Contratos tipados de HTTP | costuras | WS-20, WS-30, WS-40 | redesenho de API |
+| WS-50 | Lab Agent/bounded exploration | WS-20 + WS-30 + WS-40 | WS-51 parcial | nested agents, efeitos externos |
+| WS-51 | Integracao do frontend | WS-41 + WS-50 | — | Canvas, replay |
 
 ## Gates entre ondas
 
@@ -172,16 +184,7 @@ Uma onda nao e promovida porque os arquivos existem. O gate exige:
 
 ## Backlog pos-MVP
 
-Ficam fora do corte operacional inicial:
-
-- runtime generico de tools e skills com approval gateway;
-- graph protocol e nested agents;
-- restore, replay e fork por checkpoint;
-- bundle portatil com blobs;
-- Canvas semantico;
-- repeticoes/estatistica automatizada em escala;
-- DuckDB/Parquet e analytics avancado;
-- packaging/notarizacao para distribuicao publica;
-- sync/cloud/multi-tenant.
-
-Esses itens so entram depois que os tres dossiers do MVP passam pelo mesmo backend e pela mesma UI.
+Ficam fora do corte operacional inicial: runtime generico de tools e skills com approval gateway;
+graph protocol e nested agents; restore, replay e fork por checkpoint; bundle portatil com blobs;
+Canvas semantico; repeticoes e estatistica em escala; DuckDB/Parquet; packaging e notarizacao para
+distribuicao publica; sync, cloud e multi-tenant.

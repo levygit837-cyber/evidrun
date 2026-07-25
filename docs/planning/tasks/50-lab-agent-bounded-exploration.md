@@ -34,10 +34,11 @@ termina por disposition e stop reason do ADR 0013 e produz evidence/progress nav
 ## Dependencias
 
 ```text
-WS-00 done_on_main
 WS-30 done_on_main
 WS-40 done_on_main
 ```
+
+O Runtime Kernel de que esta task depende ja esta integrado em `main`.
 
 ## Lab Agent
 

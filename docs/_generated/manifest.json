@@ -178,6 +178,17 @@
       "review_due": null
     },
     {
+      "id": "adr-0017",
+      "path": "docs/adr/0017-structural-budget-and-named-seams.md",
+      "type": "adr",
+      "title": "Orçamento estrutural e costuras nomeadas por capacidade",
+      "status": "accepted",
+      "authority": "normative",
+      "owner": "core",
+      "updated_at": "2026-07-24",
+      "review_due": null
+    },
+    {
       "id": "agents-domain-docs",
       "path": "docs/agents/domain.md",
       "type": "guide",
@@ -219,6 +230,17 @@
       "authority": "normative",
       "owner": "core",
       "updated_at": "2026-07-23",
+      "review_due": null
+    },
+    {
+      "id": "architecture-codebase-layout",
+      "path": "docs/architecture/codebase-layout.md",
+      "type": "architecture",
+      "title": "Layout da codebase, costuras e orçamento estrutural",
+      "status": "accepted",
+      "authority": "normative",
+      "owner": "core",
+      "updated_at": "2026-07-24",
       "review_due": null
     },
     {
@@ -515,7 +537,7 @@
       "status": "implemented",
       "authority": "normative",
       "owner": "core",
-      "updated_at": "2026-07-23",
+      "updated_at": "2026-07-24",
       "review_due": null
     },
     {
@@ -541,17 +563,6 @@
       "review_due": "2026-07-30"
     },
     {
-      "id": "planning-electron-frontend-slice",
-      "path": "docs/planning/electron-frontend-slice.md",
-      "type": "planning",
-      "title": "Fatia multipágina do frontend Electron",
-      "status": "implemented",
-      "authority": "planning",
-      "owner": "product-engineering",
-      "updated_at": "2026-07-24",
-      "review_due": "2026-07-31"
-    },
-    {
       "id": "planning-mvp-capability-map",
       "path": "docs/planning/mvp-capability-map.md",
       "type": "planning",
@@ -560,7 +571,7 @@
       "authority": "planning",
       "owner": "product-engineering",
       "updated_at": "2026-07-24",
-      "review_due": "2026-07-30"
+      "review_due": "2026-08-07"
     },
     {
       "id": "planning-mvp-implementation-roadmap",
@@ -571,18 +582,62 @@
       "authority": "planning",
       "owner": "product-engineering",
       "updated_at": "2026-07-24",
-      "review_due": "2026-07-30"
+      "review_due": "2026-08-07"
     },
     {
-      "id": "planning-task-runtime-kernel-integration",
-      "path": "docs/planning/tasks/00-runtime-kernel-integration.md",
+      "id": "planning-task-workspace-project-surface",
+      "path": "docs/planning/tasks/01-workspace-project-surface.md",
       "type": "implementation-task",
-      "title": "WS-00 Integrar Runtime Kernel, Subject real e authority",
-      "status": "accepted",
+      "title": "WS-01 Superficie publica de Workspace e Project",
+      "status": "proposed",
       "authority": "planning",
-      "owner": "runtime",
+      "owner": "product-engineering",
       "updated_at": "2026-07-24",
-      "review_due": "2026-07-25"
+      "review_due": "2026-08-07"
+    },
+    {
+      "id": "planning-task-desktop-worker-lifecycle",
+      "path": "docs/planning/tasks/02-desktop-worker-lifecycle.md",
+      "type": "implementation-task",
+      "title": "WS-02 Lifecycle do worker no desktop",
+      "status": "proposed",
+      "authority": "planning",
+      "owner": "desktop",
+      "updated_at": "2026-07-24",
+      "review_due": "2026-08-07"
+    },
+    {
+      "id": "planning-task-default-authoring-authority",
+      "path": "docs/planning/tasks/03-default-authoring-authority.md",
+      "type": "implementation-task",
+      "title": "WS-03 Decisao de autoria default no produto instalado",
+      "status": "proposed",
+      "authority": "planning",
+      "owner": "governance",
+      "updated_at": "2026-07-24",
+      "review_due": "2026-08-07"
+    },
+    {
+      "id": "planning-task-domain-seams",
+      "path": "docs/planning/tasks/11-domain-seams.md",
+      "type": "implementation-task",
+      "title": "WS-11/12 Costuras do dominio para paralelismo real",
+      "status": "proposed",
+      "authority": "planning",
+      "owner": "core",
+      "updated_at": "2026-07-24",
+      "review_due": "2026-08-07"
+    },
+    {
+      "id": "planning-task-web-page-seams",
+      "path": "docs/planning/tasks/13-web-page-seams.md",
+      "type": "implementation-task",
+      "title": "WS-13 Costuras das paginas web",
+      "status": "proposed",
+      "authority": "planning",
+      "owner": "core",
+      "updated_at": "2026-07-24",
+      "review_due": "2026-08-07"
     },
     {
       "id": "planning-task-artifact-access-capture",
@@ -603,7 +658,7 @@
       "status": "proposed",
       "authority": "planning",
       "owner": "evidence",
-      "updated_at": "2026-07-23",
+      "updated_at": "2026-07-24",
       "review_due": "2026-08-13"
     },
     {
@@ -637,7 +692,7 @@
       "authority": "planning",
       "owner": "product-engineering",
       "updated_at": "2026-07-24",
-      "review_due": "2026-07-30"
+      "review_due": "2026-08-07"
     },
     {
       "id": "product-charter",
@@ -704,17 +759,6 @@
       "owner": "product",
       "updated_at": "2026-07-22",
       "review_due": null
-    },
-    {
-      "id": "research-aidesigner-ultradesign-integration",
-      "path": "docs/research/aidesigner-ultradesign-integration.md",
-      "type": "research",
-      "title": "Integração do AIDesigner para gerações Ultradesign longas",
-      "status": "draft",
-      "authority": "research",
-      "owner": "core",
-      "updated_at": "2026-07-24",
-      "review_due": "2026-08-24"
     },
     {
       "id": "research-context-reliability-origins",
