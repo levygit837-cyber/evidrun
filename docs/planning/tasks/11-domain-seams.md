@@ -2,12 +2,12 @@
 id: planning-task-domain-seams
 type: implementation-task
 title: WS-11/12 Costuras do dominio para paralelismo real
-status: proposed
+status: verified
 authority: planning
 owner: core
 created_at: 2026-07-23
-updated_at: 2026-07-24
-observed_at: 2026-07-24
+updated_at: 2026-07-25
+observed_at: 2026-07-25
 review_due: 2026-08-07
 applies_to: domain-seams
 sources:
@@ -20,16 +20,67 @@ sources:
   - docs/contracts/agent-inventory-workspace-v1.md
 supersedes: []
 superseded_by: null
-implementation_refs: []
-verification_refs: []
+implementation_refs:
+  - src/evidrun/infrastructure/database/repository.py
+  - src/evidrun/infrastructure/database/unit_of_work.py
+  - src/evidrun/contracts/admission/service.py
+  - src/evidrun/contracts/admission/envelope.py
+  - src/evidrun/runs/admission/catalog_checks.py
+  - code-budget.toml
+verification_refs:
+  - tests/unit/test_admission_oracle.py
+  - tests/unit/admission_oracle.json
+  - tests/integration/test_runtime_queue.py
+  - tests/unit/test_code_budget.py
 ---
 
 # WS-11/12 — Costuras do dominio
 
-`workstream_state: blocked`
+`workstream_state: delivered`
 
-Bloqueado pela Onda 0 (WS-01, WS-02, WS-03). Antes disso o refactor competiria com mudancas de
-superficie nos mesmos arquivos, sem beneficio.
+WS-11 aterrissou em `812b330` (PR #20) e WS-12 em `62ddec8` (PR #21). O bloqueio pela Onda 0 foi
+dispensado: as frentes WS-01/02/03 mudam superfície de workspace, lifecycle desktop e autoria, e
+nenhuma delas tocou `repository.py`, `compiler.py` ou `adapters.py` no intervalo, então o refactor não
+competiu com mudança de superfície.
+
+## O que foi entregue
+
+**WS-11.** `Repository` deixou de ser um God Object: `repository.py` tem 53 linhas e é raiz de
+composição sobre nove agregados que compartilham um `UnitOfWork`. Ordem de extração seguida como
+especificado (`read_model` → `registry` → `evaluation` → `catalog` → `ledger` → `queue`), com a suíte
+obrigatória completa verde entre cada agregado. Atomicidade de `claim_next_job` e
+`prepare_run_execution` medida por listener DBAPI e comparada contra worktree do commit base:
+`begin`/`commit` idênticos nos dois lados.
+
+**WS-12.** `AdmissionService.admit` virou orquestração de checkers puros `(spec, envelope) -> findings`
+em `contracts/admission/`, e a segunda camada foi nomeada em `runs/admission/`. O envelope virou
+objeto explícito (`RuntimeCapabilityEnvelope`), produzido apenas por
+`RuntimeAdapterCatalog.capability_envelope()` e exposto como mapping read-only. A camada dona de cada
+eixo de sobreposição está registrada em
+[Layout da codebase](../../architecture/codebase-layout.md).
+
+**O oráculo existe.** `tests/unit/test_admission_oracle.py` percorre 62 RunSpecs cobrindo cada ramo de
+rejeição das duas camadas e trava decisão, statuses, `missing_requirements`, `denied_policies`,
+warnings, inventário resolvido e a tripla `(category, subject_ref, reason.code, reason.detail,
+blocking)` byte a byte contra `tests/unit/admission_oracle.json`. Os cinco ramos que o snapshot
+apontava sem cobertura nenhuma passaram a ser exercitados. 60 dos 62 casos são byte-idênticos ao
+baseline pré-refactor.
+
+**Nenhuma capability foi promovida.** As nove condições de ataque continuam rejeitadas com a mensagem
+exata, travadas em teste permanente.
+
+**Baseline removido.** `code-budget.toml` perdeu a entrada `function_lines=481` de `repository.py`
+(entrada inteira) e a `function_lines=567` de `compiler.py`; `file_lines` de `compiler.py` apertou de
+1156 para 530. Nada foi adicionado ou aumentado; `--update-baseline` não rodou.
+
+## Defeito latente encontrado e corrigido
+
+A condição de escalação "as duas camadas discordarem para algum spec real" não ocorreu, mas outra sim:
+ao exercitar pela primeira vez o ramo de provider indisponível, `admit` levantava `ValidationError` em
+vez de devolver `decision=rejected`. Preenchia `provider_profile_id` sem digest, model, reasoning e
+adapter, combinação que `ResolvedAgentInventory` rejeita. Alcançável pela composição de produção, com
+zero cobertura anterior. Foi escalado ao humano conforme o brief manda, e a decisão registrada foi
+corrigir dentro de WS-12: um profile não resolvido agora deixa o bloco de provider inteiro vazio.
 
 ## Resultado pratico
 

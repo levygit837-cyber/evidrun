@@ -6,8 +6,8 @@ status: accepted
 authority: planning
 owner: product-engineering
 created_at: 2026-07-23
-updated_at: 2026-07-24
-observed_at: 2026-07-24
+updated_at: 2026-07-25
+observed_at: 2026-07-25
 review_due: 2026-08-07
 applies_to: mvp-implementation
 sources:
@@ -68,12 +68,12 @@ utilizavel* e *o que precisa existir antes de varias frentes poderem editar em p
 1. **Espinha alcancavel primeiro.** Enquanto B1/B2/B3 existem, qualquer capability nova nasce
    inalcancavel. Uma feature que so pode ser exercitada por teste de integracao nao e entrega de
    produto. Estes tres itens sao pequenos, independentes entre si e desbloqueiam todo o resto.
-2. **Costuras antes da largura.** Tres arquivos concentram o que WS-20, WS-30 e WS-40 precisam
-   editar: `Repository` (2943 linhas, cinco contextos numa classe), `AdmissionService.admit` (uma
-   funcao de ~570 linhas com ~25 checagens sequenciais) e `RuntimeAdapterCatalog.validate_spec`, que
-   duplica parte da decisao de admissao. Toda capability nova exige um `if` novo na mesma funcao e um
-   metodo novo na mesma classe. Paralelizar antes de abrir essas costuras nao produz paralelismo:
-   produz conflito de merge no mesmo trecho.
+2. **Costuras antes da largura.** Tres arquivos concentravam o que WS-20, WS-30 e WS-40 precisam
+   editar: `Repository`, `AdmissionService.admit` e `RuntimeAdapterCatalog.validate_spec`, que
+   duplicava parte da decisao de admissao. Toda capability nova exigia um `if` novo na mesma funcao e
+   um metodo novo na mesma classe. As duas costuras foram abertas na Onda 1: hoje uma capability nova
+   nasce em `contracts/admission/checks/` mais o envelope do catalogo, e uma escrita nova nasce no
+   agregado dono da sua atomicidade.
 3. **Largura depois.** Com superficie utilizavel e costuras abertas, as frentes de evidencia,
    artifacts e confianca sao genuinamente independentes e podem correr juntas.
 4. **Frontend por ultimo, por dependencia real.** A pagina Observability ja consome endpoints reais.
@@ -98,18 +98,24 @@ Tres fatias independentes, sem arquivo compartilhado entre elas. Executam em par
 WS-03 e decisao, nao codigo: ela precisa aterrissar antes da Onda 2 porque define o vocabulario de
 trust que WS-40 e o frontend consomem.
 
-### Onda 1 — costuras do dominio
+### Onda 1 — costuras do dominio (entregue)
 
-Serial e inline. Nao ha paralelismo honesto aqui: e exatamente o trabalho que todos os demais
-consomem.
+Serial e inline por natureza: e exatamente o trabalho que todos os demais consomem. Aterrissou em
+`812b330` (PR #20) e `62ddec8` (PR #21).
 
-- **WS-11 Fatiar `Repository` por agregado:** ledger, fila/lease, contract registry, evaluation e
-  read-model do dashboard passam a ser colaboradores separados, sem mudanca de comportamento.
-- **WS-12 Registro de checkers de admissao:** `AdmissionService.admit` vira composicao de checkers
-  por capability, e `validate_spec` deixa de ser segunda fonte de verdade sobre o que e executavel.
+- **WS-11 Fatiar `Repository` por agregado:** entregue. `repository.py` tem 53 linhas e e raiz de
+  composicao sobre nove agregados que compartilham um `UnitOfWork`. Ledger, fila/lease, contract
+  registry, evaluation/checkpoint, catalog e read-model sao colaboradores separados. A atomicidade de
+  `claim_next_job` e `prepare_run_execution` foi medida contra o commit base e nao mudou.
+- **WS-12 Registro de checkers de admissao:** entregue. `admit` virou orquestracao de checkers puros
+  `(spec, envelope) -> findings` em `contracts/admission/`, e `validate_spec` foi nomeada como segunda
+  camada em `runs/admission/`. O envelope virou objeto explicito produzido apenas pelo catalogo.
 
-Criterio de saida das duas: nenhuma mudanca de comportamento observavel, suite completa verde,
-mesma decisao de admissao para os mesmos specs.
+Criterio de saida cumprido: nenhuma mudanca de comportamento observavel, suite completa verde, e a
+mesma decisao de admissao para os mesmos specs — travada por um oraculo de equivalencia de 62 casos
+que compara decisao, statuses, requisitos, politicas negadas e a mensagem exata de cada issue byte a
+byte. Um defeito latente encontrado ao exercitar o ramo de provider indisponivel pela primeira vez foi
+escalado e corrigido: `admit` levantava `ValidationError` em vez de devolver `decision=rejected`.
 
 ### Onda 2 — largura real
 
