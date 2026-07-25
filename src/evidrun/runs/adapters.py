@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Literal, Protocol, cast
+from typing import Protocol, cast
 
 from pydantic import TypeAdapter
 
@@ -16,17 +16,17 @@ from evidrun.contracts import (
     RunSpec,
     SubjectEnvelope,
 )
-from evidrun.contracts.compiler import (
+from evidrun.contracts.admission import (
     AdmissionService,
     CapabilityCatalogEntry,
-    EvaluatorEnvelopeCompiler,
     ProviderCatalogEntry,
+    RuntimeCapabilityEnvelope,
 )
+from evidrun.contracts.compiler import EvaluatorEnvelopeCompiler
 from evidrun.contracts.runtime import (
     AdmissionIssue,
     DimensionValue,
     EvaluationBoundary,
-    ResolutionReason,
 )
 from evidrun.evaluations import ExactCauseGrader
 from evidrun.infrastructure.artifacts.store import ArtifactStore
@@ -39,6 +39,14 @@ from evidrun.infrastructure.providers import (
     extract_usage,
 )
 from evidrun.providers import ProviderProfile
+from evidrun.runs.admission import (
+    RealSubjectContract,
+    check_evaluator_resolution,
+    check_real_spec,
+    check_scripted_spec,
+    check_shared_spec,
+)
+from evidrun.runs.admission import issue as catalog_issue
 from evidrun.shared.capabilities import capability_ref
 from evidrun.shared.ports import ProviderPort, SubjectResult
 from evidrun.shared.types import (
@@ -722,7 +730,14 @@ class RuntimeAdapterCatalog:
             reference.digest,
         )
 
-    def admission_service(self) -> AdmissionService:
+    def capability_envelope(self) -> RuntimeCapabilityEnvelope:
+        """Declare the execution surface from the adapters that are actually wired.
+
+        A capability reaches this envelope only when an adapter backs it, which is
+        why the provider block, the tool catalog, and the raw-capture flag all turn
+        on together with `real_subject`.
+        """
+
         capabilities: tuple[CapabilityCatalogEntry, ...] = ()
         providers: tuple[ProviderCatalogEntry, ...] = ()
         runtime_capabilities: tuple[str, ...] = ()
@@ -753,7 +768,7 @@ class RuntimeAdapterCatalog:
             network_modes = ("disabled", "provider_only")
             supported_budget_fields = ("max_tool_calls",)
             supports_raw_encrypted_capture = True
-        return AdmissionService(
+        return RuntimeCapabilityEnvelope.declare(
             runners=tuple(adapter.ref for adapter in self._subjects.values()),
             capabilities=capabilities,
             providers=providers,
@@ -761,235 +776,65 @@ class RuntimeAdapterCatalog:
             network_modes=network_modes,
             supported_budget_fields=supported_budget_fields,
             supports_raw_encrypted_capture=supports_raw_encrypted_capture,
+        )
+
+    def admission_service(self) -> AdmissionService:
+        return AdmissionService(
+            envelope=self.capability_envelope(),
             execution_validators=(self.validate_spec,),
         )
 
     def validate_spec(self, spec: RunSpec) -> tuple[AdmissionIssue, ...]:
-        issues: list[AdmissionIssue] = []
+        """Run the concrete adapter layer for the pair resolved for this RunSpec.
+
+        Order matters: the shared checks, then the pair-specific ones, then the
+        evaluator resolution. `AdmissionRecord.issues` is a persisted tuple, so a
+        reordering here is an observable change.
+        """
+
         subject = self._subjects.get(self._subject_key(spec.agent_inventory.runner_ref))
         if subject is None:
             return (
-                self._issue(
+                catalog_issue(
                     "runner_adapter",
                     "the admitted runner has no exact executable adapter",
                 ),
             )
-        visible_inputs = tuple(
-            item
-            for item in spec.scenario.input_bindings
-            if item.visibility in {"subject", "subject_and_evaluator"}
+        issues = check_shared_spec(
+            spec,
+            materializer=self.materializer,
+            project_id_for_spec=self.project_id_for_spec,
         )
-        if len(spec.scenario.input_bindings) != 1:
-            issues.append(
-                self._issue(
-                    "scenario_input_count",
-                    "the active adapters require exactly one scenario input in total",
-                )
-            )
-        if len(visible_inputs) != 1:
-            issues.append(
-                self._issue(
-                    "subject_input_count",
-                    "the active Subject adapter requires exactly one Subject-visible input",
-                )
-            )
-        elif visible_inputs[0].source.media_type != "text/plain":
-            issues.append(
-                self._issue(
-                    "subject_input_media_type",
-                    "the active Subject adapter requires a text/plain input",
-                )
-            )
-        elif self.materializer is None or self.project_id_for_spec is None:
-            issues.append(
-                self._issue(
-                    "subject_input_materializer",
-                    "the active catalog has no artifact materializer",
-                )
-            )
-        else:
-            try:
-                self.materializer.resolve_text(
-                    visible_inputs[0].source,
-                    project_id=self.project_id_for_spec(spec),
-                )
-            except FileNotFoundError, KeyError, ValueError:
-                issues.append(
-                    self._issue(
-                        "subject_input_artifact",
-                        "the Subject input cannot be verified in the canonical ArtifactStore",
-                    )
-                )
-        if spec.context_policy is None:
-            issues.append(
-                self._issue(
-                    "context_policy",
-                    "the active Subject adapter requires a ContextPolicy",
-                )
-            )
-        if spec.extensions:
-            issues.append(
-                self._issue(
-                    "runtime_extensions",
-                    "the active adapters do not execute RunSpec extensions",
-                )
-            )
-        if spec.evaluation_plan.disclosure.hidden_input_refs:
-            issues.append(
-                self._issue(
-                    "evaluation_hidden_inputs",
-                    "the active evaluator adapter does not consume hidden input artifacts",
-                )
-            )
-        if spec.evaluation_plan.blinding_policy.hidden_fields:
-            issues.append(
-                self._issue(
-                    "evaluation_blinding",
-                    "the active evaluator adapter does not implement field blinding",
-                )
-            )
-        if spec.evaluation_plan.aggregation is not None:
-            issues.append(
-                self._issue(
-                    "evaluation_aggregation",
-                    "the active evaluator adapter does not execute an aggregation projector",
-                )
-            )
         if isinstance(subject, ScriptedLogInvestigatorAdapter):
-            issues.extend(self._validate_scripted_spec(spec))
+            issues.extend(check_scripted_spec(spec, evaluator=self.evaluator))
         else:
-            issues.extend(self._validate_real_spec(spec, subject))
-        if not any(evaluator.supports(spec) for evaluator in (self.evaluator, self.real_evaluator)):
-            issues.append(
-                self._issue(
-                    "evaluator_adapter",
-                    "the EvaluationPlan has no exact deterministic evaluator adapter",
+            issues.extend(
+                check_real_spec(
+                    spec,
+                    contract=self._real_subject_contract(subject),
+                    evaluator=self.real_evaluator,
                 )
             )
+        issues.extend(
+            check_evaluator_resolution(
+                spec, evaluators=(self.evaluator, self.real_evaluator)
+            )
+        )
         return tuple(issues)
 
-    def _validate_scripted_spec(self, spec: RunSpec) -> tuple[AdmissionIssue, ...]:
-        issues: list[AdmissionIssue] = []
-        if not self.evaluator.supports(spec):
-            issues.append(
-                self._issue(
-                    "scripted_evaluator",
-                    "the scripted runner requires the exact legacy deterministic evaluator",
-                )
-            )
-        if spec.agent_inventory.provider_profile_id is not None:
-            issues.append(
-                self._issue(
-                    "offline_provider",
-                    "the scripted adapter does not invoke a provider",
-                )
-            )
-        if spec.agent_inventory.capability_requirements:
-            issues.append(
-                self._issue(
-                    "offline_capabilities",
-                    "the scripted adapter does not execute tools or skills",
-                )
-            )
-        if spec.workspace.network_policy.mode != "disabled":
-            issues.append(
-                self._issue(
-                    "offline_network",
-                    "the scripted adapter requires disabled network",
-                )
-            )
-        if spec.budgets.max_tool_calls is not None:
-            issues.append(
-                self._issue(
-                    "offline_tool_budget",
-                    "the scripted adapter cannot consume a tool-call budget",
-                )
-            )
-        if spec.capture_policy.default_mode == "raw_encrypted":
-            issues.append(
-                self._issue(
-                    "offline_raw_capture",
-                    "the scripted compatibility adapter does not use raw encrypted capture",
-                )
-            )
-        return tuple(issues)
+    @staticmethod
+    def _real_subject_contract(
+        subject: ResponsesReadAgentAdapter,
+    ) -> RealSubjectContract:
+        """Project the wired real adapter into the contract its checks assert."""
 
-    def _validate_real_spec(
-        self, spec: RunSpec, subject: ResponsesReadAgentAdapter
-    ) -> tuple[AdmissionIssue, ...]:
-        issues: list[AdmissionIssue] = []
-        if not self.real_evaluator.supports(spec):
-            issues.append(
-                self._issue(
-                    "real_evaluator",
-                    "the real read agent requires the strict read-answer evaluator",
-                )
-            )
-        if spec.agent_inventory.provider_profile_id != subject.profile.id:
-            issues.append(
-                self._issue(
-                    "provider_profile",
-                    "the real adapter requires its exact provider profile",
-                    category="provider",
-                )
-            )
-        if not subject.credential_available:
-            issues.append(
-                self._issue(
-                    "provider_credential",
-                    "the provider credential is unavailable to the worker composition",
-                    category="provider",
-                    code="unavailable",
-                )
-            )
-        requirements = spec.agent_inventory.capability_requirements
-        if (
-            len(requirements) != 1
-            or requirements[0].kind != "tool"
-            or requirements[0].capability_ref != subject.tool.ref
-            or not requirements[0].required
-            or requirements[0].minimum_interface_version != "1"
-            or requirements[0].requested_permissions != (subject.tool.allowed_permission,)
-            or requirements[0].exposure != "schema_only"
-            or requirements[0].authority_constraints != (subject.tool.authority_constraint,)
-            or requirements[0].instruction_refs
-        ):
-            issues.append(
-                self._issue(
-                    "read_tool_contract",
-                    "the real adapter requires the exact closed read-tool capability",
-                    category="capability",
-                )
-            )
-        if spec.workspace.network_policy.mode != "provider_only":
-            issues.append(
-                self._issue(
-                    "provider_network",
-                    "the real adapter requires provider_only network",
-                    category="policy",
-                    code="denied",
-                )
-            )
-        if spec.budgets.max_tool_calls is None or spec.budgets.max_tool_calls > 8:
-            issues.append(
-                self._issue(
-                    "max_tool_calls",
-                    "the real adapter requires max_tool_calls between 1 and 8",
-                )
-            )
-        if not (
-            spec.capture_policy.default_mode == "raw_encrypted"
-            and spec.capture_policy.raw_sensitive == "opt_in"
-        ):
-            issues.append(
-                self._issue(
-                    "recoverable_subject_output",
-                    "the real adapter requires opt-in encrypted raw capture for recovery",
-                    category="policy",
-                    code="denied",
-                )
-            )
-        return tuple(issues)
+        return RealSubjectContract(
+            profile_id=subject.profile.id,
+            tool_ref=subject.tool.ref,
+            allowed_permission=subject.tool.allowed_permission,
+            authority_constraint=subject.tool.authority_constraint,
+            credential_available=subject.credential_available,
+        )
 
     def subject_for(
         self, spec: RunSpec, admission: AdmissionRecord
@@ -1026,18 +871,3 @@ class RuntimeAdapterCatalog:
             if evaluator.supports(spec):
                 return evaluator
         raise ValueError("EvaluationPlan cannot be resolved by the active catalog")
-
-    @staticmethod
-    def _issue(
-        subject_ref: str,
-        detail: str,
-        *,
-        category: Literal["runtime", "provider", "capability", "policy"] = "runtime",
-        code: Literal["unsupported", "denied", "unavailable", "digest_mismatch"] = ("unsupported"),
-    ) -> AdmissionIssue:
-        return AdmissionIssue(
-            category=category,
-            subject_ref=subject_ref,
-            reason=ResolutionReason(code=code, detail=detail),
-            blocking=True,
-        )
