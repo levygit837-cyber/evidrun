@@ -4,6 +4,7 @@ type: operations
 title: Execução durável de Runs
 status: implemented
 authority: normative
+volatility: current
 owner: core
 created_at: 2026-07-23
 updated_at: 2026-07-23

@@ -4,6 +4,7 @@ type: security
 title: Threat model inicial
 status: accepted
 authority: normative
+volatility: timeless
 owner: security
 created_at: 2026-07-22
 updated_at: 2026-07-23

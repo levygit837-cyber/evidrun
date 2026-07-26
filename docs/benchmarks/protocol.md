@@ -4,6 +4,7 @@ type: protocol
 title: Protocolo de benchmarks e evals
 status: accepted
 authority: normative
+volatility: timeless
 owner: evals
 created_at: 2026-07-22
 updated_at: 2026-07-22

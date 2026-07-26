@@ -4,6 +4,7 @@ type: adr
 title: HumanSubjectEnvelope, autenticador local e ciclo de vida de credencial
 status: accepted
 authority: normative
+volatility: timeless
 owner: governance
 created_at: 2026-07-23
 updated_at: 2026-07-23

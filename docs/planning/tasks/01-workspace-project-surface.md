@@ -4,6 +4,7 @@ type: implementation-task
 title: WS-01 Superficie publica de Workspace e Project
 status: proposed
 authority: planning
+volatility: snapshot
 owner: product-engineering
 created_at: 2026-07-23
 updated_at: 2026-07-24

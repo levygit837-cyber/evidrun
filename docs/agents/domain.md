@@ -4,6 +4,7 @@ type: guide
 title: Consumo de documentos de domínio pelas agent skills
 status: accepted
 authority: informative
+volatility: timeless
 owner: core
 created_at: 2026-07-23
 updated_at: 2026-07-23

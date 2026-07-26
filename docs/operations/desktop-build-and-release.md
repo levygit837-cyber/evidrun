@@ -4,6 +4,7 @@ type: operations
 title: Build e release Electron
 status: proposed
 authority: normative
+volatility: timeless
 owner: desktop
 created_at: 2026-07-22
 updated_at: 2026-07-22

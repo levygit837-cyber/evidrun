@@ -4,6 +4,7 @@ type: product
 title: Matriz de contexto e grafo semântico da execução
 status: draft
 authority: incubation
+volatility: snapshot
 owner: product
 created_at: 2026-07-23
 updated_at: 2026-07-23

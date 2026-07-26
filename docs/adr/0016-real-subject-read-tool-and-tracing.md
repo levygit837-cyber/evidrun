@@ -4,6 +4,7 @@ type: adr
 title: Subject real com tool de leitura, tracing cercado e avaliação fundamentada
 status: accepted
 authority: normative
+volatility: timeless
 owner: core
 created_at: 2026-07-23
 updated_at: 2026-07-23

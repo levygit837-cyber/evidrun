@@ -4,6 +4,7 @@ type: contract
 title: Captura e retenção v1
 status: implemented
 authority: normative
+volatility: timeless
 owner: security
 created_at: 2026-07-22
 updated_at: 2026-07-26

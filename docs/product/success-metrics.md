@@ -4,6 +4,7 @@ type: protocol
 title: Métricas de sucesso do produto
 status: proposed
 authority: normative
+volatility: timeless
 owner: product
 created_at: 2026-07-22
 updated_at: 2026-07-22

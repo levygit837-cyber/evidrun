@@ -4,6 +4,7 @@ type: research
 title: Dossier C — Investigação qualitativa de pedidos duplicados
 status: draft
 authority: research
+volatility: snapshot
 owner: core
 created_at: 2026-07-22
 updated_at: 2026-07-22

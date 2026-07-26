@@ -4,6 +4,7 @@ type: planning
 title: Dispatch de workstreams para agentes
 status: accepted
 authority: planning
+volatility: snapshot
 owner: product-engineering
 created_at: 2026-07-23
 updated_at: 2026-07-24

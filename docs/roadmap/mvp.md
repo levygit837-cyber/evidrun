@@ -4,6 +4,7 @@ type: roadmap
 title: Roadmap do MVP
 status: accepted
 authority: planning
+volatility: snapshot
 owner: product
 created_at: 2026-07-22
 updated_at: 2026-07-24
