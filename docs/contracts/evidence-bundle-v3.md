@@ -18,7 +18,7 @@ implementation_refs:
   - src/evidrun/evidence/verify/v3.py
   - src/evidrun/evidence/verify/dispatch.py
   - src/evidrun/evidence/verify/records.py
-  - src/evidrun/contracts/runtime.py
+  - src/evidrun/contracts/runtime
 verification_refs:
   - tests/integration/test_runtime_kernel.py
   - tests/integration/test_runtime_queue.py

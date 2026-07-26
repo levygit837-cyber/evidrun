@@ -17,15 +17,15 @@ from evidrun.contracts.admission import (
     CapabilityCatalogEntry,
     RuntimeCapabilityEnvelope,
 )
-from evidrun.contracts.authoring import (
-    CapabilityRequirement,
+from evidrun.contracts.authoring.evaluation import (
     EvaluationDimension,
     EvaluationPlanSpec,
     EvaluationStage,
     EvaluationTrigger,
 )
+from evidrun.contracts.authoring.inventory import CapabilityRequirement
 from evidrun.contracts.legacy import capability_ref
-from evidrun.contracts.runtime import DimensionValue, EvaluationBoundary
+from evidrun.contracts.runtime.records import DimensionValue, EvaluationBoundary
 from evidrun.infrastructure.database import Repository
 from evidrun.runs import EvidrunService
 from evidrun.shared.types import sha256_bytes, utc_now

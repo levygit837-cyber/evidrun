@@ -10,13 +10,9 @@ from evidrun.contracts.admission.envelope import (
     capability_key,
 )
 from evidrun.contracts.admission.issues import CheckResult, FindingsBuilder
-from evidrun.contracts.authoring import CapabilityRequirement
+from evidrun.contracts.authoring.inventory import CapabilityRequirement
 from evidrun.contracts.base import CapabilityDescriptorRef
-from evidrun.contracts.runtime import (
-    ResolutionReason,
-    ResolvedCapability,
-    RunSpec,
-)
+from evidrun.contracts.runtime.spec import ResolutionReason, ResolvedCapability, RunSpec
 
 
 @dataclass(frozen=True, slots=True)

@@ -4,38 +4,39 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, cast
 
-from evidrun.contracts.authoring import (
-    AgentInventoryRevision,
-    AgentInventorySpec,
-    BudgetSpec,
-    CapturePolicySpec,
-    ComparisonPlan,
+from evidrun.contracts.authoring.evaluation import (
     EvaluationDimension,
     EvaluationDisclosure,
     EvaluationPlanRevision,
     EvaluationPlanSpec,
     EvaluationStage,
     EvaluationTrigger,
-    ExternalEffectPolicy,
-    GoalConstraint,
-    GoalOutcome,
-    GoalRevision,
-    GoalSpec,
-    InputBinding,
-    IntentScope,
+)
+from evidrun.contracts.authoring.goal import GoalConstraint, GoalOutcome, GoalRevision, GoalSpec
+from evidrun.contracts.authoring.inventory import AgentInventoryRevision, AgentInventorySpec
+from evidrun.contracts.authoring.protocol import (
     InteractionProtocolRevision,
     InteractionProtocolSpec,
-    NetworkPolicy,
+)
+from evidrun.contracts.authoring.run import (
+    BudgetSpec,
+    CapturePolicySpec,
     RunBlueprint,
-    ScenarioRevision,
-    ScenarioSpec,
-    SeedStrategy,
     StopCondition,
-    StudyIntent,
+)
+from evidrun.contracts.authoring.scenario import InputBinding, ScenarioRevision, ScenarioSpec
+from evidrun.contracts.authoring.study import (
+    ComparisonPlan,
+    SeedStrategy,
     StudyRevision,
     StudySpec,
     VariantOverrides,
     VariantSpec,
+)
+from evidrun.contracts.authoring.study_intent import IntentScope, StudyIntent
+from evidrun.contracts.authoring.workspace import (
+    ExternalEffectPolicy,
+    NetworkPolicy,
     WorkspaceMount,
     WorkspaceTemplateRevision,
     WorkspaceTemplateSpec,

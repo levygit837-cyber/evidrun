@@ -12,9 +12,9 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Literal, Protocol
 
-from evidrun.contracts.authoring import InputBinding
+from evidrun.contracts.authoring.scenario import InputBinding
 from evidrun.contracts.base import ArtifactRef
-from evidrun.contracts.runtime import AdmissionIssue, ResolutionReason, RunSpec
+from evidrun.contracts.runtime.spec import AdmissionIssue, ResolutionReason, RunSpec
 
 IssueCategory = Literal["runtime", "provider", "capability", "policy"]
 ReasonCode = Literal["unsupported", "denied", "unavailable", "digest_mismatch"]

@@ -21,7 +21,7 @@ from evidrun.contracts import (
     GoalStateTerminalResult,
     RunSpec,
 )
-from evidrun.contracts.runtime import DimensionValue, EvaluationBoundary
+from evidrun.contracts.runtime.records import DimensionValue, EvaluationBoundary
 from evidrun.infrastructure.artifacts.store import ArtifactStore
 from evidrun.runs.adapters.types import EvaluationOutcome
 from evidrun.shared.capabilities import capability_ref

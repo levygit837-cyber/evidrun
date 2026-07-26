@@ -6,7 +6,7 @@ status: implemented
 authority: normative
 owner: core
 created_at: 2026-07-23
-updated_at: 2026-07-23
+updated_at: 2026-07-25
 applies_to: schema/run-event-payloads@1
 sources:
   - docs/contracts/run-event.md
@@ -14,7 +14,7 @@ sources:
 supersedes: []
 superseded_by: null
 implementation_refs:
-  - src/evidrun/contracts/runtime.py
+  - src/evidrun/contracts/runtime
   - src/evidrun/infrastructure/database/repository.py
   - src/evidrun/runs/service.py
 verification_refs:

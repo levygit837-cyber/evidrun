@@ -14,7 +14,7 @@ from evidrun.contracts.admission.issues import (
     FindingsBuilder,
     InteractionStatus,
 )
-from evidrun.contracts.runtime import RunSpec
+from evidrun.contracts.runtime.spec import RunSpec
 
 
 def check_progress_observer(spec: RunSpec) -> AdmissionFindings:

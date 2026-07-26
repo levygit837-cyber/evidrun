@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from evidrun.contracts.base import CapabilityDescriptorRef
-from evidrun.contracts.runtime import AdmissionIssue, RunSpec
+from evidrun.contracts.runtime.spec import AdmissionIssue, RunSpec
 from evidrun.runs.admission.catalog_checks import SpecSupport, issue
 
 

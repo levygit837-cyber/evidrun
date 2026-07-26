@@ -7,7 +7,7 @@ claims; these checks say what the resolved scripted pair actually runs.
 
 from __future__ import annotations
 
-from evidrun.contracts.runtime import AdmissionIssue, RunSpec
+from evidrun.contracts.runtime.spec import AdmissionIssue, RunSpec
 from evidrun.runs.admission.catalog_checks import SpecSupport, issue
 
 

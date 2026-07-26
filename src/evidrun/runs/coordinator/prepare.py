@@ -17,7 +17,7 @@ from evidrun.contracts import (
     RunSpec,
     SubjectEnvelope,
 )
-from evidrun.contracts.authoring import InputBinding
+from evidrun.contracts.authoring.scenario import InputBinding
 from evidrun.contracts.compiler import SubjectEnvelopeCompiler
 from evidrun.experiments.models import ContextPolicySpec
 from evidrun.runs.coordinator.context import (

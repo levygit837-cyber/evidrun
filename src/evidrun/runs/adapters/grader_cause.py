@@ -11,7 +11,7 @@ from evidrun.contracts import (
     RunSpec,
 )
 from evidrun.contracts.compiler import EvaluatorEnvelopeCompiler
-from evidrun.contracts.runtime import DimensionValue, EvaluationBoundary
+from evidrun.contracts.runtime.records import DimensionValue, EvaluationBoundary
 from evidrun.evaluations import ExactCauseGrader
 from evidrun.infrastructure.artifacts.store import ArtifactStore
 from evidrun.runs.adapters.types import EvaluationOutcome

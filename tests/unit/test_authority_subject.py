@@ -9,7 +9,7 @@ from evidrun.contracts.base import (
     EvidenceRef,
     HumanAttestationRecord,
 )
-from evidrun.contracts.runtime import (
+from evidrun.contracts.runtime.records import (
     DimensionValue,
     EvaluationBoundary,
     IndependentHumanReviewRelation,

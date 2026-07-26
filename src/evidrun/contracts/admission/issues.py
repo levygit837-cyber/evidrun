@@ -14,7 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-from evidrun.contracts.runtime import AdmissionIssue, ResolutionReason
+from evidrun.contracts.runtime.spec import AdmissionIssue, ResolutionReason
 
 IssueCategory = Literal[
     "runner",

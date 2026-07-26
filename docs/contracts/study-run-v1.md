@@ -6,7 +6,7 @@ status: implemented
 authority: normative
 owner: core
 created_at: 2026-07-23
-updated_at: 2026-07-23
+updated_at: 2026-07-25
 applies_to: schema/study-run@1
 sources:
   - docs/adr/0009-study-run-contract-composition.md
@@ -14,9 +14,9 @@ supersedes: []
 superseded_by: null
 implementation_refs:
   - src/evidrun/contracts/base.py
-  - src/evidrun/contracts/authoring.py
+  - src/evidrun/contracts/authoring
   - src/evidrun/contracts/compiler.py
-  - src/evidrun/contracts/runtime.py
+  - src/evidrun/contracts/runtime
 verification_refs:
   - tests/unit/test_contracts.py
   - tests/integration/test_contract_api.py

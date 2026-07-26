@@ -42,12 +42,8 @@ from evidrun.contracts.admission.checks.unsupported import (
 from evidrun.contracts.admission.checks.workspace import check_workspace
 from evidrun.contracts.admission.envelope import RuntimeCapabilityEnvelope
 from evidrun.contracts.admission.issues import AdmissionFindings
-from evidrun.contracts.runtime import (
-    AdmissionIssue,
-    AdmissionRecord,
-    ResolvedAgentInventory,
-    RunSpec,
-)
+from evidrun.contracts.runtime.records import AdmissionRecord
+from evidrun.contracts.runtime.spec import AdmissionIssue, ResolvedAgentInventory, RunSpec
 from evidrun.shared.types import utc_now
 
 

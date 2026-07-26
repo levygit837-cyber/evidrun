@@ -1,33 +1,36 @@
 from __future__ import annotations
 
 from evidrun.contracts import ArtifactRef, RevisionEnvelope
-from evidrun.contracts.authoring import (
-    AgentInventoryRevision,
-    AgentInventorySpec,
-    BudgetSpec,
-    CapabilityRequirement,
-    CapturePolicySpec,
+from evidrun.contracts.authoring.evaluation import (
     EvaluationDimension,
     EvaluationPlanRevision,
     EvaluationPlanSpec,
     EvaluationStage,
     EvaluationTrigger,
-    ExternalEffectPolicy,
-    GoalOutcome,
-    GoalRevision,
-    GoalSpec,
-    InputBinding,
+)
+from evidrun.contracts.authoring.goal import GoalOutcome, GoalRevision, GoalSpec
+from evidrun.contracts.authoring.inventory import (
+    AgentInventoryRevision,
+    AgentInventorySpec,
+    CapabilityRequirement,
+    RuntimeRequirement,
+)
+from evidrun.contracts.authoring.protocol import (
     InteractionProtocolRevision,
     InteractionProtocolSpec,
-    NetworkPolicy,
+)
+from evidrun.contracts.authoring.run import (
+    BudgetSpec,
+    CapturePolicySpec,
     RunBlueprint,
-    RuntimeRequirement,
-    ScenarioRevision,
-    ScenarioSpec,
     StopCondition,
-    StudyIntent,
-    StudyRevision,
-    StudySpec,
+)
+from evidrun.contracts.authoring.scenario import InputBinding, ScenarioRevision, ScenarioSpec
+from evidrun.contracts.authoring.study import StudyRevision, StudySpec
+from evidrun.contracts.authoring.study_intent import StudyIntent
+from evidrun.contracts.authoring.workspace import (
+    ExternalEffectPolicy,
+    NetworkPolicy,
     WorkspaceMount,
     WorkspaceTemplateRevision,
     WorkspaceTemplateSpec,

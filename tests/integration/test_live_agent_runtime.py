@@ -14,7 +14,7 @@ import pytest
 
 import evidrun.runs.coordinator.attempt as attempt_module
 from evidrun.contracts import ExtensionRef
-from evidrun.contracts.authoring import AggregationSpec, BlindingPolicy
+from evidrun.contracts.authoring.evaluation import AggregationSpec, BlindingPolicy
 from evidrun.contracts.compiler import StudyCompiler
 from evidrun.evidence.bundle import EvidenceBundleService
 from evidrun.infrastructure.artifacts.store import (

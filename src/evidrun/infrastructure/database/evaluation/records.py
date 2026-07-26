@@ -22,7 +22,7 @@ from evidrun.contracts import (
     RunSpec,
     semantic_model_dump,
 )
-from evidrun.contracts.authoring import EvaluationStage
+from evidrun.contracts.authoring.evaluation import EvaluationStage
 from evidrun.contracts.authority import HumanAttestationVerifier
 from evidrun.infrastructure.database import clock
 from evidrun.infrastructure.database.evidence_boundary import (

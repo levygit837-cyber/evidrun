@@ -10,14 +10,14 @@ from evidrun.contracts import (
     ContractType,
     semantic_model_dump,
 )
-from evidrun.contracts.authoring import (
+from evidrun.contracts.authoring.checkpoint import (
     CheckpointCaptureSpec,
     CheckpointDefinition,
     CheckpointPolicySpec,
     ManualCheckpointTrigger,
 )
 from evidrun.contracts.legacy import capability_ref
-from evidrun.contracts.runtime import CheckpointValidation
+from evidrun.contracts.runtime.records import CheckpointValidation
 from evidrun.infrastructure.database import Repository
 from evidrun.runs import EvidrunService
 from evidrun.shared.types import new_id, sha256_bytes, sha256_json, utc_now

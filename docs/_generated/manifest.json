@@ -108,7 +108,7 @@
       "status": "accepted",
       "authority": "normative",
       "owner": "governance",
-      "updated_at": "2026-07-23",
+      "updated_at": "2026-07-25",
       "review_due": null
     },
     {
@@ -130,7 +130,7 @@
       "status": "superseded",
       "authority": "normative",
       "owner": "core",
-      "updated_at": "2026-07-23",
+      "updated_at": "2026-07-25",
       "review_due": null
     },
     {
@@ -141,7 +141,7 @@
       "status": "accepted",
       "authority": "normative",
       "owner": "core",
-      "updated_at": "2026-07-23",
+      "updated_at": "2026-07-25",
       "review_due": null
     },
     {
@@ -229,7 +229,7 @@
       "status": "accepted",
       "authority": "normative",
       "owner": "core",
-      "updated_at": "2026-07-23",
+      "updated_at": "2026-07-25",
       "review_due": null
     },
     {
@@ -350,7 +350,7 @@
       "status": "implemented",
       "authority": "normative",
       "owner": "core",
-      "updated_at": "2026-07-23",
+      "updated_at": "2026-07-25",
       "review_due": null
     },
     {
@@ -361,7 +361,7 @@
       "status": "implemented",
       "authority": "normative",
       "owner": "security",
-      "updated_at": "2026-07-23",
+      "updated_at": "2026-07-25",
       "review_due": null
     },
     {
@@ -383,7 +383,7 @@
       "status": "implemented",
       "authority": "normative",
       "owner": "core",
-      "updated_at": "2026-07-23",
+      "updated_at": "2026-07-25",
       "review_due": null
     },
     {
@@ -449,7 +449,7 @@
       "status": "implemented",
       "authority": "normative",
       "owner": "core",
-      "updated_at": "2026-07-23",
+      "updated_at": "2026-07-25",
       "review_due": null
     },
     {
@@ -460,7 +460,7 @@
       "status": "implemented",
       "authority": "normative",
       "owner": "core",
-      "updated_at": "2026-07-23",
+      "updated_at": "2026-07-25",
       "review_due": null
     },
     {
@@ -471,7 +471,7 @@
       "status": "implemented",
       "authority": "normative",
       "owner": "core",
-      "updated_at": "2026-07-23",
+      "updated_at": "2026-07-25",
       "review_due": null
     },
     {
@@ -867,7 +867,7 @@
       "status": "accepted",
       "authority": "normative",
       "owner": "security",
-      "updated_at": "2026-07-23",
+      "updated_at": "2026-07-25",
       "review_due": null
     },
     {

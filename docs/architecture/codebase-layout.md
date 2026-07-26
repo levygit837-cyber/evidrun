@@ -21,6 +21,9 @@ implementation_refs:
   - src/evidrun/contracts/admission/service.py
   - src/evidrun/contracts/admission/envelope.py
   - src/evidrun/runs/admission/catalog_checks.py
+  - src/evidrun/contracts/runtime
+  - src/evidrun/contracts/authoring
+  - src/evidrun/evidence
 verification_refs:
   - tests/unit/test_code_budget.py
   - tests/unit/test_admission_oracle.py
@@ -40,18 +43,23 @@ comportamento cabe atrás de uma interface pequena). Ver `skill://codebase-desig
 
 ### Medição
 
-Números de 2026-07-24, produzidos por `scripts/check_code_budget.py`.
+Números de 2026-07-25, contados sobre os arquivos que o git rastreia — a mesma fonte que
+`scripts/check_code_budget.py` usa — após WS-11, WS-12, WS-30a e a divisão de `contracts/` (#26).
 
 | Escopo | Arquivos | Linhas |
 | --- | --- | --- |
-| `src/evidrun/**/*.py` | 68 | ~15.400 |
-| `tests/**/*.py` | 30 | ~6.900 |
+| `src/evidrun/**/*.py` | 164 | 18.401 |
+| `tests/**/*.py` | 33 | 8.564 |
 | `apps/web` + `apps/desktop` (`.ts`/`.tsx`) | 35 | 6.670 (1.603 gerados) |
 
-Distribuição de tamanho em `src/` + `apps/` + `scripts/`: 76 arquivos com até 150 linhas, 14 entre
-151 e 300, 3 entre 301 e 500, 4 entre 501 e 800, e 9 acima de 800. A cauda é curta e concentrada:
-**seis arquivos carregam 8.500 linhas**, e a mediana do repositório é confortável. O problema não é
-volume, é concentração.
+Distribuição de tamanho em `src/` + `apps/` + `scripts/` (204 arquivos): 145 com até 150 linhas, 40
+entre 151 e 300, 15 entre 301 e 500, 1 entre 501 e 800, e 3 acima de 800.
+
+A concentração acabou no lado Python: o maior módulo é `ledger/store.py` com 478 linhas, contra
+2.942 de `repository.py` em 2026-07-24. Os três arquivos acima de 800 linhas são todos web —
+`contracts.ts` (1.603, gerado e isento), `ObservabilityPage.tsx` (918) e `LaboratoryPage.tsx` (818),
+os dois últimos cobertos pela issue #17. O gate mede 245 arquivos com 4 entradas de baseline,
+nenhuma violação e 12 avisos de folga.
 
 ### A árvore atual
 
@@ -66,26 +74,31 @@ evidrun/
 │   │                              ⚠ 4 dos 9 Protocols têm zero implementação
 │   ├── contracts/                 a LINGUAGEM do domínio: modelos Pydantic + validação, sem I/O
 │   │   ├── base.py         (356)  ContractModel, ArtifactRef, RevisionEnvelope, autoridade humana
-│   │   ├── authoring.py    (871)  65 classes: Goal/Scenario/Study/Workspace/Protocol/Evaluation   ▲
-│   │   ├── runtime.py     (1060)  46 classes: RunSpec, records, payloads de evento               ▲
-│   │   ├── compiler.py     (530)  StudyCompiler + compiladores de envelope                        ▲
+│   │   ├── authoring/             ✅ ENTREGUE em #26: uma família de revision por módulo
+│   │   │                          goal, scenario, inventory, workspace, protocol, evaluation,
+│   │   │                          checkpoint, progress, run, study, study_intent, parse
+│   │   ├── runtime/               ✅ ENTREGUE em #26: por papel
+│   │   │                          spec, records, envelope, events, execution
+│   │   ├── compiler.py     (411)  StudyCompiler + compiladores de envelope
 │   │   ├── admission/             ✅ service + envelope + checks/ por família
 │   │   ├── evaluation.py          EvaluationValidator
 │   │   ├── authority.py           HumanAttestationVerifier (Protocol) + Unavailable*
-│   │   ├── legacy.py       (356)  convert() legado → v1 (257 linhas numa função)                 ▲
-│   │   └── __init__.py     (143)  hub de re-export: 90 símbolos
+│   │   ├── legacy.py       (453)  convert() legado → v1 (257 linhas numa função)
+│   │   └── __init__.py     (146)  hub de re-export: o facade público do vocabulário
 │   ├── runs/                      execution plane
-│   │   ├── adapters.py     (873)  catálogo + envelope + 2 Subjects + 2 graders                    ▲
+│   │   ├── adapters/              ✅ ENTREGUE em #35: catálogo, Subjects, graders, tool
+│   │   │                          catalog (210), subject_responses (302), grader_read_answer (250)
 │   │   ├── admission/             ✅ catalog_checks + scripted_checks + real_checks
-│   │   ├── coordinator.py  (773)  RunExecutionCoordinator.execute_attempt (190 linhas)           ▲
+│   │   ├── coordinator/           ✅ ENTREGUE em #36: uma fase por módulo
+│   │   │                          attempt (326), resume (165), prepare (149), tool_trace (131)
 │   │   ├── composition.py         build_runtime_kernel: a única raiz de composição do runtime
 │   │   ├── service.py             bootstrap_demo
 │   │   └── worker.py              loop de claim/heartbeat/release
 │   ├── evidence/                  ✅ ENTREGUE em WS-30a
 │   │   ├── bundle.py        (34)  EvidenceBundleService: as 4 operações públicas
-│   │   ├── archive.py      (253)  zip, checksum, manifest de artifact
-│   │   ├── export/                comparison_v1 (55), comparison_v2 (113), run_v3 (93)
-│   │   └── verify/                dispatch (308), v2 (424), v3 (366), records (355)
+│   │   ├── archive.py      (256)  zip, checksum, manifest de artifact
+│   │   ├── export/                comparison_v1 (40), comparison_v2 (112), run_v3 (93)
+│   │   └── verify/                dispatch (309), v2 (416), v3 (361), records (369)
 │   ├── authority/                 ✅ a fatia vertical mais bem formada do repo
 │   │   ├── models.py, repository.py    persistência própria
 │   │   ├── crypto.py, verifier.py, authenticator.py, challenge.py, policy.py
@@ -103,8 +116,10 @@ evidrun/
 │   ├── experiments/models.py      manifest legado
 │   ├── providers/profile.py       ProviderProfile
 │   ├── entrypoints/
-│   │   ├── api/app.py      (623)  create_app com 38 rotas numa função de 542 linhas             ▲
-│   │   ├── cli/app.py      (609)  10 Typer apps, 25 comandos
+│   │   ├── api/             (172)  ✅ ENTREGUE em #34: app monta routers/ por família
+│   │   │                          runs (232), contracts (173), evidence (118), platform (95)
+│   │   ├── cli/             (160)  ✅ ENTREGUE em #34: app monta commands/ por família
+│   │   │                          runs (199), provider (192), contracts (91)
 │   │   └── worker/app.py          entrypoint do worker
 │   └── (stubs sem código)         approvals, comparisons, conversations, lab_agent,
 │                                  projects, scenarios, workspaces
@@ -117,7 +132,7 @@ evidrun/
 │   │   ├── ui/primitives.tsx      Button/Input/StatusIndicator/LoadingState/EmptyState/ErrorState
 │   │   │                          ⚠ subutilizado: 3 páginas reimplementam badge e estado vazio
 │   │   └── features/
-│   │       ├── observability/  ObservabilityPage.tsx (918) + observabilityModel.ts (310) ✅ padrão
+│   │       ├── observability/  ObservabilityPage.tsx (918) + observabilityModel.ts (310) ✅ ▲
 │   │       ├── laboratory/     LaboratoryPage.tsx (818) + DemoLaboratoryAdapter.ts       ▲
 │   │       └── create/         CreatePage.tsx (597)                                       ▲
 │   └── desktop/src/{main,preload,shared}/    lifecycle do backend, sem domínio
@@ -130,7 +145,8 @@ evidrun/
     └── code_budget/               policy, measure, report (violação vs. aviso), baseline
 ```
 
-`▲` marca arquivo no ratchet do orçamento. `⛔` marca o God Object.
+`▲` marca arquivo no ratchet do orçamento. Restam quatro, três deles páginas web: o God Object
+`repository.py` (2.942 linhas) foi decomposto em WS-11 e saiu do baseline.
 
 ### Como as pastas conversam
 
@@ -141,18 +157,18 @@ O fluxo canônico atravessa o repositório em uma direção. Cada seta é um imp
                  (humano decide)            (falha fechado)          (worker)              (auditor)
 
   entrypoints/cli ──┐
-  entrypoints/api ──┼──► contracts/authoring ──► contracts/compiler ──► runs/coordinator ──► evidence/bundle
-  authority/router ─┘      parse_revision           StudyCompiler         execute_attempt      export_run_v3
-                            RevisionEnvelope         ↓ RunSpec              ↓                    verify()
-                                 │                AdmissionService      runs/adapters             ▲
+  entrypoints/api ──┼──► contracts/authoring ──► contracts/compiler ──► runs/coordinator ──► evidence/
+  authority/router ─┘      parse_revision           StudyCompiler         attempt.py          export/run_v3
+                            RevisionEnvelope         ↓ RunSpec              ↓                  verify/dispatch
+                                 │                admission/service     runs/adapters             ▲
                                  │                    .admit()          Subject + grader          │
                                  │                      │  ▲                  │                   │
-                                 │                      │  └── validate_spec ─┘                   │
+                                 │                      │  └ admission/catalog_checks ─┘          │
                                  │                      │      (2ª camada de rejeição)            │
                                  ▼                      ▼                  ▼                      │
                           ┌──────────────────────────────────────────────────────────────────────┐│
-                          │  infrastructure/database/repository.py  — TODOS param aqui           ││
-                          │  ledger · fila/lease · contract registry · evaluation · read-model    ├┘
+                          │  infrastructure/database/  — TODOS param aqui, via 9 agregados        ││
+                          │  ledger · queue · registry · evaluation · read_model · catalog        ├┘
                           └──────────────────────────────────────────────────────────────────────┘
                                  │                                            │
                                  ▼                                            ▼
@@ -285,15 +301,15 @@ checksum, nome de membro duplicado).
 `shared/capabilities.py → contracts.base`, `shared/settings.py → providers`, e
 `infrastructure/{database,artifacts} → contracts`. A última é hidratação legítima de contrato (o
 repository desserializa `RunSpec` e `EvaluationRecord`), mas `repository.py` também importa
-`EVENT_ALLOWED_RUN_STATUSES` e `UNSUPPORTED_RUNTIME_EVENT_TYPES` de `contracts/runtime.py` e impõe
-regra de fase de Run — isso é regra de domínio executando na camada de infraestrutura.
+`EVENT_ALLOWED_RUN_STATUSES` e `UNSUPPORTED_RUNTIME_EVENT_TYPES` de `contracts/runtime/events.py` e
+impõe regra de fase de Run — isso é regra de domínio executando na camada de infraestrutura.
 
 ## Alvo
 
-A árvore abaixo é o destino, não um retrato do disco. Dois blocos já aterrissaram e estão marcados
-com `✅ ENTREGUE`: `infrastructure/database/` (WS-11) e os dois pacotes `admission/` (WS-12). Todo o
-resto continua sendo workstream futuro com issue própria, e nada não marcado descreve comportamento
-implementado.
+A árvore abaixo é o destino, não um retrato do disco. Os blocos que já aterrissaram estão marcados
+com `✅ ENTREGUE`: `infrastructure/database/` (WS-11), os dois pacotes `admission/` (WS-12),
+`evidence/` (WS-30a) e os pacotes `contracts/{runtime,authoring}/` (#26). Todo o resto continua
+sendo workstream futuro com issue própria, e nada não marcado descreve comportamento implementado.
 
 ### Princípio
 
@@ -314,10 +330,11 @@ Três regras que decidem onde um arquivo novo vai morar:
 src/evidrun/
 ├── contracts/                      vocabulário: modelos + validação, zero I/O
 │   ├── base.py                     (mantém)
-│   ├── authoring/                  ← authoring.py (871) dividido por família de revision
-│   │   ├── goal.py  scenario.py  study.py  workspace.py  protocol.py  evaluation.py
+│   ├── authoring/                  ✅ ENTREGUE em #26                                    [#26]
+│   │   ├── goal.py  scenario.py  inventory.py  workspace.py  protocol.py  evaluation.py
+│   │   ├── checkpoint.py  progress.py  run.py  study.py  study_intent.py
 │   │   └── parse.py                parse_revision + despacho por tipo
-│   ├── runtime/                    ← runtime.py (1060) dividido por papel
+│   ├── runtime/                    ✅ ENTREGUE em #26                                    [#26]
 │   │   ├── spec.py                 RunSpec e satélites
 │   │   ├── records.py              Admission/Run/Evaluation/Checkpoint/Progress records
 │   │   ├── envelope.py             SubjectEnvelope, EvaluatorEnvelope
@@ -351,15 +368,15 @@ src/evidrun/
 │   │   ├── catalog_checks.py        ← validate_spec: o que só o par de adapters sabe
 │   │   ├── scripted_checks.py       ← _validate_scripted_spec
 │   │   └── real_checks.py           ← _validate_real_spec
-│   ├── adapters/                   ← adapters.py (873) dividido por papel
+│   ├── adapters/                   ✅ ENTREGUE em #35                                    [#35]
 │   │   ├── catalog.py              RuntimeAdapterCatalog + declaração do envelope
-│   │   │                           ⚠ o envelope já é declarado, mas ainda em adapters.py
 │   │   ├── subject_scripted.py  subject_responses.py
 │   │   ├── grader_cause.py  grader_read_answer.py
-│   │   ├── tool_read_text.py  materializer.py
-│   ├── coordinator/                ← coordinator.py (773) por fase
+│   │   ├── tool_read_text.py  materializer.py  types.py
+│   ├── coordinator/                ✅ ENTREGUE em #36: uma fase por módulo              [#36]
 │   │   ├── attempt.py              execute_attempt
-│   │   ├── prepare.py  resume.py
+│   │   ├── prepare.py  resume.py  response.py  terminal.py  recovery.py
+│   │   ├── lease.py  budget.py  context.py  tool_trace.py
 │   ├── composition.py  service.py  worker.py
 ├── evidence/                        ✅ ENTREGUE em WS-30a                             [WS-30]
 │   ├── bundle.py                   EvidenceBundleService: as 4 operações públicas
@@ -449,17 +466,18 @@ Igualmente intocável: ordem e hash chain do ledger, atomicidade de `claim_next_
 ### Ordem de execução
 
 ```
-WS-11 repository        ─► read_model → registry → evaluation → catalog → ledger → queue
+WS-11 repository        ✅ read_model → registry → evaluation → catalog → ledger → queue
    (serial por agregado, suíte completa verde entre cada um; queue por último porque
     concentra BEGIN IMMEDIATE e fencing)
         │
-        ├─► WS-12 admissão   (depende de nada de WS-11, mas compete por compiler.py)
-        ├─► WS-30 bundle     (independente: só evidence/)
-        └─► WS-13 páginas web (independente: só apps/web/)
+        ├─► WS-12 admissão   ✅ entregue
+        ├─► WS-30a bundle    ✅ entregue (só evidence/)
+        ├─► #26 contracts    ✅ entregue (runtime/ e authoring/ por papel)
+        └─► WS-13 páginas web  pendente na issue #17 (independente: só apps/web/)
 ```
 
-WS-11 é serial de propósito. WS-12, WS-30 e WS-13 tocam árvores disjuntas e podem rodar em paralelo
-entre si e com WS-11, porque nenhum deles edita `infrastructure/database/`.
+WS-11 foi serial de propósito. O que resta desta onda é WS-13: as três páginas web, que tocam árvore
+disjunta de tudo o que já aterrissou.
 
 ## Como um agente navega isto
 
