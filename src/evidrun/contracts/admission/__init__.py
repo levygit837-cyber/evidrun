@@ -6,6 +6,7 @@ from evidrun.contracts.admission.envelope import (
     RuntimeCapabilityEnvelope,
 )
 from evidrun.contracts.admission.issues import AdmissionFindings, CheckResult
+from evidrun.contracts.admission.rejection import admission_rejection_error
 from evidrun.contracts.admission.service import AdmissionService, RuntimeSpecValidator
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     "ProviderCatalogEntry",
     "RuntimeCapabilityEnvelope",
     "RuntimeSpecValidator",
+    "admission_rejection_error",
 ]

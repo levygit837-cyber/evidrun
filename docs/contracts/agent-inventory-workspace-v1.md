@@ -17,9 +17,11 @@ implementation_refs:
   - src/evidrun/contracts/authoring
   - src/evidrun/contracts/compiler.py
   - src/evidrun/contracts/runtime
+  - src/evidrun/infrastructure/database/catalog.py
 verification_refs:
   - tests/unit/test_contract_admission.py
   - tests/integration/test_contract_api.py
+  - tests/integration/test_admission_rejection_surfaces.py
 ---
 
 # Requisitos e resolução
@@ -38,6 +40,11 @@ instruction refs e context refs não podem carregar paths ou URLs de storage.
 Capability obrigatória não resolvida rejeita a admissão. Capability opcional ausente continua no
 record auditável, mas não é oferecida ao Subject. A presença no inventário não prova uso: oferta,
 carregamento, invocação, aprovação e resultado são eventos distintos.
+
+Um provider profile declarado mas ausente do catálogo produz inventário com resolução de provider
+vazia e uma recusa persistível. O repositório só aceita essa forma quando o record rejeitado contém
+o requisito `provider:<profile>` e o issue bloqueante `unavailable` para o mesmo profile; uma
+resolução vazia sem esses achados continua falhando fechado.
 
 # Workspace de execução
 
