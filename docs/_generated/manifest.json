@@ -518,6 +518,18 @@
       "review_due": null
     },
     {
+      "id": "contract-triage-error",
+      "path": "docs/contracts/triage-error.md",
+      "type": "contract",
+      "title": "Erros estáveis das fases de triagem",
+      "status": "implemented",
+      "authority": "normative",
+      "volatility": "current",
+      "owner": "core",
+      "updated_at": "2026-07-26",
+      "review_due": null
+    },
+    {
       "id": "governance-delivery-status",
       "path": "docs/governance/delivery-status.md",
       "type": "governance",
