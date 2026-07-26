@@ -125,7 +125,8 @@ evidrun/
 │   │   └── worker/app.py          entrypoint do worker
 │   └── (stubs sem código)         approvals, comparisons, conversations, lab_agent,
 │                                  projects, scenarios, workspaces
-│                                  ⚠ 5 dos 7 conceitos JÁ existem dentro de Repository
+│                                  ⚠ zero importadores; 5 dos 7 conceitos já existem em
+│                                    catalog.py e read_model/ desde WS-11. Decisão em #18
 ├── apps/
 │   ├── web/src/
 │   │   ├── api/client.ts          HTTP + SSE
