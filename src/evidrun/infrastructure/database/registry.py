@@ -11,7 +11,8 @@ import json
 import logging
 
 from sqlalchemy import func, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.orm import Session
 
 from evidrun.contracts import (
     RevisionDecisionRecord,
@@ -29,6 +30,8 @@ from evidrun.infrastructure.database.models import (
     ProjectRow,
 )
 from evidrun.infrastructure.database.register_errors import (
+    RegisterRejected,
+    RegisterStorageUnavailable,
     immutability_conflict,
     initial_status_invalid,
     project_not_found,
@@ -67,56 +70,105 @@ class ContractRegistryStore:
         if status not in {"draft", "proposed"}:
             raise initial_status_invalid()
         document = revision.semantic_document()
-        with self.unit_of_work.session() as session:
-            existing = session.scalar(
-                select(ContractRevisionRow).where(
-                    ContractRevisionRow.contract_type == revision.ref.contract_type.value,
-                    ContractRevisionRow.logical_id == revision.logical_id,
-                    ContractRevisionRow.revision == revision.revision,
+        try:
+            with self.unit_of_work.immediate() as session:
+                existing = session.scalar(
+                    select(ContractRevisionRow).where(
+                        ContractRevisionRow.contract_type == revision.ref.contract_type.value,
+                        ContractRevisionRow.logical_id == revision.logical_id,
+                        ContractRevisionRow.revision == revision.revision,
+                    )
                 )
-            )
-            if existing is not None:
-                if existing.digest != revision.digest or existing.document_json != canonical_json(
-                    document
-                ):
-                    raise immutability_conflict()
-                if existing.status == "draft" and status == "proposed":
-                    existing.status = "proposed"
+                if existing is not None:
+                    return self._resolve_existing_revision(
+                        existing,
+                        revision=revision,
+                        document=document,
+                        status=status,
+                        session=session,
+                    )
+                latest_revision = session.scalar(
+                    select(func.max(ContractRevisionRow.revision)).where(
+                        ContractRevisionRow.contract_type == revision.ref.contract_type.value,
+                        ContractRevisionRow.logical_id == revision.logical_id,
+                    )
+                )
+                expected_revision = (latest_revision or 0) + 1
+                if revision.revision != expected_revision:
+                    raise revision_not_monotonic(
+                        expected=expected_revision, received=revision.revision
+                    )
+                row = ContractRevisionRow(
+                    id=new_id("crev"),
+                    contract_type=revision.ref.contract_type.value,
+                    logical_id=revision.logical_id,
+                    revision=revision.revision,
+                    project_id=revision.project_id,
+                    title=revision.title,
+                    status=status,
+                    document_json=canonical_json(document),
+                    digest=revision.digest,
+                    created_at=clock.utc_now(),
+                )
+                session.add(row)
+                try:
                     session.commit()
-                return existing
-            latest_revision = session.scalar(
-                select(func.max(ContractRevisionRow.revision)).where(
-                    ContractRevisionRow.contract_type == revision.ref.contract_type.value,
-                    ContractRevisionRow.logical_id == revision.logical_id,
-                )
-            )
-            expected_revision = (latest_revision or 0) + 1
-            if revision.revision != expected_revision:
-                raise revision_not_monotonic(
-                    expected=expected_revision, received=revision.revision
-                )
-            row = ContractRevisionRow(
-                id=new_id("crev"),
-                contract_type=revision.ref.contract_type.value,
-                logical_id=revision.logical_id,
-                revision=revision.revision,
-                project_id=revision.project_id,
-                title=revision.title,
-                status=status,
-                document_json=canonical_json(document),
-                digest=revision.digest,
-                created_at=clock.utc_now(),
-            )
-            session.add(row)
-            try:
-                session.commit()
-            except IntegrityError as exc:
-                session.rollback()
-                if session.get(ProjectRow, revision.project_id) is None:
+                except IntegrityError as exc:
+                    session.rollback()
                     logger.exception("contract revision registration failed")
-                    raise project_not_found() from exc
-                raise
-            return row
+                    return self._recover_integrity_error(
+                        session,
+                        revision=revision,
+                        document=document,
+                        status=status,
+                        cause=exc,
+                    )
+                return row
+        except (RegisterRejected, RegisterStorageUnavailable):
+            raise
+        except SQLAlchemyError as exc:
+            logger.exception("contract revision storage unavailable")
+            raise RegisterStorageUnavailable() from exc
+
+    def _recover_integrity_error(
+        self,
+        session: Session,
+        *,
+        revision: RevisionEnvelope,
+        document: dict[str, object],
+        status: str,
+        cause: IntegrityError,
+    ) -> ContractRevisionRow:
+        if session.get(ProjectRow, revision.project_id) is None:
+            raise project_not_found() from cause
+        existing = session.scalar(
+            select(ContractRevisionRow).where(
+                ContractRevisionRow.contract_type == revision.ref.contract_type.value,
+                ContractRevisionRow.logical_id == revision.logical_id,
+                ContractRevisionRow.revision == revision.revision,
+            )
+        )
+        if existing is None:
+            raise RegisterStorageUnavailable() from cause
+        return self._resolve_existing_revision(
+            existing, revision=revision, document=document, status=status, session=session
+        )
+
+    @staticmethod
+    def _resolve_existing_revision(
+        existing: ContractRevisionRow,
+        *,
+        revision: RevisionEnvelope,
+        document: dict[str, object],
+        status: str,
+        session: Session,
+    ) -> ContractRevisionRow:
+        if existing.digest != revision.digest or existing.document_json != canonical_json(document):
+            raise immutability_conflict()
+        if existing.status == "draft" and status == "proposed":
+            existing.status = "proposed"
+            session.commit()
+        return existing
 
     def decide_contract_revision(
         self, decision: RevisionDecisionRecord

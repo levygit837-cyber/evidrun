@@ -9,7 +9,8 @@ import pytest
 import yaml
 from fastapi.testclient import TestClient
 from httpx import Response
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import event
+from sqlalchemy.exc import IntegrityError, OperationalError
 from typer.testing import CliRunner, Result
 
 import evidrun.infrastructure.database.registry as registry_module
@@ -18,6 +19,9 @@ from evidrun.contracts.authoring.goal import GoalOutcome
 from evidrun.entrypoints.api.app import create_app
 from evidrun.entrypoints.cli.app import app as cli_app
 from evidrun.infrastructure.database import Database, Repository
+from evidrun.infrastructure.database.register_errors import (
+    RegisterStorageUnavailable,
+)
 
 SENSITIVE_VALUES = (
     "private-register-goal",
@@ -146,9 +150,9 @@ def _invoke_api_and_cli(
     return response, cli_result
 
 
-def _assert_safe_error(serialized: str) -> None:
+def _assert_safe_error(serialized: str, *case_values: str) -> None:
     folded = serialized.casefold()
-    for marker in (*FORBIDDEN_INFRASTRUCTURE_MARKERS, *SENSITIVE_VALUES):
+    for marker in (*FORBIDDEN_INFRASTRUCTURE_MARKERS, *SENSITIVE_VALUES, *case_values):
         assert marker.casefold() not in folded
 
 
@@ -191,8 +195,9 @@ def test_register_error_matrix_is_shared_by_api_and_cli(
         for value in (case.expected_revision, case.revision):
             assert str(value) in api_error["message"]
             assert str(value) in cli_error["message"]
-    _assert_safe_error(response.text)
-    _assert_safe_error(cli_result.stdout)
+    project_id = str(document["project_id"])
+    _assert_safe_error(response.text, project_id)
+    _assert_safe_error(cli_result.stdout, project_id)
     if not case.project_exists:
         assert logged_exceptions
         assert all(isinstance(exc, IntegrityError) for exc in logged_exceptions)
@@ -224,3 +229,148 @@ def test_identical_revision_is_idempotent_across_api_and_cli(tmp_path: Path) -> 
     assert response.json()["id"] == existing.id
     assert cli_result.exit_code == 0
     assert json.loads(cli_result.stdout)["id"] == existing.id
+
+
+def test_unclassified_integrity_error_is_logged_and_translated_safely(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    database = Database(tmp_path / "evidrun.db")
+    database.create_all()
+    repository = Repository(database)
+    workspace = repository.catalog.create_workspace("Register workspace")
+    project = repository.catalog.create_project(workspace.id, "Register project")
+    revision = GoalRevision.model_validate(_goal_document(project_id=project.id))
+    logged_exceptions: list[BaseException | None] = []
+
+    def capture_infrastructure_exception(*_: object, **__: object) -> None:
+        logged_exceptions.append(sys.exception())
+
+    def reject_revision_insert(
+        _connection: object,
+        _cursor: object,
+        statement: str,
+        parameters: object,
+        _context: object,
+        _executemany: object,
+    ) -> None:
+        if not statement.lstrip().upper().startswith("INSERT INTO CONTRACT_REVISIONS"):
+            return
+        raise IntegrityError(
+            "INSERT INTO contract_revisions VALUES (DO-NOT-ECHO-INSTRUCTION)",
+            {"payload": SENSITIVE_VALUES[2]},
+            RuntimeError("sqlite secret driver failure"),
+        )
+
+    monkeypatch.setattr(
+        registry_module.logger, "exception", capture_infrastructure_exception
+    )
+    event.listen(database.raw_engine, "before_cursor_execute", reject_revision_insert)
+    try:
+        with pytest.raises(RegisterStorageUnavailable) as raised:
+            repository.registry.save_contract_revision(revision)
+    finally:
+        event.remove(database.raw_engine, "before_cursor_execute", reject_revision_insert)
+        database.dispose()
+
+    _assert_safe_error(str(raised.value), project.id)
+    assert len(logged_exceptions) == 1
+    assert isinstance(logged_exceptions[0], IntegrityError)
+
+
+def test_validate_preserves_its_status_enum_and_rejects_unknown_status(
+    tmp_path: Path,
+) -> None:
+    document = _goal_document(project_id="prj-validation-only")
+    with TestClient(create_app(data_dir=tmp_path)) as client:
+        response = client.post(
+            "/api/v1/contracts/validate",
+            json={"document": document, "status": "accepted"},
+        )
+        schema = client.get("/openapi.json").json()
+
+    assert response.status_code == 422
+    status_schema = schema["components"]["schemas"]["ContractDocumentRequest"][
+        "properties"
+    ]["status"]
+    assert status_schema["enum"] == ["draft", "proposed"]
+
+
+def test_operational_storage_error_is_logged_and_translated_safely(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    database = Database(tmp_path / "evidrun.db")
+    database.create_all()
+    repository = Repository(database)
+    workspace = repository.catalog.create_workspace("Register workspace")
+    project = repository.catalog.create_project(workspace.id, "Register project")
+    revision = GoalRevision.model_validate(_goal_document(project_id=project.id))
+    logged_exceptions: list[BaseException | None] = []
+
+    def capture_infrastructure_exception(*_: object, **__: object) -> None:
+        logged_exceptions.append(sys.exception())
+
+    def reject_transaction(
+        _connection: object,
+        _cursor: object,
+        statement: str,
+        _parameters: object,
+        _context: object,
+        _executemany: object,
+    ) -> None:
+        if statement != "BEGIN IMMEDIATE":
+            return
+        raise OperationalError(
+            statement,
+            {"payload": SENSITIVE_VALUES[2]},
+            RuntimeError("sqlite secret operational failure"),
+        )
+
+    monkeypatch.setattr(
+        registry_module.logger, "exception", capture_infrastructure_exception
+    )
+    event.listen(database.raw_engine, "before_cursor_execute", reject_transaction)
+    try:
+        with pytest.raises(RegisterStorageUnavailable) as raised:
+            repository.registry.save_contract_revision(revision)
+    finally:
+        event.remove(database.raw_engine, "before_cursor_execute", reject_transaction)
+        database.dispose()
+
+    _assert_safe_error(str(raised.value), project.id)
+    assert len(logged_exceptions) == 1
+    assert isinstance(logged_exceptions[0], OperationalError)
+
+
+def test_storage_unavailable_is_sanitized_by_api_and_cli(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    data_dir = tmp_path / "data"
+    database = Database(data_dir / "evidrun.db")
+    database.create_all()
+    repository = Repository(database)
+    workspace = repository.catalog.create_workspace("Register workspace")
+    project = repository.catalog.create_project(workspace.id, "Register project")
+    database.dispose()
+    document = _goal_document(project_id=project.id)
+    document_path = tmp_path / "goal.yaml"
+    document_path.write_text(
+        yaml.safe_dump(document, sort_keys=False), encoding="utf-8"
+    )
+
+    def unavailable(*_: object, **__: object) -> object:
+        raise RegisterStorageUnavailable()
+
+    monkeypatch.setattr(
+        registry_module.ContractRegistryStore, "save_contract_revision", unavailable
+    )
+    response, cli_result = _invoke_api_and_cli(
+        data_dir=data_dir,
+        document_path=document_path,
+        document=document,
+        status="draft",
+    )
+
+    assert response.status_code == 503
+    assert cli_result.exit_code == 3
+    _assert_safe_error(response.text, project.id)
+    _assert_safe_error(cli_result.stdout, project.id)

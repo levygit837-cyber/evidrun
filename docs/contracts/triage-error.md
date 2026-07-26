@@ -89,6 +89,13 @@ A API retorna o `TriageError` em `detail` e escolhe o status exclusivamente por
 exclusivamente por `CLI_EXIT_BY_CODE`. Para sequência não monotônica, `field_path` aponta para
 `revision` e a mensagem informa os números esperado e recebido; a frase humana permanece livre.
 
-Uma violação de integridade original é registrada com traceback na costura de persistência, mas
-nunca é serializada na resposta HTTP nem no stdout da CLI. Em particular, recusas não expõem SQL,
-prefixo de driver, nome de tabela ou conteúdo do documento submetido.
+O schema de validação continua aceitando somente `draft`/`proposed`; o schema específico de
+registro aceita uma string para que um status inicial desconhecido alcance a tradução tipada da
+fase, em vez de ser interceptado de forma divergente pelas bordas.
+
+O registro usa uma transação imediata para serializar a sequência read-then-write. Violações de
+integridade são relidas após rollback para distinguir Project inexistente, corrida idempotente e
+conflito de imutabilidade. Toda falha SQLAlchemy não traduzível, inclusive indisponibilidade
+operacional, registra a causa original com traceback e falha fechada por uma resposta pública
+sanitizada: HTTP 503 e exit code CLI 3. Nenhuma dessas saídas expõe SQL, prefixo de driver, nome de
+tabela, Project id ou conteúdo do documento submetido.

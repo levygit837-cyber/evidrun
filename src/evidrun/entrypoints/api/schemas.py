@@ -33,6 +33,12 @@ class ManifestRequest(BaseModel):
 class ContractDocumentRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     document: dict[str, object]
+    status: Literal["draft", "proposed"] = "draft"
+
+
+class ContractRegistrationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    document: dict[str, object]
     status: str = "draft"
 
 

@@ -13,6 +13,13 @@ class RegisterRejected(Exception):
         self.error = error
 
 
+class RegisterStorageUnavailable(Exception):
+    """A storage failure whose infrastructure detail must remain private."""
+
+    def __init__(self) -> None:
+        super().__init__("O storage de registro está temporariamente indisponível.")
+
+
 def project_not_found() -> RegisterRejected:
     return RegisterRejected(
         TriageError(
