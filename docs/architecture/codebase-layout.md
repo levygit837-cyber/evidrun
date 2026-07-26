@@ -45,22 +45,22 @@ comportamento cabe atrás de uma interface pequena). Ver `skill://codebase-desig
 
 Números de 2026-07-26, contados sobre os arquivos que o git rastreia — a mesma fonte que
 `scripts/check_code_budget.py` usa — após WS-11, WS-12, WS-30a, a divisão de `contracts/` (#26), as
-três páginas web (#17) e a divisão dos testes de contrato (#23).
+três páginas web (#17), a divisão dos testes de contrato (#23) e a remoção dos pacotes stub (#18).
 
 | Escopo | Arquivos | Linhas |
 | --- | --- | --- |
-| `src/evidrun/**/*.py` | 164 | 18.401 |
+| `src/evidrun/**/*.py` | 157 | 18.368 |
 | `tests/**/*.py` | 38 | 8.700 |
 | `apps/web` + `apps/desktop` (`.ts`/`.tsx`) | 50 | 6.975 (1.603 gerados) |
 
 Distribuição de tamanho nos globs do grupo `source` (`src/evidrun/**/*.py`, `apps/**/*.ts`,
-`apps/**/*.tsx`, `scripts/**/*.py`, `scripts/**/*.mjs`; 219 arquivos): 156 com até 150 linhas, 46
+`apps/**/*.tsx`, `scripts/**/*.py`, `scripts/**/*.mjs`; 212 arquivos): 149 com até 150 linhas, 46
 entre 151 e 300, 16 entre 301 e 500, nenhum entre 501 e 800, e 1 acima de 800.
 
 O único arquivo do grupo `source` acima de 500 linhas é `apps/web/src/generated/contracts.ts`
 (1.603), que é gerado e isento. O maior módulo Python é `ledger/store.py` com 478 linhas, contra
 2.942 de `repository.py` em 2026-07-24. O grupo `tests` tem teto de 800 e cinco arquivos acima de
-500, o maior sendo `tests/integration/test_runtime_queue.py` com 783. O gate mede 265 arquivos com a
+500, o maior sendo `tests/integration/test_runtime_queue.py` com 783. O gate mede 258 arquivos com a
 tabela de `[baseline]` **vazia**, nenhuma violação e 12 avisos de folga.
 
 ### A árvore atual
@@ -72,8 +72,10 @@ evidrun/
 │   │   ├── types.py               ids, canonical_json, sha256_json, utc_now   [fan-in 19: o mais usado]
 │   │   ├── settings.py            Settings, paths, EVIDRUN_AUTHORITY
 │   │   ├── capabilities.py        capability_ref()            ⚠ importa contracts.base
-│   │   └── ports.py               Protocols: LabAgent, SubjectRunner, Provider, Approval, Trace
-│   │                              ⚠ 4 dos 9 Protocols têm zero implementação
+│   │   └── ports.py               Protocols: SubjectRunner, Provider, EventSink, ArtifactStore, Grader
+│   │                              ✅ #18 removeu os 5 sem implementação nem referência
+│   │                              ⚠ dos 5 restantes só ProviderPort é importado por nome;
+│   │                                EventSink e ArtifactStorePort seguem sem implementação
 │   ├── contracts/                 a LINGUAGEM do domínio: modelos Pydantic + validação, sem I/O
 │   │   ├── base.py         (356)  ContractModel, ArtifactRef, RevisionEnvelope, autoridade humana
 │   │   ├── authoring/             ✅ ENTREGUE em #26: uma família de revision por módulo
@@ -123,10 +125,6 @@ evidrun/
 │   │   ├── cli/             (160)  ✅ ENTREGUE em #34: app monta commands/ por família
 │   │   │                          runs (199), provider (192), contracts (91)
 │   │   └── worker/app.py          entrypoint do worker
-│   └── (stubs sem código)         approvals, comparisons, conversations, lab_agent,
-│                                  projects, scenarios, workspaces
-│                                  ⚠ zero importadores; 5 dos 7 conceitos já existem em
-│                                    catalog.py e read_model/ desde WS-11. Decisão em #18
 ├── apps/
 │   ├── web/src/
 │   │   ├── api/client.ts          HTTP + SSE
@@ -302,11 +300,24 @@ byte a byte idêntico em 8 bundles v3 reais — um válido e sete adulterados (g
 de job, worker de attempt, entrada de manifest removida, gate de evaluation, arquivo injetado sem
 checksum, nome de membro duplicado).
 
-**Os 7 pacotes stub são uma promessa contraditória.** `projects/`, `workspaces/`, `comparisons/`,
-`conversations/`, `scenarios/` prometem uma fatia vertical cujo conteúdo já mora dentro de
-`Repository` (`ProjectRow`, `WorkspaceRow`, `ComparisonRow`, `ChatSessionRow` e seus métodos).
-`approvals/` e `lab_agent/` prometem capacidade que não existe. Um agente que abre a pasta lê
-"ainda não implementado" e um que grepa `create_project` encontra código funcionando.
+**Os 7 pacotes stub saíram na #18.** `projects/`, `workspaces/`, `comparisons/`, `conversations/` e
+`scenarios/` prometiam uma fatia vertical cujo conteúdo já mora em `catalog.py` e `read_model/`
+(`ProjectRow`, `WorkspaceRow`, `ComparisonRow`, `ChatSessionRow` e os métodos de escrita);
+`approvals/` e `lab_agent/` prometiam capacidade que não existe. Nenhum tinha importador. Junto
+saíram os 5 Protocols sem implementação de `shared/ports.py` — `LabAgentPort`, `ApprovalGateway`,
+`ToolEnvironmentPort`, `TraceExporter` e `TraceImporter` —, que também não tinham referência. A
+contradição de navegação que isso criava (a pasta dizia "ainda não implementado" e `create_project`
+aparecia em código funcionando) deixou de existir.
+
+Resta resíduo menor em `ports.py`, fora do escopo daquela decisão, e ele não é uniforme. Medido por
+conformidade estrutural, que é como Protocol funciona — satisfazer a forma é implementar, herdar não
+é requisito —, e verificado com `pyright`: `SubjectRunnerPort` é satisfeito por `ScriptedLogInvestigator`
+e `GraderPort` por `ExactCauseGrader`, logo são costuras **hipotéticas** pelo vocabulário desta
+página; `EventSink` e `ArtifactStorePort` não são satisfeitos por nada (`LedgerStore` não expõe
+`append`, e `ArtifactStore.put` exige `project_id` e uma `Classification` tipada), logo continuam
+**imaginárias**. Nenhum dos quatro é importado por nome em lugar algum: dos 5 Protocols que ficaram,
+só `ProviderPort` tem consumidor declarado, e o que de fato sustenta o módulo é o dataclass
+`SubjectResult`, importado por 8 arquivos de `runs/` e `subject_runners/`.
 
 **Três violações de direção de import**, todas pequenas e todas reais:
 `shared/capabilities.py → contracts.base`, `shared/settings.py → providers`, e
@@ -410,8 +421,8 @@ src/evidrun/
 │   ├── evaluation/{records.py,checkpoints.py}
 │   ├── catalog.py                  escritas de entidade de topo
 │   └── read_model/{dashboard.py,projections.py}
-└── (stubs removidos)               approvals, comparisons, conversations, lab_agent,
-                                    projects, scenarios, workspaces
+└── (stubs removidos)               ✅ ENTREGUE em #18: approvals, comparisons, conversations,
+                                    lab_agent, projects, scenarios, workspaces
 ```
 
 `★` é o ponto que faz o resto funcionar. `UnitOfWork` expõe a sessão e os agregados vinculados a ela;
