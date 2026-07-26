@@ -6,13 +6,14 @@ status: accepted
 authority: normative
 owner: core
 created_at: 2026-07-22
-updated_at: 2026-07-22
+updated_at: 2026-07-26
 applies_to: architecture
 sources: []
 supersedes: []
 superseded_by: null
 implementation_refs:
-  - src/evidrun/shared/ports.py
+  - src/evidrun/contracts/runtime/envelope.py
+  - src/evidrun/contracts/compiler.py
 verification_refs: []
 ---
 

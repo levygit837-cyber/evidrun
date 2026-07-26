@@ -73,7 +73,7 @@ A limitacao nao esta na espinha, e sim no acesso a ela e na largura do que ela a
 | Disclosure de eval ao Subject | `partial` | `pre_run` e compilavel por allowlist; todo modo diferente de `none` rejeita a admissao. |
 | Bounded exploration | `accepted_only` | Terminal discriminado e ADR 0013 existem; stop coordinator e runtime permanecem indisponiveis. |
 | Trust modes e Sandbox Run | `accepted_only` | `AuthorityMode.SANDBOX` existe como rotulo de politica de autonomia, sem qualquer ligacao com RunSpec, AdmissionRecord ou Run. Nao existe `ExecutionTrustRecord` nem `ReviewPackage`. |
-| Lab Agent | `incubating` | Chat storage e conceitos existem; nao ha porta, adapter nem consumidor. O `LabAgentPort` e o pacote `lab_agent`, ambos sem implementacao, foram removidos na #18. Os endpoints de chat nao possuem teste. |
+| Lab Agent | `incubating` | Chat storage e conceitos existem; nao ha porta, adapter nem consumidor. Os endpoints de chat nao possuem teste. |
 | Human review/adjudication | `partial` | Contratos, authority subject e persistencia existem; o branch humano de `save_evaluation_record` nao e exercitado por teste, e fila, UI e conclusao do EvaluationPlan nao fecham o fluxo. |
 | Tools/skills genericas | `accepted_only` | Inventario e eventos sao representaveis; fora da read tool, coordinators continuam ausentes e os event types permanecem reservados no ledger. |
 | Interaction graph/nested agents | `accepted_only` | Contratos sao tipaveis e a admissao rejeita honestamente. |

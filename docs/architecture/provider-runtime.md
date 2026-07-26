@@ -28,7 +28,7 @@ protocolo, endpoint, modelo, reasoning e estratégia de credencial. O adapter s�
 request conhecidos e fixa `model` e `reasoning` pelo perfil; callers não os substituem silenciosamente.
 
 ```text
-SubjectRunnerPort
+ResponsesReadAgentAdapter (SubjectAdapter)
 → ProviderPort
 → OpenAIResponsesProvider
 → CLIProxyAPI em 127.0.0.1:8318/v1

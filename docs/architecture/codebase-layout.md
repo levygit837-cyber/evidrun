@@ -73,8 +73,9 @@ evidrun/
 │   │   ├── settings.py            Settings, paths, EVIDRUN_AUTHORITY
 │   │   ├── capabilities.py        capability_ref()            ⚠ importa contracts.base
 │   │   └── ports.py               Protocols: SubjectRunner, Provider, EventSink, ArtifactStore, Grader
-│   │                              ✅ #18 removeu os 5 sem implementação; 4 dos 5 restantes
-│   │                                seguem sem consumidor (só ProviderPort é usado)
+│   │                              ✅ #18 removeu os 5 sem implementação nem referência
+│   │                              ⚠ dos 5 restantes só ProviderPort é importado por nome;
+│   │                                EventSink e ArtifactStorePort seguem sem implementação
 │   ├── contracts/                 a LINGUAGEM do domínio: modelos Pydantic + validação, sem I/O
 │   │   ├── base.py         (356)  ContractModel, ArtifactRef, RevisionEnvelope, autoridade humana
 │   │   ├── authoring/             ✅ ENTREGUE em #26: uma família de revision por módulo
@@ -308,9 +309,15 @@ saíram os 5 Protocols sem implementação de `shared/ports.py` — `LabAgentPor
 contradição de navegação que isso criava (a pasta dizia "ainda não implementado" e `create_project`
 aparecia em código funcionando) deixou de existir.
 
-Resta uma costura imaginária menor, fora do escopo daquela decisão: dos 5 Protocols que ficaram em
-`ports.py`, só `ProviderPort` tem consumidor. `SubjectRunnerPort`, `EventSink`, `ArtifactStorePort` e
-`GraderPort` continuam sem implementação e sem referência.
+Resta resíduo menor em `ports.py`, fora do escopo daquela decisão, e ele não é uniforme. Medido por
+conformidade estrutural, que é como Protocol funciona — satisfazer a forma é implementar, herdar não
+é requisito —, e verificado com `pyright`: `SubjectRunnerPort` é satisfeito por `ScriptedLogInvestigator`
+e `GraderPort` por `ExactCauseGrader`, logo são costuras **hipotéticas** pelo vocabulário desta
+página; `EventSink` e `ArtifactStorePort` não são satisfeitos por nada (`LedgerStore` não expõe
+`append`, e `ArtifactStore.put` exige `project_id` e uma `Classification` tipada), logo continuam
+**imaginárias**. Nenhum dos quatro é importado por nome em lugar algum: dos 5 Protocols que ficaram,
+só `ProviderPort` tem consumidor declarado, e o que de fato sustenta o módulo é o dataclass
+`SubjectResult`, importado por 8 arquivos de `runs/` e `subject_runners/`.
 
 **Três violações de direção de import**, todas pequenas e todas reais:
 `shared/capabilities.py → contracts.base`, `shared/settings.py → providers`, e
