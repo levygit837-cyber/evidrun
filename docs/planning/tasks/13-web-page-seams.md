@@ -2,12 +2,12 @@
 id: planning-task-web-page-seams
 type: implementation-task
 title: WS-13 Costuras das paginas web
-status: proposed
+status: accepted
 authority: planning
 owner: core
 created_at: 2026-07-24
-updated_at: 2026-07-24
-observed_at: 2026-07-24
+updated_at: 2026-07-26
+observed_at: 2026-07-26
 review_due: 2026-08-07
 applies_to: web-page-seams
 sources:
@@ -16,13 +16,16 @@ sources:
   - docs/adr/0004-python-core-typescript-ui-and-electron.md
 supersedes: []
 superseded_by: null
-implementation_refs: []
+implementation_refs:
+  - apps/web/src/features/observability
+  - apps/web/src/features/laboratory
+  - apps/web/src/features/create
 verification_refs: []
 ---
 
 # WS-13 — Costuras das paginas web
 
-`workstream_state: queued`
+`workstream_state: delivered`
 
 Nao bloqueado. Toca exclusivamente `apps/web/src/features/**` e pode correr em paralelo com WS-11,
 WS-12 e WS-30, que nao tocam `apps/`.

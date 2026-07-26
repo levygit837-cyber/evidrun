@@ -6,7 +6,7 @@ status: implemented
 authority: normative
 owner: core
 created_at: 2026-07-23
-updated_at: 2026-07-25
+updated_at: 2026-07-26
 applies_to: schema/agent-admission@1
 sources:
   - docs/adr/0009-study-run-contract-composition.md
@@ -17,7 +17,7 @@ implementation_refs:
   - src/evidrun/contracts/compiler.py
   - src/evidrun/contracts/runtime
 verification_refs:
-  - tests/unit/test_contracts.py
+  - tests/unit/test_contract_admission.py
   - tests/integration/test_contract_api.py
 ---
 

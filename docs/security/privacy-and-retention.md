@@ -6,7 +6,7 @@ status: accepted
 authority: normative
 owner: security
 created_at: 2026-07-22
-updated_at: 2026-07-25
+updated_at: 2026-07-26
 applies_to: data
 sources: []
 supersedes: []
@@ -18,7 +18,8 @@ implementation_refs:
   - src/evidrun/infrastructure/database/repository.py
 verification_refs:
   - tests/security/test_artifact_store.py
-  - tests/unit/test_contracts.py
+  - tests/unit/test_contract_admission.py
+  - tests/unit/test_contract_invariants.py
   - tests/integration/test_admission_and_evaluation.py
 ---
 

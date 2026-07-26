@@ -52,7 +52,9 @@ max_function_lines = 120
 max_public_methods = 25
 warn_at_ratio = 0.8
 
+# A tabela está vazia de propósito: nenhum arquivo deste repositório precisa de
+# tolerância. Todo God File que existia quando o gate foi ligado foi decomposto
+# (épico #13), e a última entrada saiu com a divisão de `tests/unit/test_contracts.py`.
+# Adicionar uma entrada aqui é admitir uma regressão estrutural, não uma exceção de
+# rotina: prefira decompor o arquivo.
 [baseline]
-
-[baseline."tests/unit/test_contracts.py"]
-file_lines = 1591

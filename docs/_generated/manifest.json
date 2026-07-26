@@ -97,7 +97,7 @@
       "status": "accepted",
       "authority": "normative",
       "owner": "core",
-      "updated_at": "2026-07-23",
+      "updated_at": "2026-07-26",
       "review_due": null
     },
     {
@@ -108,7 +108,7 @@
       "status": "accepted",
       "authority": "normative",
       "owner": "governance",
-      "updated_at": "2026-07-25",
+      "updated_at": "2026-07-26",
       "review_due": null
     },
     {
@@ -119,7 +119,7 @@
       "status": "accepted",
       "authority": "normative",
       "owner": "evidence",
-      "updated_at": "2026-07-25",
+      "updated_at": "2026-07-26",
       "review_due": null
     },
     {
@@ -130,7 +130,7 @@
       "status": "superseded",
       "authority": "normative",
       "owner": "core",
-      "updated_at": "2026-07-25",
+      "updated_at": "2026-07-26",
       "review_due": null
     },
     {
@@ -141,7 +141,7 @@
       "status": "accepted",
       "authority": "normative",
       "owner": "core",
-      "updated_at": "2026-07-25",
+      "updated_at": "2026-07-26",
       "review_due": null
     },
     {
@@ -229,7 +229,7 @@
       "status": "accepted",
       "authority": "normative",
       "owner": "core",
-      "updated_at": "2026-07-25",
+      "updated_at": "2026-07-26",
       "review_due": null
     },
     {
@@ -240,7 +240,7 @@
       "status": "accepted",
       "authority": "normative",
       "owner": "core",
-      "updated_at": "2026-07-25",
+      "updated_at": "2026-07-26",
       "review_due": null
     },
     {
@@ -262,7 +262,7 @@
       "status": "implemented",
       "authority": "normative",
       "owner": "core",
-      "updated_at": "2026-07-25",
+      "updated_at": "2026-07-26",
       "review_due": null
     },
     {
@@ -350,7 +350,7 @@
       "status": "implemented",
       "authority": "normative",
       "owner": "core",
-      "updated_at": "2026-07-25",
+      "updated_at": "2026-07-26",
       "review_due": null
     },
     {
@@ -361,7 +361,7 @@
       "status": "implemented",
       "authority": "normative",
       "owner": "security",
-      "updated_at": "2026-07-25",
+      "updated_at": "2026-07-26",
       "review_due": null
     },
     {
@@ -383,7 +383,7 @@
       "status": "implemented",
       "authority": "normative",
       "owner": "core",
-      "updated_at": "2026-07-25",
+      "updated_at": "2026-07-26",
       "review_due": null
     },
     {
@@ -449,7 +449,7 @@
       "status": "implemented",
       "authority": "normative",
       "owner": "core",
-      "updated_at": "2026-07-25",
+      "updated_at": "2026-07-26",
       "review_due": null
     },
     {
@@ -471,7 +471,7 @@
       "status": "implemented",
       "authority": "normative",
       "owner": "core",
-      "updated_at": "2026-07-25",
+      "updated_at": "2026-07-26",
       "review_due": null
     },
     {
@@ -644,10 +644,10 @@
       "path": "docs/planning/tasks/13-web-page-seams.md",
       "type": "implementation-task",
       "title": "WS-13 Costuras das paginas web",
-      "status": "proposed",
+      "status": "accepted",
       "authority": "planning",
       "owner": "core",
-      "updated_at": "2026-07-24",
+      "updated_at": "2026-07-26",
       "review_due": "2026-08-07"
     },
     {
@@ -867,7 +867,7 @@
       "status": "accepted",
       "authority": "normative",
       "owner": "security",
-      "updated_at": "2026-07-25",
+      "updated_at": "2026-07-26",
       "review_due": null
     },
     {

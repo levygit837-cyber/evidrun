@@ -6,7 +6,7 @@ status: implemented
 authority: normative
 owner: core
 created_at: 2026-07-22
-updated_at: 2026-07-25
+updated_at: 2026-07-26
 applies_to: evidence
 sources: []
 supersedes: []
@@ -20,7 +20,8 @@ implementation_refs:
   - src/evidrun/evidence/archive.py
 verification_refs:
   - tests/acceptance/test_demo_flow.py
-  - tests/unit/test_contracts.py
+  - tests/unit/test_contract_revisions.py
+  - tests/unit/test_contract_evaluation.py
   - tests/integration/test_admission_and_evaluation.py
   - tests/integration/test_contract_migration.py
   - tests/integration/test_checkpoint_repository.py
