@@ -2,7 +2,7 @@
 id: planning-task-web-page-seams
 type: implementation-task
 title: WS-13 Costuras das paginas web
-status: implemented
+status: verified
 authority: planning
 owner: core
 created_at: 2026-07-24
@@ -20,7 +20,10 @@ implementation_refs:
   - apps/web/src/features/observability
   - apps/web/src/features/laboratory
   - apps/web/src/features/create
-verification_refs: []
+verification_refs:
+  - apps/web/src/features/observability/ObservabilityPage.test.tsx
+  - apps/web/src/features/laboratory/LaboratoryPage.test.tsx
+  - apps/web/src/features/create/CreatePage.test.tsx
 ---
 
 # WS-13 — Costuras das paginas web

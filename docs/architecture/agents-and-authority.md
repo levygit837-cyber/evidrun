@@ -21,6 +21,7 @@ implementation_refs:
   - src/evidrun/entrypoints/cli/app.py
 verification_refs:
   - tests/unit/test_contract_revisions.py
+  - tests/unit/test_contract_compilation.py
   - tests/integration/test_contract_api.py
   - tests/integration/test_contract_cli.py
 ---

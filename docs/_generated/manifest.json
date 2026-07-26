@@ -644,7 +644,7 @@
       "path": "docs/planning/tasks/13-web-page-seams.md",
       "type": "implementation-task",
       "title": "WS-13 Costuras das paginas web",
-      "status": "implemented",
+      "status": "verified",
       "authority": "planning",
       "owner": "core",
       "updated_at": "2026-07-26",
