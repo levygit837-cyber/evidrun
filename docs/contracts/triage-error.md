@@ -15,8 +15,14 @@ supersedes: []
 superseded_by: null
 implementation_refs:
   - src/evidrun/contracts/triage.py
+  - src/evidrun/contracts/admission/rejection.py
+  - src/evidrun/entrypoints/api/routers/contracts.py
+  - src/evidrun/entrypoints/cli/commands/runs.py
+  - src/evidrun/runs/service.py
 verification_refs:
   - tests/unit/test_triage_errors.py
+  - tests/unit/test_admission_rejection.py
+  - tests/integration/test_admission_rejection_surfaces.py
 ---
 
 # Erros estáveis das fases de triagem
@@ -70,5 +76,22 @@ preserva indisponibilidade como HTTP 503; a CLI possui somente as quatro classes
 recusado, não encontrado e conflito), portanto indisponibilidade usa exit code 3. A verificação falha
 se qualquer código ficar sem entrada ou se uma tabela contiver código órfão. Adicionar erro exige, no
 mesmo patch: novo membro com prefixo da fase, categoria, ambas as traduções e caso de contrato.
-Conectar o código a API ou CLI pertence às fatias verticais seguintes e exige seus próprios testes
-observáveis.
+As fases diferentes de `admit` ainda aguardam suas fatias verticais. A rejeição de admissão já
+projeta `admit.rejected` nas superfícies da API, CLI e fachada de execução por um único renderizador.
+
+## Causa de rejeição de admissão
+
+Uma admissão rejeitada é persistida antes de a causa alcançar o operador. API e CLI mantêm os campos
+de resposta existentes e acrescentam `error` somente quando `decision=rejected`; esse objeto é o
+`TriageError` serializado. A fachada de execução usa a mesma mensagem quando precisa interromper o
+fluxo de compatibilidade antes da criação da Run.
+
+O renderizador copia `issues`, `missing_requirements` e `denied_policies` do `AdmissionRecord` sem
+reordenar seus itens. A mensagem cita primeiro os `subject_ref` dos issues bloqueantes, depois os
+requisitos faltantes e as policies negadas, mantendo a ordem interna de cada tupla persistida. Por
+fim, cita capabilities obrigatórias cujo status resolvido não seja `resolved`, pois esse bloqueio é
+canônico no inventário e não exige inventar outro achado no record.
+
+Essa projeção não altera decisão, status de workspace ou interação, capabilities resolvidas, achados
+persistidos nem o digest do `AdmissionRecord`. Texto humano permanece livre; consumidores decidem
+apenas por código e campos estruturados.

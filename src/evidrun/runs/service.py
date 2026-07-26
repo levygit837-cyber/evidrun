@@ -9,6 +9,7 @@ import yaml
 
 from evidrun.contexts import ContextComposer
 from evidrun.contracts import RunSpec
+from evidrun.contracts.admission import admission_rejection_error
 from evidrun.contracts.compiler import StudyCompiler
 from evidrun.contracts.legacy import ExperimentManifestV1Adapter
 from evidrun.experiments import ExperimentManifest
@@ -134,8 +135,7 @@ class EvidrunService:
         admission = self.admission_service.admit(spec)
         admission_row = self.repository.catalog.save_admission_record(spec_row.id, admission)
         if admission.decision != "admitted":
-            reasons = admission.missing_requirements or admission.denied_policies
-            raise ValueError("deterministic RunSpec was rejected: " + ", ".join(reasons))
+            raise ValueError(admission_rejection_error(admission).message)
         run_id, job = self.runtime.coordinator.enqueue(
             run_spec_id=spec_row.id,
             admission_id=admission_row.id,

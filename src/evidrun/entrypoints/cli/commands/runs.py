@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 
+from evidrun.contracts.admission import admission_rejection_error
 from evidrun.entrypoints.cli.shared import components, console
 from evidrun.evidence.bundle import EvidenceBundleService
 from evidrun.infrastructure.database import Database, Repository
@@ -63,14 +64,15 @@ def admit_run_spec(
         service = EvidrunService(repository)
         admission = service.admission_service.admit(spec)
         row = repository.catalog.save_admission_record(run_spec_id, admission)
-        console.print_json(
-            data={
-                "id": row.id,
-                "decision": admission.decision,
-                "digest": admission.digest,
-                "missing_requirements": admission.missing_requirements,
-            }
-        )
+        response: dict[str, Any] = {
+            "id": row.id,
+            "decision": admission.decision,
+            "digest": admission.digest,
+            "missing_requirements": admission.missing_requirements,
+        }
+        if admission.decision == "rejected":
+            response["error"] = admission_rejection_error(admission).model_dump(mode="json")
+        console.print_json(data=response)
     finally:
         database.dispose()
 
