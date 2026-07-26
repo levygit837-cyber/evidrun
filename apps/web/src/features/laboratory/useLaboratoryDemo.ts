@@ -222,7 +222,7 @@ export function useLaboratoryDemo(laboratoryAdapter: LaboratoryAdapter) {
       }
     },
     addContext(value: string) {
-      const item = CONTEXT_ITEMS[value] ?? CONTEXT_ITEMS.artifact!;
+      const item = value === "run" ? CONTEXT_ITEMS.run : CONTEXT_ITEMS.artifact;
       setContextItems((current) =>
         current.some((currentItem) => currentItem.id === item.id)
           ? current

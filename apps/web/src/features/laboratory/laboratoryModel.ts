@@ -54,12 +54,14 @@ export const REASONING_OPTIONS: MenuOption[] = [
   { value: "max", label: "reasoning: max" },
 ];
 
+export type ContextOptionValue = "run" | "artifact";
+
 export const CONTEXT_OPTIONS: MenuOption[] = [
   { value: "run", label: "Run Demo 018" },
   { value: "artifact", label: "ArtifactRef Demo" },
 ];
 
-export const CONTEXT_ITEMS: Record<string, ContextItem> = {
+export const CONTEXT_ITEMS: Record<ContextOptionValue, ContextItem> = {
   run: { id: "run-demo-018", label: "Run Demo 018", kind: "run" },
   artifact: { id: "artifact-demo", label: "ArtifactRef Demo", kind: "artifact" },
 };
