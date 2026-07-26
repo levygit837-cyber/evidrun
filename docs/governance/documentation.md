@@ -14,8 +14,14 @@ supersedes: []
 superseded_by: null
 implementation_refs:
   - scripts/validate_docs.py
+  - scripts/doc_validation.py
+  - scripts/doc_claims.py
+  - scripts/doc_relations.py
+  - scripts/doc_artifacts.py
+  - docs/claims.toml
 verification_refs:
   - docs/_generated/manifest.json
+  - docs/_generated/claims.json
 ---
 
 # Governança documental
@@ -25,7 +31,14 @@ gerado. IDs são únicos. ADR aceito é superseded, não reescrito. Research usa
 `review_due`. Roadmap não descreve comportamento atual.
 
 `implemented` exige `implementation_refs`. `verified` exige também `verification_refs`. Referências
-devem apontar para paths existentes. CI executa o validador documental e falha em divergências.
+devem apontar para paths existentes. Âncoras `#symbol` em Python resolvem somente definições,
+imports e bindings no escopo do módulo; métodos e nomes locais não são âncoras documentais. CI
+executa o validador documental e falha em divergências.
+
+Claims mecanicamente verificáveis vivem no registro tipado `docs/claims.toml`. Cada entrada nomeia
+o documento, uma afirmação curta, o verificador determinístico e o valor esperado. O snapshot
+`docs/_generated/claims.json` registra o observado; claim sem verificador permanece
+`not-verifiable`. Validação mecânica não equivale a aprovação semântica aberta da prosa.
 
 ## Volatilidade
 

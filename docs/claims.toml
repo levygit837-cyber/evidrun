@@ -1,0 +1,15 @@
+schema_version = "1"
+
+[[claims]]
+id = "import-directions-baseline-zero"
+document = "docs/governance/import-directions.md"
+statement = "O gate de direção não encontra violações no checkout versionado."
+verifier = "import-direction-violations"
+expected = 0
+
+[[claims]]
+id = "structural-budget-baseline-zero"
+document = "docs/architecture/codebase-layout.md"
+statement = "O orçamento estrutural não encontra violações no checkout versionado."
+verifier = "code-budget-violations"
+expected = 0
