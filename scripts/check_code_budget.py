@@ -26,15 +26,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Final
 
-ROOT: Final = Path(__file__).resolve().parents[1]
-
-# This file is both a CLI (`python scripts/check_code_budget.py`) and a module the
-# unit test loads by file location. Only the first puts `scripts/` on `sys.path`,
-# so the package import below is made to work in both cases explicitly.
-if str(Path(__file__).resolve().parent) not in sys.path:
-    sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-from code_budget import (  # noqa: E402
+from code_budget import (
     CONFIG_NAME,
     Finding,
     check,
@@ -45,6 +37,8 @@ from code_budget import (  # noqa: E402
     violations,
     warnings,
 )
+
+ROOT: Final = Path(__file__).resolve().parents[1]
 
 
 def _parser() -> argparse.ArgumentParser:

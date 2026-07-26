@@ -36,6 +36,7 @@ patterns = [
   "apps/**/*.test.tsx",
 ]
 max_file_lines = 800
+warn_at_ratio = 0.8
 
 [[groups]]
 name = "source"
@@ -49,6 +50,7 @@ patterns = [
 max_file_lines = 500
 max_function_lines = 120
 max_public_methods = 25
+warn_at_ratio = 0.8
 
 [baseline]
 

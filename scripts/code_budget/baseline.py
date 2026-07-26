@@ -6,6 +6,7 @@ regenerating never invents slack for a file that already fits.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
@@ -42,19 +43,23 @@ def compute_baseline(
 def render_baseline(config_text: str, baseline: Mapping[str, Mapping[Metric, int]]) -> str:
     """Reescreve o bloco `[baseline]` preservando tudo que vem antes dele.
 
-    O corte é por linha, não por substring: o cabeçalho de comentário do próprio
-    `code-budget.toml` menciona `[baseline]` em prosa, e um `partition` cru cortava ali,
-    apagando todos os `[[groups]]` do arquivo.
+    O corte é por linha inteira: o cabeçalho de comentário do próprio `code-budget.toml`
+    menciona `[baseline]` em prosa, e cortar por substring apagaria todos os `[[groups]]`.
+    Ausência da linha nua é erro, não motivo para anexar um segundo bloco ao arquivo.
     """
 
-    head: list[str] = []
-    for line in config_text.splitlines():
+    lines = config_text.splitlines()
+    for index, line in enumerate(lines):
         if line.strip() == BASELINE_HEADER:
+            head = lines[:index]
             break
-        head.append(line)
-    rendered = ["\n".join(head).rstrip("\n"), "", BASELINE_HEADER]
+    else:
+        raise ValueError(f"linha '{BASELINE_HEADER}' não encontrada na configuração")
+    while head and not head[-1].strip():
+        head.pop()
+    rendered = [*head, "", BASELINE_HEADER]
     for path in sorted(baseline):
-        rendered.extend(("", f'[baseline."{path}"]'))
+        rendered.extend(("", f"[baseline.{json.dumps(path, ensure_ascii=False)}]"))
         rendered.extend(
             f"{metric} = {baseline[path][metric]}"
             for metric in METRICS

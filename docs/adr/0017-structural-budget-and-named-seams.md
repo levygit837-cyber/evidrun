@@ -6,7 +6,7 @@ status: accepted
 authority: normative
 owner: core
 created_at: 2026-07-24
-updated_at: 2026-07-24
+updated_at: 2026-07-25
 applies_to: repository
 sources:
   - docs/adr/0003-modular-monolith.md
@@ -15,6 +15,10 @@ supersedes: []
 superseded_by: null
 implementation_refs:
   - scripts/check_code_budget.py
+  - scripts/code_budget/policy.py
+  - scripts/code_budget/measure.py
+  - scripts/code_budget/report.py
+  - scripts/code_budget/baseline.py
   - code-budget.toml
   - .github/workflows/ci.yml
 verification_refs:
@@ -44,7 +48,7 @@ O orçamento é declarado em `code-budget.toml` e verificado por `scripts/check_
 
 | Grupo | Limite de arquivo | Limite de função | Métodos públicos por classe |
 | --- | --- | --- | --- |
-| `source` (`src/**/*.py`, `apps/**/*.{ts,tsx}`, `scripts/*.{py,mjs}`) | 500 | 120 | 25 |
+| `source` (`src/**/*.py`, `apps/**/*.{ts,tsx}`, `scripts/**/*.{py,mjs}`) | 500 | 120 | 25 |
 | `tests` (`tests/**/*.py`, `apps/**/*.test.{ts,tsx}`) | 800 | sem limite | sem limite |
 | `exempt` (gerados e lockfiles) | sem limite | sem limite | sem limite |
 
