@@ -6,13 +6,14 @@ status: implemented
 authority: normative
 owner: core
 created_at: 2026-07-22
-updated_at: 2026-07-23
+updated_at: 2026-07-25
 applies_to: schema/evidence-bundle@1
 sources: []
 supersedes: []
 superseded_by: null
 implementation_refs:
-  - src/evidrun/evidence/bundle.py
+  - src/evidrun/evidence/export/comparison_v1.py
+  - src/evidrun/evidence/archive.py
 verification_refs:
   - tests/acceptance/test_demo_flow.py
 ---

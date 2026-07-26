@@ -6,7 +6,7 @@ status: implemented
 authority: normative
 owner: core
 created_at: 2026-07-23
-updated_at: 2026-07-23
+updated_at: 2026-07-25
 applies_to: schema/evidence-bundle@3
 sources:
   - docs/contracts/evidence-bundle-v2.md
@@ -14,7 +14,10 @@ sources:
 supersedes: []
 superseded_by: null
 implementation_refs:
-  - src/evidrun/evidence/bundle.py
+  - src/evidrun/evidence/export/run_v3.py
+  - src/evidrun/evidence/verify/v3.py
+  - src/evidrun/evidence/verify/dispatch.py
+  - src/evidrun/evidence/verify/records.py
   - src/evidrun/contracts/runtime.py
 verification_refs:
   - tests/integration/test_runtime_kernel.py

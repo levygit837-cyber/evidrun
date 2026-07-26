@@ -6,7 +6,7 @@ status: implemented
 authority: normative
 owner: core
 created_at: 2026-07-23
-updated_at: 2026-07-23
+updated_at: 2026-07-25
 applies_to: schema/evidence-bundle@2
 sources:
   - docs/contracts/evidence-bundle.md
@@ -15,7 +15,9 @@ supersedes: []
 superseded_by: null
 implementation_refs:
   - src/evidrun/contracts/base.py
-  - src/evidrun/evidence/bundle.py
+  - src/evidrun/evidence/export/comparison_v2.py
+  - src/evidrun/evidence/verify/v2.py
+  - src/evidrun/evidence/archive.py
 verification_refs:
   - tests/integration/test_contract_api.py
   - tests/acceptance/test_demo_flow.py

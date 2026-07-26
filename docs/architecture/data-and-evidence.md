@@ -6,7 +6,7 @@ status: implemented
 authority: normative
 owner: core
 created_at: 2026-07-22
-updated_at: 2026-07-23
+updated_at: 2026-07-25
 applies_to: evidence
 sources: []
 supersedes: []
@@ -17,6 +17,7 @@ implementation_refs:
   - src/evidrun/contracts/compiler.py
   - src/evidrun/infrastructure/database
   - src/evidrun/evidence/bundle.py
+  - src/evidrun/evidence/archive.py
 verification_refs:
   - tests/acceptance/test_demo_flow.py
   - tests/unit/test_contracts.py
