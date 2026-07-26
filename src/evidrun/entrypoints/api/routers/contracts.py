@@ -17,9 +17,14 @@ from evidrun.entrypoints.api.context import ApiContext
 from evidrun.entrypoints.api.schemas import (
     ContractDecisionRequest,
     ContractDocumentRequest,
+    ContractRegistrationRequest,
     ManifestRequest,
 )
 from evidrun.experiments import ExperimentManifest
+from evidrun.infrastructure.database.register_errors import (
+    RegisterRejected,
+    RegisterStorageUnavailable,
+)
 
 
 def create_contract_router(
@@ -59,11 +64,21 @@ def create_contract_router(
 
     @router.post("/contracts/revisions")
     async def register_contract(
-        payload: ContractDocumentRequest, _: None = Depends(authorize)
+        payload: ContractRegistrationRequest, _: None = Depends(authorize)
     ) -> dict[str, Any]:
         try:
             revision = parse_revision(payload.document)
             row = repository.registry.save_contract_revision(revision, status=payload.status)
+        except RegisterRejected as exc:
+            raise HTTPException(
+                status_code=HTTP_STATUS_BY_CODE[exc.error.code],
+                detail=exc.error.model_dump(mode="json"),
+            ) from exc
+        except RegisterStorageUnavailable as exc:
+            raise HTTPException(
+                status_code=HTTP_STATUS_BY_CODE[exc.error.code],
+                detail=exc.error.model_dump(mode="json"),
+            ) from exc
         except Exception as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         return {

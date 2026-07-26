@@ -36,6 +36,12 @@ class ContractDocumentRequest(BaseModel):
     status: Literal["draft", "proposed"] = "draft"
 
 
+class ContractRegistrationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    document: dict[str, object]
+    status: str = "draft"
+
+
 class ContractDecisionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     decision: Literal["accepted", "rejected", "superseded"]

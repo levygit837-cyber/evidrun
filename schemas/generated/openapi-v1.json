@@ -114,6 +114,26 @@
         "title": "ContractDocumentRequest",
         "type": "object"
       },
+      "ContractRegistrationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "document": {
+            "additionalProperties": true,
+            "title": "Document",
+            "type": "object"
+          },
+          "status": {
+            "default": "draft",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document"
+        ],
+        "title": "ContractRegistrationRequest",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -618,7 +638,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ContractDocumentRequest"
+                "$ref": "#/components/schemas/ContractRegistrationRequest"
               }
             }
           },
