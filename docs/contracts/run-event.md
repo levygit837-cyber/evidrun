@@ -6,14 +6,14 @@ status: implemented
 authority: normative
 owner: core
 created_at: 2026-07-22
-updated_at: 2026-07-23
+updated_at: 2026-07-25
 applies_to: schema/run-event@1
 sources: []
 supersedes: []
 superseded_by: null
 implementation_refs:
   - src/evidrun/infrastructure/database/repository.py
-  - src/evidrun/contracts/runtime.py
+  - src/evidrun/contracts/runtime
 verification_refs:
   - tests/acceptance/test_demo_flow.py
   - tests/integration/test_admission_and_evaluation.py

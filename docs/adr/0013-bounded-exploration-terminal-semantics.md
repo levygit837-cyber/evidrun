@@ -6,7 +6,7 @@ status: accepted
 authority: normative
 owner: core
 created_at: 2026-07-23
-updated_at: 2026-07-23
+updated_at: 2026-07-25
 applies_to: contracts/subject-terminal/bounded-exploration@1
 sources:
   - docs/adr/0012-subject-disclosure-and-terminal-semantics.md
@@ -15,7 +15,7 @@ supersedes:
   - docs/adr/0012-subject-disclosure-and-terminal-semantics.md
 superseded_by: null
 implementation_refs:
-  - src/evidrun/contracts/runtime.py
+  - src/evidrun/contracts/runtime
   - src/evidrun/contracts/compiler.py
   - src/evidrun/infrastructure/database/repository.py
 verification_refs:

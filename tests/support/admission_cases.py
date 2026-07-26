@@ -13,36 +13,39 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
-from evidrun.contracts.authoring import (
-    AggregationSpec,
-    AlwaysTrigger,
-    BlindingPolicy,
-    CapabilityRequirement,
+from evidrun.contracts.authoring.checkpoint import (
     CheckpointCaptureSpec,
     CheckpointDefinition,
     CheckpointPolicySpec,
-    CleanupPolicy,
+    ManualCheckpointTrigger,
+)
+from evidrun.contracts.authoring.evaluation import (
+    AggregationSpec,
+    BlindingPolicy,
     EvaluationDisclosure,
     EvaluationStage,
     EvaluationTrigger,
-    ExternalEffectPolicy,
-    GoalOutcome,
     HumanAdjudicationPolicy,
-    InteractionEdge,
-    InteractionNode,
-    ManualCheckpointTrigger,
-    NetworkPolicy,
+    SubjectEvaluationDisclosure,
+)
+from evidrun.contracts.authoring.goal import GoalOutcome
+from evidrun.contracts.authoring.inventory import CapabilityRequirement, RuntimeRequirement
+from evidrun.contracts.authoring.progress import (
     ProgressArtifactDefinition,
     ProgressArtifactPolicySpec,
-    RuntimeRequirement,
-    SecretBindingRef,
-    SnapshotPolicy,
-    StopCondition,
-    SubjectEvaluationDisclosure,
     SubjectTurnIntervalProgressTrigger,
 )
+from evidrun.contracts.authoring.protocol import AlwaysTrigger, InteractionEdge, InteractionNode
+from evidrun.contracts.authoring.run import StopCondition
+from evidrun.contracts.authoring.workspace import (
+    CleanupPolicy,
+    ExternalEffectPolicy,
+    NetworkPolicy,
+    SecretBindingRef,
+    SnapshotPolicy,
+)
 from evidrun.contracts.base import ArtifactRef, ContractType, ExtensionRef
-from evidrun.contracts.runtime import RunSpec
+from evidrun.contracts.runtime.spec import RunSpec
 from evidrun.infrastructure.artifacts.store import ArtifactStore
 from evidrun.providers import ProviderProfile
 from evidrun.runs.adapters import (

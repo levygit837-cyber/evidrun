@@ -6,7 +6,7 @@ status: accepted
 authority: normative
 owner: core
 created_at: 2026-07-22
-updated_at: 2026-07-23
+updated_at: 2026-07-25
 applies_to: agents
 sources: []
 supersedes: []
@@ -15,7 +15,7 @@ implementation_refs:
   - src/evidrun/contracts/base.py
   - src/evidrun/contracts/authority.py
   - src/evidrun/contracts/compiler.py
-  - src/evidrun/contracts/runtime.py
+  - src/evidrun/contracts/runtime
   - src/evidrun/infrastructure/database/repository.py
   - src/evidrun/entrypoints/api/app.py
   - src/evidrun/entrypoints/cli/app.py

@@ -15,7 +15,7 @@ from evidrun.authority.repository import (
 from evidrun.authority.service import HumanAuthorityService
 from evidrun.authority.subject import RevisionDecisionSubject
 from evidrun.authority.verifier import LocalWebAuthnVerifier
-from evidrun.contracts.authoring import GoalConstraint, GoalOutcome, GoalRevision, GoalSpec
+from evidrun.contracts.authoring.goal import GoalConstraint, GoalOutcome, GoalRevision, GoalSpec
 from evidrun.contracts.authority import HumanAttestationUnavailable
 from evidrun.infrastructure.artifacts.store import ArtifactStore, MemoryKeyProvider
 from evidrun.infrastructure.database import Database, Repository

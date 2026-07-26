@@ -12,8 +12,8 @@ sources: []
 supersedes: []
 superseded_by: null
 implementation_refs:
-  - src/evidrun/contracts/authoring.py
-  - src/evidrun/contracts/runtime.py
+  - src/evidrun/contracts/authoring
+  - src/evidrun/contracts/runtime
   - src/evidrun/contracts/compiler.py
   - src/evidrun/infrastructure/database
   - src/evidrun/evidence/bundle.py

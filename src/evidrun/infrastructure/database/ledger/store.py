@@ -18,7 +18,7 @@ from evidrun.contracts import (
     RunSpec,
     normalize_event_payload,
 )
-from evidrun.contracts.runtime import (
+from evidrun.contracts.runtime.events import (
     EVENT_ALLOWED_RUN_STATUSES,
     UNSUPPORTED_RUNTIME_EVENT_TYPES,
 )

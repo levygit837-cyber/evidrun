@@ -6,13 +6,13 @@ status: accepted
 authority: normative
 owner: security
 created_at: 2026-07-22
-updated_at: 2026-07-23
+updated_at: 2026-07-25
 applies_to: data
 sources: []
 supersedes: []
 superseded_by: null
 implementation_refs:
-  - src/evidrun/contracts/runtime.py
+  - src/evidrun/contracts/runtime
   - src/evidrun/contracts/compiler.py
   - src/evidrun/infrastructure/artifacts/store.py
   - src/evidrun/infrastructure/database/repository.py

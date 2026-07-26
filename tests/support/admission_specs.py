@@ -16,24 +16,24 @@ from evidrun.contracts.admission import (
     ProviderCatalogEntry,
     RuntimeCapabilityEnvelope,
 )
-from evidrun.contracts.authoring import (
-    AgentInventorySpec,
-    BudgetSpec,
-    CapabilityRequirement,
-    CapturePolicySpec,
+from evidrun.contracts.authoring.evaluation import (
     EvaluationDimension,
     EvaluationPlanSpec,
     EvaluationStage,
     EvaluationTrigger,
-    ExternalEffectPolicy,
-    GoalOutcome,
-    GoalSpec,
-    InputBinding,
-    InteractionProtocolSpec,
-    NetworkPolicy,
+)
+from evidrun.contracts.authoring.goal import GoalOutcome, GoalSpec
+from evidrun.contracts.authoring.inventory import (
+    AgentInventorySpec,
+    CapabilityRequirement,
     RuntimeRequirement,
-    ScenarioSpec,
-    StopCondition,
+)
+from evidrun.contracts.authoring.protocol import InteractionProtocolSpec
+from evidrun.contracts.authoring.run import BudgetSpec, CapturePolicySpec, StopCondition
+from evidrun.contracts.authoring.scenario import InputBinding, ScenarioSpec
+from evidrun.contracts.authoring.workspace import (
+    ExternalEffectPolicy,
+    NetworkPolicy,
     WorkspaceMount,
     WorkspaceTemplateSpec,
 )
@@ -44,7 +44,8 @@ from evidrun.contracts.base import (
     ContractType,
     KeyValue,
 )
-from evidrun.contracts.runtime import AdmissionRecord, RunSpec
+from evidrun.contracts.runtime.records import AdmissionRecord
+from evidrun.contracts.runtime.spec import RunSpec
 from evidrun.experiments.models import ContextPolicySpec
 from evidrun.providers import ProviderProfile
 from evidrun.runs.adapters import (

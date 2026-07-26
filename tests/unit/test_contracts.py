@@ -15,10 +15,14 @@ from evidrun.contracts import (
     ArtifactRef,
     BudgetSpec,
     CapturePolicySpec,
+    CheckpointDefinition,
     CheckpointPolicyRevision,
+    CheckpointPolicySpec,
     CheckpointRecord,
     ContractRef,
     ContractType,
+    EvaluationPlanRevision,
+    EvaluationPlanSpec,
     EvaluationRecord,
     EvaluationValidator,
     EvidenceRef,
@@ -28,13 +32,18 @@ from evidrun.contracts import (
     HumanAttestationRecord,
     InputBinding,
     InteractionProtocolRevision,
+    InteractionProtocolSpec,
     ProgressArtifactContent,
     ProgressArtifactPolicyRevision,
+    ProgressArtifactPolicySpec,
     RepositoryFixtureDecisionAuthority,
     RevisionDecisionRecord,
     RevisionEnvelope,
+    RunBlueprint,
     RunSpec,
+    StudyIntent,
     StudyRevision,
+    StudySpec,
     VariantSpec,
     VerifiedHumanDecisionAuthority,
     WorkspaceTemplateRevision,
@@ -45,33 +54,22 @@ from evidrun.contracts.admission import (
     CapabilityCatalogEntry,
     ProviderCatalogEntry,
 )
-from evidrun.contracts.authoring import (
-    AlwaysTrigger,
-    CapabilityRequirement,
-    CheckpointCaptureSpec,
-    CheckpointDefinition,
-    CheckpointPolicySpec,
+from evidrun.contracts.authoring.checkpoint import CheckpointCaptureSpec, ManualCheckpointTrigger
+from evidrun.contracts.authoring.evaluation import (
     EvaluationDimension,
     EvaluationDisclosure,
-    EvaluationPlanRevision,
-    EvaluationPlanSpec,
     EvaluationStage,
     EvaluationTrigger,
     HumanAdjudicationPolicy,
-    InteractionEdge,
-    InteractionNode,
-    InteractionProtocolSpec,
-    ManualCheckpointTrigger,
-    ProgressArtifactDefinition,
-    ProgressArtifactPolicySpec,
-    RunBlueprint,
-    RuntimeRequirement,
-    StopCondition,
-    StudyIntent,
-    StudySpec,
     SubjectEvaluationDisclosure,
+)
+from evidrun.contracts.authoring.inventory import CapabilityRequirement, RuntimeRequirement
+from evidrun.contracts.authoring.progress import (
+    ProgressArtifactDefinition,
     SubjectTurnIntervalProgressTrigger,
 )
+from evidrun.contracts.authoring.protocol import AlwaysTrigger, InteractionEdge, InteractionNode
+from evidrun.contracts.authoring.run import StopCondition
 from evidrun.contracts.authority import HumanAttestationUnavailable
 from evidrun.contracts.base import ContractModel
 from evidrun.contracts.compiler import (
@@ -86,7 +84,7 @@ from evidrun.contracts.legacy import (
     capability_ref,
 )
 from evidrun.contracts.registry import InMemoryContractRegistry
-from evidrun.contracts.runtime import (
+from evidrun.contracts.runtime.records import (
     CheckpointValidation,
     DimensionValue,
     EvaluationBoundary,

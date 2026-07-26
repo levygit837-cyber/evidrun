@@ -2,19 +2,15 @@ from __future__ import annotations
 
 from typing import Protocol, TypeVar
 
-from evidrun.contracts.authoring import (
-    AgentInventoryRevision,
-    ComparisonPlan,
-    EvaluationPlanRevision,
-    GoalRevision,
-    InputBinding,
-    InteractionProtocolRevision,
-    ProgressArtifactPolicyRevision,
-    ScenarioRevision,
-    StudyRevision,
-    VariantSpec,
-    WorkspaceTemplateRevision,
-)
+from evidrun.contracts.authoring.checkpoint import CheckpointPolicyRevision
+from evidrun.contracts.authoring.evaluation import EvaluationPlanRevision
+from evidrun.contracts.authoring.goal import GoalRevision
+from evidrun.contracts.authoring.inventory import AgentInventoryRevision
+from evidrun.contracts.authoring.progress import ProgressArtifactPolicyRevision
+from evidrun.contracts.authoring.protocol import InteractionProtocolRevision
+from evidrun.contracts.authoring.scenario import InputBinding, ScenarioRevision
+from evidrun.contracts.authoring.study import ComparisonPlan, StudyRevision, VariantSpec
+from evidrun.contracts.authoring.workspace import WorkspaceTemplateRevision
 from evidrun.contracts.base import (
     ArtifactRef,
     ContractRef,
@@ -22,15 +18,15 @@ from evidrun.contracts.base import (
     RevisionEnvelope,
 )
 from evidrun.contracts.registry import ContractResolver
-from evidrun.contracts.runtime import (
-    AdmissionRecord,
+from evidrun.contracts.runtime.envelope import (
     EvaluatorEnvelope,
-    RunSpec,
     SubjectEnvelope,
     SubjectEvaluationDimension,
     SubjectEvaluationGuidance,
     SubjectWorkspace,
 )
+from evidrun.contracts.runtime.records import AdmissionRecord
+from evidrun.contracts.runtime.spec import RunSpec
 from evidrun.shared.types import EvidenceMode
 
 RevisionT = TypeVar("RevisionT", bound=RevisionEnvelope)
@@ -173,8 +169,6 @@ class StudyCompiler:
         evaluation = self._resolve_typed(evaluation_ref, EvaluationPlanRevision)
         checkpoint_payload = None
         if checkpoint_ref is not None:
-            from evidrun.contracts.authoring import CheckpointPolicyRevision
-
             checkpoint_payload = self._resolve_typed(
                 checkpoint_ref, CheckpointPolicyRevision
             ).payload

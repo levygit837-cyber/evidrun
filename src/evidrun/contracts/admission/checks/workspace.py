@@ -15,7 +15,7 @@ from evidrun.contracts.admission.issues import (
     FindingsBuilder,
     WorkspaceStatus,
 )
-from evidrun.contracts.runtime import RunSpec
+from evidrun.contracts.runtime.spec import RunSpec
 
 
 def check_workspace(

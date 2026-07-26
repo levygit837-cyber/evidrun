@@ -21,6 +21,9 @@ implementation_refs:
   - src/evidrun/contracts/admission/service.py
   - src/evidrun/contracts/admission/envelope.py
   - src/evidrun/runs/admission/catalog_checks.py
+  - src/evidrun/contracts/runtime
+  - src/evidrun/contracts/authoring
+  - src/evidrun/evidence
 verification_refs:
   - tests/unit/test_code_budget.py
   - tests/unit/test_admission_oracle.py
@@ -40,18 +43,23 @@ comportamento cabe atrás de uma interface pequena). Ver `skill://codebase-desig
 
 ### Medição
 
-Números de 2026-07-24, produzidos por `scripts/check_code_budget.py`.
+Números de 2026-07-25, produzidos por `scripts/check_code_budget.py` após WS-11, WS-12, WS-30a e
+a divisão de `contracts/` (#26).
 
 | Escopo | Arquivos | Linhas |
 | --- | --- | --- |
-| `src/evidrun/**/*.py` | 68 | ~15.400 |
-| `tests/**/*.py` | 30 | ~6.900 |
-| `apps/web` + `apps/desktop` (`.ts`/`.tsx`) | 35 | 6.670 (1.603 gerados) |
+| `src/evidrun/**/*.py` | 165 | ~18.400 |
+| `tests/**/*.py` | 35 | ~8.600 |
+| `apps/web` + `apps/desktop` (`.ts`/`.tsx`) | 32 | 6.625 (1.603 gerados) |
 
-Distribuição de tamanho em `src/` + `apps/` + `scripts/`: 76 arquivos com até 150 linhas, 14 entre
-151 e 300, 3 entre 301 e 500, 4 entre 501 e 800, e 9 acima de 800. A cauda é curta e concentrada:
-**seis arquivos carregam 8.500 linhas**, e a mediana do repositório é confortável. O problema não é
-volume, é concentração.
+Distribuição de tamanho em `src/` + `apps/` + `scripts/`: 149 arquivos com até 150 linhas, 40 entre
+151 e 300, 15 entre 301 e 500, 1 entre 501 e 800, e 3 acima de 800.
+
+A concentração acabou no lado Python: o maior módulo é `ledger/store.py` com 478 linhas, contra
+2.942 de `repository.py` em 2026-07-24. Os três arquivos acima de 800 linhas são todos web —
+`contracts.ts` (1.603, gerado e isento), `ObservabilityPage.tsx` (918) e `LaboratoryPage.tsx` (818),
+os dois últimos cobertos pela issue #17. O gate mede 245 arquivos com 4 entradas de baseline,
+nenhuma violação e 12 avisos de folga.
 
 ### A árvore atual
 
@@ -66,8 +74,11 @@ evidrun/
 │   │                              ⚠ 4 dos 9 Protocols têm zero implementação
 │   ├── contracts/                 a LINGUAGEM do domínio: modelos Pydantic + validação, sem I/O
 │   │   ├── base.py         (356)  ContractModel, ArtifactRef, RevisionEnvelope, autoridade humana
-│   │   ├── authoring.py    (871)  65 classes: Goal/Scenario/Study/Workspace/Protocol/Evaluation   ▲
-│   │   ├── runtime.py     (1060)  46 classes: RunSpec, records, payloads de evento               ▲
+│   │   ├── authoring/             ✅ ENTREGUE em #26: uma família de revision por módulo
+│   │   │                          goal, scenario, inventory, workspace, protocol, evaluation,
+│   │   │                          checkpoint, progress, run, study, study_intent, parse
+│   │   ├── runtime/               ✅ ENTREGUE em #26: por papel
+│   │   │                          spec, records, envelope, events, execution
 │   │   ├── compiler.py     (530)  StudyCompiler + compiladores de envelope                        ▲
 │   │   ├── admission/             ✅ service + envelope + checks/ por família
 │   │   ├── evaluation.py          EvaluationValidator
@@ -285,15 +296,15 @@ checksum, nome de membro duplicado).
 `shared/capabilities.py → contracts.base`, `shared/settings.py → providers`, e
 `infrastructure/{database,artifacts} → contracts`. A última é hidratação legítima de contrato (o
 repository desserializa `RunSpec` e `EvaluationRecord`), mas `repository.py` também importa
-`EVENT_ALLOWED_RUN_STATUSES` e `UNSUPPORTED_RUNTIME_EVENT_TYPES` de `contracts/runtime.py` e impõe
-regra de fase de Run — isso é regra de domínio executando na camada de infraestrutura.
+`EVENT_ALLOWED_RUN_STATUSES` e `UNSUPPORTED_RUNTIME_EVENT_TYPES` de `contracts/runtime/events.py` e
+impõe regra de fase de Run — isso é regra de domínio executando na camada de infraestrutura.
 
 ## Alvo
 
-A árvore abaixo é o destino, não um retrato do disco. Dois blocos já aterrissaram e estão marcados
-com `✅ ENTREGUE`: `infrastructure/database/` (WS-11) e os dois pacotes `admission/` (WS-12). Todo o
-resto continua sendo workstream futuro com issue própria, e nada não marcado descreve comportamento
-implementado.
+A árvore abaixo é o destino, não um retrato do disco. Os blocos que já aterrissaram estão marcados
+com `✅ ENTREGUE`: `infrastructure/database/` (WS-11), os dois pacotes `admission/` (WS-12),
+`evidence/` (WS-30a) e os pacotes `contracts/{runtime,authoring}/` (#26). Todo o resto continua
+sendo workstream futuro com issue própria, e nada não marcado descreve comportamento implementado.
 
 ### Princípio
 
@@ -314,10 +325,11 @@ Três regras que decidem onde um arquivo novo vai morar:
 src/evidrun/
 ├── contracts/                      vocabulário: modelos + validação, zero I/O
 │   ├── base.py                     (mantém)
-│   ├── authoring/                  ← authoring.py (871) dividido por família de revision
-│   │   ├── goal.py  scenario.py  study.py  workspace.py  protocol.py  evaluation.py
+│   ├── authoring/                  ✅ ENTREGUE em #26                                    [#26]
+│   │   ├── goal.py  scenario.py  inventory.py  workspace.py  protocol.py  evaluation.py
+│   │   ├── checkpoint.py  progress.py  run.py  study.py  study_intent.py
 │   │   └── parse.py                parse_revision + despacho por tipo
-│   ├── runtime/                    ← runtime.py (1060) dividido por papel
+│   ├── runtime/                    ✅ ENTREGUE em #26                                    [#26]
 │   │   ├── spec.py                 RunSpec e satélites
 │   │   ├── records.py              Admission/Run/Evaluation/Checkpoint/Progress records
 │   │   ├── envelope.py             SubjectEnvelope, EvaluatorEnvelope

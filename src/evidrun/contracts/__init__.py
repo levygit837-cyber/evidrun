@@ -1,34 +1,34 @@
-from evidrun.contracts.authoring import (
-    AgentInventoryRevision,
-    AgentInventorySpec,
-    AuthoringRevision,
-    BudgetSpec,
-    CapturePolicySpec,
+from evidrun.contracts.authoring.checkpoint import (
     CheckpointDefinition,
     CheckpointPolicyRevision,
     CheckpointPolicySpec,
-    ComparisonPlan,
-    EvaluationPlanRevision,
-    EvaluationPlanSpec,
-    GoalRevision,
-    GoalSpec,
-    InputBinding,
-    InteractionProtocolRevision,
-    InteractionProtocolSpec,
+)
+from evidrun.contracts.authoring.evaluation import EvaluationPlanRevision, EvaluationPlanSpec
+from evidrun.contracts.authoring.goal import GoalRevision, GoalSpec
+from evidrun.contracts.authoring.inventory import AgentInventoryRevision, AgentInventorySpec
+from evidrun.contracts.authoring.parse import AuthoringRevision, parse_revision
+from evidrun.contracts.authoring.progress import (
     ProgressArtifactPolicyRevision,
     ProgressArtifactPolicySpec,
-    RunBlueprint,
-    ScenarioRevision,
-    ScenarioSpec,
-    SecretBindingRef,
-    StudyIntent,
+)
+from evidrun.contracts.authoring.protocol import (
+    InteractionProtocolRevision,
+    InteractionProtocolSpec,
+)
+from evidrun.contracts.authoring.run import BudgetSpec, CapturePolicySpec, RunBlueprint
+from evidrun.contracts.authoring.scenario import InputBinding, ScenarioRevision, ScenarioSpec
+from evidrun.contracts.authoring.study import (
+    ComparisonPlan,
     StudyRevision,
     StudySpec,
     VariantOverrides,
     VariantSpec,
+)
+from evidrun.contracts.authoring.study_intent import StudyIntent
+from evidrun.contracts.authoring.workspace import (
+    SecretBindingRef,
     WorkspaceTemplateRevision,
     WorkspaceTemplateSpec,
-    parse_revision,
 )
 from evidrun.contracts.base import (
     ArtifactManifest,
@@ -49,29 +49,30 @@ from evidrun.contracts.base import (
     semantic_model_dump,
 )
 from evidrun.contracts.evaluation import EvaluationValidator
-from evidrun.contracts.runtime import (
-    AdjudicatesEvaluationRelation,
-    AdmissionRecord,
-    BoundedExplorationTerminalResult,
-    CheckpointRecord,
-    EvaluationRecord,
+from evidrun.contracts.runtime.envelope import (
     EvaluatorEnvelope,
-    GoalStateTerminalResult,
-    IndependentHumanReviewRelation,
-    ProgressArtifactContent,
-    ProgressArtifactRecord,
-    ResolvedAgentInventory,
-    ResolvedCapability,
-    RunEventPayload,
-    RunExecutionAttempt,
-    RunExecutionJob,
-    RunRecord,
-    RunSpec,
     SubjectEnvelope,
     SubjectEnvelopeRecord,
     SubjectEvaluationGuidance,
+)
+from evidrun.contracts.runtime.events import (
+    BoundedExplorationTerminalResult,
+    GoalStateTerminalResult,
+    RunEventPayload,
     normalize_event_payload,
 )
+from evidrun.contracts.runtime.execution import RunExecutionAttempt, RunExecutionJob
+from evidrun.contracts.runtime.records import (
+    AdjudicatesEvaluationRelation,
+    AdmissionRecord,
+    CheckpointRecord,
+    EvaluationRecord,
+    IndependentHumanReviewRelation,
+    ProgressArtifactContent,
+    ProgressArtifactRecord,
+    RunRecord,
+)
+from evidrun.contracts.runtime.spec import ResolvedAgentInventory, ResolvedCapability, RunSpec
 
 __all__ = [
     "AdjudicatesEvaluationRelation",

@@ -9,7 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from evidrun.contracts import ArtifactManifest, EvaluationRecord, GoalRevision, GoalSpec
-from evidrun.contracts.authoring import GoalOutcome
+from evidrun.contracts.authoring.goal import GoalOutcome
 from evidrun.entrypoints.api.app import create_app
 from evidrun.evidence.bundle import EvidenceBundleService
 from evidrun.shared.types import canonical_json, sha256_json

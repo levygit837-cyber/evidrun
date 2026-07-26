@@ -14,7 +14,7 @@ from evidrun.contracts.base import (
     RevisionDecisionRecord,
     VerifiedHumanDecisionAuthority,
 )
-from evidrun.contracts.runtime import (
+from evidrun.contracts.runtime.records import (
     AdjudicatesEvaluationRelation,
     DimensionValue,
     EvaluationBoundary,

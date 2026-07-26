@@ -18,7 +18,7 @@ from evidrun.contracts import (
     RunSpec,
     semantic_model_dump,
 )
-from evidrun.contracts.authoring import EvaluationStage
+from evidrun.contracts.authoring.evaluation import EvaluationStage
 from evidrun.infrastructure.database.ledger.transitions import TERMINAL_EVENT_TYPES
 from evidrun.shared.types import sha256_json
 

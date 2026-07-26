@@ -21,7 +21,7 @@ from evidrun.contracts.admission import (
     ProviderCatalogEntry,
     RuntimeCapabilityEnvelope,
 )
-from evidrun.contracts.runtime import AdmissionIssue
+from evidrun.contracts.runtime.spec import AdmissionIssue
 from evidrun.runs.adapters.grader_cause import ExactCauseGraderAdapter
 from evidrun.runs.adapters.grader_read_answer import ExactReadAnswerGraderAdapter
 from evidrun.runs.adapters.materializer import ArtifactInputMaterializer

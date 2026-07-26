@@ -6,7 +6,7 @@ status: accepted
 authority: normative
 owner: governance
 created_at: 2026-07-23
-updated_at: 2026-07-23
+updated_at: 2026-07-25
 applies_to: authority/human-actions@1
 sources:
   - docs/adr/0009-study-run-contract-composition.md
@@ -16,7 +16,7 @@ superseded_by: null
 implementation_refs:
   - src/evidrun/contracts/base.py
   - src/evidrun/contracts/authority.py
-  - src/evidrun/contracts/runtime.py
+  - src/evidrun/contracts/runtime
   - src/evidrun/infrastructure/database/repository.py
   - src/evidrun/entrypoints/api/app.py
   - src/evidrun/entrypoints/cli/app.py

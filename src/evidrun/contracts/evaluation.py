@@ -3,8 +3,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Literal
 
-from evidrun.contracts.authoring import EvaluationDimension, EvaluationPlanSpec
-from evidrun.contracts.runtime import DimensionValue, EvaluationRecord
+from evidrun.contracts.authoring.evaluation import EvaluationDimension, EvaluationPlanSpec
+from evidrun.contracts.runtime.records import DimensionValue, EvaluationRecord
 
 
 class EvaluationValidator:
