@@ -6,7 +6,7 @@ status: accepted
 authority: normative
 owner: core
 created_at: 2026-07-24
-updated_at: 2026-07-24
+updated_at: 2026-07-25
 applies_to: repository
 sources:
   - docs/adr/0003-modular-monolith.md
@@ -15,6 +15,10 @@ supersedes: []
 superseded_by: null
 implementation_refs:
   - scripts/check_code_budget.py
+  - scripts/code_budget/policy.py
+  - scripts/code_budget/measure.py
+  - scripts/code_budget/report.py
+  - scripts/code_budget/baseline.py
   - code-budget.toml
   - .github/workflows/ci.yml
 verification_refs:
@@ -44,7 +48,7 @@ O orçamento é declarado em `code-budget.toml` e verificado por `scripts/check_
 
 | Grupo | Limite de arquivo | Limite de função | Métodos públicos por classe |
 | --- | --- | --- | --- |
-| `source` (`src/**/*.py`, `apps/**/*.{ts,tsx}`, `scripts/*.{py,mjs}`) | 500 | 120 | 25 |
+| `source` (`src/**/*.py`, `apps/**/*.{ts,tsx}`, `scripts/**/*.{py,mjs}`) | 500 | 120 | 25 |
 | `tests` (`tests/**/*.py`, `apps/**/*.test.{ts,tsx}`) | 800 | sem limite | sem limite |
 | `exempt` (gerados e lockfiles) | sem limite | sem limite | sem limite |
 
@@ -60,6 +64,14 @@ métodos públicos é rasa por definição: a interface é tão complexa quanto 
 **Ratchet, não big bang.** Os 14 arquivos que já violavam a política entraram numa tabela
 `[baseline]` com sua métrica medida. Uma métrica no baseline pode encolher, nunca crescer. Quando ela
 volta para dentro do orçamento do grupo, o gate exige a remoção da entrada. O ratchet só aperta.
+
+**Aviso antes de violação.** Uma métrica que passa de `warn_at_ratio` do orçamento do grupo (default
+0.8, declarável por grupo em `code-budget.toml`) é reportada como AVISO e **não** altera o exit code.
+A razão de não falhar é operacional: aviso que quebra CI vira ruído que alguém silencia, e o valor
+aqui é que um arquivo recém-extraído perto do teto seja visto antes de a próxima capability empurrá-lo
+de volta ao `[baseline]`. A superfície escolhida é a saída do próprio gate, no job Python que já roda
+em todo push — não um comentário de PR, que só apareceria depois do trabalho estar feito. Como a
+medição parte de `git ls-files`, arquivo fora do índice não é medido, e portanto não avisa.
 
 **Custo zero de CI.** O gate roda como um passo do job Python já existente, não como job novo, e há
 um hook `pre-push` opcional (`scripts/install_git_hooks.py`) que faz a mesma verificação localmente.

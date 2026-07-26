@@ -48,3 +48,11 @@ A política vive em `code-budget.toml` e o ADR 0017 explica os limites. O CI rod
 job Python. Arquivos no ratchet `[baseline]` podem encolher, nunca crescer; quando uma métrica volta
 para dentro do orçamento, remova a entrada. `--update-baseline` é operação humana deliberada e nunca
 roda em CI.
+
+O gate tem dois níveis. **Violação** falha (exit 1). **AVISO** não altera o exit code: ele aparece
+quando uma métrica passa de `warn_at_ratio` (default 0.8) do orçamento do grupo, para que um arquivo
+perto do teto seja visto antes de virar violação. Só arquivo rastreado pelo git é medido, então um
+arquivo novo ainda fora do índice não aparece em nenhum dos dois níveis.
+
+O código do gate vive em `scripts/code_budget/`: `policy` lê a política, `measure` mede, `report`
+decide violação e aviso, `baseline` regrava o ratchet. `scripts/check_code_budget.py` é só a CLI.
