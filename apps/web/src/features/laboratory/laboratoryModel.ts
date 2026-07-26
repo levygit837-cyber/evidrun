@@ -27,6 +27,11 @@ export const phaseLabels: Record<LaboratoryPhase, string> = {
   unavailable: "Laboratory indisponível",
 };
 
+/** Phases in which the demo sequence is still producing events. */
+export function isRunningPhase(phase: LaboratoryPhase): boolean {
+  return phase === "submitting" || phase === "active" || phase === "stopping";
+}
+
 export const samplePrompts = [
   "Resuma o contexto desta investigação.",
   "Use ferramentas para inspecionar o Run Demo.",

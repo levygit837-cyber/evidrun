@@ -10,6 +10,7 @@ import {
 import {
   type LaboratoryPhase,
   type ToolEvent,
+  isRunningPhase,
   phaseLabels,
 } from "./laboratoryModel";
 
@@ -52,8 +53,7 @@ export function AuditActivity({
   tools: ToolEvent[];
   phase: LaboratoryPhase;
 }) {
-  const running =
-    phase === "submitting" || phase === "active" || phase === "stopping";
+  const running = isRunningPhase(phase);
 
   return (
     <details className="laboratory-audit" open>

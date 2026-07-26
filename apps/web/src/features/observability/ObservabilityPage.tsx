@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { observabilityAdapter } from "../../data/adapters";
 import type { ObservabilityAdapter } from "../../data/contracts";
-import { PageState, ListLoadingState } from "./ObservabilityParts";
+import { ListLoadingState, PageState } from "./ObservabilityParts";
 import { RunDetailPanel } from "./RunDetailPanel";
 import { RunList } from "./RunList";
 import { listFailureCopy, type ObservabilitySearchState } from "./observabilityModel";

@@ -13,6 +13,7 @@ import {
   TEXTAREA_MAX_HEIGHT_PX,
   TEXTAREA_MIN_HEIGHT_PX,
   type ToolEvent,
+  isRunningPhase,
 } from "./laboratoryModel";
 
 /**
@@ -41,8 +42,7 @@ export function useLaboratoryDemo(laboratoryAdapter: LaboratoryAdapter) {
   const abortControllerRef = useRef<AbortController | null>(null);
   const submitLockRef = useRef(false);
   const lastSubmittedInputRef = useRef<string | null>(null);
-  const isRunning =
-    phase === "submitting" || phase === "active" || phase === "stopping";
+  const isRunning = isRunningPhase(phase);
   const conversationStarted = userMessage !== null;
 
   const resizeTextarea = useCallback(() => {

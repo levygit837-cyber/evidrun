@@ -9,7 +9,7 @@ import {
 } from "./createModel";
 import type { StudyDraftState } from "./useStudyDraft";
 
-export function AdmissionBadge({ state }: { state: AdmissionState }) {
+function AdmissionBadge({ state }: { state: AdmissionState }) {
   const copy = admissionCopy[state];
   return <StatusIndicator tone={copy.tone} label={copy.label} />;
 }

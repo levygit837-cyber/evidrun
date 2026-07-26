@@ -154,32 +154,6 @@ export function getForensicTurnWindow(
   return ordered.slice(start, end + 1);
 }
 
-function collectReferenceStrings(value: unknown, output: Set<string>): void {
-  if (typeof value === "string") {
-    if (/^(run|event|artifact):/.test(value)) output.add(value);
-    return;
-  }
-  if (Array.isArray(value)) {
-    for (const item of value) collectReferenceStrings(item, output);
-    return;
-  }
-  if (value && typeof value === "object") {
-    for (const item of Object.values(value)) collectReferenceStrings(item, output);
-  }
-}
-
-export function collectEvidenceReferences(
-  events: RunEvent[],
-  evaluations: EvaluationRecordDto[],
-  checkpoints: unknown[],
-): string[] {
-  const refs = new Set<string>();
-  for (const event of events) collectReferenceStrings(event.payload, refs);
-  for (const evaluation of evaluations) collectReferenceStrings(evaluation.dimension_values, refs);
-  for (const checkpoint of checkpoints) collectReferenceStrings(checkpoint, refs);
-  return [...refs].sort((left, right) => left.localeCompare(right));
-}
-
 export type EvidenceOrigin = "event" | "evaluation" | "checkpoint";
 
 export interface EvidenceProjection {

@@ -34,8 +34,6 @@ import {
 import { useLaboratoryDemo } from "./useLaboratoryDemo";
 import "./laboratory.css";
 
-export type { LaboratoryPhase } from "./laboratoryModel";
-
 export function LaboratoryPage({ adapter }: { adapter?: LaboratoryAdapter }) {
   const laboratoryAdapter = useMemo(
     () => adapter ?? new DemoLaboratoryAdapter(),
