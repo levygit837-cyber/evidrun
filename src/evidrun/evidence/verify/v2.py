@@ -34,6 +34,7 @@ from evidrun.evidence.verify.records import (
     build_ledger_index,
     checkpoint_record_valid,
     evaluation_record_valid,
+    run_members,
     strip,
 )
 from evidrun.shared.types import canonical_json
@@ -72,17 +73,8 @@ def verify_v2_structure(bundle_manifest: dict[str, Any], names: set[str]) -> boo
     if len(run_ids) != 2 or len({str(item) for item in run_ids}) != 2:
         return False
     return all(
-        isinstance(run_id, str) and _run_members(run_id).issubset(names) for run_id in run_ids
+        isinstance(run_id, str) and run_members(run_id).issubset(names) for run_id in run_ids
     )
-
-
-def _run_members(run_id: str) -> set[str]:
-    return {
-        f"runs/{run_id}.json",
-        f"events/{run_id}.jsonl",
-        f"evaluations/{run_id}.json",
-        f"checkpoints/{run_id}.json",
-    }
 
 
 def verify_v2_records(archive: zipfile.ZipFile, names: set[str]) -> dict[str, bool]:
@@ -98,8 +90,8 @@ def verify_v2_records(archive: zipfile.ZipFile, names: set[str]) -> dict[str, bo
 
 
 def _load_run_contracts(archive: zipfile.ZipFile, names: set[str]) -> RunContracts:
-    """Só o trio spec/record/admission internamente coerente entra; o resto é ignorado
-    aqui e reprovado pelas checagens por membro."""
+    """Only an internally coherent spec/record/admission trio is kept; the rest is
+    skipped here and failed by the per-member checks."""
 
     contracts = RunContracts()
     for name in sorted(item for item in names if item.startswith("runs/")):
@@ -128,7 +120,7 @@ def _load_run_contracts(archive: zipfile.ZipFile, names: set[str]) -> RunContrac
 
 
 def _referenced_contracts(spec: RunSpec) -> list[tuple[ContractRef, BaseModel | None]]:
-    """Cada ref do RunSpec com o payload que o próprio spec carrega, quando carrega."""
+    """Each RunSpec ref paired with the payload the spec itself carries, if any."""
 
     pairs: list[tuple[ContractRef, BaseModel | None]] = [
         (spec.study_ref, None),
@@ -149,7 +141,7 @@ def _referenced_contracts(spec: RunSpec) -> list[tuple[ContractRef, BaseModel | 
 def _contract_ref_results(
     archive: zipfile.ZipFile, contracts: RunContracts
 ) -> dict[str, bool]:
-    """A revision no bundle tem de ser a mesma que o ref aponta, com o mesmo payload."""
+    """The bundled revision must be the one the ref names, with the same payload."""
 
     results: dict[str, bool] = {}
     for run_id, spec in contracts.run_specs.items():
@@ -226,8 +218,8 @@ def _index_ledger(archive: zipfile.ZipFile, names: set[str]) -> LedgerIndex:
 
 
 def _lifecycle_results(contracts: RunContracts, index: LedgerIndex) -> dict[str, bool]:
-    """A Run precisa terminar em evento terminal, e o queued/terminal precisa amarrar
-    no RunSpec e no AdmissionRecord que o bundle carrega."""
+    """The Run must end on a terminal event, and its queued/terminal pair must bind to
+    the RunSpec and AdmissionRecord the bundle carries."""
 
     results: dict[str, bool] = {}
     for run_id, events in index.events_by_run.items():
@@ -271,7 +263,7 @@ def _member_results(
     contracts: RunContracts,
     index: LedgerIndex,
 ) -> dict[str, bool]:
-    """Cada membro digest-ável é verificado pelo seu próprio tipo de documento."""
+    """Each digestible member is checked against its own document type."""
 
     results: dict[str, bool] = {}
     for name in sorted(names):
@@ -309,7 +301,7 @@ def _digest_matches(archive: zipfile.ZipFile, name: str, parse: Any) -> bool:
 
 
 def _run_record_valid(archive: zipfile.ZipFile, name: str) -> bool:
-    """O RunRecord tem de concordar com o spec e a admissão que ele referencia."""
+    """The RunRecord must agree with the spec and admission it references."""
 
     record = RunRecord.model_validate(ar.read_json(archive, name))
     spec_document = ar.read_json(archive, f"run-specs/{record.run_spec_id}.json")
@@ -337,8 +329,8 @@ def _evaluations_valid(
     contracts: RunContracts,
     index: LedgerIndex,
 ) -> bool:
-    """Todo EvaluationRecord tem um `evaluation.completed` correspondente, e o evento
-    terminal referencia exatamente o conjunto de records presentes."""
+    """Every EvaluationRecord has a matching `evaluation.completed`, and the terminal
+    event references exactly the set of records present."""
 
     documents = ar.read_json(archive, name)
     run_id = Path(name).stem
@@ -392,7 +384,7 @@ def _evaluations_valid(
 
 
 def _gates_satisfied(documents: list[dict[str, Any]], spec: RunSpec | None) -> bool:
-    """Run completada precisa ter record para todo stage que os gates deixaram visível."""
+    """A completed Run needs a record for every stage the gates left visible."""
 
     if spec is None:
         return False
@@ -405,7 +397,7 @@ def _gates_satisfied(documents: list[dict[str, Any]], spec: RunSpec | None) -> b
 
 
 def _comparison_valid(archive: zipfile.ZipFile, contracts: RunContracts) -> bool:
-    """Os dois run_ids do bundle são exatamente os dois lados da comparison."""
+    """The bundle's two run_ids are exactly the two sides of the comparison."""
 
     try:
         bundle_document = ar.read_json(archive, "bundle.json")

@@ -6,7 +6,7 @@ status: accepted
 authority: normative
 owner: evidence
 created_at: 2026-07-23
-updated_at: 2026-07-23
+updated_at: 2026-07-25
 applies_to: evidence/artifacts-bundles@1
 sources:
   - docs/adr/0009-study-run-contract-composition.md

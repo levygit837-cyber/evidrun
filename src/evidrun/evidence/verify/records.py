@@ -18,19 +18,33 @@ from evidrun.contracts import (
     RunSpec,
     semantic_model_dump,
 )
+from evidrun.contracts.authoring import EvaluationStage
+from evidrun.infrastructure.database.ledger.transitions import TERMINAL_EVENT_TYPES
 from evidrun.shared.types import sha256_json
 
-TERMINAL_EVENT_TYPES = frozenset(
-    {
-        "run.completed",
-        "run.failed",
-        "run.cancelled",
-        "run.budget_exhausted",
-        "run.guardrail_stopped",
-    }
-)
+__all__ = [
+    "HUMAN_SOURCE_TYPES",
+    "TERMINAL_EVENT_TYPES",
+    "LedgerIndex",
+    "build_ledger_index",
+    "checkpoint_record_valid",
+    "evaluation_record_valid",
+    "run_members",
+    "strip",
+]
 
 HUMAN_SOURCE_TYPES = frozenset({"human_reviewer", "human_adjudicator"})
+
+
+def run_members(run_id: str) -> set[str]:
+    """The members every auditable bundle carries per Run, in both v2 and v3."""
+
+    return {
+        f"runs/{run_id}.json",
+        f"events/{run_id}.jsonl",
+        f"evaluations/{run_id}.json",
+        f"checkpoints/{run_id}.json",
+    }
 
 
 @dataclass(frozen=True, slots=True)
@@ -174,7 +188,7 @@ def _human_authority_valid(
     spec: RunSpec,
     records_by_id: dict[str, dict[str, Any]],
 ) -> bool:
-    """Adjudicação e review humanos exigem autoridade declarada, não campo de ator."""
+    """Human adjudication and review need declared authority, never an actor field."""
 
     if record.source_type == "human_adjudicator":
         policy = spec.evaluation_plan.human_adjudication_policy
@@ -259,9 +273,9 @@ def _human_relation_boundary_valid(
 
 
 def _trigger_valid(
-    stage: Any, record: EvaluationRecord, *, run_id: str, index: LedgerIndex
+    stage: EvaluationStage, record: EvaluationRecord, *, run_id: str, index: LedgerIndex
 ) -> bool:
-    """O boundary do record tem de casar com o gatilho declarado do stage."""
+    """The record boundary must match the stage's declared trigger."""
 
     boundary = record.boundary
     sequence = boundary.up_to_event_sequence
@@ -284,7 +298,7 @@ def _trigger_valid(
 def _evidence_within_boundary(
     record: EvaluationRecord, *, run_id: str, index: LedgerIndex, boundary_sequence: int
 ) -> bool:
-    """Evidência aponta para a própria Run e nunca além do boundary avaliado."""
+    """Evidence points at this Run and never past the boundary being evaluated."""
 
     for dimension in record.dimension_values:
         for evidence_ref in dimension.evidence_refs:

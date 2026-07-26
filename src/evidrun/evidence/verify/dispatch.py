@@ -24,11 +24,12 @@ from evidrun.contracts.runtime import (
 )
 from evidrun.evidence.verify.v2 import verify_v2_records, verify_v2_structure
 from evidrun.evidence.verify.v3 import verify_v3_records, verify_v3_structure
+from evidrun.infrastructure.database.ledger.transitions import TERMINAL_RUN_STATUSES
 from evidrun.shared.types import canonical_json, sha256_json
 
-TERMINAL_STATES = frozenset(
-    {"completed", "failed", "cancelled", "budget_exhausted", "guardrail_stopped"}
-)
+#: Taken from the ledger's canonical source rather than redeclared: if the runtime
+#: recognizes another terminal status, the verifier follows instead of diverging.
+TERMINAL_STATES = TERMINAL_RUN_STATUSES
 
 ALLOWED_ACTOR_TYPES = frozenset(
     {"system", "subject", "evaluator", "tool", "skill", "observer"}
@@ -53,7 +54,7 @@ TOOL_TERMINAL_TYPES = frozenset({"tool.completed", "tool.denied", "tool.failed"}
 
 
 def verify(bundle_path: Path) -> dict[str, Any]:
-    """Verifica um bundle nos três eixos. `valid` exige que todos passem."""
+    """Verify a bundle on all three axes. `valid` requires every one of them to hold."""
 
     with zipfile.ZipFile(bundle_path) as archive:
         member_names = archive.namelist()
@@ -90,10 +91,10 @@ def verify(bundle_path: Path) -> dict[str, Any]:
 def _verify_checksums(
     archive: zipfile.ZipFile, member_names: list[str], names: set[str]
 ) -> dict[str, bool]:
-    """Todo membro casa com seu digest, a lista é exata, e não há nome duplicado.
+    """Every member matches its digest, the list is exact, and no name repeats.
 
-    A lista exata é o que impede arquivo injetado sem entrada de checksum; o nome
-    duplicado é o que impede dois membros com o mesmo caminho no zip.
+    The exact list is what stops a file injected without a checksum entry; the name
+    check is what stops two zip members sharing one path.
     """
 
     checksums = json.loads(archive.read("checksums.json"))["files"]
@@ -111,7 +112,7 @@ def _verify_checksums(
 
 
 def _verify_records(archive: zipfile.ZipFile, names: set[str]) -> dict[str, bool]:
-    """Despacho por `schema_version`: v1 não tem camada de record, logo não é auditável."""
+    """Dispatch by `schema_version`: v1 has no record layer, so it is not auditable."""
 
     if "bundle.json" not in names:
         return {}
@@ -129,7 +130,7 @@ def _verify_records(archive: zipfile.ZipFile, names: set[str]) -> dict[str, bool
 
 
 class _ChainState:
-    """Estado corrente do replay de uma cadeia de eventos de uma Run."""
+    """Running state of one Run's event-chain replay."""
 
     __slots__ = (
         "current_status",
@@ -152,7 +153,7 @@ class _ChainState:
 
     @property
     def subject_open(self) -> bool:
-        """Há uma invocação do Subject aguardando resposta."""
+        """A Subject invocation is open, still awaiting its response."""
 
         return self.subject_invocations == self.subject_responses + 1
 
@@ -213,7 +214,7 @@ def _envelope_valid(
 
 
 def _ordering_valid(event_type: str, *, sequence: int, state: _ChainState) -> bool:
-    """`run.queued` abre a Run e só ela; nada segue um estado terminal."""
+    """`run.queued` opens the Run and only it; nothing follows a terminal status."""
 
     if sequence == 1:
         return event_type == "run.queued"
@@ -224,7 +225,7 @@ def _ordering_valid(event_type: str, *, sequence: int, state: _ChainState) -> bo
 
 
 def _subject_and_tool_valid(event_type: str, payload: Any, *, state: _ChainState) -> bool:
-    """Uma interação por vez: tool só existe dentro de um turno aberto do Subject."""
+    """One interaction at a time: a tool exists only inside an open Subject turn."""
 
     if event_type == "subject.invoked":
         if state.subject_invocations != state.subject_responses:
@@ -248,7 +249,7 @@ def _subject_and_tool_valid(event_type: str, payload: Any, *, state: _ChainState
 
 
 def _tool_call_valid(payload: Any, *, state: _ChainState) -> bool:
-    """Tool chamada uma vez, sobre capability oferecida, com argumentos referenciados."""
+    """Called once, over an offered capability, with its arguments referenced."""
 
     call_id = str(payload["call_id"])
     capability = canonical_json(payload["capability_ref"])
@@ -291,7 +292,7 @@ def _tool_terminal_valid(event_type: str, payload: Any, *, state: _ChainState) -
 
 
 def _transition_valid(event: dict[str, Any], event_type: str, *, state: _ChainState) -> bool:
-    """Transição de lifecycle declarada tem de casar com o estado corrente."""
+    """A declared lifecycle transition must agree with the current status."""
 
     transition = TRANSITIONS.get(event_type)
     if transition is None:

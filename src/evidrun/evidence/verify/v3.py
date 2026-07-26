@@ -20,6 +20,7 @@ from evidrun.contracts import (
     ArtifactManifest,
     ArtifactManifestEntry,
     CheckpointRecord,
+    ResolvedCapability,
     RunExecutionAttempt,
     RunExecutionJob,
     RunRecord,
@@ -28,7 +29,7 @@ from evidrun.contracts import (
     semantic_model_dump,
 )
 from evidrun.evidence import archive as ar
-from evidrun.evidence.verify.records import strip
+from evidrun.evidence.verify.records import run_members, strip
 from evidrun.evidence.verify.v2 import verify_v2_records
 from evidrun.shared.types import canonical_json
 
@@ -54,14 +55,8 @@ def verify_v3_structure(bundle_manifest: dict[str, Any], names: set[str]) -> boo
     ):
         return False
     run_id = run_ids[0]
-    required = {
-        f"runs/{run_id}.json",
-        f"events/{run_id}.jsonl",
-        f"evaluations/{run_id}.json",
-        f"checkpoints/{run_id}.json",
-    }
     return (
-        required.issubset(names)
+        run_members(run_id).issubset(names)
         and any(name.startswith("execution/jobs/") for name in names)
         and any(name.startswith("execution/attempts/") for name in names)
     )
@@ -84,7 +79,7 @@ class RunCore:
         return [event for event in self.events if event["type"] == "subject.invoked"]
 
     @property
-    def resolved_capabilities(self) -> tuple[Any, ...]:
+    def resolved_capabilities(self) -> tuple[ResolvedCapability, ...]:
         return tuple(
             item
             for item in self.admission.resolved_inventory.capabilities
@@ -139,8 +134,8 @@ def _record_subject(
     core: RunCore,
     results: dict[str, bool],
 ) -> SubjectEnvelopeRecord | None:
-    """Envelope presente é validado contra o spec; ausente exige que nada tenha sido
-    materializado para o Subject."""
+    """A present envelope is validated against the spec; an absent one demands that
+    nothing was ever materialized for the Subject."""
 
     subject_name = f"subject-envelopes/{core.run_id}.json"
     if subject_name not in names:
@@ -168,7 +163,7 @@ def _record_subject(
 
 
 def _envelope_inputs_valid(record: SubjectEnvelopeRecord, spec: RunSpec) -> bool:
-    """O envelope é allowlist fechada: exatamente os bindings visíveis ao Subject."""
+    """The envelope is a closed allowlist: exactly the bindings visible to the Subject."""
 
     visible_by_id = {
         item.id: item
@@ -187,8 +182,8 @@ def _envelope_inputs_valid(record: SubjectEnvelopeRecord, spec: RunSpec) -> bool
 
 
 def _admission_binding_valid(core: RunCore, has_subject: bool) -> bool:
-    """Capability oferecida ao Subject tem de ser exatamente a que a admissão resolveu,
-    e a invocação tem de refletir o runner e o provider admitidos."""
+    """A capability offered to the Subject must be exactly the one admission resolved,
+    and the invocation must reflect the admitted runner and provider."""
 
     expected_offers = {
         canonical_json(
@@ -267,8 +262,8 @@ def _load_attempts(
 
 
 def _attempt_chain_valid(job: RunExecutionJob, attempts: list[RunExecutionAttempt]) -> bool:
-    """A cadeia de lease é densa e ordenada: uma tentativa por geração, cada uma
-    encerrada, e só a última compartilha o status terminal do job."""
+    """The lease chain is dense and ordered: one attempt per generation, each finished,
+    and only the last shares the job's terminal status."""
 
     if not attempts:
         return False
@@ -345,7 +340,7 @@ def _expected_entries(
 def _expected_names(
     core: RunCore, job_name: str, attempts_name: str, has_subject: bool
 ) -> set[str]:
-    """Allowlist exata: membro a mais ou a menos invalida o bundle."""
+    """Exact allowlist: one member too many or too few invalidates the bundle."""
 
     names = {
         "bundle.json",

@@ -6,7 +6,7 @@ status: implemented
 authority: normative
 owner: core
 created_at: 2026-07-22
-updated_at: 2026-07-23
+updated_at: 2026-07-25
 applies_to: schema/evidence-bundle@1
 sources: []
 supersedes: []

@@ -99,27 +99,32 @@ class ArtifactRef(ContractModel):
     classification: Classification = Classification.INTERNAL
 
 
+#: Os papéis que uma entrada de manifest pode declarar. Nomeado aqui porque é a fonte
+#: de verdade: quem monta entrada (evidence/archive.py) importa em vez de redeclarar.
+ArtifactRole = Literal[
+    "scenario_input",
+    "subject_input_materialized",
+    "agent_instruction",
+    "interaction_prompt",
+    "hidden_calibration",
+    "extension_schema",
+    "extension_payload",
+    "evaluation_evidence",
+    "tool_arguments",
+    "tool_result",
+    "run_output",
+    "progress_summary",
+    "workspace_snapshot",
+    "checkpoint_capture",
+    "report_attachment",
+]
+
+
 class ArtifactManifestEntry(ContractModel):
     """One intentionally materialized artifact; never a file-access activity log."""
 
     run_id: NonEmptyStr
-    role: Literal[
-        "scenario_input",
-        "subject_input_materialized",
-        "agent_instruction",
-        "interaction_prompt",
-        "hidden_calibration",
-        "extension_schema",
-        "extension_payload",
-        "evaluation_evidence",
-        "tool_arguments",
-        "tool_result",
-        "run_output",
-        "progress_summary",
-        "workspace_snapshot",
-        "checkpoint_capture",
-        "report_attachment",
-    ]
+    role: ArtifactRole
     artifact_ref: ArtifactRef
     source_label: NonEmptyStr
     content_included: bool = False

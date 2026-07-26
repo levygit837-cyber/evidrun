@@ -18,7 +18,6 @@ from evidrun.contracts import (
     semantic_model_dump,
 )
 from evidrun.evidence import archive as ar
-from evidrun.evidence.export.comparison_v1 import comparison_document
 from evidrun.infrastructure.database import Repository
 from evidrun.infrastructure.database.models import RunRow
 
@@ -51,7 +50,7 @@ def export_comparison_v2(
                 "run_ids": [run.id for run in run_rows],
             }
         ),
-        "comparison.json": ar.json_bytes(comparison_document(comparison)),
+        "comparison.json": ar.json_bytes(ar.comparison_document(comparison)),
         "report.md": comparison.report_markdown.encode("utf-8"),
     }
 

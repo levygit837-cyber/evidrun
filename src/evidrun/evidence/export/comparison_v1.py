@@ -12,7 +12,6 @@ from pathlib import Path
 
 from evidrun.evidence import archive as ar
 from evidrun.infrastructure.database import Repository
-from evidrun.infrastructure.database.models import ComparisonRow
 
 
 def export_comparison(repository: Repository, comparison_id: str, output_path: Path) -> Path:
@@ -22,7 +21,7 @@ def export_comparison(repository: Repository, comparison_id: str, output_path: P
     candidate = repository.read_model.get_run(comparison.candidate_run_id)
     files: dict[str, bytes] = {
         "manifest.json": ar.json_bytes(json.loads(experiment.manifest_json)),
-        "comparison.json": ar.json_bytes(comparison_document(comparison)),
+        "comparison.json": ar.json_bytes(ar.comparison_document(comparison)),
         "grades.json": ar.json_bytes(
             [
                 ar.grade_dict(repository.read_model.get_grade(baseline.id)),
@@ -39,17 +38,3 @@ def export_comparison(repository: Repository, comparison_id: str, output_path: P
     }
     return ar.write_bundle(output_path, files, schema_version="1")
 
-
-def comparison_document(comparison: ComparisonRow) -> dict[str, object]:
-    """O documento de comparison, idêntico em v1 e v2."""
-
-    return {
-        "id": comparison.id,
-        "baseline_run_id": comparison.baseline_run_id,
-        "candidate_run_id": comparison.candidate_run_id,
-        "primary_variable": comparison.primary_variable,
-        "validity": comparison.validity,
-        "baseline_score": comparison.baseline_score,
-        "candidate_score": comparison.candidate_score,
-        "delta": comparison.delta,
-    }

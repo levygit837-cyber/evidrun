@@ -11,35 +11,23 @@ import hashlib
 import json
 import zipfile
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, cast
 
 from evidrun.contracts import (
     ArtifactManifest,
     ArtifactManifestEntry,
     ArtifactRef,
+    ArtifactRole,
     CheckpointRecord,
     ContractRef,
     RunSpec,
     SubjectEnvelopeRecord,
     semantic_model_dump,
 )
+from evidrun.infrastructure.database.models import ComparisonRow
 from evidrun.shared.types import canonical_json, utc_now
 
 OMISSION_REASON = "audit profile includes identity and digest, not artifact bytes"
-
-ArtifactRole = Literal[
-    "scenario_input",
-    "subject_input_materialized",
-    "agent_instruction",
-    "interaction_prompt",
-    "hidden_calibration",
-    "extension_schema",
-    "extension_payload",
-    "tool_arguments",
-    "tool_result",
-    "run_output",
-    "checkpoint_capture",
-]
 
 
 def json_bytes(value: Any) -> bytes:
@@ -55,7 +43,7 @@ def read_json(archive: zipfile.ZipFile, name: str) -> Any:
 
 
 def read_events(archive: zipfile.ZipFile, name: str) -> list[dict[str, Any]]:
-    """Uma linha JSON por evento; linha vazia final é do formato, não um evento."""
+    """One JSON line per event; the trailing blank line is format, not an event."""
 
     return [json.loads(line) for line in archive.read(name).splitlines() if line]
 
@@ -78,11 +66,26 @@ def grade_dict(row: Any) -> dict[str, Any]:
     }
 
 
-def write_bundle(output_path: Path, files: dict[str, bytes], *, schema_version: str) -> Path:
-    """Sela o bundle: checksum de cada membro, `checksums.json`, e o zip.
+def comparison_document(comparison: ComparisonRow) -> dict[str, object]:
+    """The comparison document, byte-identical in v1 and v2."""
 
-    O checksum cobre todo membro exceto ele mesmo, e o verificador exige a lista
-    exata — arquivo injetado sem entrada de checksum invalida o bundle.
+    return {
+        "id": comparison.id,
+        "baseline_run_id": comparison.baseline_run_id,
+        "candidate_run_id": comparison.candidate_run_id,
+        "primary_variable": comparison.primary_variable,
+        "validity": comparison.validity,
+        "baseline_score": comparison.baseline_score,
+        "candidate_score": comparison.candidate_score,
+        "delta": comparison.delta,
+    }
+
+
+def write_bundle(output_path: Path, files: dict[str, bytes], *, schema_version: str) -> Path:
+    """Seal the bundle: a checksum per member, `checksums.json`, and the zip.
+
+    The checksum covers every member but itself, and the verifier demands the exact
+    list — a file injected without a checksum entry invalidates the bundle.
     """
 
     checksums = {name: hashlib.sha256(content).hexdigest() for name, content in files.items()}
@@ -101,7 +104,7 @@ def write_bundle(output_path: Path, files: dict[str, bytes], *, schema_version: 
 
 
 def artifact_manifest(entries: list[ArtifactManifestEntry]) -> ArtifactManifest:
-    """Manifest ordenado e sem duplicata: refs intencionais, não telemetria de leitura."""
+    """Sorted, duplicate-free manifest: intentional refs, never read telemetry."""
 
     unique = {(item.run_id, item.role, item.artifact_ref.artifact_id): item for item in entries}
     return ArtifactManifest(entries=tuple(unique[key] for key in sorted(unique)))
@@ -113,7 +116,7 @@ def contract_member_name(reference: ContractRef) -> str:
 
 
 def spec_revision_refs(spec: RunSpec) -> tuple[ContractRef, ...]:
-    """Os sete refs obrigatórios do RunSpec mais os dois opcionais presentes."""
+    """The seven required RunSpec refs plus whichever of the two optional ones exist."""
 
     return (
         spec.study_ref,

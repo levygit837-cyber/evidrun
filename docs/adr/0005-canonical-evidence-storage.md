@@ -6,7 +6,7 @@ status: accepted
 authority: normative
 owner: core
 created_at: 2026-07-22
-updated_at: 2026-07-22
+updated_at: 2026-07-25
 applies_to: evidence
 sources: []
 supersedes: []
