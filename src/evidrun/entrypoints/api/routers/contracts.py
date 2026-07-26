@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from evidrun.contracts import StudyRevision, parse_revision, semantic_model_dump
 from evidrun.contracts.compiler import StudyCompiler
+from evidrun.contracts.triage import HTTP_STATUS_BY_CODE
 from evidrun.entrypoints.api.context import ApiContext
 from evidrun.entrypoints.api.schemas import (
     ContractDecisionRequest,
@@ -17,6 +18,7 @@ from evidrun.entrypoints.api.schemas import (
     ManifestRequest,
 )
 from evidrun.experiments import ExperimentManifest
+from evidrun.infrastructure.database.register_errors import RegisterRejected
 
 
 def create_contract_router(
@@ -61,6 +63,11 @@ def create_contract_router(
         try:
             revision = parse_revision(payload.document)
             row = repository.registry.save_contract_revision(revision, status=payload.status)
+        except RegisterRejected as exc:
+            raise HTTPException(
+                status_code=HTTP_STATUS_BY_CODE[exc.error.code],
+                detail=exc.error.model_dump(mode="json"),
+            ) from exc
         except Exception as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         return {

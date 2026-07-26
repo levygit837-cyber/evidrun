@@ -465,4 +465,5 @@ def test_contract_validation_registration_and_human_decision(tmp_path: Path) -> 
             "/api/v1/contracts/revisions",
             json={"document": changed.semantic_document()},
         )
-        assert conflict.status_code == 422
+        assert conflict.status_code == 409
+        assert conflict.json()["detail"]["code"] == "register.immutability_conflict"

@@ -15,15 +15,20 @@ supersedes: []
 superseded_by: null
 implementation_refs:
   - src/evidrun/contracts/triage.py
+  - src/evidrun/infrastructure/database/register_errors.py
+  - src/evidrun/entrypoints/api/routers/contracts.py
+  - src/evidrun/entrypoints/cli/commands/contracts.py
 verification_refs:
   - tests/unit/test_triage_errors.py
+  - tests/integration/test_register_errors.py
 ---
 
 # Erros estáveis das fases de triagem
 
 As seis fases anteriores à criação de uma Run compartilham um vocabulário de recusa sem I/O e sem
-dependências de API, CLI ou persistência. Este contrato declara a representação e as tabelas que as
-fatias verticais seguintes devem consumir; neste estágio, nenhuma borda externa foi alterada.
+dependências de API, CLI ou persistência. Este contrato declara a representação e as tabelas
+consumidas pelas fatias verticais. A fase `register` já projeta esse vocabulário nas bordas HTTP e
+CLI; as demais fases permanecem conectadas conforme suas issues específicas forem implementadas.
 
 ## Representação
 
@@ -70,5 +75,20 @@ preserva indisponibilidade como HTTP 503; a CLI possui somente as quatro classes
 recusado, não encontrado e conflito), portanto indisponibilidade usa exit code 3. A verificação falha
 se qualquer código ficar sem entrada ou se uma tabela contiver código órfão. Adicionar erro exige, no
 mesmo patch: novo membro com prefixo da fase, categoria, ambas as traduções e caso de contrato.
-Conectar o código a API ou CLI pertence às fatias verticais seguintes e exige seus próprios testes
-observáveis.
+Cada fase ainda não conectada à API ou CLI pertence à sua fatia vertical e exige testes observáveis
+próprios.
+
+## Fase register
+
+O registro de revisions traduz na costura de persistência quatro recusas: Project inexistente,
+sequência não monotônica, identidade imutável com conteúdo diferente e status inicial fora de
+`draft`/`proposed`. A repetição da mesma identidade com conteúdo idêntico permanece idempotente.
+
+A API retorna o `TriageError` em `detail` e escolhe o status exclusivamente por
+`HTTP_STATUS_BY_CODE`. A CLI imprime o mesmo documento de erro em JSON e escolhe o exit code
+exclusivamente por `CLI_EXIT_BY_CODE`. Para sequência não monotônica, `field_path` aponta para
+`revision` e a mensagem informa os números esperado e recebido; a frase humana permanece livre.
+
+Uma violação de integridade original é registrada com traceback na costura de persistência, mas
+nunca é serializada na resposta HTTP nem no stdout da CLI. Em particular, recusas não expõem SQL,
+prefixo de driver, nome de tabela ou conteúdo do documento submetido.

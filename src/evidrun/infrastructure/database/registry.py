@@ -8,8 +8,10 @@ acceptance stays reachable only through the dedicated legacy import.
 from __future__ import annotations
 
 import json
+import logging
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 
 from evidrun.contracts import (
     RevisionDecisionRecord,
@@ -21,7 +23,17 @@ from evidrun.contracts.authority import HumanAttestationVerifier
 from evidrun.contracts.legacy import LegacyStudyPackage
 from evidrun.contracts.registry import InMemoryContractRegistry
 from evidrun.infrastructure.database import clock
-from evidrun.infrastructure.database.models import ContractDecisionRow, ContractRevisionRow
+from evidrun.infrastructure.database.models import (
+    ContractDecisionRow,
+    ContractRevisionRow,
+    ProjectRow,
+)
+from evidrun.infrastructure.database.register_errors import (
+    immutability_conflict,
+    initial_status_invalid,
+    project_not_found,
+    revision_not_monotonic,
+)
 from evidrun.infrastructure.database.unit_of_work import UnitOfWork
 from evidrun.shared.types import canonical_json, new_id
 
@@ -37,6 +49,7 @@ LEGACY_PACKAGE_IDENTITIES = {
     ("study", "crl-ctx-002-context-policy", 1),
 }
 LEGACY_PACKAGE_STUDY_ID = "crl-ctx-002-context-policy"
+logger = logging.getLogger(__name__)
 
 
 class ContractRegistryStore:
@@ -52,7 +65,7 @@ class ContractRegistryStore:
         self, revision: RevisionEnvelope, *, status: str = "draft"
     ) -> ContractRevisionRow:
         if status not in {"draft", "proposed"}:
-            raise ValueError("new contract revision status must be draft or proposed")
+            raise initial_status_invalid()
         document = revision.semantic_document()
         with self.unit_of_work.session() as session:
             existing = session.scalar(
@@ -66,9 +79,7 @@ class ContractRegistryStore:
                 if existing.digest != revision.digest or existing.document_json != canonical_json(
                     document
                 ):
-                    raise ValueError(
-                        "an immutable contract revision already exists with different content"
-                    )
+                    raise immutability_conflict()
                 if existing.status == "draft" and status == "proposed":
                     existing.status = "proposed"
                     session.commit()
@@ -81,9 +92,8 @@ class ContractRegistryStore:
             )
             expected_revision = (latest_revision or 0) + 1
             if revision.revision != expected_revision:
-                raise ValueError(
-                    "contract revision must be monotonic; "
-                    f"expected {expected_revision}, received {revision.revision}"
+                raise revision_not_monotonic(
+                    expected=expected_revision, received=revision.revision
                 )
             row = ContractRevisionRow(
                 id=new_id("crev"),
@@ -98,7 +108,14 @@ class ContractRegistryStore:
                 created_at=clock.utc_now(),
             )
             session.add(row)
-            session.commit()
+            try:
+                session.commit()
+            except IntegrityError as exc:
+                session.rollback()
+                if session.get(ProjectRow, revision.project_id) is None:
+                    logger.exception("contract revision registration failed")
+                    raise project_not_found() from exc
+                raise
             return row
 
     def decide_contract_revision(

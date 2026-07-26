@@ -100,10 +100,6 @@
           },
           "status": {
             "default": "draft",
-            "enum": [
-              "draft",
-              "proposed"
-            ],
             "title": "Status",
             "type": "string"
           }

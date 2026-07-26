@@ -33,7 +33,7 @@ class ManifestRequest(BaseModel):
 class ContractDocumentRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     document: dict[str, object]
-    status: Literal["draft", "proposed"] = "draft"
+    status: str = "draft"
 
 
 class ContractDecisionRequest(BaseModel):
