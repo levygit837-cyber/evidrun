@@ -1,4 +1,10 @@
-import type { EvaluationRecordDto, Run, RunEvent } from "../../types";
+import type {
+  CheckpointRecordDto,
+  EvaluationRecordDto,
+  Run,
+  RunDetail,
+  RunEvent,
+} from "../../types";
 
 export const ACTIVE_RUN_STATUSES = new Set(["queued", "preparing", "running", "evaluating"]);
 export const ATTENTION_RUN_STATUSES = new Set([
@@ -308,3 +314,77 @@ export function cleanSearchState(search: ObservabilitySearchState): Observabilit
     Object.entries(search).filter(([, value]) => typeof value === "string" && value.length > 0),
   );
 }
+
+export interface DetailData {
+  run: RunDetail;
+  events: RunEvent[];
+  evaluations: EvaluationRecordDto[];
+  checkpoints: CheckpointRecordDto[];
+}
+
+export const statusLabels: Record<string, string> = {
+  queued: "Queued",
+  preparing: "Preparing",
+  running: "Running",
+  evaluating: "Evaluating",
+  completed: "Completed",
+  failed: "Failed",
+  budget_exhausted: "Budget exhausted",
+  cancelled: "Cancelled",
+  guardrail_stopped: "Guardrail stopped",
+};
+
+export function statusTone(status: string): string {
+  if (status === "completed") return "success";
+  if (ATTENTION_RUN_STATUSES.has(status)) return "danger";
+  if (status === "running" || status === "evaluating") return "info";
+  return "neutral";
+}
+
+export function formatDate(value: string | null | undefined): string {
+  if (!value) return "Não registrado";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(date);
+}
+
+export function formatDuration(run: Run): string {
+  if (!run.completed_at) return ACTIVE_RUN_STATUSES.has(run.status) ? "Em curso" : "Não registrado";
+  const duration = Date.parse(run.completed_at) - Date.parse(run.created_at);
+  if (!Number.isFinite(duration) || duration < 0) return "Não registrado";
+  if (duration < 1_000) return `${duration} ms`;
+  return `${(duration / 1_000).toFixed(1)} s`;
+}
+
+export function shortId(value: string | null | undefined): string {
+  if (!value) return "Não registrado";
+  return value.length > 28 ? `${value.slice(0, 16)}…${value.slice(-8)}` : value;
+}
+
+export type ListFailureKind = "disconnected" | "endpoint";
+
+/**
+ * Copy for a failed Run list query. A fetch-level `TypeError` means the backend was never
+ * reached; any other rejection came from a backend that answered.
+ */
+export const listFailureCopy: Record<
+  ListFailureKind,
+  { connection: string; title: string; detail: string }
+> = {
+  disconnected: {
+    connection: "Backend desconectado",
+    title: "Backend desconectado",
+    detail: "Não foi possível alcançar o backend local.",
+  },
+  endpoint: {
+    connection: "Falha no endpoint",
+    title: "Falha no endpoint de Runs",
+    detail: "O backend respondeu, mas a lista de Runs falhou.",
+  },
+};
