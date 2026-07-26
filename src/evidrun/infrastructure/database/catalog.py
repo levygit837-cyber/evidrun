@@ -42,6 +42,24 @@ from evidrun.shared.types import canonical_json, new_id, sha256_json
 __all__ = ["CatalogStore"]
 
 
+def _provider_resolution_matches(run_spec: RunSpec, record: AdmissionRecord) -> bool:
+    """Allow an unresolved provider only when the rejection proves that failure."""
+
+    requested = run_spec.agent_inventory.provider_profile_id
+    resolved = record.resolved_inventory.provider_profile_id
+    if resolved == requested:
+        return True
+    if requested is None or resolved is not None or record.decision != "rejected":
+        return False
+    return f"provider:{requested}" in record.missing_requirements and any(
+        item.blocking
+        and item.category == "provider"
+        and item.subject_ref == requested
+        and item.reason.code == "unavailable"
+        for item in record.issues
+    )
+
+
 class CatalogStore:
     def __init__(self, unit_of_work: UnitOfWork) -> None:
         self.unit_of_work = unit_of_work
@@ -95,7 +113,7 @@ class CatalogStore:
             if (
                 inventory.requirement_ref != run_spec.agent_inventory_ref
                 or inventory.runner_ref != run_spec.agent_inventory.runner_ref
-                or inventory.provider_profile_id != run_spec.agent_inventory.provider_profile_id
+                or not _provider_resolution_matches(run_spec, record)
             ):
                 raise ValueError("admission inventory does not match the RunSpec requirements")
             requirements = run_spec.agent_inventory.capability_requirements
