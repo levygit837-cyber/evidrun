@@ -6,7 +6,7 @@ status: implemented
 authority: normative
 owner: core
 created_at: 2026-07-23
-updated_at: 2026-07-25
+updated_at: 2026-07-26
 applies_to: schema/evaluation-checkpoint@1
 sources:
   - docs/adr/0009-study-run-contract-composition.md
@@ -20,7 +20,7 @@ implementation_refs:
   - src/evidrun/contracts/runtime
   - src/evidrun/infrastructure/database/repository.py
 verification_refs:
-  - tests/unit/test_contracts.py
+  - tests/unit/test_contract_evaluation.py
   - tests/integration/test_admission_and_evaluation.py
   - tests/integration/test_checkpoint_repository.py
 ---

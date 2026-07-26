@@ -6,7 +6,7 @@ status: accepted
 authority: normative
 owner: core
 created_at: 2026-07-24
-updated_at: 2026-07-25
+updated_at: 2026-07-26
 applies_to: repository
 sources:
   - docs/adr/0003-modular-monolith.md
@@ -43,23 +43,25 @@ comportamento cabe atrás de uma interface pequena). Ver `skill://codebase-desig
 
 ### Medição
 
-Números de 2026-07-25, contados sobre os arquivos que o git rastreia — a mesma fonte que
-`scripts/check_code_budget.py` usa — após WS-11, WS-12, WS-30a e a divisão de `contracts/` (#26).
+Números de 2026-07-26, contados sobre os arquivos que o git rastreia — a mesma fonte que
+`scripts/check_code_budget.py` usa — após WS-11, WS-12, WS-30a, a divisão de `contracts/` (#26), as
+três páginas web (#17) e a divisão dos testes de contrato (#23).
 
 | Escopo | Arquivos | Linhas |
 | --- | --- | --- |
 | `src/evidrun/**/*.py` | 164 | 18.401 |
-| `tests/**/*.py` | 33 | 8.564 |
-| `apps/web` + `apps/desktop` (`.ts`/`.tsx`) | 35 | 6.670 (1.603 gerados) |
+| `tests/**/*.py` | 38 | 8.700 |
+| `apps/web` + `apps/desktop` (`.ts`/`.tsx`) | 50 | 6.975 (1.603 gerados) |
 
-Distribuição de tamanho em `src/` + `apps/` + `scripts/` (204 arquivos): 145 com até 150 linhas, 40
-entre 151 e 300, 15 entre 301 e 500, 1 entre 501 e 800, e 3 acima de 800.
+Distribuição de tamanho nos globs do grupo `source` (`src/evidrun/**/*.py`, `apps/**/*.ts`,
+`apps/**/*.tsx`, `scripts/**/*.py`, `scripts/**/*.mjs`; 219 arquivos): 156 com até 150 linhas, 46
+entre 151 e 300, 16 entre 301 e 500, nenhum entre 501 e 800, e 1 acima de 800.
 
-A concentração acabou no lado Python: o maior módulo é `ledger/store.py` com 478 linhas, contra
-2.942 de `repository.py` em 2026-07-24. Os três arquivos acima de 800 linhas são todos web —
-`contracts.ts` (1.603, gerado e isento), `ObservabilityPage.tsx` (918) e `LaboratoryPage.tsx` (818),
-os dois últimos cobertos pela issue #17. O gate mede 245 arquivos com 4 entradas de baseline,
-nenhuma violação e 12 avisos de folga.
+O único arquivo do grupo `source` acima de 500 linhas é `apps/web/src/generated/contracts.ts`
+(1.603), que é gerado e isento. O maior módulo Python é `ledger/store.py` com 478 linhas, contra
+2.942 de `repository.py` em 2026-07-24. O grupo `tests` tem teto de 800 e cinco arquivos acima de
+500, o maior sendo `tests/integration/test_runtime_queue.py` com 783. O gate mede 265 arquivos com a
+tabela de `[baseline]` **vazia**, nenhuma violação e 12 avisos de folga.
 
 ### A árvore atual
 
@@ -130,23 +132,30 @@ evidrun/
 │   │   ├── data/{contracts,adapters}.ts   interfaces de adapter + implementações
 │   │   ├── generated/contracts.ts (1603)  gerado, isento de orçamento
 │   │   ├── ui/primitives.tsx      Button/Input/StatusIndicator/LoadingState/EmptyState/ErrorState
-│   │   │                          ⚠ subutilizado: 3 páginas reimplementam badge e estado vazio
+│   │   │                          ⚠ Observability mantém badge e estado próprios: o DOM dos
+│   │   │                            primitives difere e *.css não entrou no escopo da #17
 │   │   └── features/
-│   │       ├── observability/  ObservabilityPage.tsx (918) + observabilityModel.ts (310) ✅ ▲
-│   │       ├── laboratory/     LaboratoryPage.tsx (818) + DemoLaboratoryAdapter.ts       ▲
-│   │       └── create/         CreatePage.tsx (597)                                       ▲
+│   │       ├── observability/  ObservabilityPage.tsx (222) + observabilityModel.ts (364)      ✅
+│   │       │                   + useObservabilityWorkspace.ts + 5 painéis + Parts             ✅
+│   │       ├── laboratory/     LaboratoryPage.tsx (314) + useLaboratoryDemo.ts (236)          ✅
+│   │       │                   + laboratoryModel.ts + ComposerMenu + AuditActivity + adapter  ✅
+│   │       └── create/         CreatePage.tsx (144) + useStudyDraft.ts + createModel.ts       ✅
+│   │                           + CreateStages.tsx + StudyCollectionEditor.tsx                 ✅
 │   └── desktop/src/{main,preload,shared}/    lifecycle do backend, sem domínio
 ├── tests/{unit,integration,acceptance,security,live,support}/
 ├── schemas/generated/             OpenAPI + JSON Schema, gerados
 ├── docs/{adr,architecture,contracts,benchmarks,operations,planning,governance,agents,product}/
-├── code-budget.toml               política + ratchet do orçamento estrutural
+├── code-budget.toml               política do orçamento estrutural; baseline vazio
 └── scripts/                       validate_docs, generate_schemas, hooks
     ├── check_code_budget.py       CLI do gate
     └── code_budget/               policy, measure, report (violação vs. aviso), baseline
 ```
 
-`▲` marca arquivo no ratchet do orçamento. Restam quatro, três deles páginas web: o God Object
-`repository.py` (2.942 linhas) foi decomposto em WS-11 e saiu do baseline.
+O ratchet do orçamento está **vazio**: nenhum arquivo deste repositório precisa de tolerância. O God
+Object `repository.py` (2.942 linhas) saiu em WS-11, `bundle.py` (1.624) na #16, `runtime.py` (1.060)
+e `authoring.py` (871) na #26, as três páginas web (918, 818, 597) na #17, e a última entrada,
+`tests/unit/test_contracts.py` (1.591), na #23, que dividiu o arquivo por assunto em cinco módulos
+mais `tests/support/contract_fixtures.py`.
 
 ### Como as pastas conversam
 
@@ -201,7 +210,8 @@ sistema falha fechado quando o adapter não é confiável.
 provider, materializer ou catálogo tem um lugar para fazer isso.
 
 `observabilityModel.ts` separa derivação de dados de apresentação num módulo puro e testável sem
-renderizar nada. É o padrão que as outras duas páginas web ainda não seguem.
+renderizar nada. Desde a #17 as três páginas web seguem o padrão: cada uma tem um `*Model.ts` sem
+React, um `use*.ts` com o estado, e a apresentação em componentes próprios.
 
 ### Onde o desenho está errado
 
@@ -473,11 +483,13 @@ WS-11 repository        ✅ read_model → registry → evaluation → catalog �
         ├─► WS-12 admissão   ✅ entregue
         ├─► WS-30a bundle    ✅ entregue (só evidence/)
         ├─► #26 contracts    ✅ entregue (runtime/ e authoring/ por papel)
-        └─► WS-13 páginas web  pendente na issue #17 (independente: só apps/web/)
+        ├─► WS-13 páginas web  ✅ entregue (só apps/web/)
+        └─► #23 baseline zerado ✅ entregue (test_contracts.py dividido por assunto)
 ```
 
-WS-11 foi serial de propósito. O que resta desta onda é WS-13: as três páginas web, que tocam árvore
-disjunta de tudo o que já aterrissou.
+WS-11 foi serial de propósito. Esta onda fechou: o ratchet do orçamento está vazio e nenhum arquivo
+versionado deste repositório estoura o orçamento do seu grupo — 500 linhas em `source`, 800 em
+`tests`.
 
 ## Como um agente navega isto
 

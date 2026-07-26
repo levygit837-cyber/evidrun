@@ -6,7 +6,7 @@ status: accepted
 authority: normative
 owner: core
 created_at: 2026-07-23
-updated_at: 2026-07-23
+updated_at: 2026-07-26
 applies_to: contracts/study-run@1
 sources:
   - docs/product/run-laboratory-concept.md
@@ -18,7 +18,9 @@ implementation_refs:
   - src/evidrun/infrastructure/database
   - src/evidrun/runs/service.py
 verification_refs:
-  - tests/unit/test_contracts.py
+  - tests/unit/test_contract_revisions.py
+  - tests/unit/test_contract_compilation.py
+  - tests/unit/test_contract_admission.py
   - tests/integration/test_contract_api.py
 ---
 

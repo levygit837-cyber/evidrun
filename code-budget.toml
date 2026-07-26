@@ -52,7 +52,10 @@ max_function_lines = 120
 max_public_methods = 25
 warn_at_ratio = 0.8
 
-[baseline]
+# A tabela está vazia de propósito: nenhum arquivo deste repositório precisa de
+# tolerância. As 14 entradas que existiam quando o gate foi ligado foram todas
+# decompostas ao longo do épico #13; a última a sair foi `tests/unit/test_contracts.py`,
+# dividida por assunto na #23. Adicionar uma entrada aqui é admitir uma regressão
+# estrutural, não uma exceção de rotina: prefira decompor o arquivo.
 
-[baseline."tests/unit/test_contracts.py"]
-file_lines = 1591
+[baseline]
