@@ -4,6 +4,7 @@ type: product
 title: Ideias para Runs, contratos e checkpoints
 status: draft
 authority: incubation
+volatility: snapshot
 owner: product
 created_at: 2026-07-22
 updated_at: 2026-07-23

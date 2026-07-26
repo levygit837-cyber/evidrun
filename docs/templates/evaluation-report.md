@@ -4,6 +4,7 @@ type: template
 title: Template de relatório de avaliação
 status: accepted
 authority: normative
+volatility: timeless
 owner: evals
 created_at: 2026-07-22
 updated_at: 2026-07-22

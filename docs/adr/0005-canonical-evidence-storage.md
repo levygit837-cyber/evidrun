@@ -4,6 +4,7 @@ type: adr
 title: SQLite e event ledger como evidência canônica
 status: accepted
 authority: normative
+volatility: timeless
 owner: core
 created_at: 2026-07-22
 updated_at: 2026-07-25

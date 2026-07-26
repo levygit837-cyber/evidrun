@@ -4,6 +4,7 @@ type: implementation-task
 title: WS-20 Artifact access, materializacao e capture
 status: proposed
 authority: planning
+volatility: snapshot
 owner: evidence
 created_at: 2026-07-23
 updated_at: 2026-07-23

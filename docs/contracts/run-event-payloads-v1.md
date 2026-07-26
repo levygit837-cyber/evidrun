@@ -4,6 +4,7 @@ type: contract
 title: Catálogo de payloads de Run Event v1
 status: implemented
 authority: normative
+volatility: timeless
 owner: core
 created_at: 2026-07-23
 updated_at: 2026-07-26

@@ -4,6 +4,7 @@ type: contract
 title: Desktop Bridge v1
 status: implemented
 authority: normative
+volatility: timeless
 owner: desktop
 created_at: 2026-07-22
 updated_at: 2026-07-22

@@ -4,6 +4,7 @@ type: adr
 title: Python core, TypeScript UI e Electron
 status: accepted
 authority: normative
+volatility: timeless
 owner: desktop
 created_at: 2026-07-22
 updated_at: 2026-07-22

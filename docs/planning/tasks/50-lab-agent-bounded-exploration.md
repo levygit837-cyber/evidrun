@@ -4,6 +4,7 @@ type: implementation-task
 title: WS-50 Lab Agent e bounded exploration
 status: proposed
 authority: planning
+volatility: snapshot
 owner: laboratory
 created_at: 2026-07-23
 updated_at: 2026-07-23

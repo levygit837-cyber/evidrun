@@ -4,6 +4,7 @@ type: charter
 title: Charter do Evidrun
 status: accepted
 authority: normative
+volatility: timeless
 owner: product
 created_at: 2026-07-22
 updated_at: 2026-07-22

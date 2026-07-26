@@ -4,6 +4,7 @@ type: adr
 title: Disclosure mínimo do Subject e semântica terminal por Goal
 status: superseded
 authority: normative
+volatility: timeless
 owner: core
 created_at: 2026-07-23
 updated_at: 2026-07-26

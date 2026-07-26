@@ -4,6 +4,7 @@ type: implementation-task
 title: WS-02 Lifecycle do worker no desktop
 status: proposed
 authority: planning
+volatility: snapshot
 owner: desktop
 created_at: 2026-07-23
 updated_at: 2026-07-24

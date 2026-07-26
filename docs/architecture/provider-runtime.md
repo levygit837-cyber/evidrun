@@ -4,6 +4,7 @@ type: architecture
 title: Runtime de providers
 status: implemented
 authority: normative
+volatility: current
 owner: agents
 created_at: 2026-07-22
 updated_at: 2026-07-26

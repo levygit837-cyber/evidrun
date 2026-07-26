@@ -4,6 +4,7 @@ type: adr
 title: Núcleo neutro com OpenAI primeiro
 status: accepted
 authority: normative
+volatility: timeless
 owner: agents
 created_at: 2026-07-22
 updated_at: 2026-07-22

@@ -4,6 +4,7 @@ type: governance
 title: Estados de entrega
 status: accepted
 authority: normative
+volatility: timeless
 owner: core
 created_at: 2026-07-22
 updated_at: 2026-07-22

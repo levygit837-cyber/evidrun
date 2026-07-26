@@ -4,6 +4,7 @@ type: operations
 title: Desenvolvimento local
 status: implemented
 authority: normative
+volatility: current
 owner: core
 created_at: 2026-07-22
 updated_at: 2026-07-24

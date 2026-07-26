@@ -4,6 +4,7 @@ type: protocol
 title: Graders e judges
 status: accepted
 authority: normative
+volatility: timeless
 owner: evals
 created_at: 2026-07-22
 updated_at: 2026-07-22

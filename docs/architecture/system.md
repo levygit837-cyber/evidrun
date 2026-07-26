@@ -4,6 +4,7 @@ type: architecture
 title: Arquitetura do sistema
 status: implemented
 authority: normative
+volatility: current
 owner: core
 created_at: 2026-07-22
 updated_at: 2026-07-23

@@ -4,6 +4,7 @@ type: contract
 title: Glossário canônico
 status: accepted
 authority: normative
+volatility: timeless
 owner: product
 created_at: 2026-07-22
 updated_at: 2026-07-23

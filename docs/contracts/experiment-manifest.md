@@ -4,6 +4,7 @@ type: contract
 title: Experiment Manifest v1
 status: implemented
 authority: normative
+volatility: timeless
 owner: core
 created_at: 2026-07-22
 updated_at: 2026-07-23

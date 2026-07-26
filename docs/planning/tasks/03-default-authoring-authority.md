@@ -4,6 +4,7 @@ type: implementation-task
 title: WS-03 Decisao de autoria default no produto instalado
 status: proposed
 authority: planning
+volatility: snapshot
 owner: governance
 created_at: 2026-07-23
 updated_at: 2026-07-24

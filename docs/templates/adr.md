@@ -4,6 +4,7 @@ type: adr
 title: Título da decisão
 status: proposed
 authority: normative
+volatility: timeless
 owner: owner
 created_at: YYYY-MM-DD
 updated_at: YYYY-MM-DD

@@ -4,6 +4,7 @@ type: architecture
 title: Layout da codebase, costuras e orçamento estrutural
 status: accepted
 authority: normative
+volatility: current
 owner: core
 created_at: 2026-07-24
 updated_at: 2026-07-26
@@ -12,18 +13,15 @@ sources:
   - docs/adr/0003-modular-monolith.md
   - docs/adr/0017-structural-budget-and-named-seams.md
   - docs/architecture/system.md
-  - docs/planning/tasks/11-domain-seams.md
 supersedes: []
 superseded_by: null
 implementation_refs:
   - scripts/check_code_budget.py
   - code-budget.toml
   - src/evidrun/contracts/admission/service.py
-  - src/evidrun/contracts/admission/envelope.py
-  - src/evidrun/runs/admission/catalog_checks.py
-  - src/evidrun/contracts/runtime
-  - src/evidrun/contracts/authoring
+  - src/evidrun/runs/composition.py
   - src/evidrun/evidence
+  - src/evidrun/infrastructure/database/repository.py
 verification_refs:
   - tests/unit/test_code_budget.py
   - tests/unit/test_admission_oracle.py
@@ -31,493 +29,144 @@ verification_refs:
 
 # Layout da codebase
 
-Este documento tem duas metades que nunca devem ser lidas como uma só. A seção **Hoje** descreve o
-que está no disco e é verificável por medição. A seção **Alvo** descreve a divisão para onde estamos
-indo e não descreve comportamento implementado.
+Este documento é `current` porque combina regras arquiteturais com um mapa navegável do repositório.
+As quatro seções abaixo têm papéis diferentes: invariantes atemporais governam mudanças; estado
+atual é conferível no disco; alvo futuro é apenas direção; histórico de entrega fica fora daqui.
 
-Vocabulário: **módulo** (interface + implementação), **costura** (o lugar onde a interface vive),
-**adapter** (o concreto que satisfaz a interface em uma costura), **profundidade** (quanto
-comportamento cabe atrás de uma interface pequena). Ver `skill://codebase-design`.
+Vocabulário: **módulo** tem uma interface e uma implementação; **costura** é onde vive a interface;
+**adaptador** é uma implementação concreta nessa costura; **profundidade** é a alavancagem oferecida
+por uma interface pequena.
 
-## Hoje
+## Invariantes e direções atemporais
 
-### Medição
+### Fronteiras de runtime
 
-Números de 2026-07-26, contados sobre os arquivos que o git rastreia — a mesma fonte que
-`scripts/check_code_budget.py` usa — após WS-11, WS-12, WS-30a, a divisão de `contracts/` (#26), as
-três páginas web (#17), a divisão dos testes de contrato (#23) e a remoção dos pacotes stub (#18).
+- O domínio Python não importa FastAPI, SQLAlchemy, OpenAI, Electron ou React.
+- Electron Main gerencia lifecycle e capacidades desktop; não implementa domínio.
+- O Renderer não importa `electron`, `node:*` nem bindings nativos.
+- O Subject Agent recebe somente o `SubjectEnvelope` compilado.
+- O Lab Agent cria drafts; aceitação e efeitos externos permanecem humanos.
+- Persistência hidrata contratos, mas não se torna dona das regras do domínio.
 
-| Escopo | Arquivos | Linhas |
-| --- | --- | --- |
-| `src/evidrun/**/*.py` | 157 | 18.368 |
-| `tests/**/*.py` | 38 | 8.700 |
-| `apps/web` + `apps/desktop` (`.ts`/`.tsx`) | 50 | 6.975 (1.603 gerados) |
+### Direção conceitual
 
-Distribuição de tamanho nos globs do grupo `source` (`src/evidrun/**/*.py`, `apps/**/*.ts`,
-`apps/**/*.tsx`, `scripts/**/*.py`, `scripts/**/*.mjs`; 212 arquivos): 149 com até 150 linhas, 46
-entre 151 e 300, 16 entre 301 e 500, nenhum entre 501 e 800, e 1 acima de 800.
+O fluxo canônico é unidirecional:
 
-O único arquivo do grupo `source` acima de 500 linhas é `apps/web/src/generated/contracts.ts`
-(1.603), que é gerado e isento. O maior módulo Python é `ledger/store.py` com 478 linhas, contra
-2.942 de `repository.py` em 2026-07-24. O grupo `tests` tem teto de 800 e cinco arquivos acima de
-500, o maior sendo `tests/integration/test_runtime_queue.py` com 783. O gate mede 258 arquivos com a
-tabela de `[baseline]` **vazia**, nenhuma violação e 12 avisos de folga.
-
-### A árvore atual
-
-```
-evidrun/
-├── src/evidrun/                   monólito modular Python (ADR 0003)
-│   ├── shared/                    vocabulário sem dependências para cima
-│   │   ├── types.py               ids, canonical_json, sha256_json, utc_now   [fan-in 19: o mais usado]
-│   │   ├── settings.py            Settings, paths, EVIDRUN_AUTHORITY
-│   │   ├── capabilities.py        capability_ref()            ⚠ importa contracts.base
-│   │   └── ports.py               Protocols: SubjectRunner, Provider, EventSink, ArtifactStore, Grader
-│   │                              ✅ #18 removeu os 5 sem implementação nem referência
-│   │                              ⚠ dos 5 restantes só ProviderPort é importado por nome;
-│   │                                EventSink e ArtifactStorePort seguem sem implementação
-│   ├── contracts/                 a LINGUAGEM do domínio: modelos Pydantic + validação, sem I/O
-│   │   ├── base.py         (356)  ContractModel, ArtifactRef, RevisionEnvelope, autoridade humana
-│   │   ├── authoring/             ✅ ENTREGUE em #26: uma família de revision por módulo
-│   │   │                          goal, scenario, inventory, workspace, protocol, evaluation,
-│   │   │                          checkpoint, progress, run, study, study_intent, parse
-│   │   ├── runtime/               ✅ ENTREGUE em #26: por papel
-│   │   │                          spec, records, envelope, events, execution
-│   │   ├── compiler.py     (411)  StudyCompiler + compiladores de envelope
-│   │   ├── admission/             ✅ service + envelope + checks/ por família
-│   │   ├── evaluation.py          EvaluationValidator
-│   │   ├── authority.py           HumanAttestationVerifier (Protocol) + Unavailable*
-│   │   ├── legacy.py       (453)  convert() legado → v1 (257 linhas numa função)
-│   │   └── __init__.py     (146)  hub de re-export: o facade público do vocabulário
-│   ├── runs/                      execution plane
-│   │   ├── adapters/              ✅ ENTREGUE em #35: catálogo, Subjects, graders, tool
-│   │   │                          catalog (210), subject_responses (302), grader_read_answer (250)
-│   │   ├── admission/             ✅ catalog_checks + scripted_checks + real_checks
-│   │   ├── coordinator/           ✅ ENTREGUE em #36: uma fase por módulo
-│   │   │                          attempt (326), resume (165), prepare (149), tool_trace (131)
-│   │   ├── composition.py         build_runtime_kernel: a única raiz de composição do runtime
-│   │   ├── service.py             bootstrap_demo
-│   │   └── worker.py              loop de claim/heartbeat/release
-│   ├── evidence/                  ✅ ENTREGUE em WS-30a
-│   │   ├── bundle.py        (34)  EvidenceBundleService: as 4 operações públicas
-│   │   ├── archive.py      (256)  zip, checksum, manifest de artifact
-│   │   ├── export/                comparison_v1 (40), comparison_v2 (112), run_v3 (93)
-│   │   └── verify/                dispatch (309), v2 (416), v3 (361), records (369)
-│   ├── authority/                 ✅ a fatia vertical mais bem formada do repo
-│   │   ├── models.py, repository.py    persistência própria
-│   │   ├── crypto.py, verifier.py, authenticator.py, challenge.py, policy.py
-│   │   ├── service.py, subject.py, router.py
-│   ├── infrastructure/
-│   │   ├── database/
-│   │   │   ├── engine.py   (114)  Database: engine, sessionmaker, migrations aditivas
-│   │   │   ├── models.py   (298)  20 Row classes SQLAlchemy
-│   │   │   ├── repository.py  (53)  ✅ raiz de composição: 9 agregados, zero query
-│   │   ├── artifacts/store.py     CAS por projeto, cifrado
-│   │   └── providers/             openai_responses, credentials (Keychain)
-│   ├── contexts/engine.py         composição de contexto
-│   ├── evaluations/deterministic.py
-│   ├── subject_runners/scripted.py
-│   ├── experiments/models.py      manifest legado
-│   ├── providers/profile.py       ProviderProfile
-│   ├── entrypoints/
-│   │   ├── api/             (172)  ✅ ENTREGUE em #34: app monta routers/ por família
-│   │   │                          runs (232), contracts (173), evidence (118), platform (95)
-│   │   ├── cli/             (160)  ✅ ENTREGUE em #34: app monta commands/ por família
-│   │   │                          runs (199), provider (192), contracts (91)
-│   │   └── worker/app.py          entrypoint do worker
-├── apps/
-│   ├── web/src/
-│   │   ├── api/client.ts          HTTP + SSE
-│   │   ├── data/{contracts,adapters}.ts   interfaces de adapter + implementações
-│   │   ├── generated/contracts.ts (1603)  gerado, isento de orçamento
-│   │   ├── ui/primitives.tsx      Button/Input/StatusIndicator/LoadingState/EmptyState/ErrorState
-│   │   │                          ⚠ Observability mantém badge e estado próprios: o DOM dos
-│   │   │                            primitives difere e *.css não entrou no escopo da #17
-│   │   └── features/
-│   │       ├── observability/  ObservabilityPage.tsx (222) + observabilityModel.ts (364)      ✅
-│   │       │                   + useObservabilityWorkspace.ts + 5 painéis + Parts             ✅
-│   │       ├── laboratory/     LaboratoryPage.tsx (314) + useLaboratoryDemo.ts (236)          ✅
-│   │       │                   + laboratoryModel.ts + ComposerMenu + AuditActivity + adapter  ✅
-│   │       └── create/         CreatePage.tsx (144) + useStudyDraft.ts + createModel.ts       ✅
-│   │                           + CreateStages.tsx + StudyCollectionEditor.tsx                 ✅
-│   └── desktop/src/{main,preload,shared}/    lifecycle do backend, sem domínio
-├── tests/{unit,integration,acceptance,security,live,support}/
-├── schemas/generated/             OpenAPI + JSON Schema, gerados
-├── docs/{adr,architecture,contracts,benchmarks,operations,planning,governance,agents,product}/
-├── code-budget.toml               política do orçamento estrutural; baseline vazio
-└── scripts/                       validate_docs, generate_schemas, hooks
-    ├── check_code_budget.py       CLI do gate
-    └── code_budget/               policy, measure, report (violação vs. aviso), baseline
+```text
+entrypoints -> authoring -> compilation -> admission -> run coordination -> evidence
+                                      \-> infrastructure adapters <-/
+desktop main -> API lifecycle <-HTTP/SSE-> web adapters -> features
 ```
 
-O ratchet do orçamento está **vazio**: nenhum arquivo deste repositório precisa de tolerância. O God
-Object `repository.py` (2.942 linhas) saiu em WS-11, `bundle.py` (1.624) na #16, `runtime.py` (1.060)
-e `authoring.py` (871) na #26, as três páginas web (918, 818, 597) na #17, e a última entrada,
-`tests/unit/test_contracts.py` (1.591), na #23, que dividiu o arquivo por assunto em cinco módulos
-mais `tests/support/contract_fixtures.py`.
+`contracts/` contém vocabulário e validação sem I/O. `runs/` coordena execução sem assumir
+autoridade humana. `evidence/` sela e verifica records canônicos. `infrastructure/` fornece
+adaptadores de persistência, artifacts e providers. `entrypoints/` e `apps/` traduzem interfaces
+externas e não decidem regras do domínio.
 
-### Como as pastas conversam
+Este diagrama declara direção arquitetural; não afirma, sozinho, que todos os imports atuais a
+respeitam. A conformidade precisa ser conferida por inspeção ou por um gate determinístico vigente.
 
-O fluxo canônico atravessa o repositório em uma direção. Cada seta é um import real, medido.
+### Costuras e módulos profundos
 
-```
-                 AUTORIA                    ADMISSÃO                 EXECUÇÃO              EVIDÊNCIA
-                 (humano decide)            (falha fechado)          (worker)              (auditor)
+- Uma costura só é promovida quando há variação real. Um adaptador é uma hipótese; dois adaptadores
+  justificam a costura.
+- Chamadores e testes atravessam a mesma interface. Estado interno não vira interface para facilitar
+  teste.
+- Dependências são recebidas na raiz de composição. Regras retornam resultados observáveis antes de
+  produzir efeitos externos.
+- Se duas escritas precisam commitar juntas, pertencem à mesma fronteira transacional.
+- Projeções de status, dashboard, comparison e relatório derivam do ledger; não viram segunda fonte
+  de verdade.
 
-  entrypoints/cli ──┐
-  entrypoints/api ──┼──► contracts/authoring ──► contracts/compiler ──► runs/coordinator ──► evidence/
-  authority/router ─┘      parse_revision           StudyCompiler         attempt.py          export/run_v3
-                            RevisionEnvelope         ↓ RunSpec              ↓                  verify/dispatch
-                                 │                admission/service     runs/adapters             ▲
-                                 │                    .admit()          Subject + grader          │
-                                 │                      │  ▲                  │                   │
-                                 │                      │  └ admission/catalog_checks ─┘          │
-                                 │                      │      (2ª camada de rejeição)            │
-                                 ▼                      ▼                  ▼                      │
-                          ┌──────────────────────────────────────────────────────────────────────┐│
-                          │  infrastructure/database/  — TODOS param aqui, via 9 agregados        ││
-                          │  ledger · queue · registry · evaluation · read_model · catalog        ├┘
-                          └──────────────────────────────────────────────────────────────────────┘
-                                 │                                            │
-                                 ▼                                            ▼
-                          infrastructure/artifacts/store.py           infrastructure/database/engine.py
-                          (CAS cifrado por projeto)                   (SQLite/WAL, sessionmaker)
+### Orçamento estrutural
 
-  apps/desktop/main ──spawn──► entrypoints/api  ◄──HTTP/SSE── apps/web/api/client
-  (lifecycle, sem domínio)                                     ↑
-                                                        apps/web/data/adapters
-                                                               ↑
-                                              features/{create,laboratory,observability}
-```
+`code-budget.toml` é a política versionada e `scripts/check_code_budget.py` é o gate executável.
+Thresholds, exceções e baseline vêm desses arquivos, não de números copiados neste documento. Um
+arquivo acima do orçamento é um sinal para procurar responsabilidade ou costura escondida, nunca
+permissão automática para dividir por contagem de linhas.
 
-Leitura do grafo em uma frase: **autoria produz revisions imutáveis, compilação produz um RunSpec,
-admissão decide se aquele RunSpec pode existir como Run, o worker executa sob lease com fencing, e o
-bundle exporta o que o ledger registrou.** Nada disso é reversível: uma Run não existe antes de
-`AdmissionRecord.decision=admitted`, e o ledger é a autoridade normativa da Run.
+## Estado atual gerado ou medido
 
-### Onde o desenho já está bom
+O mapa abaixo é uma ajuda de navegação, não um inventário exaustivo. Confirme paths no checkout e
+use os `implementation_refs` do frontmatter antes de afirmar comportamento atual.
 
-Três coisas funcionam e devem ser copiadas, não redesenhadas.
-
-`authority/` é a fatia vertical de referência: modelos, persistência, crypto, policy, serviço e
-router convivem numa pasta, e o resto do sistema fala com ela por uma interface pequena
-(`HumanAttestationVerifier`, um Protocol em `contracts/authority.py`). Essa é uma costura real: tem
-dois adapters de verdade (`LocalWebAuthnVerifier` e `UnavailableHumanAttestationVerifier`), e o
-sistema falha fechado quando o adapter não é confiável.
-
-`runs/composition.py` é a única raiz de composição do runtime, com 52 linhas. Quem quiser trocar
-provider, materializer ou catálogo tem um lugar para fazer isso.
-
-`observabilityModel.ts` separa derivação de dados de apresentação num módulo puro e testável sem
-renderizar nada. Desde a #17 as três páginas web seguem o padrão: cada uma tem um `*Model.ts` sem
-React, um `use*.ts` com o estado, e a apresentação em componentes próprios.
-
-### Onde o desenho está errado
-
-**`Repository` deixou de ser um módulo raso com implementação enorme.** Era 2.942 linhas, uma classe,
-72 métodos, 50 públicos, com seis responsabilidades convivendo sem costura. Hoje `repository.py` tem
-53 linhas e é raiz de composição: expõe nove agregados que compartilham um `UnitOfWork` e não executa
-nenhuma query. A tabela abaixo é o estado atual dos agregados extraídos.
-
-| Agregado | Módulo | Fronteira transacional |
-| --- | --- | --- |
-| ledger | `ledger/{store,appender,transitions,handlers}` | escreve evento e avança `RunRow.status` na mesma transação |
-| fila/lease | `queue/{enqueue,lease,preparation,fencing}` | `BEGIN IMMEDIATE`, expiração de lease, `lease_generation` |
-| contract registry | `registry.py` | verificação de autoridade humana no mesmo commit da decisão |
-| evaluation/checkpoint | `evaluation/{records,checkpoints}` | grava record + evento factual atomicamente |
-| catalog | `catalog.py` | uma transação por escrita, sem fencing |
-| read-model | `read_model/{queries,dashboard,projections}` | somente leitura |
-
-A costura de sessão que a decomposição promoveu a módulo (`unit_of_work.py`) já existia como
-convenção privada: no baseline nenhum método público recebia sessão, e o único que operava dentro de
-sessão alheia era `_append_event_once_in_session`. Como o estado de instância era mínimo
-(`self.database` e `self.human_attestation_verifier`, sem cache mutável), a decomposição pôde ser por
-composição de colaboradores.
-
-**A decisão de admissão está fatiada em duas camadas, agora nomeadas.** `AdmissionService.admit`
-(`contracts/admission/service.py`) não decide nada por conta própria: roda um checker por família
-contra um `RuntimeCapabilityEnvelope` explícito e depois os validadores do par concreto de adapters,
-dobrando os achados acumulados em um `AdmissionRecord`. **Toda chamada a `admit()` continua
-executando as duas camadas**, sempre.
-
-A divisão, antes implícita, hoje é declarada pelos tipos:
-
-- `contracts/admission/checks/` decide contra o **envelope de capacidade declarado**
-  (`RuntimeCapabilityEnvelope`), produzido por `RuntimeAdapterCatalog.capability_envelope()`;
-- `runs/admission/` decide contra o **par concreto de adapters** resolvido para aquele RunSpec
-  (`catalog_checks`, `scripted_checks`, `real_checks`), e sabe coisas que o envelope não representa.
-
-O envelope deixou de ser oito kwargs montados à mão: `capability_envelope()` é a única fonte, e uma
-capability só entra nele quando o adapter correspondente está montado — é por isso que o bloco de
-provider, o catálogo de tools e a flag de raw capture ligam todos junto com `real_subject`.
-
-### Camada dona de cada eixo de sobreposição
-
-Os quatro eixos onde as duas camadas afirmam a mesma verdade têm dona declarada. A regra é: o
-envelope responde "este runtime declara suportar a forma?"; o adapter responde "o par resolvido
-executa exatamente isto?". As duas perguntas são distintas, então ambas continuam sendo feitas.
-
-| Eixo | Dona da forma declarada | Dona do requisito concreto |
-| --- | --- | --- |
-| rede | `checks/workspace.py` via `envelope.network_modes` | `scripted_checks` (`offline_network`), `real_checks` (`provider_network`) |
-| capture | `checks/interaction.py` via `envelope.supports_raw_encrypted_capture` | `scripted_checks` (`offline_raw_capture`), `real_checks` (`recoverable_subject_output`) |
-| budgets | `checks/unsupported.py` via `envelope.supported_budget_fields` | `scripted_checks` (`offline_tool_budget`), `real_checks` (`max_tool_calls`) |
-| evaluator | `checks/unsupported.py` (`runtime:evaluation_pipeline`) | `catalog_checks` (`evaluator_adapter`), `scripted_checks`, `real_checks` |
-
-**A ordem de acumulação é contrato, não detalhe.** `missing_requirements`, `denied_policies` e
-`issues` são tuplas persistidas que o ledger e o bundle leem de volta. Reordenar as chamadas de
-checker em `service.py` muda a saída observável de qualquer spec que viole mais de uma família, e a
-cadeia `elif` de workspace permanece uma decisão ordenada única por esse motivo.
-
-**O oráculo de equivalência agora existe.** `tests/unit/test_admission_oracle.py` percorre 62
-RunSpecs cobrindo cada ramo das duas camadas e trava decisão, statuses, `missing_requirements`,
-`denied_policies`, warnings, inventário resolvido e a tripla
-`(category, subject_ref, reason.code, reason.detail, blocking)` de cada issue, byte a byte, contra
-`tests/unit/admission_oracle.json`. Os cinco ramos antes sem cobertura nenhuma — digest divergente de
-runner, `mount_authority`, `read_write_mount`, `runtime_kind` não suportado e
-`credential_available=False` — passaram a ser exercitados.
-
-Um defeito latente apareceu ao exercitar o ramo de provider pela primeira vez: `admit` preenchia
-`provider_profile_id` sem digest, model, reasoning e adapter quando o profile não era resolvido, e o
-validador de `ResolvedAgentInventory` rejeitava essa combinação — `admit()` levantava
-`ValidationError` em vez de devolver `decision=rejected`. Corrigido: um profile não resolvido deixa o
-bloco de provider inteiro vazio.
-
-**`bundle.py` misturava três formatos e sua verificação — resolvido em WS-30a.** O arquivo de 1.624
-linhas virou onze: `bundle.py` (34) com as quatro operações públicas, `archive.py` (253) com zip,
-checksum e manifest, `export/{comparison_v1,comparison_v2,run_v3}` e
-`verify/{dispatch,v2,v3,records}`. A costura que estava escondida é a que separa **selar** de
-**conferir**: os três exports compartilhavam à mão o mesmo bloco de checksum e o mesmo laço de zip,
-e as duas camadas de verify compartilhavam a validação de record por chamada estática cruzada
-(`EvidenceBundleService._verify_v2_records` de dentro de `_verify_v3_records`).
-
-`verify/records.py` nomeia o que era implícito: um `LedgerIndex` construído uma vez por bundle, que
-é a única fonte de eventos e checkpoints contra a qual todo record é conferido. Antes, sete dicts
-paralelos viajavam juntos por seis parâmetros de palavra-chave.
-
-A equivalência foi medida, não presumida: o `verify` de `origin/main` e o extraído produzem JSON
-byte a byte idêntico em 8 bundles v3 reais — um válido e sete adulterados (goal do envelope, digest
-de job, worker de attempt, entrada de manifest removida, gate de evaluation, arquivo injetado sem
-checksum, nome de membro duplicado).
-
-**Os 7 pacotes stub saíram na #18.** `projects/`, `workspaces/`, `comparisons/`, `conversations/` e
-`scenarios/` prometiam uma fatia vertical cujo conteúdo já mora em `catalog.py` e `read_model/`
-(`ProjectRow`, `WorkspaceRow`, `ComparisonRow`, `ChatSessionRow` e os métodos de escrita);
-`approvals/` e `lab_agent/` prometiam capacidade que não existe. Nenhum tinha importador. Junto
-saíram os 5 Protocols sem implementação de `shared/ports.py` — `LabAgentPort`, `ApprovalGateway`,
-`ToolEnvironmentPort`, `TraceExporter` e `TraceImporter` —, que também não tinham referência. A
-contradição de navegação que isso criava (a pasta dizia "ainda não implementado" e `create_project`
-aparecia em código funcionando) deixou de existir.
-
-Resta resíduo menor em `ports.py`, fora do escopo daquela decisão, e ele não é uniforme. Medido por
-conformidade estrutural, que é como Protocol funciona — satisfazer a forma é implementar, herdar não
-é requisito —, e verificado com `pyright`: `SubjectRunnerPort` é satisfeito por `ScriptedLogInvestigator`
-e `GraderPort` por `ExactCauseGrader`, logo são costuras **hipotéticas** pelo vocabulário desta
-página; `EventSink` e `ArtifactStorePort` não são satisfeitos por nada (`LedgerStore` não expõe
-`append`, e `ArtifactStore.put` exige `project_id` e uma `Classification` tipada), logo continuam
-**imaginárias**. Nenhum dos quatro é importado por nome em lugar algum: dos 5 Protocols que ficaram,
-só `ProviderPort` tem consumidor declarado, e o que de fato sustenta o módulo é o dataclass
-`SubjectResult`, importado por 8 arquivos de `runs/` e `subject_runners/`.
-
-**Três violações de direção de import**, todas pequenas e todas reais:
-`shared/capabilities.py → contracts.base`, `shared/settings.py → providers`, e
-`infrastructure/{database,artifacts} → contracts`. A última é hidratação legítima de contrato (o
-repository desserializa `RunSpec` e `EvaluationRecord`), mas `repository.py` também importa
-`EVENT_ALLOWED_RUN_STATUSES` e `UNSUPPORTED_RUNTIME_EVENT_TYPES` de `contracts/runtime/events.py` e
-impõe regra de fase de Run — isso é regra de domínio executando na camada de infraestrutura.
-
-## Alvo
-
-A árvore abaixo é o destino, não um retrato do disco. Os blocos que já aterrissaram estão marcados
-com `✅ ENTREGUE`: `infrastructure/database/` (WS-11), os dois pacotes `admission/` (WS-12),
-`evidence/` (WS-30a) e os pacotes `contracts/{runtime,authoring}/` (#26). Todo o resto continua
-sendo workstream futuro com issue própria, e nada não marcado descreve comportamento implementado.
-
-### Princípio
-
-Uma pasta por capacidade, e dentro dela uma costura nomeada por variação real. `contracts/`
-permanece horizontal de propósito: é o vocabulário compartilhado, e um vocabulário sem I/O não é uma
-camada, é um dicionário.
-
-Três regras que decidem onde um arquivo novo vai morar:
-
-1. **Se duas coisas precisam commitar juntas, moram no mesmo módulo.** Atomicidade define pasta.
-2. **Se algo varia por adapter, a variação vira costura; se não varia, não vira.** Um adapter
-   significa costura hipotética. Dois significam costura real.
-3. **Se um arquivo passa de 500 linhas, ele está escondendo uma costura.** Ver ADR 0017.
-
-### A árvore alvo
-
-```
+```text
 src/evidrun/
-├── contracts/                      vocabulário: modelos + validação, zero I/O
-│   ├── base.py                     (mantém)
-│   ├── authoring/                  ✅ ENTREGUE em #26                                    [#26]
-│   │   ├── goal.py  scenario.py  inventory.py  workspace.py  protocol.py  evaluation.py
-│   │   ├── checkpoint.py  progress.py  run.py  study.py  study_intent.py
-│   │   └── parse.py                parse_revision + despacho por tipo
-│   ├── runtime/                    ✅ ENTREGUE em #26                                    [#26]
-│   │   ├── spec.py                 RunSpec e satélites
-│   │   ├── records.py              Admission/Run/Evaluation/Checkpoint/Progress records
-│   │   ├── envelope.py             SubjectEnvelope, EvaluatorEnvelope
-│   │   ├── events.py               payloads + EVENT_ALLOWED_RUN_STATUSES
-│   │   │                           + UNSUPPORTED_RUNTIME_EVENT_TYPES
-│   │   └── execution.py            RunExecutionJob, RunExecutionAttempt
-│   ├── admission/                  ✅ ENTREGUE em WS-12                               [WS-12]
-│   │   ├── service.py              orquestra: roda checkers, monta AdmissionRecord
-│   │   ├── envelope.py             RuntimeCapabilityEnvelope: o que o runtime declara suportar
-│   │   ├── checks/                 um módulo por família; entregue agrupado em quatro módulos
-│   │   │                           (inventory, workspace, interaction, unsupported) em vez dos
-│   │   │                           dez abaixo; a divisão fina permanece alvo
-│   │   │   ├── runner.py           runner registrado + digest
-│   │   │   ├── provider.py         profile disponível + digest
-│   │   │   ├── capability.py       registry, interface version, permissões, authority_constraints
-│   │   │   ├── input_class.py      sensitive/restricted
-│   │   │   ├── workspace.py        runtime_kind, mounts, read_write, write_zones, secrets
-│   │   │   ├── policy.py           network, external_effect
-│   │   │   ├── interaction.py      protocolo, max_turns, materialização single-turn
-│   │   │   ├── capture.py          capture mode
-│   │   │   ├── unsupported.py      progress artifact, checkpoint, bounded exploration,
-│   │   │   │                       adjudicação humana, disclosure, pipeline multi-stage
-│   │   │   └── budget.py           budgets + stop conditions
-│   │   └── issues.py               construção canônica de AdmissionIssue
-│   ├── compiler.py                 StudyCompiler + SubjectEnvelopeCompiler (sem admissão)
-│   ├── legacy/                     ← legacy.py; convert() (257) por seção de pacote
-│   ├── evaluation.py  authority.py
-│   └── __init__.py                 hub de re-export (mantém: é a interface pública do vocabulário)
+├── contracts/
+│   ├── authoring/          revisions e parse de autoria
+│   ├── runtime/            RunSpec, eventos e envelopes
+│   └── admission/          envelope, checks e AdmissionService
 ├── runs/
-│   ├── admission/                  ✅ ENTREGUE em WS-12: a 2ª camada, agora nomeada   [WS-12]
-│   │   ├── catalog_checks.py        ← validate_spec: o que só o par de adapters sabe
-│   │   ├── scripted_checks.py       ← _validate_scripted_spec
-│   │   └── real_checks.py           ← _validate_real_spec
-│   ├── adapters/                   ✅ ENTREGUE em #35                                    [#35]
-│   │   ├── catalog.py              RuntimeAdapterCatalog + declaração do envelope
-│   │   ├── subject_scripted.py  subject_responses.py
-│   │   ├── grader_cause.py  grader_read_answer.py
-│   │   ├── tool_read_text.py  materializer.py  types.py
-│   ├── coordinator/                ✅ ENTREGUE em #36: uma fase por módulo              [#36]
-│   │   ├── attempt.py              execute_attempt
-│   │   ├── prepare.py  resume.py  response.py  terminal.py  recovery.py
-│   │   ├── lease.py  budget.py  context.py  tool_trace.py
-│   ├── composition.py  service.py  worker.py
-├── evidence/                        ✅ ENTREGUE em WS-30a                             [WS-30]
-│   ├── bundle.py                   EvidenceBundleService: as 4 operações públicas
-│   ├── export/{comparison_v1,comparison_v2,run_v3}.py
-│   ├── verify/{dispatch,v2,v3,records}.py
-│   └── archive.py                  zip, checksum, manifest
-├── infrastructure/database/         ✅ ENTREGUE em WS-11                              [WS-11]
-│   ├── engine.py                   (mantém)
-│   ├── models.py                   (mantém)
-│   ├── unit_of_work.py             ★ a costura nova: sessão explícita + agregados vinculados
-│   ├── ledger/
-│   │   ├── appender.py             hash chain, operation_key, sequência
-│   │   ├── transitions.py          máquina de fase + event types reservados
-│   │   └── handlers/               um módulo por família de evento factual
-│   ├── queue/
-│   │   ├── enqueue.py              enqueue_run
-│   │   ├── lease.py                claim/heartbeat/assert/release/reject/complete + fencing
-│   │   └── preparation.py          prepare_run_execution
-│   ├── registry.py                 contract revisions e decisões
-│   ├── evaluation/{records.py,checkpoints.py}
-│   ├── catalog.py                  escritas de entidade de topo
-│   └── read_model/{dashboard.py,projections.py}
-└── (stubs removidos)               ✅ ENTREGUE em #18: approvals, comparisons, conversations,
-                                    lab_agent, projects, scenarios, workspaces
+│   ├── adapters/           catálogo e adaptadores de Subject, grader e tool
+│   ├── admission/          checks do par concreto de adaptadores
+│   ├── coordinator/        preparação, tentativa, resume e tool trace
+│   ├── composition.py      raiz de composição do runtime
+│   └── worker.py           claim, heartbeat e release
+├── evidence/
+│   ├── export/             formatos de bundle
+│   ├── verify/             verificação por versão e records
+│   ├── archive.py          archive, checksums e artifact manifest
+│   └── bundle.py           interface das operações de bundle
+├── authority/              verificação, policy e fluxo de autoridade humana
+├── infrastructure/
+│   ├── database/           UnitOfWork e agregados de persistência
+│   ├── artifacts/          armazenamento endereçado por conteúdo
+│   └── providers/          adaptadores e credenciais efêmeras/Keychain
+└── entrypoints/            API, CLI e worker
+
+apps/
+├── web/src/
+│   ├── api/                transporte HTTP/SSE
+│   ├── data/               interfaces e adaptadores do frontend
+│   └── features/           apresentação, estado e modelos puros
+└── desktop/src/            main, preload e shared para lifecycle desktop
 ```
 
-`★` é o ponto que faz o resto funcionar. `UnitOfWork` expõe a sessão e os agregados vinculados a ela;
-uma operação que precisa de atomicidade entre agregados (gravar evento e avançar status, preparar
-execução sob fencing) fica no agregado dono da atomicidade e chama colaboradores **passando a
-sessão**, nunca abrindo uma nova. Sem esse módulo, decompor `Repository` transforma uma transação em
-duas e quebra o fencing de lease.
+As costuras atuais mais importantes são:
 
-### O grafo alvo
+- `runs/composition.py`: raiz única de montagem do Runtime Kernel;
+- `contracts/admission/service.py`: dobra checks declarados e checks de adaptadores num
+  `AdmissionRecord` observável;
+- `infrastructure/database/repository.py`: raiz de composição dos agregados que compartilham o
+  `UnitOfWork`;
+- `evidence/bundle.py`: interface pequena para exportar e verificar bundles, com implementação
+  dividida por formato;
+- modelos puros em `apps/web/src/features/`: derivação separada de React e do transporte.
 
-```
-  entrypoints/{api,cli,worker}          apps/web + apps/desktop
-          │                                     │  HTTP/SSE apenas
-          ▼                                     ▼
-  ┌───────────────────────────────────────────────────────┐
-  │ contracts/  (vocabulário: modelos + validação, sem I/O)│◄── authority/ (fatia vertical)
-  │   authoring/ ─► compiler ─► admission/service          │
-  │                              ▲ checks/ (por família)   │
-  └───────────────────────────────┼───────────────────────┘
-          │                       │ envelope declarado
-          ▼                       │
-  runs/                           │
-    adapters/catalog ─────────────┘  ★ única fonte do envelope
-    admission/catalog_checks ────────► issues do par concreto
-    coordinator/ ──────────────┐
-          │                    │
-          ▼                    ▼
-  infrastructure/database/unit_of_work
-    ├── ledger/     (autoridade normativa da Run)
-    ├── queue/      (lease + fencing)
-    ├── registry/   (decisões humanas)
-    ├── evaluation/ (records append-only)
-    ├── catalog/    (entidades de topo)
-    └── read_model/ (projeções; só leitura)
-          │
-          ▼
-  engine (SQLite/WAL)      artifacts/store (CAS cifrado)      evidence/ (export + verify)
-```
+Para atualizar esta seção, meça o checkout atual. Não copie contagens de arquivos, linhas, tickets,
+commits ou resultados de uma execução anterior. `scripts/check_code_budget.py`, testes e manifest
+documental são projeções reproduzíveis; cada um prova somente o contrato declarado pelo próprio
+gate.
 
-Direções proibidas, que o orçamento não pega e a revisão pega:
-`contracts/ → infrastructure/`, `contracts/ → runs/`, `shared/ → qualquer coisa`,
-`infrastructure/ → runs/`, e `apps/web → electron` ou `node:*`.
+## Alvo futuro e planning
 
-As três violações atuais de direção resolvem assim: `shared/capabilities.py` vira
-`contracts/capabilities.py` (é vocabulário, não utilidade); `shared/settings.py` para de importar
-`providers` recebendo o profile por parâmetro; e a imposição de fase de Run sai de `repository.py`
-para `ledger/transitions.py`, que continua lendo a tabela de `contracts/runtime/events.py` — ler
-uma tabela declarativa de contrato é hidratação, executar a regra de fase dentro do SQL é
-vazamento.
+O alvo é manter uma pasta por capacidade e nomear costuras somente onde adaptadores realmente
+variam. Mudanças futuras devem preservar a direção conceitual, a atomicidade dos agregados e as
+interfaces observáveis de admission, ledger e bundles.
 
-### O que a extração NÃO pode mudar
+Detalhamento, ordem e dependências de trabalho pertencem a [`docs/planning/`](../planning/) e ao
+tracker. Esses documentos têm autoridade `planning` e volatilidade `snapshot`; não descrevem
+capacidade implementada. Quando um alvo aterrissa, atualize esta seção a partir do código final e de
+verificação nova, sem importar a narrativa histórica do task document.
 
-Refactor não promove capability. Toda capability hoje rejeitada continua rejeitada com o mesmo
-código (`unsupported`, `denied`, `unavailable`) e a mesma mensagem observável. Como a suíte atual não
-asserta mensagem nem código, a extração de admissão exige um oráculo novo — um teste de equivalência
-que percorra RunSpecs cobrindo cada ramo e trave decisão, códigos e mensagens — antes de mover a
-primeira linha. Sem esse oráculo não existe "sem perda de precisão", só esperança.
+## Histórico de entrega
 
-Igualmente intocável: ordem e hash chain do ledger, atomicidade de `claim_next_job` e
-`prepare_run_execution`, a natureza append-only de records de evaluation, e o fato de que
-`ArtifactRef` não carrega `locator`.
+PRs, issues, commits, datas, contagens e a sequência em que extrações chegaram permanecem no Git e
+no tracker. ADRs registram decisões duráveis, não cronologia operacional. Este documento não mantém
+listas “entregue em #N”, árvores antigas nem baselines copiados de uma execução passada.
 
-### Ordem de execução
+## Roteamento para agentes
 
-```
-WS-11 repository        ✅ read_model → registry → evaluation → catalog → ledger → queue
-   (serial por agregado, suíte completa verde entre cada um; queue por último porque
-    concentra BEGIN IMMEDIATE e fencing)
-        │
-        ├─► WS-12 admissão   ✅ entregue
-        ├─► WS-30a bundle    ✅ entregue (só evidence/)
-        ├─► #26 contracts    ✅ entregue (runtime/ e authoring/ por papel)
-        ├─► WS-13 páginas web  ✅ entregue (só apps/web/)
-        └─► #23 baseline zerado ✅ entregue (test_contracts.py dividido por assunto)
-```
+Antes de abrir arquivos de implementação, responda:
 
-WS-11 foi serial de propósito. Esta onda fechou: o ratchet do orçamento está vazio e nenhum arquivo
-versionado deste repositório estoura o orçamento do seu grupo — 500 linhas em `source`, 800 em
-`tests`.
+1. **Muda contrato?** Leia o contrato afetado e o ADR vigente antes de tocar modelos, schema ou
+   payload persistido/exportado.
+2. **Muda capacidade executável?** Localize declaration, adapter concreto e admissão fail-closed;
+   uma forma representável não prova execução.
+3. **Muda uma projeção?** Parta do ledger ou record canônico e preserve a derivação; dashboard,
+   report e bundle manifest não são fontes independentes.
+4. **Muda uma costura?** Teste pela interface observável e confirme que existe variação real antes
+   de adicionar porta ou adaptador.
 
-## Como um agente navega isto
-
-Um agente que chega neste repositório com uma tarefa deve responder três perguntas antes de abrir
-arquivo, e cada resposta tem um endereço fixo:
-
-**"Isso é contrato?"** Se a mudança altera o shape de um documento persistido, exportado ou
-mostrado ao Subject, o endereço é `docs/contracts/` primeiro e `contracts/` depois — e provavelmente
-precisa de ADR. Contrato não se ajusta de passagem.
-
-**"Isso é capacidade nova?"** Se sim, ela nasce rejeitada. O caminho é
-`contracts/admission/checks/` mais o envelope em `runs/adapters/catalog.py`. Anunciar capacidade
-antes do adapter é a falha que o sistema inteiro foi desenhado para impedir.
-
-**"Isso é projeção?"** Status, dashboard, comparison, relatório e grafo são projeções do ledger.
-Mudam em `infrastructure/database/read_model/` e nunca viram segunda fonte de verdade.
-
-O orçamento estrutural existe para que essas três perguntas continuem respondíveis. Um arquivo de
-2.942 linhas não tem endereço: ele é o endereço de tudo.
+Use o perfil apropriado no [roteador documental](../index.md). Planning, research e incubação só
+entram quando forem o objeto explícito da tarefa.

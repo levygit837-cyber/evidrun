@@ -4,6 +4,7 @@ type: planning
 title: Mapa temporal de capabilities do MVP
 status: accepted
 authority: planning
+volatility: snapshot
 owner: product-engineering
 created_at: 2026-07-23
 updated_at: 2026-07-26

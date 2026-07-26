@@ -4,6 +4,7 @@ type: architecture
 title: Runtime Electron e sidecar Python
 status: implemented
 authority: normative
+volatility: current
 owner: desktop
 created_at: 2026-07-22
 updated_at: 2026-07-22

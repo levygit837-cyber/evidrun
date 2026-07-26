@@ -4,6 +4,7 @@ type: implementation-task
 title: WS-13 Costuras das paginas web
 status: verified
 authority: planning
+volatility: snapshot
 owner: core
 created_at: 2026-07-24
 updated_at: 2026-07-26

@@ -4,6 +4,7 @@ type: research
 title: Comparação do discovery orientado por cenários de Run
 status: draft
 authority: research
+volatility: snapshot
 owner: core
 created_at: 2026-07-22
 updated_at: 2026-07-24
