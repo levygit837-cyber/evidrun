@@ -1,4 +1,4 @@
-"""Template de workspace: mount, rede, efeito externo, snapshot e cleanup."""
+"""Workspace template: mounts, network, external effect, snapshot and cleanup."""
 
 from __future__ import annotations
 

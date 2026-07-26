@@ -1,4 +1,4 @@
-"""Política de Progress Artifact: gatilhos e definição do resumo derivado."""
+"""Progress Artifact policy: triggers and the derived summary definition."""
 
 from __future__ import annotations
 

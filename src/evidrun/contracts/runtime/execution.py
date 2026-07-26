@@ -1,4 +1,4 @@
-"""Job e attempt duráveis: a cadeia de lease que executa uma Run."""
+"""Durable job and attempt: the lease chain that executes a Run."""
 
 from __future__ import annotations
 

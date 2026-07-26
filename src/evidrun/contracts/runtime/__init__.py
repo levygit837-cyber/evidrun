@@ -1,7 +1,7 @@
-"""Runtime contracts: spec, records, envelope, events e execução durável.
+"""Runtime contracts: spec, records, envelope, events and durable execution.
 
-Este pacote substituiu o módulo único `contracts/runtime.py`. Importe do submódulo que
-possui o símbolo (`runtime.spec`, `runtime.records`, `runtime.envelope`, `runtime.events`,
-`runtime.execution`), ou de `evidrun.contracts`, que é o facade público do vocabulário.
-Não há reexport aqui: um nome tem um lugar só.
+This package replaced the single `contracts/runtime.py` module. Import from the submodule
+that owns the symbol (`runtime.spec`, `runtime.records`, `runtime.envelope`,
+`runtime.events`, `runtime.execution`), or from `evidrun.contracts`, the public facade of
+the vocabulary. Nothing is re-exported here: a name has exactly one home.
 """

@@ -1,9 +1,9 @@
-"""Authoring contracts: uma família de revision por módulo.
+"""Authoring contracts: one revision family per module.
 
-Este pacote substituiu o módulo único `contracts/authoring.py`. Importe do submódulo que
-possui o símbolo (`authoring.goal`, `authoring.scenario`, `authoring.inventory`,
+This package replaced the single `contracts/authoring.py` module. Import from the submodule
+that owns the symbol (`authoring.goal`, `authoring.scenario`, `authoring.inventory`,
 `authoring.workspace`, `authoring.protocol`, `authoring.evaluation`, `authoring.checkpoint`,
 `authoring.progress`, `authoring.run`, `authoring.study`, `authoring.study_intent`,
-`authoring.parse`), ou de `evidrun.contracts`, que é o facade público do vocabulário.
-Não há reexport aqui: um nome tem um lugar só.
+`authoring.parse`), or from `evidrun.contracts`, the public facade of the vocabulary.
+Nothing is re-exported here: a name has exactly one home.
 """

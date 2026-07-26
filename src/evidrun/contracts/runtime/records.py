@@ -1,6 +1,6 @@
-"""Records canônicos e append-only: admissão, Run, evaluation, checkpoint, progress.
+"""Canonical append-only records: admission, Run, evaluation, checkpoint, progress.
 
-Correção cria record novo; nenhum destes é reescrito no lugar.
+A correction creates a new record; none of these is rewritten in place.
 """
 
 from __future__ import annotations

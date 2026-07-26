@@ -1,4 +1,4 @@
-"""O Goal e sua revision: o que a Run persegue, e como o modo é declarado."""
+"""The Goal and its revision: what the Run pursues, and how its mode is declared."""
 
 from __future__ import annotations
 

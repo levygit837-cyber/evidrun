@@ -1,6 +1,6 @@
-"""O SubjectEnvelope e o EvaluatorEnvelope: allowlists fechadas de disclosure.
+"""SubjectEnvelope and EvaluatorEnvelope: closed disclosure allowlists.
 
-Campo novo de RunSpec, contract, artifact ou evaluation NÃO entra automaticamente aqui.
+A new RunSpec, contract, artifact or evaluation field does NOT enter here automatically.
 """
 
 from __future__ import annotations

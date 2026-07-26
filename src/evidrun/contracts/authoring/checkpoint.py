@@ -1,4 +1,4 @@
-"""Política de checkpoint: gatilhos, captura e definições."""
+"""Checkpoint policy: triggers, capture and definitions."""
 
 from __future__ import annotations
 

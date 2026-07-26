@@ -1,4 +1,4 @@
-"""Despacho de revision por `contract_type`."""
+"""Revision dispatch by `contract_type`."""
 
 from __future__ import annotations
 

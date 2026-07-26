@@ -1,4 +1,4 @@
-"""Cenário e input bindings: o que existe, e para quem é visível."""
+"""Scenario and input bindings: what exists, and who may see it."""
 
 from __future__ import annotations
 

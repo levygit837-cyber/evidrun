@@ -1,4 +1,4 @@
-"""O que uma Run declara antes de existir: budget, stop conditions e captura."""
+"""What a Run declares before it exists: budget, stop conditions and capture."""
 
 from __future__ import annotations
 

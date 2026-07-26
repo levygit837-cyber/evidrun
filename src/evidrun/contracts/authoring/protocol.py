@@ -1,4 +1,4 @@
-"""Protocolo de interação: nós, gatilhos e arestas do grafo de execução."""
+"""Interaction protocol: nodes, triggers and edges of the execution graph."""
 
 from __future__ import annotations
 

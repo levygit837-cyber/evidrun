@@ -1,4 +1,4 @@
-"""Payloads de evento factual, e o que decide validade de evento por fase da Run."""
+"""Factual event payloads, and what decides event validity per Run phase."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Study, variantes e plano de comparação: o que compila em RunSpec."""
+"""Study, variants and comparison plan: what compiles into a RunSpec."""
 
 from __future__ import annotations
 

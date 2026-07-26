@@ -1,4 +1,4 @@
-"""O RunSpec admitido e a resolução de inventário que a admissão produz."""
+"""The admitted RunSpec and the inventory resolution admission produces."""
 
 from __future__ import annotations
 

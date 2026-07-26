@@ -1,4 +1,4 @@
-"""Inventário do agente: capability e runtime requirements declarados."""
+"""Agent inventory: declared capability and runtime requirements."""
 
 from __future__ import annotations
 

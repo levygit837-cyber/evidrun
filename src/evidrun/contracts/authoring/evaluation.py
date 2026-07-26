@@ -1,4 +1,4 @@
-"""Plano de avaliação: dimensões, stages, disclosure e adjudicação humana."""
+"""Evaluation plan: dimensions, stages, disclosure and human adjudication."""
 
 from __future__ import annotations
 

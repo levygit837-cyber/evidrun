@@ -1,4 +1,4 @@
-"""A intenção declarada de um Study: escopo e pergunta."""
+"""A Study's declared intent: its scope and its question."""
 
 from __future__ import annotations
 
