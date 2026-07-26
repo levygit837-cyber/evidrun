@@ -10,7 +10,7 @@ import yaml
 
 from evidrun.contracts import StudyRevision, parse_revision
 from evidrun.contracts.compiler import StudyCompiler
-from evidrun.contracts.triage import CLI_EXIT_BY_CODE, CliExitCode
+from evidrun.contracts.triage import CLI_EXIT_BY_CODE
 from evidrun.entrypoints.cli.shared import components, console
 from evidrun.experiments import ExperimentManifest
 from evidrun.infrastructure.database.register_errors import (
@@ -58,8 +58,8 @@ def register_contract(
             console.print_json(data=exc.error.model_dump(mode="json"))
             raise typer.Exit(CLI_EXIT_BY_CODE[exc.error.code]) from exc
         except RegisterStorageUnavailable as exc:
-            console.print_json(data={"error": str(exc)})
-            raise typer.Exit(CliExitCode.REJECTED) from exc
+            console.print_json(data=exc.error.model_dump(mode="json"))
+            raise typer.Exit(CLI_EXIT_BY_CODE[exc.error.code]) from exc
         console.print_json(
             data={
                 "id": row.id,

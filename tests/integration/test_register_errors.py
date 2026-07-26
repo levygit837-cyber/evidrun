@@ -372,5 +372,11 @@ def test_storage_unavailable_is_sanitized_by_api_and_cli(
 
     assert response.status_code == 503
     assert cli_result.exit_code == 3
+    api_error = response.json()["detail"]
+    cli_error = json.loads(cli_result.stdout)
+    assert cli_error == api_error
+    assert api_error["code"] == "register.storage_unavailable"
+    assert api_error["phase"] == "register"
+    assert api_error["category"] == "unavailable"
     _assert_safe_error(response.text, project.id)
     _assert_safe_error(cli_result.stdout, project.id)

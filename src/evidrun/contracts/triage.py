@@ -34,6 +34,7 @@ class TriageErrorCode(StrEnum):
     REGISTER_REVISION_NOT_MONOTONIC = "register.revision_not_monotonic"
     REGISTER_IMMUTABILITY_CONFLICT = "register.immutability_conflict"
     REGISTER_INITIAL_STATUS_INVALID = "register.initial_status_invalid"
+    REGISTER_STORAGE_UNAVAILABLE = "register.storage_unavailable"
 
     DECIDE_HUMAN_AUTHORITY_UNAVAILABLE = "decide.human_authority_unavailable"
     DECIDE_REVISION_NOT_FOUND = "decide.revision_not_found"
@@ -120,6 +121,7 @@ CATEGORY_BY_CODE: Mapping[TriageErrorCode, TriageErrorCategory] = MappingProxyTy
         TriageErrorCode.REGISTER_REVISION_NOT_MONOTONIC: TriageErrorCategory.CONFLICT,
         TriageErrorCode.REGISTER_IMMUTABILITY_CONFLICT: TriageErrorCategory.CONFLICT,
         TriageErrorCode.REGISTER_INITIAL_STATUS_INVALID: TriageErrorCategory.INVALID,
+        TriageErrorCode.REGISTER_STORAGE_UNAVAILABLE: TriageErrorCategory.UNAVAILABLE,
         TriageErrorCode.DECIDE_HUMAN_AUTHORITY_UNAVAILABLE: TriageErrorCategory.UNAVAILABLE,
         TriageErrorCode.DECIDE_REVISION_NOT_FOUND: TriageErrorCategory.NOT_FOUND,
         TriageErrorCode.DECIDE_DECISION_CONFLICT: TriageErrorCategory.CONFLICT,
@@ -174,6 +176,7 @@ CLI_EXIT_BY_CODE: Mapping[TriageErrorCode, CliExitCode] = MappingProxyType(
         TriageErrorCode.REGISTER_REVISION_NOT_MONOTONIC: CliExitCode.CONFLICT,
         TriageErrorCode.REGISTER_IMMUTABILITY_CONFLICT: CliExitCode.CONFLICT,
         TriageErrorCode.REGISTER_INITIAL_STATUS_INVALID: CliExitCode.INVALID,
+        TriageErrorCode.REGISTER_STORAGE_UNAVAILABLE: CliExitCode.REJECTED,
         TriageErrorCode.DECIDE_HUMAN_AUTHORITY_UNAVAILABLE: CliExitCode.REJECTED,
         TriageErrorCode.DECIDE_REVISION_NOT_FOUND: CliExitCode.NOT_FOUND,
         TriageErrorCode.DECIDE_DECISION_CONFLICT: CliExitCode.CONFLICT,

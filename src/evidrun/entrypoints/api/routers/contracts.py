@@ -73,7 +73,10 @@ def create_contract_router(
                 detail=exc.error.model_dump(mode="json"),
             ) from exc
         except RegisterStorageUnavailable as exc:
-            raise HTTPException(status_code=503, detail=str(exc)) from exc
+            raise HTTPException(
+                status_code=HTTP_STATUS_BY_CODE[exc.error.code],
+                detail=exc.error.model_dump(mode="json"),
+            ) from exc
         except Exception as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         return {

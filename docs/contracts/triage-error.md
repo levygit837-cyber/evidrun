@@ -51,7 +51,7 @@ outra condição.
 | Fase | Códigos |
 | --- | --- |
 | `parse` | `document_not_object`, `contract_type_missing`, `contract_type_unknown`, `field_undeclared`, `revision_invalid`, `identifier_empty`, `payload_type_invalid`, `schema_invalid` |
-| `register` | `project_not_found`, `revision_not_monotonic`, `immutability_conflict`, `initial_status_invalid` |
+| `register` | `project_not_found`, `revision_not_monotonic`, `immutability_conflict`, `initial_status_invalid`, `storage_unavailable` |
 | `decide` | `human_authority_unavailable`, `revision_not_found`, `decision_conflict`, `repository_fixture_forbidden` |
 | `compile` | `revision_not_found`, `revision_not_study`, `dependency_not_accepted`, `digest_mismatch`, `controlled_slots_mismatch`, `confounder_missing` |
 | `admit` | `run_spec_not_found`, `rejected`, `inventory_not_persistible` |
@@ -97,5 +97,6 @@ O registro usa uma transação imediata para serializar a sequência read-then-w
 integridade são relidas após rollback para distinguir Project inexistente, corrida idempotente e
 conflito de imutabilidade. Toda falha SQLAlchemy não traduzível, inclusive indisponibilidade
 operacional, registra a causa original com traceback e falha fechada por uma resposta pública
-sanitizada: HTTP 503 e exit code CLI 3. Nenhuma dessas saídas expõe SQL, prefixo de driver, nome de
-tabela, Project id ou conteúdo do documento submetido.
+tipada `register.storage_unavailable`: HTTP 503 e exit code CLI 3. API e CLI serializam o mesmo
+`TriageError` estruturado. Nenhuma dessas saídas expõe SQL, prefixo de driver, nome de tabela,
+Project id ou conteúdo do documento submetido.

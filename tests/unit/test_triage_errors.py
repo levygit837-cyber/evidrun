@@ -32,6 +32,7 @@ EXPECTED_CODES = {
     "register.revision_not_monotonic",
     "register.immutability_conflict",
     "register.initial_status_invalid",
+    "register.storage_unavailable",
     "decide.human_authority_unavailable",
     "decide.revision_not_found",
     "decide.decision_conflict",
