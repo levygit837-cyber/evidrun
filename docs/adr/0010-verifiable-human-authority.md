@@ -4,6 +4,7 @@ type: adr
 title: Autoridade humana verificável e separação entre review e adjudicação
 status: accepted
 authority: normative
+volatility: timeless
 owner: governance
 created_at: 2026-07-23
 updated_at: 2026-07-26

@@ -4,6 +4,7 @@ type: guide
 title: Rastreador de issues das agent skills
 status: accepted
 authority: informative
+volatility: timeless
 owner: core
 created_at: 2026-07-23
 updated_at: 2026-07-23

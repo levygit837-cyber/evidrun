@@ -4,6 +4,7 @@ type: benchmark
 title: Benchmark live de recuperação fundamentada por tool
 status: implemented
 authority: non-normative
+volatility: current
 owner: evaluation
 created_at: 2026-07-23
 updated_at: 2026-07-23

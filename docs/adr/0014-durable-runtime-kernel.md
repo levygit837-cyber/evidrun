@@ -4,6 +4,7 @@ type: adr
 title: Runtime Kernel durável com Run, attempt, lease e fencing
 status: accepted
 authority: normative
+volatility: timeless
 owner: core
 created_at: 2026-07-23
 updated_at: 2026-07-23

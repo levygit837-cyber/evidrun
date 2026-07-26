@@ -8,6 +8,7 @@
       "title": "Benchmark-first e local-first",
       "status": "accepted",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "core",
       "updated_at": "2026-07-22",
       "review_due": null
@@ -19,6 +20,7 @@
       "title": "Separar Control Plane e Execution Plane",
       "status": "accepted",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "core",
       "updated_at": "2026-07-26",
       "review_due": null
@@ -30,6 +32,7 @@
       "title": "Monólito modular por capacidade",
       "status": "accepted",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "core",
       "updated_at": "2026-07-22",
       "review_due": null
@@ -41,6 +44,7 @@
       "title": "Python core, TypeScript UI e Electron",
       "status": "accepted",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "desktop",
       "updated_at": "2026-07-22",
       "review_due": null
@@ -52,6 +56,7 @@
       "title": "SQLite e event ledger como evidência canônica",
       "status": "accepted",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "core",
       "updated_at": "2026-07-25",
       "review_due": null
@@ -63,6 +68,7 @@
       "title": "Núcleo neutro com OpenAI primeiro",
       "status": "accepted",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "agents",
       "updated_at": "2026-07-22",
       "review_due": null
@@ -74,6 +80,7 @@
       "title": "Repositório como fonte normativa da documentação",
       "status": "accepted",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "core",
       "updated_at": "2026-07-22",
       "review_due": null
@@ -85,6 +92,7 @@
       "title": "CLIProxyAPI com DeepSeek v4 Flash como provider padrão",
       "status": "accepted",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "agents",
       "updated_at": "2026-07-22",
       "review_due": null
@@ -96,6 +104,7 @@
       "title": "Study unificado e composição canônica de Runs",
       "status": "accepted",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "core",
       "updated_at": "2026-07-26",
       "review_due": null
@@ -107,6 +116,7 @@
       "title": "Autoridade humana verificável e separação entre review e adjudicação",
       "status": "accepted",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "governance",
       "updated_at": "2026-07-26",
       "review_due": null
@@ -118,6 +128,7 @@
       "title": "Progress Artifacts, acesso a artifacts e fronteiras de bundles",
       "status": "accepted",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "evidence",
       "updated_at": "2026-07-26",
       "review_due": null
@@ -129,6 +140,7 @@
       "title": "Disclosure mínimo do Subject e semântica terminal por Goal",
       "status": "superseded",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "core",
       "updated_at": "2026-07-26",
       "review_due": null
@@ -140,6 +152,7 @@
       "title": "Semântica terminal de bounded exploration em dois eixos",
       "status": "accepted",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "core",
       "updated_at": "2026-07-26",
       "review_due": null
@@ -151,6 +164,7 @@
       "title": "Runtime Kernel durável com Run, attempt, lease e fencing",
       "status": "accepted",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "core",
       "updated_at": "2026-07-23",
       "review_due": null
@@ -162,6 +176,7 @@
       "title": "HumanSubjectEnvelope, autenticador local e ciclo de vida de credencial",
       "status": "accepted",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "governance",
       "updated_at": "2026-07-23",
       "review_due": null
@@ -173,6 +188,7 @@
       "title": "Subject real com tool de leitura, tracing cercado e avaliação fundamentada",
       "status": "accepted",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "core",
       "updated_at": "2026-07-23",
       "review_due": null
@@ -184,6 +200,7 @@
       "title": "Orçamento estrutural e costuras nomeadas por capacidade",
       "status": "accepted",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "core",
       "updated_at": "2026-07-25",
       "review_due": null
@@ -195,6 +212,7 @@
       "title": "Consumo de documentos de domínio pelas agent skills",
       "status": "accepted",
       "authority": "informative",
+      "volatility": "timeless",
       "owner": "core",
       "updated_at": "2026-07-23",
       "review_due": null
@@ -206,6 +224,7 @@
       "title": "Rastreador de issues das agent skills",
       "status": "accepted",
       "authority": "informative",
+      "volatility": "timeless",
       "owner": "core",
       "updated_at": "2026-07-23",
       "review_due": null
@@ -217,6 +236,7 @@
       "title": "Labels de triagem das agent skills",
       "status": "accepted",
       "authority": "informative",
+      "volatility": "timeless",
       "owner": "core",
       "updated_at": "2026-07-23",
       "review_due": null
@@ -228,6 +248,7 @@
       "title": "Agentes e autoridade",
       "status": "accepted",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "core",
       "updated_at": "2026-07-26",
       "review_due": null
@@ -239,6 +260,7 @@
       "title": "Layout da codebase, costuras e orçamento estrutural",
       "status": "accepted",
       "authority": "normative",
+      "volatility": "current",
       "owner": "core",
       "updated_at": "2026-07-26",
       "review_due": null
@@ -250,6 +272,7 @@
       "title": "Lifecycle do contexto",
       "status": "implemented",
       "authority": "normative",
+      "volatility": "current",
       "owner": "core",
       "updated_at": "2026-07-22",
       "review_due": null
@@ -261,6 +284,7 @@
       "title": "Dados e evidência",
       "status": "implemented",
       "authority": "normative",
+      "volatility": "current",
       "owner": "core",
       "updated_at": "2026-07-26",
       "review_due": null
@@ -272,6 +296,7 @@
       "title": "Runtime Electron e sidecar Python",
       "status": "implemented",
       "authority": "normative",
+      "volatility": "current",
       "owner": "desktop",
       "updated_at": "2026-07-22",
       "review_due": null
@@ -283,6 +308,7 @@
       "title": "Runtime de providers",
       "status": "implemented",
       "authority": "normative",
+      "volatility": "current",
       "owner": "agents",
       "updated_at": "2026-07-26",
       "review_due": null
@@ -294,6 +320,7 @@
       "title": "Arquitetura do sistema",
       "status": "implemented",
       "authority": "normative",
+      "volatility": "current",
       "owner": "core",
       "updated_at": "2026-07-23",
       "review_due": null
@@ -305,6 +332,7 @@
       "title": "Graders e judges",
       "status": "accepted",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "evals",
       "updated_at": "2026-07-22",
       "review_due": null
@@ -316,6 +344,7 @@
       "title": "Benchmark live de recuperação fundamentada por tool",
       "status": "implemented",
       "authority": "non-normative",
+      "volatility": "current",
       "owner": "evaluation",
       "updated_at": "2026-07-23",
       "review_due": null
@@ -327,6 +356,7 @@
       "title": "Protocolo de benchmarks e evals",
       "status": "accepted",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "evals",
       "updated_at": "2026-07-22",
       "review_due": null
@@ -338,6 +368,7 @@
       "title": "Autoria de cenários",
       "status": "accepted",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "evals",
       "updated_at": "2026-07-22",
       "review_due": null
@@ -349,6 +380,7 @@
       "title": "Inventário de agente, admissão e workspace v1",
       "status": "implemented",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "core",
       "updated_at": "2026-07-26",
       "review_due": null
@@ -360,6 +392,7 @@
       "title": "Captura e retenção v1",
       "status": "implemented",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "security",
       "updated_at": "2026-07-26",
       "review_due": null
@@ -371,6 +404,7 @@
       "title": "Desktop Bridge v1",
       "status": "implemented",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "desktop",
       "updated_at": "2026-07-22",
       "review_due": null
@@ -382,6 +416,7 @@
       "title": "Evaluation e checkpoint records v1",
       "status": "implemented",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "core",
       "updated_at": "2026-07-26",
       "review_due": null
@@ -393,6 +428,7 @@
       "title": "Evidence Bundle v2",
       "status": "implemented",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "core",
       "updated_at": "2026-07-25",
       "review_due": null
@@ -404,6 +440,7 @@
       "title": "Evidence Bundle v3 por Run",
       "status": "implemented",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "core",
       "updated_at": "2026-07-25",
       "review_due": null
@@ -415,6 +452,7 @@
       "title": "Evidence Bundle v1",
       "status": "implemented",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "core",
       "updated_at": "2026-07-25",
       "review_due": null
@@ -426,6 +464,7 @@
       "title": "Experiment Manifest v1",
       "status": "implemented",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "core",
       "updated_at": "2026-07-23",
       "review_due": null
@@ -437,6 +476,7 @@
       "title": "Provider Profile v1",
       "status": "implemented",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "agents",
       "updated_at": "2026-07-22",
       "review_due": null
@@ -448,6 +488,7 @@
       "title": "Catálogo de payloads de Run Event v1",
       "status": "implemented",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "core",
       "updated_at": "2026-07-26",
       "review_due": null
@@ -459,6 +500,7 @@
       "title": "Run Event v1",
       "status": "implemented",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "core",
       "updated_at": "2026-07-25",
       "review_due": null
@@ -470,6 +512,7 @@
       "title": "Study, revisions e Run canônica v1",
       "status": "implemented",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "core",
       "updated_at": "2026-07-26",
       "review_due": null
@@ -481,6 +524,7 @@
       "title": "Estados de entrega",
       "status": "accepted",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "core",
       "updated_at": "2026-07-22",
       "review_due": null
@@ -492,19 +536,21 @@
       "title": "Governança documental",
       "status": "implemented",
       "authority": "normative",
+      "volatility": "current",
       "owner": "core",
-      "updated_at": "2026-07-22",
+      "updated_at": "2026-07-26",
       "review_due": null
     },
     {
       "id": "docs-index",
       "path": "docs/index.md",
       "type": "architecture",
-      "title": "Índice da documentação Evidrun",
+      "title": "Roteador da documentação Evidrun",
       "status": "implemented",
       "authority": "normative",
+      "volatility": "current",
       "owner": "core",
-      "updated_at": "2026-07-25",
+      "updated_at": "2026-07-26",
       "review_due": null
     },
     {
@@ -514,6 +560,7 @@
       "title": "Backup e recuperação",
       "status": "proposed",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "core",
       "updated_at": "2026-07-23",
       "review_due": null
@@ -525,6 +572,7 @@
       "title": "Build e release Electron",
       "status": "proposed",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "desktop",
       "updated_at": "2026-07-22",
       "review_due": null
@@ -536,6 +584,7 @@
       "title": "Desenvolvimento local",
       "status": "implemented",
       "authority": "normative",
+      "volatility": "current",
       "owner": "core",
       "updated_at": "2026-07-24",
       "review_due": null
@@ -547,6 +596,7 @@
       "title": "Execução durável de Runs",
       "status": "implemented",
       "authority": "normative",
+      "volatility": "current",
       "owner": "core",
       "updated_at": "2026-07-23",
       "review_due": null
@@ -558,6 +608,7 @@
       "title": "Planejamento temporal de implementacao",
       "status": "accepted",
       "authority": "planning",
+      "volatility": "snapshot",
       "owner": "product-engineering",
       "updated_at": "2026-07-23",
       "review_due": "2026-07-30"
@@ -569,6 +620,7 @@
       "title": "Achados sobre admissão, scoring e fronteira de evidência",
       "status": "draft",
       "authority": "planning",
+      "volatility": "snapshot",
       "owner": "product-engineering",
       "updated_at": "2026-07-25",
       "review_due": "2026-08-08"
@@ -580,6 +632,7 @@
       "title": "Mapa temporal de capabilities do MVP",
       "status": "accepted",
       "authority": "planning",
+      "volatility": "snapshot",
       "owner": "product-engineering",
       "updated_at": "2026-07-26",
       "review_due": "2026-08-07"
@@ -591,6 +644,7 @@
       "title": "Roadmap executavel ate o MVP operacional",
       "status": "accepted",
       "authority": "planning",
+      "volatility": "snapshot",
       "owner": "product-engineering",
       "updated_at": "2026-07-25",
       "review_due": "2026-08-07"
@@ -602,6 +656,7 @@
       "title": "WS-01 Superficie publica de Workspace e Project",
       "status": "proposed",
       "authority": "planning",
+      "volatility": "snapshot",
       "owner": "product-engineering",
       "updated_at": "2026-07-24",
       "review_due": "2026-08-07"
@@ -613,6 +668,7 @@
       "title": "WS-02 Lifecycle do worker no desktop",
       "status": "proposed",
       "authority": "planning",
+      "volatility": "snapshot",
       "owner": "desktop",
       "updated_at": "2026-07-24",
       "review_due": "2026-08-07"
@@ -624,6 +680,7 @@
       "title": "WS-03 Decisao de autoria default no produto instalado",
       "status": "proposed",
       "authority": "planning",
+      "volatility": "snapshot",
       "owner": "governance",
       "updated_at": "2026-07-24",
       "review_due": "2026-08-07"
@@ -635,6 +692,7 @@
       "title": "WS-11/12 Costuras do dominio para paralelismo real",
       "status": "verified",
       "authority": "planning",
+      "volatility": "snapshot",
       "owner": "core",
       "updated_at": "2026-07-25",
       "review_due": "2026-08-07"
@@ -646,6 +704,7 @@
       "title": "WS-13 Costuras das paginas web",
       "status": "verified",
       "authority": "planning",
+      "volatility": "snapshot",
       "owner": "core",
       "updated_at": "2026-07-26",
       "review_due": "2026-08-07"
@@ -657,6 +716,7 @@
       "title": "WS-20 Artifact access, materializacao e capture",
       "status": "proposed",
       "authority": "planning",
+      "volatility": "snapshot",
       "owner": "evidence",
       "updated_at": "2026-07-23",
       "review_due": "2026-08-06"
@@ -668,6 +728,7 @@
       "title": "WS-30 Evaluation engine, checkpoints e Progress Artifacts",
       "status": "proposed",
       "authority": "planning",
+      "volatility": "snapshot",
       "owner": "evidence",
       "updated_at": "2026-07-25",
       "review_due": "2026-08-13"
@@ -679,6 +740,7 @@
       "title": "WS-40 Trust modes, Sandbox Run e ReviewPackage",
       "status": "proposed",
       "authority": "planning",
+      "volatility": "snapshot",
       "owner": "governance",
       "updated_at": "2026-07-23",
       "review_due": "2026-08-06"
@@ -690,6 +752,7 @@
       "title": "WS-50 Lab Agent e bounded exploration",
       "status": "proposed",
       "authority": "planning",
+      "volatility": "snapshot",
       "owner": "laboratory",
       "updated_at": "2026-07-23",
       "review_due": "2026-08-20"
@@ -701,6 +764,7 @@
       "title": "Dispatch de workstreams para agentes",
       "status": "accepted",
       "authority": "planning",
+      "volatility": "snapshot",
       "owner": "product-engineering",
       "updated_at": "2026-07-24",
       "review_due": "2026-08-07"
@@ -712,6 +776,7 @@
       "title": "Plano de exclusao da worktree obsoleta 2280",
       "status": "draft",
       "authority": "planning",
+      "volatility": "snapshot",
       "owner": "core",
       "updated_at": "2026-07-25",
       "review_due": "2026-08-08"
@@ -723,6 +788,7 @@
       "title": "Charter do Evidrun",
       "status": "accepted",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "product",
       "updated_at": "2026-07-22",
       "review_due": null
@@ -734,6 +800,7 @@
       "title": "Glossário canônico",
       "status": "accepted",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "product",
       "updated_at": "2026-07-23",
       "review_due": null
@@ -745,6 +812,7 @@
       "title": "Ideia de canvas vivo e grafo de execução",
       "status": "draft",
       "authority": "incubation",
+      "volatility": "snapshot",
       "owner": "product",
       "updated_at": "2026-07-23",
       "review_due": "2026-10-22"
@@ -756,6 +824,7 @@
       "title": "Ideias para Runs, contratos e checkpoints",
       "status": "draft",
       "authority": "incubation",
+      "volatility": "snapshot",
       "owner": "product",
       "updated_at": "2026-07-23",
       "review_due": "2026-10-22"
@@ -767,6 +836,7 @@
       "title": "Matriz de contexto e grafo semântico da execução",
       "status": "draft",
       "authority": "incubation",
+      "volatility": "snapshot",
       "owner": "product",
       "updated_at": "2026-07-23",
       "review_due": "2026-10-23"
@@ -778,6 +848,7 @@
       "title": "Métricas de sucesso do produto",
       "status": "proposed",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "product",
       "updated_at": "2026-07-22",
       "review_due": null
@@ -789,6 +860,7 @@
       "title": "Origem no Context Reliability Lab",
       "status": "accepted",
       "authority": "research",
+      "volatility": "snapshot",
       "owner": "product",
       "updated_at": "2026-07-22",
       "review_due": "2026-10-22"
@@ -800,6 +872,7 @@
       "title": "Comparação do discovery orientado por cenários de Run",
       "status": "draft",
       "authority": "research",
+      "volatility": "snapshot",
       "owner": "core",
       "updated_at": "2026-07-24",
       "review_due": "2026-10-22"
@@ -811,6 +884,7 @@
       "title": "Dossier A — CRL-CTX-002 determinístico",
       "status": "draft",
       "authority": "research",
+      "volatility": "snapshot",
       "owner": "core",
       "updated_at": "2026-07-22",
       "review_due": "2026-10-22"
@@ -822,6 +896,7 @@
       "title": "Dossier B — Blueprint de agente que cria outro agente",
       "status": "draft",
       "authority": "research",
+      "volatility": "snapshot",
       "owner": "core",
       "updated_at": "2026-07-22",
       "review_due": "2026-10-22"
@@ -833,6 +908,7 @@
       "title": "Dossier C — Investigação qualitativa de pedidos duplicados",
       "status": "draft",
       "authority": "research",
+      "volatility": "snapshot",
       "owner": "core",
       "updated_at": "2026-07-22",
       "review_due": "2026-10-22"
@@ -844,6 +920,7 @@
       "title": "Roadmap do MVP",
       "status": "accepted",
       "authority": "planning",
+      "volatility": "snapshot",
       "owner": "product",
       "updated_at": "2026-07-24",
       "review_due": null
@@ -855,6 +932,7 @@
       "title": "Baseline de segurança Electron",
       "status": "implemented",
       "authority": "normative",
+      "volatility": "current",
       "owner": "desktop",
       "updated_at": "2026-07-22",
       "review_due": null
@@ -866,6 +944,7 @@
       "title": "Privacidade e retenção",
       "status": "accepted",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "security",
       "updated_at": "2026-07-26",
       "review_due": null
@@ -877,6 +956,7 @@
       "title": "Threat model inicial",
       "status": "accepted",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "security",
       "updated_at": "2026-07-23",
       "review_due": null
@@ -888,6 +968,7 @@
       "title": "Título da decisão",
       "status": "proposed",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "owner",
       "updated_at": "YYYY-MM-DD",
       "review_due": null
@@ -899,6 +980,7 @@
       "title": "Template de workstream para agente",
       "status": "accepted",
       "authority": "planning",
+      "volatility": "snapshot",
       "owner": "core",
       "updated_at": "2026-07-23",
       "review_due": null
@@ -910,6 +992,7 @@
       "title": "Template de relatório de avaliação",
       "status": "accepted",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "evals",
       "updated_at": "2026-07-22",
       "review_due": null
@@ -921,6 +1004,7 @@
       "title": "Template de experimento",
       "status": "accepted",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "evals",
       "updated_at": "2026-07-22",
       "review_due": null
@@ -932,6 +1016,7 @@
       "title": "Template de cenário",
       "status": "accepted",
       "authority": "normative",
+      "volatility": "timeless",
       "owner": "evals",
       "updated_at": "2026-07-22",
       "review_due": null

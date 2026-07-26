@@ -4,6 +4,7 @@ type: adr
 title: CLIProxyAPI com DeepSeek v4 Flash como provider padrão
 status: accepted
 authority: normative
+volatility: timeless
 owner: agents
 created_at: 2026-07-22
 updated_at: 2026-07-22

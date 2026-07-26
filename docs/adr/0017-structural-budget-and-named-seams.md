@@ -4,6 +4,7 @@ type: adr
 title: Orçamento estrutural e costuras nomeadas por capacidade
 status: accepted
 authority: normative
+volatility: timeless
 owner: core
 created_at: 2026-07-24
 updated_at: 2026-07-25

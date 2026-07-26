@@ -4,6 +4,7 @@ type: planning
 title: Plano de exclusao da worktree obsoleta 2280
 status: draft
 authority: planning
+volatility: snapshot
 owner: core
 created_at: 2026-07-25
 updated_at: 2026-07-25

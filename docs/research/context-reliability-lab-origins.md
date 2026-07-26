@@ -4,6 +4,7 @@ type: research
 title: Origem no Context Reliability Lab
 status: accepted
 authority: research
+volatility: snapshot
 owner: product
 created_at: 2026-07-22
 updated_at: 2026-07-22

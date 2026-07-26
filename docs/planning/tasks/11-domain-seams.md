@@ -4,6 +4,7 @@ type: implementation-task
 title: WS-11/12 Costuras do dominio para paralelismo real
 status: verified
 authority: planning
+volatility: snapshot
 owner: core
 created_at: 2026-07-23
 updated_at: 2026-07-25

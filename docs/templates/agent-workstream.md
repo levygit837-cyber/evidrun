@@ -4,6 +4,7 @@ type: template
 title: Template de workstream para agente
 status: accepted
 authority: planning
+volatility: snapshot
 owner: core
 created_at: 2026-07-23
 updated_at: 2026-07-23

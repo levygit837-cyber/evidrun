@@ -4,6 +4,7 @@ type: adr
 title: Progress Artifacts, acesso a artifacts e fronteiras de bundles
 status: accepted
 authority: normative
+volatility: timeless
 owner: evidence
 created_at: 2026-07-23
 updated_at: 2026-07-26

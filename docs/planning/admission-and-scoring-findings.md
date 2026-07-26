@@ -4,6 +4,7 @@ type: planning
 title: Achados sobre admissão, scoring e fronteira de evidência
 status: draft
 authority: planning
+volatility: snapshot
 owner: product-engineering
 created_at: 2026-07-25
 updated_at: 2026-07-25

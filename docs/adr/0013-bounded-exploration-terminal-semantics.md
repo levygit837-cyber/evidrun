@@ -4,6 +4,7 @@ type: adr
 title: Semântica terminal de bounded exploration em dois eixos
 status: accepted
 authority: normative
+volatility: timeless
 owner: core
 created_at: 2026-07-23
 updated_at: 2026-07-26

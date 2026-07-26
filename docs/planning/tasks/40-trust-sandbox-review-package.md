@@ -4,6 +4,7 @@ type: implementation-task
 title: WS-40 Trust modes, Sandbox Run e ReviewPackage
 status: proposed
 authority: planning
+volatility: snapshot
 owner: governance
 created_at: 2026-07-23
 updated_at: 2026-07-23

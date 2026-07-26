@@ -4,6 +4,7 @@ type: contract
 title: Evidence Bundle v1
 status: implemented
 authority: normative
+volatility: timeless
 owner: core
 created_at: 2026-07-22
 updated_at: 2026-07-25
