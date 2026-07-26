@@ -5,9 +5,9 @@ from enum import IntEnum, StrEnum
 from types import MappingProxyType
 from typing import Any
 
-from pydantic import computed_field, model_validator
+from pydantic import Field, computed_field, model_validator
 
-from evidrun.contracts.base import ContractModel, NonEmptyStr
+from evidrun.contracts.base import CapabilityDescriptorRef, ContractModel, NonEmptyStr
 from evidrun.contracts.runtime.spec import AdmissionIssue
 
 
@@ -93,6 +93,9 @@ class TriageError(ContractModel):
     issues: tuple[AdmissionIssue, ...] = ()
     missing_requirements: tuple[NonEmptyStr, ...] = ()
     denied_policies: tuple[NonEmptyStr, ...] = ()
+    unresolved_required_capabilities: tuple[CapabilityDescriptorRef, ...] = Field(
+        default=(), exclude_if=lambda capabilities: not capabilities
+    )
 
     @computed_field
     @property

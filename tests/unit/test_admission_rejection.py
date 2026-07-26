@@ -57,9 +57,18 @@ def test_required_unresolved_capability_is_visible_without_changing_the_record(
     case = cases["required_capability_unregistered"]
 
     record = catalogs[case.catalog].admission_service().admit(case.spec)
+    record_before = record.model_dump(mode="json")
     error = admission_rejection_error(record)
 
     assert "unregistered-tool-v1" in error.message
+    assert error.unresolved_required_capabilities == (
+        record.resolved_inventory.capabilities[0].requested_ref,
+    )
+    payload = error.model_dump(mode="json")
+    assert payload["unresolved_required_capabilities"] == [
+        record.resolved_inventory.capabilities[0].requested_ref.model_dump(mode="json")
+    ]
+    assert record.model_dump(mode="json") == record_before
     assert record.missing_requirements == ()
     assert record.denied_policies == ()
 

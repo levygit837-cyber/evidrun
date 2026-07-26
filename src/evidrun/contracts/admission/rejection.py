@@ -17,13 +17,16 @@ def admission_rejection_error(record: AdmissionRecord) -> TriageError:
 
     if record.decision != "rejected":
         raise ValueError("an admission rejection error requires a rejected record")
+    unresolved_required_capabilities = tuple(
+        item.requested_ref
+        for item in record.resolved_inventory.capabilities
+        if item.required and item.status != "resolved"
+    )
     causes = tuple(f"issue:{item.subject_ref}" for item in record.issues if item.blocking)
     causes += tuple(f"missing:{item}" for item in record.missing_requirements)
     causes += tuple(f"denied:{item}" for item in record.denied_policies)
     causes += tuple(
-        f"capability:{item.requested_ref.name}"
-        for item in record.resolved_inventory.capabilities
-        if item.required and item.status != "resolved"
+        f"capability:{item.name}" for item in unresolved_required_capabilities
     )
     return TriageError(
         phase=TriagePhase.ADMIT,
@@ -33,4 +36,5 @@ def admission_rejection_error(record: AdmissionRecord) -> TriageError:
         issues=record.issues,
         missing_requirements=record.missing_requirements,
         denied_policies=record.denied_policies,
+        unresolved_required_capabilities=unresolved_required_capabilities,
     )

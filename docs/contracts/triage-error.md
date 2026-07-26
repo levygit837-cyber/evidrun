@@ -42,6 +42,9 @@ fatias verticais seguintes devem consumir; neste estágio, nenhuma borda externa
 - `field_path`: caminho ordenado do campo culpado, quando aplicável;
 - `remediation`: próxima ação declarada, quando conhecida;
 - `issues`, `missing_requirements` e `denied_policies`: achados de admissão em ordem de fold.
+- `unresolved_required_capabilities`: refs tipadas das capabilities obrigatórias cujo status no
+  inventário resolvido não seja `resolved`; campo aditivo, omitido da serialização quando vazio para
+  preservar os payloads existentes das demais recusas.
 
 Mensagens não são parte estável da interface. Código, categoria, status HTTP, exit code e forma do
 payload são contrato. Um código novo recebe significado novo; código antigo nunca é reutilizado para
@@ -83,14 +86,17 @@ projeta `admit.rejected` nas superfícies da API, CLI e fachada de execução po
 
 Uma admissão rejeitada é persistida antes de a causa alcançar o operador. API e CLI mantêm os campos
 de resposta existentes e acrescentam `error` somente quando `decision=rejected`; esse objeto é o
-`TriageError` serializado. A fachada de execução usa a mesma mensagem quando precisa interromper o
-fluxo de compatibilidade antes da criação da Run.
+`TriageError` serializado. A API responde com o status de `HTTP_STATUS_BY_CODE` e a CLI termina com o
+exit code de `CLI_EXIT_BY_CODE`; portanto `admit.rejected` produz HTTP 422 e exit 3. A fachada de
+execução usa a mesma mensagem quando precisa interromper o fluxo de compatibilidade antes da criação
+da Run.
 
 O renderizador copia `issues`, `missing_requirements` e `denied_policies` do `AdmissionRecord` sem
 reordenar seus itens. A mensagem cita primeiro os `subject_ref` dos issues bloqueantes, depois os
 requisitos faltantes e as policies negadas, mantendo a ordem interna de cada tupla persistida. Por
-fim, cita capabilities obrigatórias cujo status resolvido não seja `resolved`, pois esse bloqueio é
-canônico no inventário e não exige inventar outro achado no record.
+fim, cita capabilities obrigatórias cujo status resolvido não seja `resolved` e as projeta em
+`unresolved_required_capabilities`. Esse bloqueio é canônico no inventário e não exige inventar
+outro achado no record; consumidores não precisam interpretar a mensagem livre para identificá-lo.
 
 Essa projeção não altera decisão, status de workspace ou interação, capabilities resolvidas, achados
 persistidos nem o digest do `AdmissionRecord`. Texto humano permanece livre; consumidores decidem

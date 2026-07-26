@@ -118,6 +118,7 @@ def test_triage_error_serialization_preserves_admission_finding_order() -> None:
     ]
     assert payload["missing_requirements"] == ["runtime:first", "runtime:second"]
     assert payload["denied_policies"] == ["classification:first", "classification:second"]
+    assert "unresolved_required_capabilities" not in payload
 
 
 def test_triage_error_rejects_a_code_from_another_phase() -> None:

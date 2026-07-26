@@ -8,6 +8,7 @@ from typing import Annotated, Any
 import typer
 
 from evidrun.contracts.admission import admission_rejection_error
+from evidrun.contracts.triage import CLI_EXIT_BY_CODE
 from evidrun.entrypoints.cli.shared import components, console
 from evidrun.evidence.bundle import EvidenceBundleService
 from evidrun.infrastructure.database import Database, Repository
@@ -70,9 +71,14 @@ def admit_run_spec(
             "digest": admission.digest,
             "missing_requirements": admission.missing_requirements,
         }
+        exit_code: int | None = None
         if admission.decision == "rejected":
-            response["error"] = admission_rejection_error(admission).model_dump(mode="json")
+            error = admission_rejection_error(admission)
+            response["error"] = error.model_dump(mode="json")
+            exit_code = int(CLI_EXIT_BY_CODE[error.code])
         console.print_json(data=response)
+        if exit_code is not None:
+            raise typer.Exit(exit_code)
     finally:
         database.dispose()
 

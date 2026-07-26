@@ -7,10 +7,12 @@ from typing import Any
 
 import yaml
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import JSONResponse
 
 from evidrun.contracts import StudyRevision, parse_revision, semantic_model_dump
 from evidrun.contracts.admission import admission_rejection_error
 from evidrun.contracts.compiler import StudyCompiler
+from evidrun.contracts.triage import HTTP_STATUS_BY_CODE
 from evidrun.entrypoints.api.context import ApiContext
 from evidrun.entrypoints.api.schemas import (
     ContractDecisionRequest,
@@ -136,10 +138,13 @@ def create_admission_router(
     repository = context.repository
     service = context.service
 
-    @router.post("/run-specs/{run_spec_id}/admit")
+    @router.post(
+        "/run-specs/{run_spec_id}/admit",
+        response_model=dict[str, Any],
+    )
     async def admit_run_spec(
         run_spec_id: str, _: None = Depends(authorize)
-    ) -> dict[str, Any]:
+    ) -> Any:
         try:
             spec = repository.read_model.get_run_spec(run_spec_id)
             admission = service.admission_service.admit(spec)
@@ -155,8 +160,10 @@ def create_admission_router(
             "missing_requirements": admission.missing_requirements,
         }
         if admission.decision == "rejected":
-            response["error"] = admission_rejection_error(admission).model_dump(
-                mode="json"
+            error = admission_rejection_error(admission)
+            response["error"] = error.model_dump(mode="json")
+            return JSONResponse(
+                status_code=HTTP_STATUS_BY_CODE[error.code], content=response
             )
         return response
 
