@@ -13,6 +13,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
+from evidrun.contracts import capability_ref
 from evidrun.contracts.authoring.checkpoint import (
     CheckpointCaptureSpec,
     CheckpointDefinition,
@@ -54,7 +55,6 @@ from evidrun.runs.adapters import (
     ResponsesReadAgentAdapter,
     RuntimeAdapterCatalog,
 )
-from evidrun.shared.capabilities import capability_ref
 from evidrun.shared.types import Classification, sha256_bytes
 from tests.support.admission_specs import (
     EXPECTED_CAUSE,

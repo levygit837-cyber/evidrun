@@ -15,6 +15,7 @@ jobs:
           python-version: "3.14"
       - run: uv sync --extra dev
       - run: uv run ruff check .
+      - run: uv run python scripts/check_import_directions.py
       - run: uv run python scripts/check_code_budget.py
       - run: uv run pyright
       - run: uv run pytest

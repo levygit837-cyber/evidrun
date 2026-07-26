@@ -14,7 +14,7 @@ from evidrun.evidence.bundle import EvidenceBundleService
 from evidrun.infrastructure.database import Repository
 from evidrun.infrastructure.providers import ProviderCredentialStore
 from evidrun.runs import EvidrunService
-from evidrun.shared.settings import Settings
+from evidrun.settings import Settings
 
 
 @dataclass(frozen=True, slots=True)

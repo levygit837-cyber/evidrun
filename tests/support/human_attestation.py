@@ -6,9 +6,9 @@ from evidrun.contracts import (
     RevisionDecisionRecord,
     RevisionEnvelope,
     VerifiedHumanDecisionAuthority,
+    capability_ref,
 )
 from evidrun.contracts.authority import HumanAttestationInvalid
-from evidrun.shared.capabilities import capability_ref
 from evidrun.shared.types import sha256_json, utc_now
 
 

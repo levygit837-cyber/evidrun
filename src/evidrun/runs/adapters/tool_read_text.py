@@ -9,9 +9,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from evidrun.contracts import SubjectEnvelope
+from evidrun.contracts import SubjectEnvelope, capability_ref
 from evidrun.runs.adapters.types import ReadToolResult
-from evidrun.shared.capabilities import capability_ref
 from evidrun.shared.types import canonical_json
 
 

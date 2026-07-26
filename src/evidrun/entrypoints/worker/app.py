@@ -10,7 +10,7 @@ from pathlib import Path
 
 from evidrun.infrastructure.database import Database, Repository
 from evidrun.runs import DurableRunWorker, build_runtime_kernel
-from evidrun.shared.settings import Settings
+from evidrun.settings import Settings
 from evidrun.shared.types import new_id
 
 

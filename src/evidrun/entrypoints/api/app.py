@@ -40,7 +40,7 @@ from evidrun.infrastructure.artifacts.store import ArtifactStore
 from evidrun.infrastructure.database import Database, Repository
 from evidrun.infrastructure.providers import ProviderCredentialStore
 from evidrun.runs import EvidrunService
-from evidrun.shared.settings import Settings
+from evidrun.settings import Settings
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 

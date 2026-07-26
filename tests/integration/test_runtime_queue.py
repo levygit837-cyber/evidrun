@@ -26,7 +26,7 @@ from evidrun.runs.coordinator import RunExecutionCoordinator
 from evidrun.runs.coordinator.prepare import prepare as prepare_phase
 from evidrun.runs.coordinator.response import persist_evaluation, persist_response
 from evidrun.runs.coordinator.terminal import terminal as terminal_phase
-from evidrun.shared.settings import Settings
+from evidrun.settings import Settings
 from evidrun.shared.types import Classification, utc_now
 from tests.support.human_attestation import (
     TestHumanAttestationVerifier,

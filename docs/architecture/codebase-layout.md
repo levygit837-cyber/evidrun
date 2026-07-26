@@ -17,7 +17,11 @@ supersedes: []
 superseded_by: null
 implementation_refs:
   - scripts/check_code_budget.py
+  - scripts/check_import_directions.py
+  - scripts/import_directions_typescript.py
   - code-budget.toml
+  - import-directions.toml
+  - src/evidrun/settings.py
   - src/evidrun/contracts/admission/service.py
   - src/evidrun/contracts/admission/envelope.py
   - src/evidrun/runs/admission/catalog_checks.py
@@ -26,6 +30,7 @@ implementation_refs:
   - src/evidrun/evidence
 verification_refs:
   - tests/unit/test_code_budget.py
+  - tests/unit/test_import_directions.py
   - tests/unit/test_admission_oracle.py
 ---
 
@@ -49,18 +54,18 @@ três páginas web (#17), a divisão dos testes de contrato (#23) e a remoção 
 
 | Escopo | Arquivos | Linhas |
 | --- | --- | --- |
-| `src/evidrun/**/*.py` | 157 | 18.368 |
-| `tests/**/*.py` | 38 | 8.700 |
+| `src/evidrun/**/*.py` | 157 | 18.365 |
+| `tests/**/*.py` | 41 | 9.196 |
 | `apps/web` + `apps/desktop` (`.ts`/`.tsx`) | 50 | 6.975 (1.603 gerados) |
 
-Distribuição de tamanho nos globs do grupo `source` (`src/evidrun/**/*.py`, `apps/**/*.ts`,
-`apps/**/*.tsx`, `scripts/**/*.py`, `scripts/**/*.mjs`; 212 arquivos): 149 com até 150 linhas, 46
-entre 151 e 300, 16 entre 301 e 500, nenhum entre 501 e 800, e 1 acima de 800.
+Distribuição dos 211 arquivos efetivamente medidos no grupo `source`, depois das isenções: 150 com
+até 150 linhas, 44 entre 151 e 300, 17 entre 301 e 500 e nenhum acima de 500.
 
-O único arquivo do grupo `source` acima de 500 linhas é `apps/web/src/generated/contracts.ts`
-(1.603), que é gerado e isento. O maior módulo Python é `ledger/store.py` com 478 linhas, contra
+O único arquivo dos globs brutos de source acima de 500 linhas é
+`apps/web/src/generated/contracts.ts` (1.603), que é gerado e isento antes da medição. O maior
+módulo Python é `ledger/store.py` com 478 linhas, contra
 2.942 de `repository.py` em 2026-07-24. O grupo `tests` tem teto de 800 e cinco arquivos acima de
-500, o maior sendo `tests/integration/test_runtime_queue.py` com 783. O gate mede 258 arquivos com a
+500, o maior sendo `tests/integration/test_runtime_queue.py` com 783. O gate mede 260 arquivos com a
 tabela de `[baseline]` **vazia**, nenhuma violação e 12 avisos de folga.
 
 ### A árvore atual
@@ -68,16 +73,15 @@ tabela de `[baseline]` **vazia**, nenhuma violação e 12 avisos de folga.
 ```
 evidrun/
 ├── src/evidrun/                   monólito modular Python (ADR 0003)
+│   ├── settings.py                Settings, paths, EVIDRUN_AUTHORITY
 │   ├── shared/                    vocabulário sem dependências para cima
 │   │   ├── types.py               ids, canonical_json, sha256_json, utc_now   [fan-in 19: o mais usado]
-│   │   ├── settings.py            Settings, paths, EVIDRUN_AUTHORITY
-│   │   ├── capabilities.py        capability_ref()            ⚠ importa contracts.base
 │   │   └── ports.py               Protocols: SubjectRunner, Provider, EventSink, ArtifactStore, Grader
 │   │                              ✅ #18 removeu os 5 sem implementação nem referência
 │   │                              ⚠ dos 5 restantes só ProviderPort é importado por nome;
 │   │                                EventSink e ArtifactStorePort seguem sem implementação
 │   ├── contracts/                 a LINGUAGEM do domínio: modelos Pydantic + validação, sem I/O
-│   │   ├── base.py         (356)  ContractModel, ArtifactRef, RevisionEnvelope, autoridade humana
+│   │   ├── base.py                ContractModel, ArtifactRef, capability_ref, autoridade humana
 │   │   ├── authoring/             ✅ ENTREGUE em #26: uma família de revision por módulo
 │   │   │                          goal, scenario, inventory, workspace, protocol, evaluation,
 │   │   │                          checkpoint, progress, run, study, study_intent, parse
@@ -319,10 +323,11 @@ página; `EventSink` e `ArtifactStorePort` não são satisfeitos por nada (`Ledg
 só `ProviderPort` tem consumidor declarado, e o que de fato sustenta o módulo é o dataclass
 `SubjectResult`, importado por 8 arquivos de `runs/` e `subject_runners/`.
 
-**Três violações de direção de import**, todas pequenas e todas reais:
-`shared/capabilities.py → contracts.base`, `shared/settings.py → providers`, e
-`infrastructure/{database,artifacts} → contracts`. A última é hidratação legítima de contrato (o
-repository desserializa `RunSpec` e `EvaluationRecord`), mas `repository.py` também importa
+**O baseline do gate de direção é zero.** `capability_ref` agora pertence a `contracts/base.py`, e
+`Settings` fica em `src/evidrun/settings.py`, fora do pacote `shared`; o scanner determinístico e
+sua política estão em `scripts/check_import_directions.py` e `import-directions.toml`. Imports de
+`infrastructure/{database,artifacts} → contracts` permanecem permitidos para hidratação legítima de
+contrato (o repository desserializa `RunSpec` e `EvaluationRecord`), mas `repository.py` também importa
 `EVENT_ALLOWED_RUN_STATUSES` e `UNSUPPORTED_RUNTIME_EVENT_TYPES` de `contracts/runtime/events.py` e
 impõe regra de fase de Run — isso é regra de domínio executando na camada de infraestrutura.
 
@@ -462,16 +467,13 @@ duas e quebra o fencing de lease.
   engine (SQLite/WAL)      artifacts/store (CAS cifrado)      evidence/ (export + verify)
 ```
 
-Direções proibidas, que o orçamento não pega e a revisão pega:
+O alvo preserva estas direções proibidas:
 `contracts/ → infrastructure/`, `contracts/ → runs/`, `shared/ → qualquer coisa`,
 `infrastructure/ → runs/`, e `apps/web → electron` ou `node:*`.
 
-As três violações atuais de direção resolvem assim: `shared/capabilities.py` vira
-`contracts/capabilities.py` (é vocabulário, não utilidade); `shared/settings.py` para de importar
-`providers` recebendo o profile por parâmetro; e a imposição de fase de Run sai de `repository.py`
-para `ledger/transitions.py`, que continua lendo a tabela de `contracts/runtime/events.py` — ler
-uma tabela declarativa de contrato é hidratação, executar a regra de fase dentro do SQL é
-vazamento.
+A imposição de fase de Run deve sair de `repository.py` para `ledger/transitions.py`, que continua
+lendo a tabela declarativa de `contracts/runtime/events.py`: ler o contrato é hidratação; executar a
+regra de fase dentro do SQL é vazamento.
 
 ### O que a extração NÃO pode mudar
 

@@ -46,6 +46,7 @@ from evidrun.contracts.base import (
     RevisionDecisionRecord,
     RevisionEnvelope,
     VerifiedHumanDecisionAuthority,
+    capability_ref,
     semantic_model_dump,
 )
 from evidrun.contracts.evaluation import EvaluationValidator
@@ -140,6 +141,7 @@ __all__ = [
     "VerifiedHumanDecisionAuthority",
     "WorkspaceTemplateRevision",
     "WorkspaceTemplateSpec",
+    "capability_ref",
     "normalize_event_payload",
     "parse_revision",
     "semantic_model_dump",

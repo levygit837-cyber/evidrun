@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from evidrun.contracts import ArtifactRef, RevisionEnvelope
+from evidrun.contracts import ArtifactRef, RevisionEnvelope, capability_ref
 from evidrun.contracts.authoring.evaluation import (
     EvaluationDimension,
     EvaluationPlanRevision,
@@ -32,7 +32,6 @@ from evidrun.contracts.authoring.workspace import (
 )
 from evidrun.contracts.base import KeyValue
 from evidrun.experiments.models import ContextPolicySpec
-from evidrun.shared.capabilities import capability_ref
 from evidrun.shared.types import EvidenceMode
 
 

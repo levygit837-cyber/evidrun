@@ -17,7 +17,7 @@ from evidrun.infrastructure.artifacts.store import ArtifactStore
 from evidrun.infrastructure.database import Database, Repository
 from evidrun.providers import ProviderProfile
 from evidrun.runs import build_runtime_kernel
-from evidrun.shared.settings import Settings
+from evidrun.settings import Settings
 from evidrun.shared.types import Classification
 from tests.support.human_attestation import (
     TestHumanAttestationVerifier,
