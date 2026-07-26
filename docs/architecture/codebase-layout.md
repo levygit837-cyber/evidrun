@@ -43,8 +43,9 @@ comportamento cabe atrás de uma interface pequena). Ver `skill://codebase-desig
 
 ### Medição
 
-Números de 2026-07-25, contados sobre os arquivos que o git rastreia — a mesma fonte que
-`scripts/check_code_budget.py` usa — após WS-11, WS-12, WS-30a e a divisão de `contracts/` (#26).
+Números de 2026-07-26, contados sobre os arquivos que o git rastreia — a mesma fonte que
+`scripts/check_code_budget.py` usa — após WS-11, WS-12, WS-30a, a divisão de `contracts/` (#26), as
+três páginas web (#17) e a divisão dos testes de contrato (#23).
 
 | Escopo | Arquivos | Linhas |
 | --- | --- | --- |
@@ -52,14 +53,15 @@ Números de 2026-07-25, contados sobre os arquivos que o git rastreia — a mesm
 | `tests/**/*.py` | 38 | 8.700 |
 | `apps/web` + `apps/desktop` (`.ts`/`.tsx`) | 50 | 6.975 (1.603 gerados) |
 
-Distribuição de tamanho em `src/` + `apps/` + `scripts/` (219 arquivos): 156 com até 150 linhas, 46
+Distribuição de tamanho nos globs do grupo `source` (`src/evidrun/**/*.py`, `apps/**/*.ts`,
+`apps/**/*.tsx`, `scripts/**/*.py`, `scripts/**/*.mjs`; 219 arquivos): 156 com até 150 linhas, 46
 entre 151 e 300, 16 entre 301 e 500, nenhum entre 501 e 800, e 1 acima de 800.
 
-O único arquivo acima de 500 linhas é `apps/web/src/generated/contracts.ts` (1.603), que é gerado e
-isento. O maior módulo Python é `ledger/store.py` com 478 linhas, contra 2.942 de `repository.py` em
-2026-07-24; o maior arquivo de teste é `tests/integration/test_runtime_queue.py` com 783, dentro do
-orçamento de 800 do grupo `tests`. O gate mede 259 arquivos com a tabela de `[baseline]` **vazia**,
-nenhuma violação e 12 avisos de folga.
+O único arquivo do grupo `source` acima de 500 linhas é `apps/web/src/generated/contracts.ts`
+(1.603), que é gerado e isento. O maior módulo Python é `ledger/store.py` com 478 linhas, contra
+2.942 de `repository.py` em 2026-07-24. O grupo `tests` tem teto de 800 e cinco arquivos acima de
+500, o maior sendo `tests/integration/test_runtime_queue.py` com 783. O gate mede 265 arquivos com a
+tabela de `[baseline]` **vazia**, nenhuma violação e 12 avisos de folga.
 
 ### A árvore atual
 
@@ -486,7 +488,8 @@ WS-11 repository        ✅ read_model → registry → evaluation → catalog �
 ```
 
 WS-11 foi serial de propósito. Esta onda fechou: o ratchet do orçamento está vazio e nenhum arquivo
-versionado deste repositório passa de 500 linhas fora de `generated/`.
+versionado deste repositório estoura o orçamento do seu grupo — 500 linhas em `source`, 800 em
+`tests`.
 
 ## Como um agente navega isto
 

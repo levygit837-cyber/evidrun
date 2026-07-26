@@ -23,10 +23,6 @@ from evidrun.contracts.legacy import ExperimentManifestV1Adapter, LegacyStudyPac
 from evidrun.contracts.registry import InMemoryContractRegistry
 from evidrun.experiments import ExperimentManifest
 from evidrun.shared.types import sha256_bytes, sha256_json, utc_now
-from tests.support import admission_specs
-
-declared_service = admission_specs.declared_admission_service
-scripted_service = admission_specs.scripted_admission_service
 
 ROOT = Path(__file__).resolve().parents[2]
 

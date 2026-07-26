@@ -1,4 +1,4 @@
-"""Property-based invariants: secret bindings, digests and matrix determinism."""
+"""Cross-cutting contract invariants: secret bindings, digests and matrix determinism."""
 
 from __future__ import annotations
 

@@ -19,7 +19,7 @@ implementation_refs:
 verification_refs:
   - tests/security/test_artifact_store.py
   - tests/unit/test_contract_admission.py
-  - tests/unit/test_contract_invariants.py
+  - tests/unit/test_contract_evaluation.py
   - tests/integration/test_admission_and_evaluation.py
 ---
 

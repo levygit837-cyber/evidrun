@@ -34,12 +34,12 @@ from evidrun.contracts.legacy import (
 from evidrun.contracts.runtime.records import (
     ProgressStatement,
 )
+from tests.support.admission_specs import scripted_admission_service as scripted_service
 from tests.support.contract_fixtures import (
     ROOT,
     accept,
     baseline_specs,
     materialized_subject_inputs,
-    scripted_service,
 )
 
 

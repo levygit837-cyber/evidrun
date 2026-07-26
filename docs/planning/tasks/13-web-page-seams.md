@@ -2,7 +2,7 @@
 id: planning-task-web-page-seams
 type: implementation-task
 title: WS-13 Costuras das paginas web
-status: accepted
+status: implemented
 authority: planning
 owner: core
 created_at: 2026-07-24
