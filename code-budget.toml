@@ -54,14 +54,5 @@ warn_at_ratio = 0.8
 
 [baseline]
 
-[baseline."apps/web/src/features/create/CreatePage.tsx"]
-file_lines = 597
-
-[baseline."apps/web/src/features/laboratory/LaboratoryPage.tsx"]
-file_lines = 818
-
-[baseline."apps/web/src/features/observability/ObservabilityPage.tsx"]
-file_lines = 918
-
 [baseline."tests/unit/test_contracts.py"]
 file_lines = 1591
