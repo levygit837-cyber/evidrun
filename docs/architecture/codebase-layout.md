@@ -17,13 +17,18 @@ supersedes: []
 superseded_by: null
 implementation_refs:
   - scripts/check_code_budget.py
+  - scripts/check_import_directions.py
+  - scripts/import_directions_typescript.py
   - code-budget.toml
+  - import-directions.toml
+  - src/evidrun/settings.py
   - src/evidrun/contracts/admission/service.py
   - src/evidrun/runs/composition.py
   - src/evidrun/evidence
   - src/evidrun/infrastructure/database/repository.py
 verification_refs:
   - tests/unit/test_code_budget.py
+  - tests/unit/test_import_directions.py
   - tests/unit/test_admission_oracle.py
 ---
 
@@ -64,7 +69,9 @@ adaptadores de persistência, artifacts e providers. `entrypoints/` e `apps/` tr
 externas e não decidem regras do domínio.
 
 Este diagrama declara direção arquitetural; não afirma, sozinho, que todos os imports atuais a
-respeitam. A conformidade precisa ser conferida por inspeção ou por um gate determinístico vigente.
+respeitam. `scripts/check_import_directions.py` verifica o subconjunto estático e versionado descrito
+em [Gate de direção de imports](../governance/import-directions.md); imports dinâmicos e cópia
+semântica de regras continuam exigindo revisão.
 
 ### Costuras e módulos profundos
 
@@ -92,7 +99,10 @@ use os `implementation_refs` do frontmatter antes de afirmar comportamento atual
 
 ```text
 src/evidrun/
+├── settings.py             configuração e paths fora das camadas inferiores
+├── shared/                 tipos e ports sem dependências para cima
 ├── contracts/
+│   ├── base.py             modelos-base e capability_ref
 │   ├── authoring/          revisions e parse de autoria
 │   ├── runtime/            RunSpec, eventos e envelopes
 │   └── admission/          envelope, checks e AdmissionService

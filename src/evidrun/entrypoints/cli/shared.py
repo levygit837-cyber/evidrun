@@ -17,7 +17,7 @@ from evidrun.authority.service import HumanAuthorityService
 from evidrun.authority.verifier import LocalWebAuthnVerifier
 from evidrun.infrastructure.artifacts.store import ArtifactStore
 from evidrun.infrastructure.database import Database, Repository
-from evidrun.shared.settings import Settings
+from evidrun.settings import Settings
 
 console = Console()
 

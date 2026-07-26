@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
+from evidrun.contracts import capability_ref
 from evidrun.contracts.admission import (
     AdmissionService,
     CapabilityCatalogEntry,
@@ -53,7 +54,6 @@ from evidrun.runs.adapters import (
     ReadArtifactTextToolAdapter,
     ResponsesReadAgentAdapter,
 )
-from evidrun.shared.capabilities import capability_ref
 from evidrun.shared.types import sha256_json
 
 SCRIPTED_RUNNER_REF = capability_ref("evidrun.runner", "scripted-log-investigator-v1")

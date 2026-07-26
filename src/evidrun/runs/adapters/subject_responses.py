@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 
 from pydantic import TypeAdapter
 
-from evidrun.contracts import SubjectEnvelope
+from evidrun.contracts import SubjectEnvelope, capability_ref
 from evidrun.infrastructure.providers import (
     ProviderFunctionCall,
     ProviderRequestError,
@@ -35,7 +35,6 @@ from evidrun.runs.adapters.types import (
     SubjectBudgetExceeded,
     ToolTraceSink,
 )
-from evidrun.shared.capabilities import capability_ref
 from evidrun.shared.ports import ProviderPort, SubjectResult
 from evidrun.shared.types import canonical_json, sha256_json
 

@@ -17,7 +17,7 @@ from evidrun.infrastructure.providers import (
     ProviderRequestError,
     extract_output_text,
 )
-from evidrun.shared.settings import Settings
+from evidrun.settings import Settings
 
 provider_app = typer.Typer(help="Configurar e diagnosticar providers de modelos.")
 authority_app = typer.Typer(help="Enrollar credenciais e confirmar autoridade humana.")

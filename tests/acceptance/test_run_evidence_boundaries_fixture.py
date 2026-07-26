@@ -9,7 +9,7 @@ from evidrun.infrastructure.artifacts.store import ArtifactStore
 from evidrun.infrastructure.database import Database, Repository
 from evidrun.runs import build_runtime_kernel
 from evidrun.runs.worker import DurableRunWorker
-from evidrun.shared.settings import Settings
+from evidrun.settings import Settings
 from evidrun.shared.types import Classification, sha256_bytes
 from tests.support.human_attestation import (
     TestHumanAttestationVerifier,

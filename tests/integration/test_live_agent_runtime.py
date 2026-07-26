@@ -30,7 +30,7 @@ from evidrun.runs.adapters import (
     RuntimeAdapterCatalog,
 )
 from evidrun.runs.coordinator import RunExecutionCoordinator
-from evidrun.shared.settings import Settings
+from evidrun.settings import Settings
 from evidrun.shared.types import Classification, utc_now
 from tests.support.human_attestation import (
     TestHumanAttestationVerifier,

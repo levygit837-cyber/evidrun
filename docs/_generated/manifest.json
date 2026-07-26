@@ -542,6 +542,18 @@
       "review_due": null
     },
     {
+      "id": "governance-import-directions",
+      "path": "docs/governance/import-directions.md",
+      "type": "governance",
+      "title": "Gate de direção de imports",
+      "status": "implemented",
+      "authority": "normative",
+      "volatility": "current",
+      "owner": "core",
+      "updated_at": "2026-07-26",
+      "review_due": null
+    },
+    {
       "id": "docs-index",
       "path": "docs/index.md",
       "type": "architecture",

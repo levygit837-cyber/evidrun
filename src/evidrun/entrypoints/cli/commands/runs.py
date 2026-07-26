@@ -11,7 +11,7 @@ from evidrun.entrypoints.cli.shared import components, console
 from evidrun.evidence.bundle import EvidenceBundleService
 from evidrun.infrastructure.database import Database, Repository
 from evidrun.runs import EvidrunService
-from evidrun.shared.settings import Settings
+from evidrun.settings import Settings
 
 run_app = typer.Typer(help="Executar e inspecionar runs.")
 bundle_app = typer.Typer(help="Exportar e verificar evidence bundles.")

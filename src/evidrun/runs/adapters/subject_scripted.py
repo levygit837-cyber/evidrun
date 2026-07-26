@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from evidrun.contracts import SubjectEnvelope
+from evidrun.contracts import SubjectEnvelope, capability_ref
 from evidrun.runs.adapters.types import ToolTraceSink
-from evidrun.shared.capabilities import capability_ref
 from evidrun.shared.ports import SubjectResult
 from evidrun.subject_runners import ScriptedLogInvestigator
 

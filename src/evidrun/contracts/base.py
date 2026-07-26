@@ -170,6 +170,19 @@ class CapabilityDescriptorRef(ContractModel):
     digest: Digest
 
 
+def capability_ref(
+    namespace: str, name: str, version: str = "1"
+) -> CapabilityDescriptorRef:
+    """Build the canonical descriptor identity used by built-in adapters."""
+
+    return CapabilityDescriptorRef(
+        namespace=namespace,
+        name=name,
+        version=version,
+        digest=sha256_json({"namespace": namespace, "name": name, "version": version}),
+    )
+
+
 class ExtensionRef(ContractModel):
     namespace: NonEmptyStr
     slot: NonEmptyStr

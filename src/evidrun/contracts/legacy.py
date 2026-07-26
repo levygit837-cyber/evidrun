@@ -47,10 +47,10 @@ from evidrun.contracts.base import (
     RepositoryFixtureDecisionAuthority,
     RevisionDecisionRecord,
     RevisionEnvelope,
+    capability_ref,
 )
 from evidrun.experiments import ExperimentManifest
 from evidrun.experiments.models import ContextPolicySpec
-from evidrun.shared.capabilities import capability_ref
 from evidrun.shared.types import Classification, sha256_bytes, sha256_json, utc_now
 
 
