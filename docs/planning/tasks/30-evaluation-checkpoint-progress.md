@@ -6,8 +6,8 @@ status: proposed
 authority: planning
 owner: evidence
 created_at: 2026-07-23
-updated_at: 2026-07-24
-observed_at: 2026-07-24
+updated_at: 2026-07-25
+observed_at: 2026-07-25
 review_due: 2026-08-13
 applies_to: evaluation-runtime
 sources:
@@ -19,8 +19,20 @@ sources:
   - docs/planning/tasks/20-artifact-access-and-capture.md
 supersedes: []
 superseded_by: null
-implementation_refs: []
-verification_refs: []
+implementation_refs:
+  - src/evidrun/evidence/bundle.py
+  - src/evidrun/evidence/archive.py
+  - src/evidrun/evidence/export/comparison_v1.py
+  - src/evidrun/evidence/export/comparison_v2.py
+  - src/evidrun/evidence/export/run_v3.py
+  - src/evidrun/evidence/verify/dispatch.py
+  - src/evidrun/evidence/verify/v2.py
+  - src/evidrun/evidence/verify/v3.py
+  - src/evidrun/evidence/verify/records.py
+verification_refs:
+  - tests/integration/test_runtime_kernel.py
+  - tests/integration/test_contract_api.py
+  - tests/acceptance/test_demo_flow.py
 ---
 
 # WS-30 — Evaluation, checkpoints e progress
@@ -78,10 +90,18 @@ pre-requisito estrito: as duas frentes compartilham onda e ownership separado de
 Authority de `main` e usada para records humanos. Sem authority habilitada, evaluation humana fica
 pending; o runtime nao fabrica record.
 
-## Costura de `bundle.py` — ownership desta task
+## Costura de `bundle.py` — ENTREGUE em WS-30a
 
-`src/evidrun/evidence/bundle.py` tem 1624 linhas e e o quarto God File do repositorio. Ele pertence a
-esta task, e nao a WS-11/12. Mapa medido em 2026-07-24, com os alvos do layout-alvo em
+`src/evidrun/evidence/bundle.py` tinha 1624 linhas e era o quarto God File do repositorio. A
+extracao foi entregue: o arquivo virou onze, o maior com 424 linhas, e a entrada de `[baseline]` foi
+removida. A tabela abaixo e o mapa que foi seguido; cada alvo existe hoje.
+
+A equivalencia de `verify` foi medida contra o monolito, nao presumida: JSON byte a byte identico em
+8 bundles v3 reais, um valido e sete adulterados. O que resta desta task sao as capabilities de
+evaluation, checkpoint e progress, que agora tem onde entrar sem reescrever um arquivo que acabou de
+crescer.
+
+Mapa medido em 2026-07-24, com os alvos do layout-alvo em
 [Layout da codebase](../../architecture/codebase-layout.md):
 
 | Linhas | Conteudo | Arquivo-alvo |
@@ -95,15 +115,15 @@ esta task, e nao a WS-11/12. Mapa medido em 2026-07-24, com os alvos do layout-a
 | 1214-1435 | `_evaluation_record_valid` (155) + `_checkpoint_record_valid` | `evidence/verify/records.py` |
 | 1436-1625 | utilitarios de zip, checksum, manifest e dict | `evidence/archive.py` |
 
-A extracao e pre-requisito pratico das capabilities desta task, nao trabalho paralelo: cada trigger
-novo de evaluation, checkpoint e progress adiciona verificacao ao mesmo `_verify_v3_records`. Extraia
-antes de promover a primeira capability, com a suite completa verde entre cada arquivo, e remova a
-entrada correspondente de `[baseline]` em `code-budget.toml`.
+A extracao era pre-requisito pratico das capabilities desta task, nao trabalho paralelo: cada
+trigger novo de evaluation, checkpoint e progress adicionaria verificacao ao mesmo
+`_verify_v3_records`. Feita antes de promover qualquer capability, com a suite completa verde e a
+entrada de `[baseline]` removida de `code-budget.toml`.
 
-Invariantes da extracao: checksum isolado nao basta — o verificador do Bundle v2 e v3 continua
-validando lifecycle, contratos queued/terminal, IDs da comparison, records e eventos de evaluation e o
-conjunto completo de artifact entries. Bundle auditavel nao passa a ser portatil nem replayable.
-`ArtifactRef` continua sem `locator`.
+Invariantes preservadas e verificadas: checksum isolado nao basta — o verificador do Bundle v2 e v3
+continua validando lifecycle, contratos queued/terminal, IDs da comparison, records e eventos de
+evaluation e o conjunto completo de artifact entries. Bundle auditavel nao passou a ser portatil nem
+replayable. `ArtifactRef` continua sem `locator`.
 
 ## Harness
 

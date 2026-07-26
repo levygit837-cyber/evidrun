@@ -81,8 +81,11 @@ evidrun/
 │   │   ├── composition.py         build_runtime_kernel: a única raiz de composição do runtime
 │   │   ├── service.py             bootstrap_demo
 │   │   └── worker.py              loop de claim/heartbeat/release
-│   ├── evidence/
-│   │   └── bundle.py      (1624)  export v1/v2/v3 + verify ramificado por schema_version         ▲
+│   ├── evidence/                  ✅ ENTREGUE em WS-30a
+│   │   ├── bundle.py        (34)  EvidenceBundleService: as 4 operações públicas
+│   │   ├── archive.py      (253)  zip, checksum, manifest de artifact
+│   │   ├── export/                comparison_v1 (55), comparison_v2 (113), run_v3 (93)
+│   │   └── verify/                dispatch (308), v2 (424), v3 (366), records (355)
 │   ├── authority/                 ✅ a fatia vertical mais bem formada do repo
 │   │   ├── models.py, repository.py    persistência própria
 │   │   ├── crypto.py, verifier.py, authenticator.py, challenge.py, policy.py
@@ -255,10 +258,22 @@ validador de `ResolvedAgentInventory` rejeitava essa combinação — `admit()` 
 `ValidationError` em vez de devolver `decision=rejected`. Corrigido: um profile não resolvido deixa o
 bloco de provider inteiro vazio.
 
-**`bundle.py` mistura três formatos e sua verificação.** Export v1 (42–87), v2 (88–229), v3
-(230–345), `verify` (347–563) despachando por `schema_version`, `_verify_v2_*` (564–919),
-`_verify_v3_*` (920–1213), validação de record de evaluation e checkpoint (1214–1435) e utilitários
-de zip/manifest (1436–1625).
+**`bundle.py` misturava três formatos e sua verificação — resolvido em WS-30a.** O arquivo de 1.624
+linhas virou onze: `bundle.py` (34) com as quatro operações públicas, `archive.py` (253) com zip,
+checksum e manifest, `export/{comparison_v1,comparison_v2,run_v3}` e
+`verify/{dispatch,v2,v3,records}`. A costura que estava escondida é a que separa **selar** de
+**conferir**: os três exports compartilhavam à mão o mesmo bloco de checksum e o mesmo laço de zip,
+e as duas camadas de verify compartilhavam a validação de record por chamada estática cruzada
+(`EvidenceBundleService._verify_v2_records` de dentro de `_verify_v3_records`).
+
+`verify/records.py` nomeia o que era implícito: um `LedgerIndex` construído uma vez por bundle, que
+é a única fonte de eventos e checkpoints contra a qual todo record é conferido. Antes, sete dicts
+paralelos viajavam juntos por seis parâmetros de palavra-chave.
+
+A equivalência foi medida, não presumida: o `verify` de `origin/main` e o extraído produzem JSON
+byte a byte idêntico em 8 bundles v3 reais — um válido e sete adulterados (goal do envelope, digest
+de job, worker de attempt, entrada de manifest removida, gate de evaluation, arquivo injetado sem
+checksum, nome de membro duplicado).
 
 **Os 7 pacotes stub são uma promessa contraditória.** `projects/`, `workspaces/`, `comparisons/`,
 `conversations/`, `scenarios/` prometem uma fatia vertical cujo conteúdo já mora dentro de
@@ -346,7 +361,8 @@ src/evidrun/
 │   │   ├── attempt.py              execute_attempt
 │   │   ├── prepare.py  resume.py
 │   ├── composition.py  service.py  worker.py
-├── evidence/                       ← bundle.py (1624)                                  [WS-30]
+├── evidence/                        ✅ ENTREGUE em WS-30a                             [WS-30]
+│   ├── bundle.py                   EvidenceBundleService: as 4 operações públicas
 │   ├── export/{comparison_v1,comparison_v2,run_v3}.py
 │   ├── verify/{dispatch,v2,v3,records}.py
 │   └── archive.py                  zip, checksum, manifest

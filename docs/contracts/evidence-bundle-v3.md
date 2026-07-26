@@ -14,7 +14,10 @@ sources:
 supersedes: []
 superseded_by: null
 implementation_refs:
-  - src/evidrun/evidence/bundle.py
+  - src/evidrun/evidence/export/run_v3.py
+  - src/evidrun/evidence/verify/v3.py
+  - src/evidrun/evidence/verify/dispatch.py
+  - src/evidrun/evidence/verify/records.py
   - src/evidrun/contracts/runtime.py
 verification_refs:
   - tests/integration/test_runtime_kernel.py

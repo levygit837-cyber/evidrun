@@ -69,9 +69,5 @@ file_lines = 871
 [baseline."src/evidrun/contracts/runtime.py"]
 file_lines = 1060
 
-[baseline."src/evidrun/evidence/bundle.py"]
-file_lines = 1624
-function_lines = 323
-
 [baseline."tests/unit/test_contracts.py"]
 file_lines = 1594

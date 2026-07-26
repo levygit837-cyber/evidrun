@@ -17,6 +17,7 @@ implementation_refs:
   - src/evidrun/contracts/compiler.py
   - src/evidrun/infrastructure/database
   - src/evidrun/evidence/bundle.py
+  - src/evidrun/evidence/archive.py
 verification_refs:
   - tests/acceptance/test_demo_flow.py
   - tests/unit/test_contracts.py

@@ -13,7 +13,8 @@ supersedes: []
 superseded_by: null
 implementation_refs:
   - src/evidrun/infrastructure/database
-  - src/evidrun/evidence/bundle.py
+  - src/evidrun/evidence/archive.py
+  - src/evidrun/evidence/verify/dispatch.py
 verification_refs:
   - tests/acceptance/test_demo_flow.py
 ---

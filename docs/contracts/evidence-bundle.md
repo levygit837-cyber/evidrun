@@ -12,7 +12,8 @@ sources: []
 supersedes: []
 superseded_by: null
 implementation_refs:
-  - src/evidrun/evidence/bundle.py
+  - src/evidrun/evidence/export/comparison_v1.py
+  - src/evidrun/evidence/archive.py
 verification_refs:
   - tests/acceptance/test_demo_flow.py
 ---
