@@ -6,7 +6,7 @@ status: implemented
 authority: normative
 owner: agents
 created_at: 2026-07-22
-updated_at: 2026-07-22
+updated_at: 2026-07-26
 applies_to: providers@1
 sources: []
 supersedes: []
@@ -28,7 +28,7 @@ protocolo, endpoint, modelo, reasoning e estratégia de credencial. O adapter s�
 request conhecidos e fixa `model` e `reasoning` pelo perfil; callers não os substituem silenciosamente.
 
 ```text
-LabAgentPort ou SubjectRunnerPort
+SubjectRunnerPort
 → ProviderPort
 → OpenAIResponsesProvider
 → CLIProxyAPI em 127.0.0.1:8318/v1

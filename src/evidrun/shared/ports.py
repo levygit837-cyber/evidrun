@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -12,10 +12,6 @@ class SubjectResult:
     metadata: Mapping[str, Any]
 
 
-class LabAgentPort(Protocol):
-    async def respond(self, session_id: str, message: str) -> Mapping[str, Any]: ...
-
-
 class SubjectRunnerPort(Protocol):
     @property
     def name(self) -> str: ...
@@ -25,10 +21,6 @@ class SubjectRunnerPort(Protocol):
 
 class ProviderPort(Protocol):
     async def invoke(self, request: Mapping[str, Any]) -> Mapping[str, Any]: ...
-
-
-class ToolEnvironmentPort(Protocol):
-    async def execute(self, tool: str, arguments: Mapping[str, Any]) -> Mapping[str, Any]: ...
 
 
 class EventSink(Protocol):
@@ -46,16 +38,4 @@ class GraderPort(Protocol):
     def name(self) -> str: ...
 
     def grade(self, output: str, evidence: Sequence[str]) -> Mapping[str, Any]: ...
-
-
-class ApprovalGateway(Protocol):
-    async def request(self, action: str, details: Mapping[str, Any]) -> str: ...
-
-
-class TraceExporter(Protocol):
-    async def export(self, run_id: str) -> AsyncIterator[bytes]: ...
-
-
-class TraceImporter(Protocol):
-    async def ingest(self, payload: bytes) -> str: ...
 
