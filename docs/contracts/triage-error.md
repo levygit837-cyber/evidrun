@@ -7,7 +7,7 @@ authority: normative
 volatility: current
 owner: core
 created_at: 2026-07-26
-updated_at: 2026-07-26
+updated_at: 2026-07-27
 applies_to: contracts
 sources:
   - github:issue/59
@@ -129,3 +129,15 @@ outro achado no record; consumidores não precisam interpretar a mensagem livre 
 Essa projeção não altera decisão, status de workspace ou interação, capabilities resolvidas, achados
 persistidos nem o digest do `AdmissionRecord`. Texto humano permanece livre; consumidores decidem
 apenas por código e campos estruturados.
+
+## Fronteira com criação de Workspace/Project
+
+As seis fases continuam fechadas. Criar ou listar uma fronteira do Control Plane não é `parse`,
+`register`, `decide`, `compile`, `admit` nem `enqueue`; portanto não existe fase `catalog` em
+`TriageError`.
+
+O [contrato de Workspace/Project v1](workspace-project-surface-v1.md) define `ScopeError` separado e
+ainda não implementado. Ele reutiliza as categorias/statuses observáveis onde os significados
+coincidem, mas não altera enum, payload ou tabelas executáveis de `TriageError`. Em particular,
+`register.project_not_found` permanece a recusa de registrar uma revision; enquanto
+`project.workspace_not_found` pertence à criação/listagem de Project.

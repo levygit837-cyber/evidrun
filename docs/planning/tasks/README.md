@@ -7,8 +7,8 @@ authority: planning
 volatility: snapshot
 owner: product-engineering
 created_at: 2026-07-23
-updated_at: 2026-07-26
-observed_at: 2026-07-26
+updated_at: 2026-07-27
+observed_at: 2026-07-27
 review_due: 2026-08-23
 applies_to: agent-workstreams
 sources:
@@ -39,7 +39,7 @@ observabilidade.
 
 | Estado | Brief | Proxima acao |
 | --- | --- | --- |
-| `queued` | [WS-01 Superficie de Workspace/Project](01-workspace-project-surface.md) | Pode iniciar imediatamente, em paralelo com WS-02 e WS-03 |
+| `queued` | [WS-01 Superficie de Workspace/Project](01-workspace-project-surface.md) | Dois tracer bullets aprovados; pode iniciar em paralelo com WS-02 e WS-03 |
 | `queued` | [WS-02 Lifecycle do worker no desktop](02-desktop-worker-lifecycle.md) | Pode iniciar imediatamente; nao toca dominio Python |
 | `queued` | [WS-03 Decisao de autoria default](03-default-authoring-authority.md) | ADR sucessor; decisao humana, precede WS-40 |
 | `delivered` | [WS-11/12 Costuras do dominio](11-domain-seams.md) | Entregue em `812b330` e `62ddec8`; desbloqueia WS-20/30/40 |
@@ -50,12 +50,13 @@ observabilidade.
 | `queued` | [WS-07 Memoria operacional e consolidador](07-lab-agent-memory.md) | Depende de WS-04; nao depende de WS-05, WS-06, WS-20, WS-30 nem WS-40 |
 | `blocked` | [WS-20 Artifact access/capture](20-artifact-access-and-capture.md) | Costuras entregues; aguarda priorizacao apos o Minimo Confortavel |
 | `blocked` | [WS-30 Evaluation/checkpoint/progress](30-evaluation-checkpoint-progress.md) | Costuras entregues; aguarda priorizacao apos o Minimo Confortavel |
-| `blocked` | [WS-40 Trust sandbox/ReviewPackage](40-trust-sandbox-review-package.md) | Aguarda WS-03 |
+| `blocked` | [WS-40 Trust nao verificado/ReviewPackage](40-trust-sandbox-review-package.md) | Aguarda WS-03; nao equivale a sandbox de runtime |
 | `queued` | [WS-50 Bounded exploration e multi-turn](50-lab-agent-bounded-exploration.md) | Reescopado: so bounded exploration. O copiloto saiu para WS-04 |
+| `blocked` | [WS-51 Integracao frontend](51-frontend-integration.md) | Project Room e scopes definidos; aguarda WS-01/03/04/06/40/41 |
 
-O frontend nao tem brief de integracao ativo. A fatia multipagina existe em `main`: Observability
-consome endpoints reais, Create e rascunho local mais bootstrap da fixture, Laboratory e mock. A
-integracao real pertence a WS-51 e depende de WS-04 e WS-06.
+O frontend agora possui brief de integracao, mas continua bloqueado. A fatia multipagina existe em
+`main`: Observability consome endpoints reais, Create e rascunho local mais bootstrap da fixture,
+Laboratory e mock. O brief WS-51 nao promove nenhuma dessas lacunas a capability.
 
 ## Regra de paralelismo
 

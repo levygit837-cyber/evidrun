@@ -7,8 +7,8 @@ authority: planning
 volatility: snapshot
 owner: governance
 created_at: 2026-07-23
-updated_at: 2026-07-24
-observed_at: 2026-07-24
+updated_at: 2026-07-27
+observed_at: 2026-07-27
 review_due: 2026-08-07
 applies_to: control-plane-trust
 sources:
@@ -18,6 +18,7 @@ sources:
   - docs/contracts/experiment-manifest.md
   - docs/planning/mvp-implementation-roadmap.md
   - docs/planning/tasks/40-trust-sandbox-review-package.md
+  - docs/adr/0020-workspace-project-run-environment-boundaries.md
 supersedes: []
 superseded_by: null
 implementation_refs: []
@@ -172,25 +173,28 @@ primeiro uso.
 - Custo honesto a registrar: recovery e rotacao continuam abertos no ADR 0015 (revogacao e terminal).
   Ligar por default transforma essa lacuna em problema de usuario real, nao mais hipotetico.
 
-### Opcao B — Run explicitamente `unverified_sandbox`
+### Opcao B — Run explicitamente nao verificada
 
-Introduz um caminho de execucao que compila sem aceitacao humana e se declara nao verificado.
+Introduz um caminho de execucao que compila sem aceitacao humana e se declara nao verificado. O nome
+de contrato deve evitar usar `sandbox` como promessa de isolamento; candidatos sao
+`unverified_run` ou `unverified_revision_set`, a decidir no ADR sucessor.
 
 - Afirmavel: "esta Run executou estes documentos, nestes digests exatos, sem autoridade humana".
   Nada mais.
 - Proibido: alterar o status das revisions para `accepted`; reusar `RevisionDecisionRecord` para
   declarar trust; efeitos externos (`denied`); dados `sensitive`/`restricted`; human review ou
-  adjudicacao; qualquer promocao automatica de sandbox para evidencia verificada; qualquer reescrita
+  adjudicacao; qualquer promocao automatica de execucao nao verificada para evidencia verificada;
+  qualquer reescrita
   da Run original quando uma aceitacao humana surgir depois.
-- Bundle/UI: trust e campo de primeira classe, nao ausencia de campo. O bundle marca a Run como
-  `unverified_sandbox` e a UI a distingue de `verified` de forma que sobreviva a export, print e
-  captura de tela. Uma Run sandbox nunca aparece em lista de evidencia verificada sem rotulo.
-- Nota estrutural: `AuthorityMode.SANDBOX` existe hoje sem ligacao com `RunSpec`/`Run`. O ADR deve
-  decidir se o modo de policy e o trust de execucao sao o mesmo conceito ou dois conceitos que
-  colidem no nome. Reusar a palavra sem unificar a semantica e como esta divergencia se torna bug.
+- Bundle/UI: trust e campo de primeira classe, nao ausencia de campo. O bundle marca a Run como nao
+  verificada e a UI a distingue de `verified` de forma que sobreviva a export, print e captura de
+  tela. Uma Run nao verificada nunca aparece em lista de evidencia verificada sem rotulo.
+- Nota estrutural: `AuthorityMode.SANDBOX` existe hoje sem ligacao com `RunSpec`/`Run`. Pelo ADR
+  0020, Run Environment e trust sao eixos separados. O ADR desta task deve renomear ou confinar o
+  mode legado, nunca usar sua presenca como prova de isolamento ou trust.
 - Custo honesto: cria um segundo estado de evidencia que todo consumidor (bundle, API, UI, futuro Lab
   Agent) precisa tratar. E o caminho que a WS-40 assume, e por isso o que mais depende deste ADR
-  fechar a fonte de verdade do pacote sandbox.
+  fechar a fonte de verdade do pacote nao verificado.
 
 ### Opcao C — manter opt-in
 
@@ -227,8 +231,11 @@ qualquer um, ela esta rejeitada por construcao — registre a rejeicao no ADR.
   `external_effect.authorized`) exigem humano verificado em qualquer modo (ADR 0015,
   `AuthorityPolicy`). Um modo novo nao pode criar excecao.
 - ADR aceito nao e reescrito para mudar decisao: cria-se sucessor (`AGENTS.md`, "Fonte de verdade").
+- Workspace, Project, Run Environment e trust permanecem conceitos separados (ADR 0020). Criar
+  Workspace/Project ou selecionar um preset nao prova sandbox nem authority.
 - Documento nao promete capability ausente. Este brief e o ADR descrevem intencao executavel; nenhum
-  paragrafo pode descrever sandbox, promocao ou claim de trust como se ja existisse.
+  paragrafo pode descrever execucao nao verificada, isolamento, promocao ou claim de trust como se ja
+  existisse.
 
 ## Loop
 
@@ -259,14 +266,14 @@ REDISCOVER settings/registry/policy/verifier facts on current main
   aceitacao humana, marque P0 e rejeite a opcao no ADR; nao a "conserte" com validacao adicional.
 - Se a modelagem exigir um record novo, especifique-o como record proprio; **nunca** reuse
   `RevisionDecisionRecord` para declarar trust nao humano.
-- Se `AuthorityMode.SANDBOX` e o trust de execucao divergirem, decida explicitamente no ADR: unificar
-  ou renomear. Nao deixe dois significados no mesmo identificador.
+- `AuthorityMode.SANDBOX` e trust de execucao sao eixos distintos pelo ADR 0020. O ADR sucessor deve
+  renomear ou confinar o identificador legado; nao os unifique pela coincidencia do nome.
 - Se WS-01 aterrissar em `main` durante a task, releia a superficie de criacao antes de finalizar a
   Opcao C — a premissa dela pode ter deixado de valer.
 - Se a decisao entre A e B depender de informacao que so um humano tem (apetite de risco, publico do
   MVP, o que o produto vai afirmar publicamente), **pare e escale**; nao escolha por default nem
   esconda a escolha numa recomendacao.
-- Se o ADR nao conseguir fixar a fonte de verdade do pacote usado numa execucao sandbox, registre isso
+- Se o ADR nao conseguir fixar a fonte de verdade do pacote usado numa execucao nao verificada, registre isso
   como bloqueio de WS-40 em vez de deixar ambiguo.
 - Se surgir requisito de passkey de plataforma ou recovery, abra follow-up; o autenticador local
   opt-in continua o escopo desta fase (ADR 0015, questoes abertas).
@@ -299,7 +306,7 @@ Verificacoes manuais obrigatorias antes do handoff:
   modificado no diff;
 - cada afirmacao sobre codigo no ADR tem um simbolo e um arquivo reais por tras (releia; nao cite de
   memoria);
-- nenhuma frase descreve sandbox, promocao ou trust record como implementado;
+- nenhuma frase descreve execucao nao verificada, isolamento, promocao ou trust record como implementado;
 - cada uma das tres opcoes responde as tres perguntas (afirmavel / proibido / bundle+UI);
 - a recomendacao esta tipograficamente separada da decisao, e a decisao esta marcada como pendente de
   humano.

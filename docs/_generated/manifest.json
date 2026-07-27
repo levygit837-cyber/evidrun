@@ -222,11 +222,35 @@
       "path": "docs/adr/0019-lab-agent-operational-memory.md",
       "type": "adr",
       "title": "Memória operacional do Lab Agent com descoberta por cue e promoção humana",
+      "status": "superseded",
+      "authority": "normative",
+      "volatility": "timeless",
+      "owner": "product",
+      "updated_at": "2026-07-27",
+      "review_due": null
+    },
+    {
+      "id": "adr-0020",
+      "path": "docs/adr/0020-workspace-project-run-environment-boundaries.md",
+      "type": "adr",
+      "title": "Separar Workspace, Project e Run Environment",
       "status": "accepted",
       "authority": "normative",
       "volatility": "timeless",
       "owner": "product",
-      "updated_at": "2026-07-26",
+      "updated_at": "2026-07-27",
+      "review_due": null
+    },
+    {
+      "id": "adr-0021",
+      "path": "docs/adr/0021-hierarchical-lab-agent-scope.md",
+      "type": "adr",
+      "title": "Um Lab Agent com escopo hierárquico de sessão e memória",
+      "status": "accepted",
+      "authority": "normative",
+      "volatility": "timeless",
+      "owner": "product",
+      "updated_at": "2026-07-27",
       "review_due": null
     },
     {
@@ -274,7 +298,7 @@
       "authority": "normative",
       "volatility": "timeless",
       "owner": "core",
-      "updated_at": "2026-07-26",
+      "updated_at": "2026-07-27",
       "review_due": null
     },
     {
@@ -346,7 +370,7 @@
       "authority": "normative",
       "volatility": "current",
       "owner": "core",
-      "updated_at": "2026-07-26",
+      "updated_at": "2026-07-27",
       "review_due": null
     },
     {
@@ -401,12 +425,12 @@
       "id": "contract-agent-inventory-workspace-v1",
       "path": "docs/contracts/agent-inventory-workspace-v1.md",
       "type": "contract",
-      "title": "Inventário de agente, admissão e workspace v1",
+      "title": "Inventário de agente, admissão e Run Environment v1",
       "status": "implemented",
       "authority": "normative",
       "volatility": "timeless",
       "owner": "core",
-      "updated_at": "2026-07-26",
+      "updated_at": "2026-07-27",
       "review_due": null
     },
     {
@@ -442,7 +466,7 @@
       "authority": "normative",
       "volatility": "timeless",
       "owner": "core",
-      "updated_at": "2026-07-26",
+      "updated_at": "2026-07-27",
       "review_due": null
     },
     {
@@ -498,11 +522,35 @@
       "path": "docs/contracts/lab-agent-memory-v1.md",
       "type": "contract",
       "title": "Memória operacional do Lab Agent v1",
+      "status": "superseded",
+      "authority": "normative",
+      "volatility": "timeless",
+      "owner": "core",
+      "updated_at": "2026-07-27",
+      "review_due": null
+    },
+    {
+      "id": "contract-lab-agent-memory-v2",
+      "path": "docs/contracts/lab-agent-memory-v2.md",
+      "type": "contract",
+      "title": "Memória operacional hierárquica do Lab Agent v2",
       "status": "accepted",
       "authority": "normative",
       "volatility": "timeless",
       "owner": "core",
-      "updated_at": "2026-07-26",
+      "updated_at": "2026-07-27",
+      "review_due": null
+    },
+    {
+      "id": "contract-lab-agent-scope-v1",
+      "path": "docs/contracts/lab-agent-scope-v1.md",
+      "type": "contract",
+      "title": "Escopo de sessão e envelope do Lab Agent v1",
+      "status": "accepted",
+      "authority": "normative",
+      "volatility": "timeless",
+      "owner": "core",
+      "updated_at": "2026-07-27",
       "review_due": null
     },
     {
@@ -550,7 +598,7 @@
       "authority": "normative",
       "volatility": "timeless",
       "owner": "core",
-      "updated_at": "2026-07-26",
+      "updated_at": "2026-07-27",
       "review_due": null
     },
     {
@@ -562,7 +610,19 @@
       "authority": "normative",
       "volatility": "current",
       "owner": "core",
-      "updated_at": "2026-07-26",
+      "updated_at": "2026-07-27",
+      "review_due": null
+    },
+    {
+      "id": "contract-workspace-project-surface-v1",
+      "path": "docs/contracts/workspace-project-surface-v1.md",
+      "type": "contract",
+      "title": "Superfície pública de Workspace e Project v1",
+      "status": "accepted",
+      "authority": "normative",
+      "volatility": "timeless",
+      "owner": "core",
+      "updated_at": "2026-07-27",
       "review_due": null
     },
     {
@@ -610,7 +670,7 @@
       "authority": "normative",
       "volatility": "current",
       "owner": "core",
-      "updated_at": "2026-07-26",
+      "updated_at": "2026-07-27",
       "review_due": null
     },
     {
@@ -670,7 +730,7 @@
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "product-engineering",
-      "updated_at": "2026-07-23",
+      "updated_at": "2026-07-27",
       "review_due": "2026-07-30"
     },
     {
@@ -694,7 +754,7 @@
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "product-engineering",
-      "updated_at": "2026-07-26",
+      "updated_at": "2026-07-27",
       "review_due": "2026-08-23"
     },
     {
@@ -706,7 +766,7 @@
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "product-engineering",
-      "updated_at": "2026-07-26",
+      "updated_at": "2026-07-27",
       "review_due": "2026-08-23"
     },
     {
@@ -718,20 +778,20 @@
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "product-engineering",
-      "updated_at": "2026-07-26",
+      "updated_at": "2026-07-27",
       "review_due": "2026-08-23"
     },
     {
       "id": "planning-task-workspace-project-surface",
       "path": "docs/planning/tasks/01-workspace-project-surface.md",
       "type": "implementation-task",
-      "title": "WS-01 Superficie publica de Workspace e Project",
+      "title": "WS-01 Superfície pública de Workspace e Project",
       "status": "proposed",
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "product-engineering",
-      "updated_at": "2026-07-24",
-      "review_due": "2026-08-07"
+      "updated_at": "2026-07-27",
+      "review_due": "2026-08-10"
     },
     {
       "id": "planning-task-desktop-worker-lifecycle",
@@ -754,7 +814,7 @@
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "governance",
-      "updated_at": "2026-07-24",
+      "updated_at": "2026-07-27",
       "review_due": "2026-08-07"
     },
     {
@@ -766,7 +826,7 @@
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "laboratory",
-      "updated_at": "2026-07-26",
+      "updated_at": "2026-07-27",
       "review_due": "2026-08-23"
     },
     {
@@ -778,7 +838,7 @@
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "core",
-      "updated_at": "2026-07-26",
+      "updated_at": "2026-07-27",
       "review_due": "2026-08-23"
     },
     {
@@ -802,7 +862,7 @@
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "laboratory",
-      "updated_at": "2026-07-26",
+      "updated_at": "2026-07-27",
       "review_due": "2026-08-23"
     },
     {
@@ -838,7 +898,7 @@
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "evidence",
-      "updated_at": "2026-07-23",
+      "updated_at": "2026-07-27",
       "review_due": "2026-08-06"
     },
     {
@@ -857,12 +917,12 @@
       "id": "planning-task-trust-sandbox-review-package",
       "path": "docs/planning/tasks/40-trust-sandbox-review-package.md",
       "type": "implementation-task",
-      "title": "WS-40 Trust modes, Sandbox Run e ReviewPackage",
+      "title": "WS-40 Trust de execucao nao verificada e ReviewPackage",
       "status": "proposed",
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "governance",
-      "updated_at": "2026-07-23",
+      "updated_at": "2026-07-27",
       "review_due": "2026-08-06"
     },
     {
@@ -874,8 +934,20 @@
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "laboratory",
-      "updated_at": "2026-07-26",
+      "updated_at": "2026-07-27",
       "review_due": "2026-08-23"
+    },
+    {
+      "id": "planning-task-frontend-integration",
+      "path": "docs/planning/tasks/51-frontend-integration.md",
+      "type": "implementation-task",
+      "title": "WS-51 Integração frontend de Workspace, Project e Lab Agent",
+      "status": "proposed",
+      "authority": "planning",
+      "volatility": "snapshot",
+      "owner": "frontend",
+      "updated_at": "2026-07-27",
+      "review_due": "2026-08-24"
     },
     {
       "id": "planning-tasks-index",
@@ -886,7 +958,7 @@
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "product-engineering",
-      "updated_at": "2026-07-26",
+      "updated_at": "2026-07-27",
       "review_due": "2026-08-23"
     },
     {
@@ -910,7 +982,7 @@
       "authority": "normative",
       "volatility": "timeless",
       "owner": "product",
-      "updated_at": "2026-07-26",
+      "updated_at": "2026-07-27",
       "review_due": null
     },
     {
@@ -922,7 +994,7 @@
       "authority": "normative",
       "volatility": "timeless",
       "owner": "product",
-      "updated_at": "2026-07-26",
+      "updated_at": "2026-07-27",
       "review_due": null
     },
     {
@@ -1066,7 +1138,7 @@
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "product",
-      "updated_at": "2026-07-26",
+      "updated_at": "2026-07-27",
       "review_due": null
     },
     {

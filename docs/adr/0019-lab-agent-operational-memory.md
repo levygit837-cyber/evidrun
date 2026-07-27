@@ -2,12 +2,12 @@
 id: adr-0019
 type: adr
 title: Memória operacional do Lab Agent com descoberta por cue e promoção humana
-status: accepted
+status: superseded
 authority: normative
 volatility: timeless
 owner: product
 created_at: 2026-07-26
-updated_at: 2026-07-26
+updated_at: 2026-07-27
 applies_to: lab-agent-memory
 sources:
   - docs/adr/0018-lab-agent-copilot-scope.md
@@ -15,7 +15,7 @@ sources:
   - docs/adr/0005-canonical-evidence-storage.md
   - docs/product/charter.md
 supersedes: []
-superseded_by: null
+superseded_by: docs/adr/0021-hierarchical-lab-agent-scope.md
 implementation_refs: []
 verification_refs: []
 ---

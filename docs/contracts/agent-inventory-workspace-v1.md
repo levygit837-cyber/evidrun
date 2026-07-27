@@ -1,16 +1,17 @@
 ---
 id: contract-agent-inventory-workspace-v1
 type: contract
-title: Inventário de agente, admissão e workspace v1
+title: Inventário de agente, admissão e Run Environment v1
 status: implemented
 authority: normative
 volatility: timeless
 owner: core
 created_at: 2026-07-23
-updated_at: 2026-07-26
+updated_at: 2026-07-27
 applies_to: schema/agent-admission@1
 sources:
   - docs/adr/0009-study-run-contract-composition.md
+  - docs/adr/0020-workspace-project-run-environment-boundaries.md
 supersedes: []
 superseded_by: null
 implementation_refs:
@@ -46,11 +47,16 @@ vazia e uma recusa persistível. O repositório só aceita essa forma quando o r
 o requisito `provider:<profile>` e o issue bloqueante `unavailable` para o mesmo profile; uma
 resolução vazia sem esses achados continua falhando fechado.
 
-# Workspace de execução
+# Run Environment
 
-`WorkspaceTemplateRevision` descreve apenas o execution workspace: runtime lógico, lifecycle efêmero
-por Run, mounts nomeados, write zones, network policy, external-effect policy, refs opacas de secret
-bindings, snapshot policy e cleanup policy. O laboratory workspace não é montado.
+`WorkspaceTemplateRevision` é o nome preservado do schema v1 para a configuração versionada de um
+**Run Environment**: runtime lógico, lifecycle efêmero por Run, mounts nomeados, write zones,
+network policy, external-effect policy, refs opacas de secret bindings, snapshot policy e cleanup
+policy. Ele não representa o Workspace durável do Control Plane, que nunca é montado automaticamente.
+
+Os nomes `WorkspaceTemplateRevision`, `RunSpec.workspace` e `workspace_status` permanecem no schema
+v1 para preservar documentos e digests. Documentação e UI usam Run Environment para o conceito; um
+rename de campo exige uma versão sucessora do contrato.
 
 Valores de credenciais não fazem parte de nenhum contrato, evento, log ou bundle. Budgets pertencem
 ao `RunSpec`, pois podem variar por Study e variant.
@@ -58,7 +64,7 @@ ao `RunSpec`, pois podem variar por Study e variant.
 # Admissão atual
 
 O catálogo de admissão é explícito. O runner determinístico aceita um `single_turn` direto, com
-`max_turns=1` e sem artifacts de system prompt ou mensagens iniciais, além do workspace
+`max_turns=1` e sem artifacts de system prompt ou mensagens iniciais, além do Run Environment
 `in_process`; provider pode ser omitido para execução offline. O adapter real do ADR 0016 aceita o
 provider profile exato, network `provider_only`, uma única capability `read-artifact-text` e capture
 `raw_encrypted` com opt-in. Protocolos em grafo, tools diferentes, skills ou nested-agent runtime sem
@@ -84,7 +90,8 @@ Todos são representáveis, mas atualmente bloqueiam a admissão com motivo estr
 
 Para `in_process`, `workspace_status=resolved` exige runtime e policies compatíveis e que cada mount
 seja um input Subject-visible idêntico, read-only e autorizado pelo cenário. Write zones, secret
-bindings, workspace snapshot e retenção diferente de `discard` são rejeitados como não suportados.
+bindings, snapshot do Run Environment e retenção diferente de `discard` são rejeitados como não
+suportados.
 O adapter ainda não provisiona filesystem nem consulta um artifact catalog externo; o runner
 determinístico materializa seu único input como Context Snapshot referenciado por identidade e
 digest; nenhum contrato possui locator de storage.

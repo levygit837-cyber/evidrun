@@ -7,8 +7,8 @@ authority: planning
 volatility: snapshot
 owner: product-engineering
 created_at: 2026-07-23
-updated_at: 2026-07-23
-observed_at: 2026-07-23
+updated_at: 2026-07-27
+observed_at: 2026-07-27
 review_due: 2026-07-30
 applies_to: implementation-planning
 sources:
@@ -87,8 +87,9 @@ O template reutilizavel esta em
 - [Roadmap de implementacao do MVP](mvp-implementation-roadmap.md)
 - [Acesso e materializacao de artifacts](tasks/20-artifact-access-and-capture.md)
 - [Evaluation, checkpoints e Progress Artifacts](tasks/30-evaluation-checkpoint-progress.md)
-- [Trust modes, sandbox e ReviewPackage](tasks/40-trust-sandbox-review-package.md)
+- [Trust de execucao nao verificada e ReviewPackage](tasks/40-trust-sandbox-review-package.md)
 - [Lab Agent e bounded exploration](tasks/50-lab-agent-bounded-exploration.md)
+- [Integracao frontend de Workspace, Project e Lab Agent](tasks/51-frontend-integration.md)
 
 ## Regra de manutencao
 

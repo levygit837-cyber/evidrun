@@ -7,12 +7,15 @@ authority: planning
 volatility: snapshot
 owner: laboratory
 created_at: 2026-07-23
-updated_at: 2026-07-26
-observed_at: 2026-07-26
+updated_at: 2026-07-27
+observed_at: 2026-07-27
 review_due: 2026-08-23
 applies_to: bounded-exploration-runtime
 sources:
   - docs/adr/0018-lab-agent-copilot-scope.md
+  - docs/adr/0020-workspace-project-run-environment-boundaries.md
+  - docs/adr/0021-hierarchical-lab-agent-scope.md
+  - docs/contracts/lab-agent-scope-v1.md
   - docs/product/run-laboratory-concept.md
   - docs/research/run-scenario-discovery/scenario-c-qualitative-incident.md
   - docs/adr/0013-bounded-exploration-terminal-semantics.md
@@ -56,7 +59,8 @@ O Runtime Kernel de que esta task depende ja esta integrado em `main`.
 
 ## Fronteira do Lab Agent nesta task
 
-O Lab Agent participa iniciando sandbox pelo mesmo command path humano, sem autoridade adicional. A
+O Lab Agent participa a partir de uma Project/Focused chat, iniciando a execucao nao verificada pelo
+mesmo command path humano, sem autoridade adicional. A
 fronteira completa esta no ADR 0018 e nao e redefinida aqui: ele nao aceita revision, nao cria review
 ou adjudicacao, nao envia chat ao Subject, nao escreve no ledger, nao concede grant e nao transforma
 Progress Artifact em fato.
@@ -91,10 +95,11 @@ LIVE_MODEL_RUNS=2
 Loop:
 
 ```text
-DEFINE one qualitative dossier
+DEFINE one qualitative dossier no Project da sessao
 -> BUILD Lab Agent draft path
--> COMPILE sandbox Study
+-> COMPILE pacote nao verificado
 -> ADMIT bounded runtime
+-> MATERIALIZE Run Environment admitido, nunca o Workspace do Control Plane
 -> EXECUTE deterministic/fake transport
 -> EXECUTE live model when safe
 -> INSPECT ledger/checkpoints/progress/evals

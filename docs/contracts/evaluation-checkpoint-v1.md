@@ -7,10 +7,11 @@ authority: normative
 volatility: timeless
 owner: core
 created_at: 2026-07-23
-updated_at: 2026-07-26
+updated_at: 2026-07-27
 applies_to: schema/evaluation-checkpoint@1
 sources:
   - docs/adr/0009-study-run-contract-composition.md
+  - docs/adr/0020-workspace-project-run-environment-boundaries.md
 supersedes: []
 superseded_by: null
 implementation_refs:
@@ -79,7 +80,7 @@ arbitrário ao terminal.
 `CheckpointPolicyRevision` contém definições reutilizáveis com ID, ordem, trigger tipado, validators,
 captura, obrigatoriedade e compatibility tags. Um record válido sempre ancora cursor e hash do
 ledger e pode referenciar Context Snapshots, estado público do protocolo, manifest de artifacts,
-workspace permitido, avaliações concluídas e a admissão exata da Run.
+estado permitido do Run Environment, avaliações concluídas e a admissão exata da Run.
 
 `CheckpointRecord` só é persistido após todos os validators passarem e após o repository confirmar
 que sequence/hash pertencem à Run. O `checkpoint_hash` cobre o record normalizado. Falha de trigger
@@ -105,7 +106,7 @@ Run e que a presença ou ausência de cada categoria de captura corresponda à d
 ancora a evidência; ele não copia credenciais nem valores de secret bindings.
 
 Context Snapshot e EvaluationRecord IDs são conferidos contra a Run. As capturas expressas como
-`ArtifactRef` — estado de protocolo, manifest de artifacts e workspace snapshot — ainda não fazem
+`ArtifactRef` — estado de protocolo, manifest de artifacts e snapshot do Run Environment — ainda não fazem
 lookup no `ArtifactStore`; seu digest participa do `checkpoint_hash`, mas existência, classification
 e autorização do blob continuam responsabilidade do futuro adapter de captura.
 

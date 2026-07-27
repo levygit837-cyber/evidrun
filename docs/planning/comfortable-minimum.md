@@ -7,12 +7,14 @@ authority: planning
 volatility: snapshot
 owner: product-engineering
 created_at: 2026-07-26
-updated_at: 2026-07-26
-observed_at: 2026-07-26
+updated_at: 2026-07-27
+observed_at: 2026-07-27
 review_due: 2026-08-23
 applies_to: mvp-implementation
 sources:
   - docs/adr/0018-lab-agent-copilot-scope.md
+  - docs/adr/0020-workspace-project-run-environment-boundaries.md
+  - docs/adr/0021-hierarchical-lab-agent-scope.md
   - docs/planning/mvp-implementation-roadmap.md
   - docs/planning/mvp-capability-map.md
   - docs/roadmap/mvp.md
@@ -56,14 +58,17 @@ bundle. O que falta e o que entra e o que sai dessa persistencia.
 Loop de tools, contexto declarado e conversa com estado. Escopo em
 [ADR 0018](../adr/0018-lab-agent-copilot-scope.md).
 
-Minimo: o agente conversa, le contracts e evidencia autorizada por tool, propoe drafts tipados e
-explica o que propos. Ele opera as superficies publicas existentes, sem autoridade adicional.
+Minimo: um unico Lab Agent conversa em General/Project/Focused chat, le contracts e evidencia
+autorizada por tool no scope imposto pelo repository, propoe drafts tipados e explica o que propos.
+Ele opera as superficies publicas existentes, sem autoridade adicional ou agente persistente por
+Project.
 
 Fora do minimo: bounded exploration, nested agents, efeitos externos, aprovacao automatica.
 
 **Memoria operacional e adjacente, nao parte do corredor.** O
-[ADR 0019](../adr/0019-lab-agent-operational-memory.md) define memoria por Workspace com descoberta
-por cue e promocao humana, entregue por [WS-07](tasks/07-lab-agent-memory.md). Ela melhora a
+[ADR 0021](../adr/0021-hierarchical-lab-agent-scope.md) define memoria com hard boundary de Workspace
+e subescopo opcional de Project, descoberta por cue e promocao humana, entregue por
+[WS-07](tasks/07-lab-agent-memory.md). Ela melhora a
 qualidade dos drafts, mas o corredor fecha sem ela, e seu proprio ganho e hipotese ate ser medido.
 A obrigacao que WS-04 herda e apenas nao fechar a porta: loop extensivel por capability e
 `informed_by` declarado no draft desde o inicio.
@@ -75,9 +80,9 @@ Um draft proposto pelo Lab Agent, aceito pelo humano, tem que atravessar
 matriz completa (`variants x repetitions`); o que falta e um caminho de autoria que chegue ate ele
 sem fixture legada.
 
-Minimo: existir Workspace e Project criaveis, existir aceitacao de revision que nao minta sobre
-autoridade humana, e a pagina Create deixar de executar a fixture `CRL-CTX-002` em vez do que foi
-digitado.
+Minimo: existir Workspace e Project criaveis com nomes nao ambiguos e erros tipados, existir
+aceitacao de revision que nao minta sobre autoridade humana, e a pagina Create deixar de executar a
+fixture `CRL-CTX-002` em vez do que foi digitado. Criar esses scopes nao provisiona Run Environment.
 
 Isso depende de WS-01 (superficie de Workspace/Project) e WS-03 (decisao de autoria default).
 
@@ -86,7 +91,7 @@ Isso depende de WS-01 (superficie de Workspace/Project) e WS-03 (decisao de auto
 Aqui existe trabalho de contrato ainda nao feito, e ele e o mais delicado do corte.
 
 O `SubjectEnvelope` e uma allowlist fechada e ja compila Goal, inputs visiveis, protocolo visivel,
-capabilities admitidas, workspace, budgets e stop conditions. O que nao existe e o vocabulario de
+capabilities admitidas, Run Environment, budgets e stop conditions. O que nao existe e o vocabulario de
 autoria que descreve **de onde vem** o contexto de um experimento real: material de referencia,
 estado inicial, arquivos, instrucoes de cenario e o que distingue duas variants alem de um override
 de texto.

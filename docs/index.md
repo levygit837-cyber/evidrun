@@ -7,7 +7,7 @@ authority: normative
 volatility: current
 owner: core
 created_at: 2026-07-22
-updated_at: 2026-07-26
+updated_at: 2026-07-27
 applies_to: repository
 sources: []
 supersedes: []
@@ -55,6 +55,10 @@ Obrigatórios, 3 documentos e até 4.000 palavras:
 
 Opcional: o ADR vigente do termo discutido. Proibidos como fonte de terminologia implementada:
 research, incubação, planning e roadmap.
+
+Roteamento atual: Workspace/Project/Run Environment usa o
+[ADR 0020](adr/0020-workspace-project-run-environment-boundaries.md); sessão, scope e memória do Lab
+Agent usam o [ADR 0021](adr/0021-hierarchical-lab-agent-scope.md).
 
 ### Contrato ou schema
 

@@ -7,13 +7,15 @@ authority: planning
 volatility: snapshot
 owner: product-engineering
 created_at: 2026-07-23
-updated_at: 2026-07-26
-observed_at: 2026-07-26
+updated_at: 2026-07-27
+observed_at: 2026-07-27
 review_due: 2026-08-23
 applies_to: mvp-implementation
 sources:
   - docs/planning/comfortable-minimum.md
   - docs/adr/0018-lab-agent-copilot-scope.md
+  - docs/adr/0020-workspace-project-run-environment-boundaries.md
+  - docs/adr/0021-hierarchical-lab-agent-scope.md
   - docs/roadmap/mvp.md
   - docs/planning/mvp-capability-map.md
   - docs/product/charter.md
@@ -54,7 +56,7 @@ superficie e de lifecycle em cima de dominio que ja funciona.
 
 | # | Bloqueio | Evidencia observada |
 | --- | --- | --- |
-| B1 | Nao existe como criar Workspace ou Project | Banco novo tem zero projects. `create_workspace`/`create_project` existem apenas como metodos de `Repository`; nao ha comando CLI nem rota `POST`. `contract register` falha com `FOREIGN KEY constraint failed`. O unico caminho e `evidrun demo`, que importa a fixture legada. |
+| B1 | Nao existe como criar Workspace ou Project | Banco novo tem zero Projects. Writes internos existem no `CatalogStore`, mas sem nome canonico/unicidade; nao ha comando CLI nem rota `POST`. O erro `register.project_not_found` ja foi tipado, porem ainda falta criar o Project por superficie publica. O unico bootstrap completo continua sendo `evidrun demo`. |
 | B2 | O desktop empacotado nunca processa Runs | `backend-lifecycle.ts` faz spawn de `evidrun serve --desktop-handshake`; `serve` sobe apenas uvicorn. Nenhum path do produto inicia `evidrun-worker`. A UI enfileira Runs que ninguem executa. |
 | B3 | Autoria verificada e opt-in e desligada por padrao | `Settings.authority_enabled` default `False`. Sem `EVIDRUN_AUTHORITY=1`, `StudyCompiler.resolve` recusa toda revision, porque `decide` exige verifier confiavel. Por padrao o unico corredor que aceita revisions e o `repository_fixture` nao humano. |
 
@@ -90,8 +92,9 @@ utilizavel* e *o que precisa existir antes de varias frentes poderem editar em p
 
 Tres fatias independentes, sem arquivo compartilhado entre elas. Executam em paralelo.
 
-- **WS-01 Superficie de Workspace/Project:** rotas `POST` e comandos CLI, com os mesmos invariantes
-  do dominio. Resolve B1.
+- **WS-01 Superficie de Workspace/Project:** dois tracer bullets verticais (Workspace, depois
+  Project), com nome canonico, migration/constraints, `ScopeError`, leituras diretas, rotas e CLI.
+  Resolve B1 sem criar Run Environment.
 - **WS-02 Lifecycle do worker no desktop:** o app local passa a supervisionar execucao, nao apenas a
   API. Resolve B2. Inclui reinicio observavel e o gate de CI que hoje nao roda (`test:handshake`).
 - **WS-03 Decisao de autoria default:** ADR sucessor que define como um usuario aceita uma revision
@@ -126,14 +129,16 @@ O corte que torna o laboratorio utilizavel, definido em
 [Minimo Confortavel](comfortable-minimum.md). O [ADR 0018](../adr/0018-lab-agent-copilot-scope.md)
 separou o copiloto do bounded exploration, e por isso WS-04 nao depende mais de WS-20/30/40.
 
-- **WS-04 Runtime do Lab Agent copiloto:** `LabAgentEnvelope`, loop de tools read-only, proposta de
-  draft sem decisao, endpoints de chat cobertos e streaming. Depende de WS-01.
+- **WS-04 Runtime do Lab Agent copiloto:** um unico runtime, sessoes General/Project/Focused,
+  `LabAgentEnvelope`, scope imposto por tool, proposta de draft sem decisao, endpoints e streaming.
+  Depende de WS-01.
 - **WS-05 Contexto e criterios do Subject:** contrato de contexto de Scenario suficiente para uma
   comparacao de variavel primaria unica, com material identico por digest entre variants irmas.
 - **WS-06 Batch, resiliencia de provider e metricas minimas:** lote de execucao, retry/backoff e
   rate limiting, metricas por Run e agregacao `pass@k`/`pass^k` como read model. Depende de WS-02.
-- **WS-07 Memoria operacional e consolidador:** `MemoryEntry` com FTS5 sobre cues, tools de busca e
-  leitura por id, consolidador em background e promocao humana de candidatos. Depende de WS-04.
+- **WS-07 Memoria operacional e consolidador:** `MemoryEntry` v2 com Workspace hard boundary,
+  Project opcional, FTS5 sobre cues, tools de busca/leitura, consolidador e promocao humana. Depende
+  de WS-04.
 - **WS-41 Contratos tipados de HTTP:** os DTOs de resposta consumidos pelo frontend passam pelo
   gerador, fechando o drift entre `apps/web/src/types.ts` e os schemas reais.
 
@@ -144,17 +149,19 @@ Paralelo amplo. Cada frente tem ownership de arquivo distinto depois das costura
 - **WS-20 Artifact access e capture:** grants, materialization records e enforcement de capture.
 - **WS-30 Evaluation executavel:** multiplos stages, model judge, CheckpointCoordinator e
   ProgressObserver.
-- **WS-40 Trust modes e ReviewPackage:** implementa a decisao da WS-03.
+- **WS-40 Trust de execucao nao verificada e ReviewPackage:** implementa a decisao da WS-03 sem
+  confundir trust com Run Environment ou prometer sandbox forte.
 
 ### Onda 4 — laboratorio autonomo
 
 - **WS-50 Bounded exploration e multi-turn:** coordinator de turnos com budget aplicado e terminal em
   dois eixos. Depende de WS-30 e WS-40.
-- **WS-51 Integracao do frontend:** Create passa a criar entidades reais; Laboratory passa a consumir
-  o Lab Agent; a UI distingue `sandbox`, `verified`, `rejected`, `failed` e `unsupported`.
+- **WS-51 Integracao do frontend:** Workspace switcher e Project Room passam a usar entidades reais;
+  Laboratory consome o unico Lab Agent no scope correto; Create configura Run Environment no
+  documento versionado; a UI separa trust, `in_process`, capability e lifecycle.
 ### Onda 5 — fechamento
 
-Dossiers determinístico, com modelo real e bounded; fluxo sandbox e fluxo verificado; E2E web +
+Dossiers determinístico, com modelo real e bounded; fluxo nao verificado e fluxo verificado; E2E web +
 sidecar + worker; threat review e recovery; documentacao atualizada somente depois da evidencia.
 
 ## Grafo de dependencias
@@ -169,12 +176,15 @@ flowchart LR
     SEAM --> W06["WS-06 Batch e metricas"]
     SEAM --> W41["WS-41 Tipos HTTP"]
     W01 --> W04
+    W01 --> W51
     W02 --> W06
     W03 --> W40["WS-40 Trust"]
+    W03 --> W51
     SEAM --> W20["WS-20 Artifacts"]
     SEAM --> W30["WS-30 Evaluation"]
     W30 --> W50["WS-50 Bounded exploration"]
     W40 --> W50
+    W40 --> W51
     W04 --> W07["WS-07 Memoria operacional"]
     W04 --> W51["WS-51 Frontend"]
     W06 --> W51
@@ -186,22 +196,22 @@ flowchart LR
 
 | ID | Workstream | Dependencias | Paralelo com | Nao inclui |
 | --- | --- | --- | --- | --- |
-| WS-01 | Superficie de Workspace/Project | nenhuma | WS-02, WS-03 | autoria assistida, importacao em massa |
+| WS-01 | Superficie de Workspace/Project | nenhuma | WS-02, WS-03 | Lab Agent, Run Environment, autoria assistida, importacao em massa |
 | WS-02 | Lifecycle do worker no desktop | nenhuma | WS-01, WS-03 | packaging assinado, distribuicao publica |
-| WS-03 | Decisao de autoria default | nenhuma | WS-01, WS-02 | implementacao de sandbox (e WS-40) |
+| WS-03 | Decisao de autoria default | nenhuma | WS-01, WS-02 | implementacao de trust/isolamento (e WS-40) |
 | WS-11 | Fatiar `Repository` | Onda 0 | serial | mudanca de comportamento |
 | WS-12 | Registro de checkers de admissao | WS-11 | serial | promover capability rejeitada |
 | WS-13 | Costuras das paginas web | nenhuma | WS-11, WS-12 | mudanca observavel de UI |
 | WS-04 | Runtime do Lab Agent copiloto | WS-01 + costuras | WS-05, WS-06, WS-41 | bounded exploration, multi-turn, efeitos externos |
 | WS-05 | Contexto e criterios do Subject | costuras | WS-04, WS-06 | context mounts, compaction, Context Diff em UI |
 | WS-06 | Batch, provider e metricas minimas | WS-02 + costuras | WS-04, WS-05 | estatistica formal, budget de custo aplicado |
-| WS-07 | Memoria operacional e consolidador | WS-04 | WS-05, WS-06, WS-41 | memoria global, memoria como evidencia, inferencia de relacao em runtime |
+| WS-07 | Memoria operacional e consolidador | WS-04 | WS-05, WS-06, WS-41 | memoria global/cross-Project, memoria como evidencia, inferencia de relacao em runtime |
 | WS-41 | Contratos tipados de HTTP | costuras | WS-04, WS-05, WS-06 | redesenho de API |
 | WS-20 | Artifact access/capture | costuras | WS-30, WS-40 | portable bundle, restricted data |
 | WS-30 | Evaluation/checkpoint/progress | costuras | WS-20, WS-40 | restore, replay, fork |
-| WS-40 | Trust sandbox/ReviewPackage | WS-03 + costuras | WS-20, WS-30 | falsa aceitacao humana |
+| WS-40 | Trust nao verificado/ReviewPackage | WS-03 + costuras | WS-20, WS-30 | sandbox de OS, falsa aceitacao humana |
 | WS-50 | Bounded exploration e multi-turn | WS-30 + WS-40 | WS-51 parcial | nested agents, efeitos externos, copiloto (WS-04) |
-| WS-51 | Integracao do frontend | WS-04 + WS-06 + WS-41 | — | Canvas, replay |
+| WS-51 | Integracao do frontend | WS-01 + WS-03 + WS-04 + WS-06 + WS-40 + WS-41 | — | Canvas, replay, agente por Project |
 
 ## Gates entre ondas
 

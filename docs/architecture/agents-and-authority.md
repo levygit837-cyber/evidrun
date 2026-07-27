@@ -7,10 +7,12 @@ authority: normative
 volatility: timeless
 owner: core
 created_at: 2026-07-22
-updated_at: 2026-07-26
+updated_at: 2026-07-27
 applies_to: agents
 sources:
   - docs/adr/0018-lab-agent-copilot-scope.md
+  - docs/adr/0021-hierarchical-lab-agent-scope.md
+  - docs/contracts/lab-agent-scope-v1.md
 supersedes: []
 superseded_by: null
 implementation_refs:
@@ -41,6 +43,14 @@ superfícies públicas que um humano opera.
 Ele ainda não possui runtime executável. Nada em `src/evidrun/` o implementa hoje, e a página
 `Laboratory` é mock.
 
+Existe um único papel e runtime de Lab Agent, não uma instância persistente por Project. Cada sessão
+tem Workspace obrigatório, Project opcional e foco opcional dentro do mesmo Project. General chat
+serve para navegação do Workspace sem leitura implícita de todos os Projects; Project chat lê o
+Project exato e regras/preferências do Workspace pai; Focused chat estreita essa leitura a Study, Run
+ou Comparison. O scope é imutável por sessão e cada tool o impõe no repository, nunca no prompt. O
+contrato está aceito no [ADR 0021](../adr/0021-hierarchical-lab-agent-scope.md), mas o storage atual
+ainda mantém somente `scope_type/scope_id` genéricos, sem essa validação tipada.
+
 A fronteira do Lab Agent é de autoridade, não de capacidade. Ele não aceita a própria proposta, não
 produz attestation, review ou adjudicação, não concede grant nem efeito externo, não escreve no
 event ledger, não acessa `sensitive`/`restricted` sem grant próprio, não envia chat, hipótese ou
@@ -67,7 +77,7 @@ do pacote. Ele não se aplica a contracts externos ou a propostas criadas pelo L
 ## Subject Agent
 
 Recebe somente o `SubjectEnvelope`, compilado por allowlist: Goal, inputs visíveis, protocolo visível,
-capabilities efetivamente admitidas, workspace, budgets, stop conditions e, somente em
+capabilities efetivamente admitidas, Run Environment, budgets, stop conditions e, somente em
 `disclosure=pre_run`, guidance público mínimo compilável. O runner ativo não consome esse guidance e
 a admissão rejeita todo disclosure diferente de `none`. O Subject não recebe StudyIntent, hipótese
 do laboratório, plan completo, chats, hidden graders, calibration, credenciais ou resultados de

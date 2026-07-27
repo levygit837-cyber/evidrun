@@ -7,11 +7,14 @@ Este arquivo é a linguagem ubíqua do projeto. A fonte de verdade normativa com
 ## Autoria e estrutura
 
 **Workspace**:
-Fronteira local de dados e futura sincronização; tudo acontece dentro dela.
+Fronteira durável do Control Plane para isolamento de dados, regras locais e futura sincronização.
+Contém Projects, mas nunca é o ambiente materializado para uma Run.
 _Avoid_: tenant, account
 
 **Project**:
-Conjunto de scenarios, experimentos e conversas relacionados dentro de um Workspace.
+Linha coerente de investigação dentro de um Workspace. Organiza autoria, conversas, memória,
+proveniência e Runs relacionadas; não é diretório de filesystem nem instância de agente.
+_Avoid_: folder, directory, per-project agent
 
 **Study**:
 Raiz de autoria para uma pergunta, hipótese, avaliação, diagnóstico ou exploração; compila uma Run ou uma matriz de Runs.
@@ -39,8 +42,13 @@ _Avoid_: config, settings
 
 ## Execução
 
+**Run Environment**:
+Ambiente efêmero, admitido e materializado para uma única Run a partir de configuração versionada.
+Não é o Workspace do Control Plane e “sandbox” não deve ser usado como sinônimo.
+_Avoid_: Workspace, laboratory workspace, sandbox
+
 **AdmissionRecord**:
-Decisão pré-fila que resolve inventário, workspace e capabilities efetivas. Nenhuma Run existe antes de uma admissão `admitted` para o RunSpec exato.
+Decisão pré-fila que resolve inventário, Run Environment e capabilities efetivas. Nenhuma Run existe antes de uma admissão `admitted` para o RunSpec exato.
 _Avoid_: approval, validation
 
 **Run**:
@@ -60,13 +68,15 @@ evidência. Não possui autoridade humana: não decide, não aceita, não atesta
 _Avoid_: Subject Agent, assistant
 
 **LabAgentEnvelope**:
-Contexto declarado do Lab Agent: escopo, contracts visíveis, evidência autorizada por referência,
-sessão e capabilities efetivas. Nunca contém credenciais.
+Contexto declarado do Lab Agent: Workspace obrigatório, Project e foco opcionais, contracts
+visíveis, evidência autorizada por referência, sessão e capabilities efetivas. Nunca contém
+credenciais nem concede acesso implícito a outro Project.
 
 **MemoryEntry**:
-Entrada de memória operacional do Lab Agent, escopada a um Workspace, discriminada por `kind`
-(`rule`, `preference`, `decision`, `observation`, `episode`), append-only e promovida por humano.
-`observation` exige `evidence_refs`. Não é evidência e não entra no SubjectEnvelope.
+Entrada de memória operacional do Lab Agent sob isolamento obrigatório de Workspace e escopo
+opcional de Project, discriminada por `kind` (`rule`, `preference`, `decision`, `observation`,
+`episode`), append-only e promovida por humano. `observation` exige `evidence_refs`; memória não é
+evidência e não entra no SubjectEnvelope.
 _Avoid_: memory dump, cache, história
 
 **Cue**:
@@ -176,4 +186,14 @@ _Avoid_: pass/fail, outcome, verdict
 ## Conversas
 
 **General chat**:
-Sessão sem escopo de entidade, ainda limitada ao Workspace.
+Sessão do Lab Agent escopada ao Workspace, sem Project ou foco. Pode navegar identidades de Projects,
+mas não recebe acesso implícito ao conteúdo de todos eles.
+_Avoid_: global chat
+
+**Project chat**:
+Sessão do Lab Agent escopada a exatamente um Project, que também pode usar regras e preferências do
+Workspace pai. Não lê outro Project e não representa um agente próprio daquele Project.
+
+**Focused chat**:
+Sessão de Project adicionalmente estreitada a um Study, Run ou Comparison pertencente ao mesmo
+Project.

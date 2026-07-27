@@ -7,8 +7,8 @@ authority: planning
 volatility: snapshot
 owner: product-engineering
 created_at: 2026-07-23
-updated_at: 2026-07-26
-observed_at: 2026-07-26
+updated_at: 2026-07-27
+observed_at: 2026-07-27
 review_due: 2026-08-23
 applies_to: mvp-capabilities
 sources:
@@ -24,6 +24,8 @@ sources:
   - docs/adr/0014-durable-runtime-kernel.md
   - docs/adr/0015-human-subject-envelope-and-authenticator-lifecycle.md
   - docs/adr/0016-real-subject-read-tool-and-tracing.md
+  - docs/adr/0020-workspace-project-run-environment-boundaries.md
+  - docs/adr/0021-hierarchical-lab-agent-scope.md
 supersedes: []
 superseded_by: null
 implementation_refs: []
@@ -37,7 +39,7 @@ incubacao. Ele nao promove nenhuma capability.
 
 ## Snapshot auditado
 
-- observado em 2026-07-24 sobre `main` no commit `eec0caa`;
+- escopos afetados por esta revisao rechecados em 2026-07-27 sobre `main` no commit `b591f4c`;
 - este snapshot descreve o repositorio, nao uma worktree ativa.
 
 ## Legenda
@@ -66,7 +68,8 @@ A limitacao nao esta na espinha, e sim no acesso a ela e na largura do que ela a
 | Runtime Kernel duravel | `verified_main` | Fila, job, attempt, lease, heartbeat, fencing, worker, retry e SubjectEnvelope persistido existem e sao testados por subprocess real. |
 | Subject com modelo real | `verified_main` | Adapter Responses com tool loop e provider default integrados; execucao ordinaria e testes deterministas nao dependem do provider live. |
 | Tool minima de leitura | `verified_main` | A read tool e confinada ao `SubjectEnvelope`, com tracing por eventos e evaluator de citation; nao equivale a runtime generico de tools. |
-| Criacao de Workspace/Project | `partial` | Os metodos existem no `Repository` e sao exercitados indiretamente, mas nao ha rota `POST` nem comando CLI. Banco novo tem zero projects; registrar contract sem project falha com erro de integridade cru. Endereçado por WS-01. |
+| Criacao de Workspace/Project | `partial` | Writes internos existem no `CatalogStore`, sem validacao/unicidade publica; nao ha rota `POST`, CLI nem migration de `name_key`. Banco novo tem zero Projects. `register.project_not_found` ja e tipado; o bloqueio restante e a superficie de criacao. Enderecado por WS-01. |
+| Run Environment | `partial` | `WorkspaceTemplateRevision`/`RunSpec.workspace` tipam configuracao e a admissao suporta somente o perfil estreito `in_process`. Nao existe sandbox forte, policy ceiling de Workspace, provisioning de filesystem, writes, secrets ou snapshot; unsupported rejeita. ADR 0020 separa o conceito do Workspace duravel. |
 | Execucao de Runs no app instalado | `partial` | O desktop faz spawn apenas da API; nada inicia o worker. Runs enfileiradas pela UI nao sao processadas. Endereçado por WS-02. |
 | Autoria usavel no produto instalado | `partial` | Com `EVIDRUN_AUTHORITY=1` o caminho verificado funciona ponta a ponta por CLI e API. No default o unico corredor de aceitacao e o `repository_fixture` nao humano do import legado. Endereçado por WS-03. |
 | Artifact Store CAS/cifrado | `partial` | CAS e AES-GCM existem e sao testados; grants, materialization records, leitura por audiencia, TTL efetivo e enforcement ponta a ponta nao. |
@@ -75,14 +78,14 @@ A limitacao nao esta na espinha, e sim no acesso a ela e na largura do que ela a
 | Progress Artifact observer | `accepted_only` | Policy/content/record possuem schema; scheduler, observer e persistencia nao existem e a admissao rejeita a policy. |
 | Disclosure de eval ao Subject | `partial` | `pre_run` e compilavel por allowlist; todo modo diferente de `none` rejeita a admissao. |
 | Bounded exploration | `accepted_only` | Terminal discriminado e ADR 0013 existem; stop coordinator e runtime permanecem indisponiveis. |
-| Trust modes e Sandbox Run | `accepted_only` | `AuthorityMode.SANDBOX` existe como rotulo de politica de autonomia, sem qualquer ligacao com RunSpec, AdmissionRecord ou Run. Nao existe `ExecutionTrustRecord` nem `ReviewPackage`. |
-| Lab Agent copiloto | `incubating` | Escopo normativo fixado pelo ADR 0018: copiloto com escopo funcional amplo e sem autoridade humana. Chat storage e conceitos existem; nao ha porta, adapter nem consumidor, e os endpoints de chat nao possuem teste. Endereçado por WS-04. |
-| Memoria operacional do Lab Agent | `accepted_only` | ADR 0019 e o contrato `MemoryEntry` v1 estao aceitos; nao existe tabela, indice FTS5, tool, consolidador nem superficie de promocao. Endereçado por WS-07. |
+| Trust de execucao nao verificada | `accepted_only` | `AuthorityMode.SANDBOX` e apenas rotulo legado de policy, sem ligacao com RunSpec, AdmissionRecord ou Run. Trust e Run Environment sao eixos separados; nao existe `ExecutionTrustRecord` nem `ReviewPackage`. |
+| Lab Agent copiloto | `accepted_only` | ADRs 0018/0021 e contrato de scope v1 fixam um unico copiloto, sessoes Workspace/Project/Focused e zero authority. Chat storage generico existe; nao ha porta, adapter, scope enforcement ou consumidor, e endpoints nao possuem teste. Enderecado por WS-04. |
+| Memoria operacional do Lab Agent | `accepted_only` | ADR 0021 e `MemoryEntry` v2 fixam hard boundary de Workspace e subescopo opcional de Project; nao existe tabela, indice FTS5, tool, consolidador nem superficie de promocao. Enderecado por WS-07. |
 | Human review/adjudication | `partial` | Contratos, authority subject e persistencia existem; o branch humano de `save_evaluation_record` nao e exercitado por teste, e fila, UI e conclusao do EvaluationPlan nao fecham o fluxo. |
 | Tools/skills genericas | `accepted_only` | Inventario e eventos sao representaveis; fora da read tool, coordinators continuam ausentes e os event types permanecem reservados no ledger. |
 | Interaction graph/nested agents | `accepted_only` | Contratos sao tipaveis e a admissao rejeita honestamente. |
 | Portable bundle/replay/fork | `accepted_only` | Audit bundles existem; blobs, grants, restore e lineage executavel nao. |
-| Console desktop de operacao | `partial` | Shell multipagina existe em `main` e as tres paginas foram fatiadas em modulos testaveis por WS-13. Observability consome endpoints reais e tem testes. Create e rascunho local cujo botao final executa a fixture `CRL-CTX-002`, ignorando os campos digitados. Laboratory e mock; o adapter de producao apenas emite `integration_pending`. |
+| Console desktop de operacao | `partial` | Shell multipagina existe em `main` e as tres paginas foram fatiadas por WS-13. Observability consome endpoints reais. Create ainda executa a fixture e Laboratory e mock; nao existem Workspace switcher, Project Room ou sessoes escopadas integradas. WS-51 documenta a integracao futura sem promove-la. |
 | Contratos tipados de HTTP no frontend | `partial` | O pipeline Pydantic -> JSON Schema -> TypeScript existe e e verificado no CI, mas cobre o catalogo de dominio. Os DTOs de resposta consumidos pelas paginas sao escritos a mao, fora do gate de drift. |
 | Canvas | `incubating` | Conceitos existem; nao e requisito do MVP operacional. |
 
@@ -92,7 +95,7 @@ O sistema distingue autoridade humana de automacao e executa uma Run auditavel d
 que falta e um caminho pratico para um usuario do app instalado criar um Study proprio: hoje isso
 exige criar project por dentro do dominio, ligar uma variavel de ambiente e rodar o worker a mao.
 Antes do MVP e preciso uma decisao sucessora sobre autoria default e um caminho tecnico para uma Run
-explicitamente `unverified_sandbox`, com efeitos externos negados e sem promocao automatica para
+explicitamente nao verificada, com efeitos externos negados e sem promocao automatica para
 evidencia verificada.
 
 A segunda lacuna, agora nomeada, e o Lab Agent: pelo ADR 0018 ele e a superficie primaria de trabalho
@@ -109,10 +112,12 @@ do produto, e nao existe em `src/evidrun/`. O corte que fecha ambas esta em
 - tratar read tool como runtime generico de tools;
 - chamar Bundle v2/v3 de portatil ou replayable;
 - afirmar que Progress Artifacts ou checkpoints sao gerados automaticamente;
-- descrever `AuthorityMode.SANDBOX` como Sandbox Run implementada;
+- descrever `AuthorityMode.SANDBOX` como trust de Run ou sandbox implementado;
+- descrever `in_process` como sandbox seguro ou afirmar policy ceiling de Workspace implementada;
 - descrever o Lab Agent como existente, ou a pagina Laboratory como integrada;
 - apresentar `pass@k`, `pass^k` ou agregacao entre repeticoes como disponiveis;
 - apresentar custo de execucao como budget aplicado: `max_cost` rejeita a admissao;
 - afirmar que o provider possui retry, backoff ou rate limiting;
 - descrever memoria operacional como existente, ou tratar `MemoryEntry` como evidencia de Run;
+- afirmar que General chat pode ler todos os Projects ou que cada Project possui agente proprio;
 - afirmar que memoria melhora a qualidade dos drafts antes de um Study que meca isso.
