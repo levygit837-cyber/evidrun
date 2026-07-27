@@ -4,6 +4,7 @@ type: implementation-task
 title: WS-07 Memoria operacional e consolidador
 status: proposed
 authority: planning
+volatility: snapshot
 owner: laboratory
 created_at: 2026-07-26
 updated_at: 2026-07-26

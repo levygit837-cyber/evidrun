@@ -1,4 +1,5 @@
 .DS_Store
+.ztr-directory
 .env
 .env.*
 !.env.example

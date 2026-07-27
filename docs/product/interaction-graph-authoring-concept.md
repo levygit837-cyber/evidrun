@@ -4,6 +4,7 @@ type: product
 title: Autoria de grafo de execução com condicionais por evidência
 status: draft
 authority: incubation
+volatility: snapshot
 owner: product
 created_at: 2026-07-25
 updated_at: 2026-07-25

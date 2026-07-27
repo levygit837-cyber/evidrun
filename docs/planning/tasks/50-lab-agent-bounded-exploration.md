@@ -1,17 +1,18 @@
 ---
 id: planning-task-lab-agent-bounded-exploration
 type: implementation-task
-title: WS-50 Lab Agent e bounded exploration
+title: WS-50 Bounded exploration e multi-turn do Subject
 status: proposed
 authority: planning
 volatility: snapshot
 owner: laboratory
 created_at: 2026-07-23
-updated_at: 2026-07-23
-observed_at: 2026-07-23
-review_due: 2026-08-20
-applies_to: lab-agent-runtime
+updated_at: 2026-07-26
+observed_at: 2026-07-26
+review_due: 2026-08-23
+applies_to: bounded-exploration-runtime
 sources:
+  - docs/adr/0018-lab-agent-copilot-scope.md
   - docs/product/run-laboratory-concept.md
   - docs/research/run-scenario-discovery/scenario-c-qualitative-incident.md
   - docs/adr/0013-bounded-exploration-terminal-semantics.md
@@ -22,45 +23,43 @@ implementation_refs: []
 verification_refs: []
 ---
 
-# WS-50 — Lab Agent e bounded exploration
+# WS-50 — Bounded exploration e multi-turn do Subject
 
 `workstream_state: queued`
 
+## Reescopo
+
+Este brief cobria duas coisas: o copiloto do laboratorio e o runtime de bounded exploration. O
+[ADR 0018](../../adr/0018-lab-agent-copilot-scope.md) as separou.
+
+O copiloto saiu para [WS-04](04-lab-agent-runtime.md), porque conversar, ler evidencia autorizada e
+propor drafts nao depende de artifact grants, evaluation generica nem trust modes. O que sobra aqui e
+o que genuinamente depende deles: multi-turn admitido, coordinator de turnos e semantica terminal em
+dois eixos.
+
 ## Resultado pratico
 
-Permitir que o usuario converse com um Lab Agent para criar drafts e iniciar uma investigacao
-limitada, sem entregar ao Subject o chat do laboratorio, hidden graders ou autoridade humana. A Run
-termina por disposition e stop reason do ADR 0013 e produz evidence/progress navegavel.
+Uma Run admite mais de um turno do Subject com budget realmente aplicado, e termina por disposition e
+stop reason do ADR 0013 em vez de pass/fail.
+
+Isso e o que destrava o cenario canonico do produto com tools e autonomia real: hoje a admissao
+rejeita `max_turns > 1` honestamente, porque o coordinator nao existe.
 
 ## Dependencias
 
 ```text
-WS-30 done_on_main
-WS-40 done_on_main
+WS-30 evaluation executavel
+WS-40 trust modes
 ```
 
 O Runtime Kernel de que esta task depende ja esta integrado em `main`.
 
-## Lab Agent
+## Fronteira do Lab Agent nesta task
 
-Pode:
-
-- ler contracts e evidence autorizados;
-- explicar Runs e limitations;
-- propor Study/Goal/Scenario/EvaluationPlan drafts;
-- criar ReviewPackage request;
-- sugerir variants e follow-ups;
-- iniciar sandbox somente pelo mesmo command path humano, sem autoridade adicional.
-
-Nao pode:
-
-- aceitar/rejeitar/superseder revision;
-- criar human review/adjudication;
-- ver hidden data fora de seu envelope;
-- enviar chat ao Subject;
-- editar event ledger;
-- conceder grant ou efeito externo;
-- transformar Progress Artifact em fato.
+O Lab Agent participa iniciando sandbox pelo mesmo command path humano, sem autoridade adicional. A
+fronteira completa esta no ADR 0018 e nao e redefinida aqui: ele nao aceita revision, nao cria review
+ou adjudicacao, nao envia chat ao Subject, nao escreve no ledger, nao concede grant e nao transforma
+Progress Artifact em fato.
 
 ## Bounded exploration
 
@@ -139,6 +138,9 @@ DEFINE one qualitative dossier
 
 ## Criterio de saida
 
-O usuario descreve uma investigacao, recebe drafts do Lab Agent, executa em sandbox, acompanha
-progresso e recebe uma conclusao limitada por evidencia. O sistema mostra claramente lifecycle,
-disposition, stop reason e qualidade como eixos separados.
+Uma Run admite mais de um turno com budget de turno, tempo e output aplicados de verdade, e termina
+com `{disposition, stop_reason, stop_condition_kind}` correspondendo a uma condition declarada. O
+sistema mostra lifecycle, disposition, stop reason e qualidade como eixos separados, e nenhum deles
+como pass/fail.
+
+A autoria assistida que precede essa Run pertence a [WS-04](04-lab-agent-runtime.md).

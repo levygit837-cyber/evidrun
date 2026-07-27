@@ -4,6 +4,7 @@ type: adr
 title: Lab Agent como copiloto do laboratório, com fronteira de autoridade
 status: accepted
 authority: normative
+volatility: timeless
 owner: product
 created_at: 2026-07-26
 updated_at: 2026-07-26

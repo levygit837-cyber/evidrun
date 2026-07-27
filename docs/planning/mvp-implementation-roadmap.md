@@ -7,11 +7,13 @@ authority: planning
 volatility: snapshot
 owner: product-engineering
 created_at: 2026-07-23
-updated_at: 2026-07-25
-observed_at: 2026-07-25
-review_due: 2026-08-07
+updated_at: 2026-07-26
+observed_at: 2026-07-26
+review_due: 2026-08-23
 applies_to: mvp-implementation
 sources:
+  - docs/planning/comfortable-minimum.md
+  - docs/adr/0018-lab-agent-copilot-scope.md
   - docs/roadmap/mvp.md
   - docs/planning/mvp-capability-map.md
   - docs/product/charter.md
@@ -118,7 +120,24 @@ que compara decisao, statuses, requisitos, politicas negadas e a mensagem exata 
 byte. Um defeito latente encontrado ao exercitar o ramo de provider indisponivel pela primeira vez foi
 escalado e corrigido: `admit` levantava `ValidationError` em vez de devolver `decision=rejected`.
 
-### Onda 2 — largura real
+### Onda 2 — Minimo Confortavel
+
+O corte que torna o laboratorio utilizavel, definido em
+[Minimo Confortavel](comfortable-minimum.md). O [ADR 0018](../adr/0018-lab-agent-copilot-scope.md)
+separou o copiloto do bounded exploration, e por isso WS-04 nao depende mais de WS-20/30/40.
+
+- **WS-04 Runtime do Lab Agent copiloto:** `LabAgentEnvelope`, loop de tools read-only, proposta de
+  draft sem decisao, endpoints de chat cobertos e streaming. Depende de WS-01.
+- **WS-05 Contexto e criterios do Subject:** contrato de contexto de Scenario suficiente para uma
+  comparacao de variavel primaria unica, com material identico por digest entre variants irmas.
+- **WS-06 Batch, resiliencia de provider e metricas minimas:** lote de execucao, retry/backoff e
+  rate limiting, metricas por Run e agregacao `pass@k`/`pass^k` como read model. Depende de WS-02.
+- **WS-07 Memoria operacional e consolidador:** `MemoryEntry` com FTS5 sobre cues, tools de busca e
+  leitura por id, consolidador em background e promocao humana de candidatos. Depende de WS-04.
+- **WS-41 Contratos tipados de HTTP:** os DTOs de resposta consumidos pelo frontend passam pelo
+  gerador, fechando o drift entre `apps/web/src/types.ts` e os schemas reais.
+
+### Onda 3 — largura de evidencia
 
 Paralelo amplo. Cada frente tem ownership de arquivo distinto depois das costuras.
 
@@ -126,16 +145,14 @@ Paralelo amplo. Cada frente tem ownership de arquivo distinto depois das costura
 - **WS-30 Evaluation executavel:** multiplos stages, model judge, CheckpointCoordinator e
   ProgressObserver.
 - **WS-40 Trust modes e ReviewPackage:** implementa a decisao da WS-03.
-- **WS-41 Contratos tipados de HTTP:** os DTOs de resposta consumidos pelo frontend passam pelo
-  gerador, fechando o drift que hoje existe entre `apps/web/src/types.ts` e os schemas reais.
 
-### Onda 3 — laboratorio util
+### Onda 4 — laboratorio autonomo
 
-- **WS-50 Lab Agent e bounded exploration.**
-- **WS-51 Integracao do frontend:** Create passa a criar entidades reais; Laboratory passa a
-  consumir o Lab Agent; a UI distingue `sandbox`, `verified`, `rejected`, `failed` e `unsupported`.
-
-### Onda 4 — fechamento
+- **WS-50 Bounded exploration e multi-turn:** coordinator de turnos com budget aplicado e terminal em
+  dois eixos. Depende de WS-30 e WS-40.
+- **WS-51 Integracao do frontend:** Create passa a criar entidades reais; Laboratory passa a consumir
+  o Lab Agent; a UI distingue `sandbox`, `verified`, `rejected`, `failed` e `unsupported`.
+### Onda 5 — fechamento
 
 Dossiers determinístico, com modelo real e bounded; fluxo sandbox e fluxo verificado; E2E web +
 sidecar + worker; threat review e recovery; documentacao atualizada somente depois da evidencia.
@@ -147,16 +164,21 @@ flowchart LR
     W01["WS-01 Workspace/Project"] --> SEAM
     W02["WS-02 Worker no desktop"] --> SEAM
     W03["WS-03 Autoria default (ADR)"] --> SEAM
-    SEAM["WS-11/12 Costuras"] --> W20["WS-20 Artifacts"]
-    SEAM --> W30["WS-30 Evaluation"]
-    SEAM --> W40["WS-40 Trust"]
+    SEAM["WS-11/12 Costuras"] --> W04["WS-04 Lab Agent copiloto"]
+    SEAM --> W05["WS-05 Contexto do Subject"]
+    SEAM --> W06["WS-06 Batch e metricas"]
     SEAM --> W41["WS-41 Tipos HTTP"]
-    W03 --> W40
-    W20 --> W50["WS-50 Lab Agent"]
-    W30 --> W50
+    W01 --> W04
+    W02 --> W06
+    W03 --> W40["WS-40 Trust"]
+    SEAM --> W20["WS-20 Artifacts"]
+    SEAM --> W30["WS-30 Evaluation"]
+    W30 --> W50["WS-50 Bounded exploration"]
     W40 --> W50
-    W41 --> W51["WS-51 Frontend"]
-    W50 --> W51
+    W04 --> W07["WS-07 Memoria operacional"]
+    W04 --> W51["WS-51 Frontend"]
+    W06 --> W51
+    W41 --> W51
     W51 --> MVP["MVP operacional"]
 ```
 
@@ -169,12 +191,17 @@ flowchart LR
 | WS-03 | Decisao de autoria default | nenhuma | WS-01, WS-02 | implementacao de sandbox (e WS-40) |
 | WS-11 | Fatiar `Repository` | Onda 0 | serial | mudanca de comportamento |
 | WS-12 | Registro de checkers de admissao | WS-11 | serial | promover capability rejeitada |
-| WS-20 | Artifact access/capture | costuras | WS-30, WS-40, WS-41 | portable bundle, restricted data |
-| WS-30 | Evaluation/checkpoint/progress | costuras | WS-20, WS-40, WS-41 | restore, replay, fork |
-| WS-40 | Trust sandbox/ReviewPackage | WS-03 + costuras | WS-20, WS-30, WS-41 | falsa aceitacao humana |
-| WS-41 | Contratos tipados de HTTP | costuras | WS-20, WS-30, WS-40 | redesenho de API |
-| WS-50 | Lab Agent/bounded exploration | WS-20 + WS-30 + WS-40 | WS-51 parcial | nested agents, efeitos externos |
-| WS-51 | Integracao do frontend | WS-41 + WS-50 | — | Canvas, replay |
+| WS-13 | Costuras das paginas web | nenhuma | WS-11, WS-12 | mudanca observavel de UI |
+| WS-04 | Runtime do Lab Agent copiloto | WS-01 + costuras | WS-05, WS-06, WS-41 | bounded exploration, multi-turn, efeitos externos |
+| WS-05 | Contexto e criterios do Subject | costuras | WS-04, WS-06 | context mounts, compaction, Context Diff em UI |
+| WS-06 | Batch, provider e metricas minimas | WS-02 + costuras | WS-04, WS-05 | estatistica formal, budget de custo aplicado |
+| WS-07 | Memoria operacional e consolidador | WS-04 | WS-05, WS-06, WS-41 | memoria global, memoria como evidencia, inferencia de relacao em runtime |
+| WS-41 | Contratos tipados de HTTP | costuras | WS-04, WS-05, WS-06 | redesenho de API |
+| WS-20 | Artifact access/capture | costuras | WS-30, WS-40 | portable bundle, restricted data |
+| WS-30 | Evaluation/checkpoint/progress | costuras | WS-20, WS-40 | restore, replay, fork |
+| WS-40 | Trust sandbox/ReviewPackage | WS-03 + costuras | WS-20, WS-30 | falsa aceitacao humana |
+| WS-50 | Bounded exploration e multi-turn | WS-30 + WS-40 | WS-51 parcial | nested agents, efeitos externos, copiloto (WS-04) |
+| WS-51 | Integracao do frontend | WS-04 + WS-06 + WS-41 | — | Canvas, replay |
 
 ## Gates entre ondas
 

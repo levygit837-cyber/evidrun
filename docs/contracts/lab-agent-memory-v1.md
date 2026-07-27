@@ -4,6 +4,7 @@ type: contract
 title: Memória operacional do Lab Agent v1
 status: accepted
 authority: normative
+volatility: timeless
 owner: core
 created_at: 2026-07-26
 updated_at: 2026-07-26

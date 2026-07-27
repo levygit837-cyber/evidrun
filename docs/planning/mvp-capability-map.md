@@ -8,10 +8,12 @@ volatility: snapshot
 owner: product-engineering
 created_at: 2026-07-23
 updated_at: 2026-07-26
-observed_at: 2026-07-24
-review_due: 2026-08-07
+observed_at: 2026-07-26
+review_due: 2026-08-23
 applies_to: mvp-capabilities
 sources:
+  - docs/adr/0018-lab-agent-copilot-scope.md
+  - docs/planning/comfortable-minimum.md
   - docs/roadmap/mvp.md
   - docs/architecture/system.md
   - docs/architecture/agents-and-authority.md
@@ -74,12 +76,13 @@ A limitacao nao esta na espinha, e sim no acesso a ela e na largura do que ela a
 | Disclosure de eval ao Subject | `partial` | `pre_run` e compilavel por allowlist; todo modo diferente de `none` rejeita a admissao. |
 | Bounded exploration | `accepted_only` | Terminal discriminado e ADR 0013 existem; stop coordinator e runtime permanecem indisponiveis. |
 | Trust modes e Sandbox Run | `accepted_only` | `AuthorityMode.SANDBOX` existe como rotulo de politica de autonomia, sem qualquer ligacao com RunSpec, AdmissionRecord ou Run. Nao existe `ExecutionTrustRecord` nem `ReviewPackage`. |
-| Lab Agent | `incubating` | Chat storage e conceitos existem; nao ha porta, adapter nem consumidor. Os endpoints de chat nao possuem teste. |
+| Lab Agent copiloto | `incubating` | Escopo normativo fixado pelo ADR 0018: copiloto com escopo funcional amplo e sem autoridade humana. Chat storage e conceitos existem; nao ha porta, adapter nem consumidor, e os endpoints de chat nao possuem teste. Endereçado por WS-04. |
+| Memoria operacional do Lab Agent | `accepted_only` | ADR 0019 e o contrato `MemoryEntry` v1 estao aceitos; nao existe tabela, indice FTS5, tool, consolidador nem superficie de promocao. Endereçado por WS-07. |
 | Human review/adjudication | `partial` | Contratos, authority subject e persistencia existem; o branch humano de `save_evaluation_record` nao e exercitado por teste, e fila, UI e conclusao do EvaluationPlan nao fecham o fluxo. |
 | Tools/skills genericas | `accepted_only` | Inventario e eventos sao representaveis; fora da read tool, coordinators continuam ausentes e os event types permanecem reservados no ledger. |
 | Interaction graph/nested agents | `accepted_only` | Contratos sao tipaveis e a admissao rejeita honestamente. |
 | Portable bundle/replay/fork | `accepted_only` | Audit bundles existem; blobs, grants, restore e lineage executavel nao. |
-| Console desktop de operacao | `partial` | Shell multipagina existe em `main`. Observability consome endpoints reais e tem testes. Create e rascunho local cujo botao final executa a fixture `CRL-CTX-002`, ignorando os campos digitados. Laboratory e mock; o adapter de producao apenas emite `integration_pending`. |
+| Console desktop de operacao | `partial` | Shell multipagina existe em `main` e as tres paginas foram fatiadas em modulos testaveis por WS-13. Observability consome endpoints reais e tem testes. Create e rascunho local cujo botao final executa a fixture `CRL-CTX-002`, ignorando os campos digitados. Laboratory e mock; o adapter de producao apenas emite `integration_pending`. |
 | Contratos tipados de HTTP no frontend | `partial` | O pipeline Pydantic -> JSON Schema -> TypeScript existe e e verificado no CI, mas cobre o catalogo de dominio. Os DTOs de resposta consumidos pelas paginas sao escritos a mao, fora do gate de drift. |
 | Canvas | `incubating` | Conceitos existem; nao e requisito do MVP operacional. |
 
@@ -92,6 +95,10 @@ Antes do MVP e preciso uma decisao sucessora sobre autoria default e um caminho 
 explicitamente `unverified_sandbox`, com efeitos externos negados e sem promocao automatica para
 evidencia verificada.
 
+A segunda lacuna, agora nomeada, e o Lab Agent: pelo ADR 0018 ele e a superficie primaria de trabalho
+do produto, e nao existe em `src/evidrun/`. O corte que fecha ambas esta em
+[Minimo Confortavel](comfortable-minimum.md).
+
 ## Claims proibidos neste snapshot
 
 - afirmar que o draft local da pagina Create alimenta autoria canonica;
@@ -102,4 +109,10 @@ evidencia verificada.
 - tratar read tool como runtime generico de tools;
 - chamar Bundle v2/v3 de portatil ou replayable;
 - afirmar que Progress Artifacts ou checkpoints sao gerados automaticamente;
-- descrever `AuthorityMode.SANDBOX` como Sandbox Run implementada.
+- descrever `AuthorityMode.SANDBOX` como Sandbox Run implementada;
+- descrever o Lab Agent como existente, ou a pagina Laboratory como integrada;
+- apresentar `pass@k`, `pass^k` ou agregacao entre repeticoes como disponiveis;
+- apresentar custo de execucao como budget aplicado: `max_cost` rejeita a admissao;
+- afirmar que o provider possui retry, backoff ou rate limiting;
+- descrever memoria operacional como existente, ou tratar `MemoryEntry` como evidencia de Run;
+- afirmar que memoria melhora a qualidade dos drafts antes de um Study que meca isso.

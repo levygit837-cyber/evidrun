@@ -7,9 +7,9 @@ authority: planning
 volatility: snapshot
 owner: product-engineering
 created_at: 2026-07-23
-updated_at: 2026-07-24
-observed_at: 2026-07-24
-review_due: 2026-08-07
+updated_at: 2026-07-26
+observed_at: 2026-07-26
+review_due: 2026-08-23
 applies_to: agent-workstreams
 sources:
   - docs/planning/README.md
@@ -33,22 +33,29 @@ O layout-alvo de arquivos e o grafo de conversa entre pastas estao em
 [Layout da codebase](../../architecture/codebase-layout.md), com a decisao normativa no
 [ADR 0017](../../adr/0017-structural-budget-and-named-seams.md). Nenhum brief redefine o alvo.
 
+O corte atual segue o [Minimo Confortavel](../comfortable-minimum.md): tornar a espinha alcancavel,
+depois entregar o corredor Lab Agent -> RunSpec -> contexto do Subject -> batch -> metricas ->
+observabilidade.
+
 | Estado | Brief | Proxima acao |
 | --- | --- | --- |
 | `queued` | [WS-01 Superficie de Workspace/Project](01-workspace-project-surface.md) | Pode iniciar imediatamente, em paralelo com WS-02 e WS-03 |
 | `queued` | [WS-02 Lifecycle do worker no desktop](02-desktop-worker-lifecycle.md) | Pode iniciar imediatamente; nao toca dominio Python |
 | `queued` | [WS-03 Decisao de autoria default](03-default-authoring-authority.md) | ADR sucessor; decisao humana, precede WS-40 |
 | `delivered` | [WS-11/12 Costuras do dominio](11-domain-seams.md) | Entregue em `812b330` e `62ddec8`; desbloqueia WS-20/30/40 |
-| `blocked` | [WS-20 Artifact access/capture](20-artifact-access-and-capture.md) | Aguarda costuras |
-| `blocked` | [WS-30 Evaluation/checkpoint/progress](30-evaluation-checkpoint-progress.md) | Aguarda costuras |
-| `blocked` | [WS-40 Trust sandbox/ReviewPackage](40-trust-sandbox-review-package.md) | Aguarda WS-03 e costuras |
-| `queued` | [WS-13 Costuras das paginas web](13-web-page-seams.md) | Pode iniciar imediatamente; so toca `apps/web/src/features/**` |
-| `blocked` | [WS-50 Lab Agent/bounded exploration](50-lab-agent-bounded-exploration.md) | Aguarda WS-20, WS-30 e WS-40 |
+| `delivered` | [WS-13 Costuras das paginas web](13-web-page-seams.md) | Entregue; brief esta `verified` com refs de implementacao e teste |
+| `queued` | [WS-04 Runtime do Lab Agent copiloto](04-lab-agent-runtime.md) | Depende de WS-01; nao depende de WS-20/30/40 |
+| `queued` | [WS-05 Contexto e criterios do Subject](05-subject-context-contract.md) | Decisao de contrato; precede batch util |
+| `queued` | [WS-06 Batch, resiliencia de provider e metricas minimas](06-batch-and-minimal-metrics.md) | Depende de WS-02; paralelo com WS-05 |
+| `queued` | [WS-07 Memoria operacional e consolidador](07-lab-agent-memory.md) | Depende de WS-04; nao depende de WS-05, WS-06, WS-20, WS-30 nem WS-40 |
+| `blocked` | [WS-20 Artifact access/capture](20-artifact-access-and-capture.md) | Costuras entregues; aguarda priorizacao apos o Minimo Confortavel |
+| `blocked` | [WS-30 Evaluation/checkpoint/progress](30-evaluation-checkpoint-progress.md) | Costuras entregues; aguarda priorizacao apos o Minimo Confortavel |
+| `blocked` | [WS-40 Trust sandbox/ReviewPackage](40-trust-sandbox-review-package.md) | Aguarda WS-03 |
+| `queued` | [WS-50 Bounded exploration e multi-turn](50-lab-agent-bounded-exploration.md) | Reescopado: so bounded exploration. O copiloto saiu para WS-04 |
 
 O frontend nao tem brief de integracao ativo. A fatia multipagina existe em `main`: Observability
 consome endpoints reais, Create e rascunho local mais bootstrap da fixture, Laboratory e mock. A
-integracao real pertence a WS-51 e depende de WS-41 e WS-50. WS-13 e ortogonal a isso: extrai as
-paginas existentes sem mudar o que elas fazem.
+integracao real pertence a WS-51 e depende de WS-04 e WS-06.
 
 ## Regra de paralelismo
 

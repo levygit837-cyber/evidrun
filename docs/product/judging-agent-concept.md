@@ -4,6 +4,7 @@ type: product
 title: Agente julgador e intervenção na sessão do Subject
 status: draft
 authority: incubation
+volatility: snapshot
 owner: product
 created_at: 2026-07-25
 updated_at: 2026-07-26

@@ -4,6 +4,7 @@ type: adr
 title: Memória operacional do Lab Agent com descoberta por cue e promoção humana
 status: accepted
 authority: normative
+volatility: timeless
 owner: product
 created_at: 2026-07-26
 updated_at: 2026-07-26
