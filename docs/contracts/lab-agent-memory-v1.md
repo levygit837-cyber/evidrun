@@ -2,18 +2,18 @@
 id: contract-lab-agent-memory-v1
 type: contract
 title: Memória operacional do Lab Agent v1
-status: accepted
+status: superseded
 authority: normative
 volatility: timeless
 owner: core
 created_at: 2026-07-26
-updated_at: 2026-07-26
+updated_at: 2026-07-27
 applies_to: schema/lab-agent-memory@1
 sources:
   - docs/adr/0019-lab-agent-operational-memory.md
   - docs/adr/0018-lab-agent-copilot-scope.md
 supersedes: []
-superseded_by: null
+superseded_by: docs/contracts/lab-agent-memory-v2.md
 implementation_refs: []
 verification_refs: []
 ---
@@ -21,8 +21,8 @@ verification_refs: []
 # MemoryEntry
 
 Contrato de uma entrada de memória operacional do Lab Agent, conforme o
-[ADR 0019](../adr/0019-lab-agent-operational-memory.md). O contrato está aceito; nenhum runtime o
-implementa ainda.
+[ADR 0019](../adr/0019-lab-agent-operational-memory.md). Este contrato foi sucedido pelo
+[contrato v2](lab-agent-memory-v2.md); nenhum runtime implementou esta versão histórica.
 
 ## Campos
 

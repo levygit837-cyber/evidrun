@@ -7,9 +7,11 @@ authority: planning
 volatility: snapshot
 owner: product
 created_at: 2026-07-22
-updated_at: 2026-07-26
+updated_at: 2026-07-27
 applies_to: product
-sources: []
+sources:
+  - docs/adr/0020-workspace-project-run-environment-boundaries.md
+  - docs/adr/0021-hierarchical-lab-agent-scope.md
 supersedes: []
 superseded_by: null
 implementation_refs: []
@@ -26,7 +28,8 @@ verification_refs: []
 - API, CLI, React e Electron dev shell;
 - captura sensível criptografada como adapter;
 - benchmark CRL-CTX-002 e testes.
-- contratos fechados para Study, Goal, Scenario, Agent Inventory, Workspace, Interaction,
+- contratos fechados para Study, Goal, Scenario, Agent Inventory, Run Environment
+  (`WorkspaceTemplateRevision` no schema v1), Interaction,
   EvaluationPlan e CheckpointPolicy;
 - compilação determinística de variants/repetitions, RunSpec, SubjectEnvelope e admissão;
 - persistência aditiva de revisions, decisões, specs, admissions, evaluations e checkpoints;
@@ -53,17 +56,19 @@ O corte imediato e o [Minimo Confortavel](../planning/comfortable-minimum.md). D
 itens abaixo, nesta ordem de destrave:
 
 - worker supervisionado pelo app instalado, sem o qual Run enfileirada nao executa;
-- superficie de Workspace/Project e autoria default, sem as quais nao existe Study proprio;
-- runtime do Lab Agent copiloto conforme o ADR 0018, com `LabAgentEnvelope`, loop de tools read-only
-  e proposta de draft sem decisao;
+- superficie de Workspace/Project com nomes nao ambiguos e autoria default, sem as quais nao existe
+  Study proprio; criar esses scopes nao materializa Run Environment;
+- runtime de um unico Lab Agent copiloto conforme os ADRs 0018/0021, com sessoes escopadas,
+  `LabAgentEnvelope`, loop de tools e proposta de draft sem decisao;
 - contrato de contexto e criterios do Subject, para que duas variants irmas difiram de forma tipada
   na variavel primaria recebendo material identico por digest;
 - batch de execucao com retry/backoff e rate limiting de provider, mais metricas minimas por Run
   (tokens, tool calls, duracao, terminal cause) e agregadas por variant (taxa de sucesso, `pass@k`,
   `pass^k`), como read model derivado do ledger. Custo entra como projecao; `max_cost` continua
   rejeitando a admissao;
-- memoria operacional do Lab Agent conforme o ADR 0019: `MemoryEntry` por Workspace, descoberta por
-  cue em dois estagios, consolidador em background e promocao humana de candidatos. Adjacente ao
+- memoria operacional do Lab Agent conforme o ADR 0021: `MemoryEntry` com hard boundary de Workspace
+  e Project opcional, descoberta por cue em dois estagios, consolidador em background e promocao
+  humana de candidatos. Adjacente ao
   corredor: melhora drafts, mas o Minimo Confortavel fecha sem ela.
 
 Depois do Minimo Confortavel:
@@ -78,7 +83,7 @@ Depois do Minimo Confortavel:
 - runtime de `bounded_exploration` conforme a taxonomia do ADR 0013, sem pass/fail;
 - multi-turn admitido com coordinator de turnos e budget aplicado;
 - approvals e resume;
-- tool simulator e sandbox;
+- tool simulator e adapter de sandbox que prove o Run Environment efetivo na admissao;
 - runtime real de tools, skills e nested agents;
 - execução de protocolos em grafo;
 - executor genérico de `EvaluationPlan`, incluindo triggers e todos os stages;

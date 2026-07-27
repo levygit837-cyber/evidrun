@@ -7,14 +7,15 @@ authority: planning
 volatility: snapshot
 owner: core
 created_at: 2026-07-26
-updated_at: 2026-07-26
-observed_at: 2026-07-26
+updated_at: 2026-07-27
+observed_at: 2026-07-27
 review_due: 2026-08-23
 applies_to: subject-context
 sources:
   - docs/planning/comfortable-minimum.md
   - docs/adr/0012-subject-disclosure-and-terminal-semantics.md
   - docs/adr/0016-real-subject-read-tool-and-tracing.md
+  - docs/adr/0020-workspace-project-run-environment-boundaries.md
   - docs/contracts/study-run-v1.md
 supersedes: []
 superseded_by: null
@@ -38,7 +39,7 @@ seja um objeto do contrato, nao texto solto.
 ## O problema exato
 
 O `SubjectEnvelope` e uma allowlist fechada e compila Goal, inputs visiveis, protocolo visivel,
-capabilities admitidas, workspace, budgets e stop conditions. Isso e suficiente para uma Run
+capabilities admitidas, Run Environment, budgets e stop conditions. Isso e suficiente para uma Run
 determinista de fixture.
 
 O que falta e a autoria: nao existe vocabulario para declarar **de onde vem** o contexto de um

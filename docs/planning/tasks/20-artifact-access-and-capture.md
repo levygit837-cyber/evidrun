@@ -7,14 +7,15 @@ authority: planning
 volatility: snapshot
 owner: evidence
 created_at: 2026-07-23
-updated_at: 2026-07-23
-observed_at: 2026-07-23
+updated_at: 2026-07-27
+observed_at: 2026-07-27
 review_due: 2026-08-06
 applies_to: artifact-runtime
 sources:
   - docs/adr/0011-progress-artifacts-and-bundle-boundaries.md
   - docs/architecture/data-and-evidence.md
   - docs/contracts/capture-and-retention.md
+  - docs/adr/0020-workspace-project-run-environment-boundaries.md
 supersedes: []
 superseded_by: null
 implementation_refs: []
@@ -53,7 +54,7 @@ Kernel de que ela depende ja esta integrado.
 - export portatil de blobs;
 - filesystem irrestrito;
 - inventario de todos os arquivos lidos/editados;
-- restore de workspace;
+- restore de Run Environment;
 - Canvas.
 
 ## Invariantes
@@ -61,6 +62,9 @@ Kernel de que ela depende ja esta integrado.
 - `ArtifactRef` continua sem path, URL ou locator.
 - Ref nao concede acesso.
 - Grant para outra Run/project/audience falha fechado.
+- Project e fronteira logica de proveniencia, nao path ou mount. Reuso cross-Project exige import ou
+  selecao explicita com provenance; conhecer um `ArtifactRef` nao atravessa essa fronteira.
+- O Workspace do Control Plane nunca e materializado como Run Environment por este grant.
 - Permissao efetiva nunca excede a solicitada no RunSpec/Admission.
 - Materializacao verifica digest antes da entrega.
 - `sensitive` nunca aparece inline em event, log, API ou bundle.
@@ -100,7 +104,7 @@ AUDIT all artifact consumers
 - Se um consumer precisar de locator, redesenhe a materializacao; nao relaxe `ArtifactRef`.
 - Se um grant depender de autoridade humana, use attestation existente; nao aceite booleano
   `approved=true`.
-- Se bytes sensiveis aparecerem em um assertion de teste, trate como P0 e faça busca no workspace.
+- Se bytes sensiveis aparecerem em um assertion de teste, trate como P0 e faça busca no checkout.
 - Se a mesma regra estiver duplicada em API/worker/bundle, extraia um service do dominio antes de
   continuar.
 - Se WS-40 estiver em paralelo, combine somente o contrato de trust/grant; repositories e migrations

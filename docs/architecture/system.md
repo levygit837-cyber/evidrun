@@ -7,9 +7,11 @@ authority: normative
 volatility: current
 owner: core
 created_at: 2026-07-22
-updated_at: 2026-07-26
+updated_at: 2026-07-27
 applies_to: repository
-sources: []
+sources:
+  - docs/adr/0020-workspace-project-run-environment-boundaries.md
+  - docs/adr/0021-hierarchical-lab-agent-scope.md
 supersedes: []
 superseded_by: null
 implementation_refs:
@@ -28,11 +30,18 @@ verification_refs:
 
 O Evidrun é um monólito modular com três planes:
 
-- **Control Plane:** projetos, Studies, revisions, decisões humanas e chats; é onde vive o Lab Agent,
+- **Control Plane:** Workspaces, Projects, Studies, revisions, decisões humanas e chats; é onde vive o Lab Agent,
   copiloto do laboratório com escopo funcional amplo e sem autoridade humana
   ([ADR 0018](../adr/0018-lab-agent-copilot-scope.md)). Seu runtime ainda não existe.
-- **Execution Plane:** compilador, admissão, coordinator, worker, Subject Runner e workspace.
+- **Execution Plane:** compilador, admissão, coordinator, worker, Subject Runner e Run Environment.
 - **Evidence Plane:** event ledger, snapshots, artifacts, checkpoints, evaluations e bundles.
+
+Workspace é a raiz durável de isolamento do Control Plane; Project é a linha de investigação filha e
+fronteira de autoria/proveniência. Run Environment é efêmero por Run e vem de configuração
+versionada, nunca de um mount implícito do Workspace. O schema v1 ainda usa
+`WorkspaceTemplateRevision`/`RunSpec.workspace`; esses nomes de compatibilidade não unem os dois
+conceitos. A superfície pública e a unicidade de Workspace/Project estão aceitas, mas ainda não
+implementadas; hoje existem somente writes internos e listagens derivadas do dashboard.
 
 O fluxo novo é `StudyRevision aceita → compilação → RunSpec → admissão → Run → eventos`. Revisions,
 specs e admissions são imutáveis. Checkpoints e evaluations se ancoram a sequence/hash do ledger.
@@ -68,7 +77,7 @@ rejeitada antes do enqueue. Claim cria attempts com lease e fencing; restart ou 
 a mesma Run sem permitir writes do worker antigo. O demo usa esse mesmo kernel, embora drene seus
 jobs sincronamente para preservar sua interface histórica.
 
-O runtime admite apenas `single_turn`, workspace `in_process` e capabilities catalogadas. Um protocolo
+O runtime admite apenas `single_turn`, Run Environment `in_process` e capabilities catalogadas. Um protocolo
 em grafo é tipável e compilável, mas rejeitado na admissão. Dois pares completos estão ativos: o
 runner scripted com grader legado offline e o Responses read agent com grader exato fundamentado em
 tool result. Cada par cobre um único stage booleano determinístico; model judge, human review e

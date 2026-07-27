@@ -7,13 +7,14 @@ authority: planning
 volatility: snapshot
 owner: laboratory
 created_at: 2026-07-26
-updated_at: 2026-07-26
-observed_at: 2026-07-26
+updated_at: 2026-07-27
+observed_at: 2026-07-27
 review_due: 2026-08-23
 applies_to: lab-agent-memory
 sources:
-  - docs/adr/0019-lab-agent-operational-memory.md
-  - docs/contracts/lab-agent-memory-v1.md
+  - docs/adr/0021-hierarchical-lab-agent-scope.md
+  - docs/contracts/lab-agent-memory-v2.md
+  - docs/contracts/lab-agent-scope-v1.md
   - docs/adr/0018-lab-agent-copilot-scope.md
 supersedes: []
 superseded_by: null
@@ -37,11 +38,12 @@ WS-20, WS-30 nem WS-40.
 ## O que este brief NAO e
 
 Nao e arquivo Markdown com titulos `###` e leitura por intervalo de linhas. Essa forma foi
-considerada e rejeitada pelo ADR 0019: o consolidador reescreve o conteudo, offsets deslocam, e uma
+considerada e rejeitada pelo ADR 0019 e preservada pelo ADR 0021: o consolidador reescreve o conteudo, offsets deslocam, e uma
 leitura por `start|end` obtida antes da reescrita devolve o meio de outra memoria sem erro e sem
 sinal. Contexto errado silencioso e a pior falha possivel para este produto.
 
-Nao e memoria global. Escopo e o Workspace, sem excecao.
+Nao e memoria global nem busca cross-Project. Workspace e o hard boundary; `project_id` opcional
+separa linhas de investigacao, conforme o ADR 0021.
 
 Nao e evidencia. Nenhuma entrada entra no ledger, no bundle ou no `SubjectEnvelope`.
 
@@ -50,16 +52,22 @@ Nao e evidencia. Nenhuma entrada entra no ledger, no bundle ou no `SubjectEnvelo
 ### Persistencia
 
 Tabela `memory_entries` conforme
-[Memoria operacional do Lab Agent v1](../../contracts/lab-agent-memory-v1.md), com migration
+[Memoria operacional do Lab Agent v2](../../contracts/lab-agent-memory-v2.md), com migration
 Alembic na ordem real de merge, mais indice FTS5 sobre `title`, `cues` e `anti_cues`.
 
 `body` **nao** e indexado.
 
-Indice obrigatorio por `(workspace_id, status)`, porque toda consulta e escopada.
+Indices obrigatorios cobrem `(workspace_id, project_id, status)` e o caso `project_id IS NULL`,
+porque toda consulta e hierarquicamente escopada.
 
 Validacao na escrita rejeita, no minimo: `kind=observation` sem `evidence_refs` ou sem `sample_size`,
 `cues` vazio, ausencia de `workspace_id`, `status=superseded` sem `superseded_by`, `status=active` sem
-`promoted_at`, `relates_to` cruzando Workspace, e `body` materializando `sensitive`/`restricted`.
+`promoted_at`, Project fora do Workspace, `relates_to` cruzando Workspace/Project e `body`
+materializando `sensitive`/`restricted`.
+
+Como v1 nao foi implementado em `main`, a primeira migration cria o shape v2 diretamente. Se um
+import explicito ou banco pre-release trouxer entries v1, preserve-as com `project_id=null`; nao
+infira Project de title, cue, body ou ref. Reclassificacao cria nova entrada e supersede a anterior.
 
 Correcao cria entrada nova e marca a anterior `superseded`. Nenhum caminho faz UPDATE de `body`.
 
@@ -67,12 +75,13 @@ Correcao cria entrada nova e marca a anterior `superseded`. Nenhum caminho faz U
 
 Exatamente duas capabilities de memoria expostas ao Lab Agent:
 
-- `memory_search(query, kind?, limit)` — devolve `id`, `title`, `cues`, `kind`, `sample_size` e
-  snippet. **Nao devolve `body`.** Escopo `workspace_id` + `status=active` imposto no repositorio, nao
-  no prompt.
+- `memory_search(query, kind?, limit)` — devolve `id`, `title`, `cues`, `kind`, scope,
+  `sample_size` e snippet. **Nao devolve `body`.** General chat consulta apenas entries de Workspace;
+  Project/Focused chat consulta entries de Workspace mais o Project exato. O repository deriva esse
+  filtro da sessao; a tool nao aceita override.
 - `memory_read(ids[])` — devolve entradas inteiras. Teto de entradas por turno aplicado antes de
-  anunciar suporte. Id de outro Workspace ou com `status` diferente de `active` e recusado, nao
-  truncado.
+  anunciar suporte. Id de outro Workspace, Project irmao ou com `status` diferente de `active` e
+  recusado, nao truncado.
 
 Nao existe operacao que devolva o conjunto completo, nem leitura por posicao, offset ou linha. O
 guardrail e ausencia de capacidade, nao lista de proibicoes: nao ha o que bloquear porque nao ha
@@ -80,8 +89,8 @@ caminho.
 
 ### Consolidador em background
 
-Worker separado que le sessoes de chat, Runs e specs do Workspace e escreve entradas com
-`status=candidate`.
+Worker separado que le sessoes de chat, Runs e specs dentro do scope que consolida e escreve
+entradas com `status=candidate`.
 
 Requisitos:
 
@@ -90,6 +99,8 @@ Requisitos:
 - escreve `provenance` discriminada apontando para a origem exata;
 - para `kind=observation`, extrai `evidence_refs` reais da Run. Se nao conseguir, **nao escreve a
   entrada** — nao inventa ref e nao rebaixa o kind para contornar a validacao;
+- observation de Run herda o Project canonico; rule/preference usa Workspace por default e
+  decision/observation/episode de Project chat usa o Project;
 - escreve `cues` como perguntas e nao como palavras-chave, deliberadamente mais amplas que o contexto
   de origem, mais `anti_cues` quando a entrada tem vizinhanca confundivel.
 
@@ -99,7 +110,7 @@ Superficie para listar `candidate`, promover para `active` e recusar com motivo.
 aparece em `memory_search`.
 
 Promocao e curadoria de contexto, nao autoridade sobre evidencia: nao exige
-`HumanAttestationRecord`. Isso e deliberado e esta no ADR 0019.
+`HumanAttestationRecord`. Isso e deliberado e permanece no ADR 0021.
 
 ### Proveniencia de uso
 
@@ -110,7 +121,8 @@ campo nao e apresentado como fundamentado.
 
 ## Invariantes que nao podem ser relaxadas
 
-- **Escopo de Workspace imposto no repositorio.** Nunca por instrucao de prompt.
+- **Scope hierarquico imposto no repositorio.** Workspace e hard boundary; Project opcional nunca e
+  argumento livre de prompt/tool.
 - **`body` fora do indice.** Buscar no corpo reintroduz o custo que o desenho de dois estagios existe
   para evitar.
 - **`candidate` invisivel ao retrieval.** Memoria nao promovida nao informa draft.
@@ -124,15 +136,19 @@ campo nao e apresentado como fundamentado.
 ## Testes obrigatorios
 
 - `memory_search` de outro Workspace nao retorna nada, mesmo com termo exato correspondente;
+- General chat nao recupera entry de Project; Project chat recupera Workspace + proprio Project;
+- Project chat nunca recupera entry de Project irmao nem revela sua contagem;
 - `memory_search` nunca inclui `body` na resposta;
 - termo presente somente no `body` nao produz hit;
 - `memory_read` de id `candidate` e recusado; de id de outro Workspace, recusado;
+- `memory_read` de id de Project irmao e recusado;
 - teto de entradas por turno aplicado, com terminal observavel;
 - `kind=observation` sem `evidence_refs` rejeitado na escrita;
 - correcao produz entrada nova e preserva a anterior como `superseded` com ponteiro;
 - entrada `rejected` preservada com motivo;
 - consolidador idempotente: duas passagens na mesma janela nao duplicam;
 - consolidador que nao consegue extrair ref nao escreve `observation`;
+- observation de Run recebe o Project real e migration v1 nao infere Project;
 - draft proposto carrega `informed_by` com os ids efetivamente lidos;
 - nenhuma entrada de memoria aparece no `SubjectEnvelope` compilado, por assercao explicita;
 - nenhuma escrita em `run_events` por caminho de memoria.
@@ -147,7 +163,8 @@ Enquanto essa medicao nao existir, nenhum doc afirma que memoria melhora a quali
 
 ## Criterio de saida
 
-O usuario declara uma preferencia numa sessao, ela aparece como `candidate`, ele promove, e numa
-sessao posterior o Lab Agent a recupera por uma pergunta que nao usa as mesmas palavras da entrada. O
-draft resultante mostra quais memorias o informaram. Nenhum caminho le o conjunto completo, e nenhuma
-memoria alcanca o Subject.
+O usuario declara uma preferencia de Workspace e uma decisao de Project; ambas aparecem como
+`candidate` e sao promovidas. Em sessao posterior do mesmo Project, o Lab Agent recupera as duas por
+perguntas que nao usam as mesmas palavras. Em General chat, recupera somente a preferencia; em
+Project irmao, nunca recupera a decisao. O draft mostra quais memorias o informaram, nenhum caminho
+le o conjunto completo e nenhuma memoria alcanca o Subject.

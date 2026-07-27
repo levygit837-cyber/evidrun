@@ -1,19 +1,21 @@
 ---
 id: planning-task-trust-sandbox-review-package
 type: implementation-task
-title: WS-40 Trust modes, Sandbox Run e ReviewPackage
+title: WS-40 Trust de execucao nao verificada e ReviewPackage
 status: proposed
 authority: planning
 volatility: snapshot
 owner: governance
 created_at: 2026-07-23
-updated_at: 2026-07-23
-observed_at: 2026-07-23
+updated_at: 2026-07-27
+observed_at: 2026-07-27
 review_due: 2026-08-06
 applies_to: control-plane-trust
 sources:
   - docs/adr/0010-verifiable-human-authority.md
   - docs/adr/0015-human-subject-envelope-and-authenticator-lifecycle.md
+  - docs/adr/0020-workspace-project-run-environment-boundaries.md
+  - docs/contracts/agent-inventory-workspace-v1.md
   - docs/planning/mvp-capability-map.md
 supersedes: []
 superseded_by: null
@@ -21,24 +23,24 @@ implementation_refs: []
 verification_refs: []
 ---
 
-# WS-40 — Trust modes, sandbox e ReviewPackage
+# WS-40 — Trust de execucao nao verificada e ReviewPackage
 
 `workstream_state: queued`
 
 ## Problema
 
 Authority e opt-in, mas o compiler ainda resolve somente revisions aceitas. Na pratica, um usuario
-nao consegue executar rapidamente um Study draft sem produzir uma aceitacao humana. Isso contradiz
-o objetivo de sandbox rotineiro, embora preserve corretamente a seguranca.
+nao consegue executar rapidamente um Study draft sem produzir uma aceitacao humana. Isso impede uma
+execucao local explicitamente nao verificada, embora preserve corretamente a seguranca.
 
 Esta task cria um caminho explicitamente nao verificado; ela nao torna a autenticacao humana
-opcional para claims humanos.
+opcional para claims humanos e nao implementa, por si so, sandbox de OS/container.
 
 ## Pre-condicao normativa
 
 Criar ADR sucessor antes do codigo. O ADR deve decidir:
 
-- identidade e digest do pacote sandbox;
+- identidade e digest do pacote nao verificado;
 - como drafts/proposed imutaveis sao selados para uma execucao;
 - qual record declara trust sem se passar por `RevisionDecisionRecord`;
 - quais restricoes sao obrigatorias;
@@ -48,10 +50,10 @@ Criar ADR sucessor antes do codigo. O ADR deve decidir:
 Recomendacao inicial a validar no ADR:
 
 ```text
-ExecutionTrustRecord.kind = unverified_sandbox | verified_revision_set
+ExecutionTrustRecord.kind = unverified_revision_set | verified_revision_set
 ```
 
-`unverified_sandbox` referencia os documentos e digests exatos usados para compilar, mas nao altera
+`unverified_revision_set` referencia os documentos e digests exatos usados para compilar, mas nao altera
 seu status para accepted. A Run e o bundle carregam trust explicitamente. Promocao nunca reescreve a
 Run passada; cria decisions humanas para o pacote e uma nova Run quando evidencia verificada for
 necessaria.
@@ -73,7 +75,7 @@ Um `ReviewPackage` lista explicitamente:
 Uma confirmacao pode cobrir o pacote inteiro porque o digest inclui cada item. Ref nova ou digest
 novo invalida o pacote; nao existe aprovacao aberta para referencias futuras.
 
-## Restricoes do sandbox
+## Restricoes da execucao nao verificada
 
 - local-only;
 - `public`/`internal`; nunca `sensitive` ou `restricted` neste marco;
@@ -81,10 +83,23 @@ novo invalida o pacote; nao existe aprovacao aberta para referencias futuras.
 - network no maximo `provider_only` para adapter explicitamente admitido;
 - nenhuma human review/adjudication;
 - nenhum claim `human_verified`;
-- bundle e UI marcados `unverified_sandbox`;
+- bundle e UI marcados `unverified_revision_set` (ou nome final do ADR sucessor), nunca apenas
+  `sandbox`;
 - nenhuma promocao automatica;
 - nenhuma alteracao da Run original;
 - capabilities somente do catalogo seguro do Runtime Kernel.
+
+## Run Environment
+
+Trust, isolamento e configuracao sao eixos distintos. O package nao cria Workspace/Project e nao
+recebe o Workspace do Control Plane como mount. Depois de RunSpec e admissao, o Run Environment
+efetivo e a intersecao entre policy ceiling futura, `WorkspaceTemplateRevision` solicitado e
+capabilities reais do runtime.
+
+Enquanto o runtime ativo for `in_process`, a UI diz `in_process` e nao afirma sandbox forte. Um
+adapter futuro so pode anunciar isolamento quando aplicar e provar o preset efemero, mounts
+read-only, zero write zones/secrets, network `denied` ou `provider_only`, efeitos negados, snapshot
+desabilitado e cleanup `discard`. Opcao nao suportada rejeita admissao; nao vira toggle otimista.
 
 ## Harness
 
@@ -94,7 +109,7 @@ MAX_REPAIR_LOOPS=10
 FULL_GATE_INTERVAL=3
 ADR_REQUIRED_BEFORE_CODE=1
 ALLOW_FAKE_HUMAN=0
-ALLOW_SANDBOX_PROMOTION_IN_PLACE=0
+ALLOW_UNVERIFIED_PROMOTION_IN_PLACE=0
 ALLOW_EXTERNAL_EFFECTS=0
 ```
 
@@ -115,8 +130,10 @@ MODEL threat and UX
 
 ### Condicionais
 
-- Se o ADR nao fechar a fonte de verdade do sandbox package, nao implemente.
-- Se qualquer resposta/API chamar sandbox de accepted/verified, P0.
+- Se o ADR nao fechar a fonte de verdade do package nao verificado, nao implemente.
+- Se qualquer resposta/API tratar nao verificado como accepted/verified, P0.
+- Se `in_process` for apresentado como sandbox seguro, P0 de claim; corrija a linguagem e mantenha a
+  capability rejeitada.
 - Se um agent endpoint puder completar authority confirmation, P0.
 - Se a promocao puder alterar a Run original, rejeite o design.
 - Se um diff de package omitir capability, hidden input ou disclosure, nao permita confirmacao.
@@ -131,7 +148,7 @@ MODEL threat and UX
 
 ## Testes obrigatorios
 
-- draft sandbox compila sem Decision humana e preserva todos os digests;
+- draft nao verificado compila sem Decision humana e preserva todos os digests;
 - bundle/UI nunca afirmam human verified;
 - sensitive/restricted/external effect rejeitados;
 - package muda quando qualquer ref, permission, input ou disclosure muda;
@@ -146,6 +163,6 @@ MODEL threat and UX
 
 ## Criterio de saida
 
-Um usuario executa um Study draft em sandbox sem autenticacao e recebe claims honestos. O mesmo
+Um usuario executa um Study draft como nao verificado sem autenticacao e recebe claims honestos. O mesmo
 pacote pode ser revisado com uma confirmacao humana explicita, e qualquer execucao verificada nasce
 como nova Run ligada ao pacote aceito.

@@ -7,10 +7,11 @@ authority: normative
 volatility: timeless
 owner: core
 created_at: 2026-07-23
-updated_at: 2026-07-26
+updated_at: 2026-07-27
 applies_to: schema/study-run@1
 sources:
   - docs/adr/0009-study-run-contract-composition.md
+  - docs/adr/0020-workspace-project-run-environment-boundaries.md
 supersedes: []
 superseded_by: null
 implementation_refs:
@@ -68,7 +69,8 @@ normalizado cria `default`.
 Cada input referencia um artifact, declara classificação, visibilidade e forma de montagem. Oracle,
 calibration e expected answer pertencem ao `EvaluationPlan`, não ao cenário visível ao Subject.
 
-`VariantSpec` substitui somente refs e slots tipados: Goal, scenario, agent inventory, workspace,
+`VariantSpec` substitui somente refs e slots tipados: Goal, scenario, agent inventory, Run
+Environment (campo `workspace` preservado no schema v1),
 interaction protocol, evaluation plan, checkpoint policy, context policy, budgets, stop conditions,
 Progress Artifact policy, capture policy ou extensão registrada. Parâmetro interno materialmente
 diferente exige nova revision do módulo correspondente.
@@ -90,7 +92,7 @@ derivados de eventos; a coluna operacional de status não é fonte canônica.
 # SubjectEnvelope
 
 O envelope mínimo do Subject é uma allowlist fechada e contém Goal, inputs visíveis, interação visível, capabilities
-efetivamente resolvidas, workspace, budgets e stop conditions. Ele exclui Intent, hipótese do
+efetivamente resolvidas, Run Environment, budgets e stop conditions. Ele exclui Intent, hipótese do
 laboratório, outras variants, hidden graders, calibration data, chats, segredos e decisões internas.
 Para Runs com Context Policy, o compiler do envelope exige inputs já materializados e rejeita
 mudança da metadata de autoridade; o runner determinístico referencia o Context Snapshot selecionado

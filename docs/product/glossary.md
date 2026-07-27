@@ -7,10 +7,12 @@ authority: normative
 volatility: timeless
 owner: product
 created_at: 2026-07-22
-updated_at: 2026-07-26
+updated_at: 2026-07-27
 applies_to: domain
 sources:
   - docs/adr/0018-lab-agent-copilot-scope.md
+  - docs/adr/0020-workspace-project-run-environment-boundaries.md
+  - docs/adr/0021-hierarchical-lab-agent-scope.md
 supersedes: []
 superseded_by: null
 implementation_refs:
@@ -20,8 +22,10 @@ verification_refs: []
 
 # Glossário
 
-- **Workspace:** fronteira local de dados e futura sincronização.
-- **Project:** conjunto de cenários, experimentos e conversas relacionados.
+- **Workspace:** fronteira durável do Control Plane para isolamento de dados, regras locais e futura
+  sincronização. Contém Projects, mas nunca é materializado para uma Run.
+- **Project:** linha coerente de investigação dentro de um Workspace. Organiza autoria, conversas,
+  memória, proveniência e Runs relacionadas; não é diretório nem instância de agente.
 - **Study:** raiz de autoria para uma pergunta, hipótese, avaliação, diagnóstico ou exploração; pode
   compilar uma Run ou uma matriz de Runs.
 - **StudyIntent:** propósito e perguntas do laboratório; não é instrução automática do Subject.
@@ -30,7 +34,10 @@ verification_refs: []
 - **Experiment Manifest v1:** contrato legado compatível, importável para um Study.
 - **Variant:** override tipado sobre um blueprint; variants pré-Run são irmãs.
 - **RunSpec:** configuração atômica, imutável e compilada de scenario, variant e repetição.
-- **AdmissionRecord:** decisão pré-fila com inventário, workspace e capabilities efetivamente
+- **Run Environment:** ambiente efêmero, admitido e materializado para uma única Run a partir de
+  configuração versionada. O schema v1 ainda chama essa configuração de
+  `WorkspaceTemplateRevision`; o conceito de produto não é um Workspace nem sinônimo de sandbox.
+- **AdmissionRecord:** decisão pré-fila com inventário, Run Environment e capabilities efetivamente
   resolvidos.
 - **Run:** tentativa ligada a RunSpec e AdmissionRecord exatos.
 - **SubjectEnvelope:** visão mínima compilada para o Subject, sem dados do laboratório ou grader
@@ -43,11 +50,13 @@ verification_refs: []
   explica Runs e evidência, e opera as mesmas superfícies públicas que um humano. Não possui
   autoridade humana: não decide, não aceita, não atesta e não fala com o Subject. Ver
   [ADR 0018](../adr/0018-lab-agent-copilot-scope.md).
-- **LabAgentEnvelope:** contexto declarado do Lab Agent — escopo, contracts visíveis, evidência
-  autorizada por referência, sessão e catálogo de capabilities efetivas. Nunca contém credenciais.
-- **MemoryEntry:** entrada de memória operacional do Lab Agent, escopada a um Workspace, discriminada
-  por `kind` (`rule`, `preference`, `decision`, `observation`, `episode`), append-only e promovida por
-  humano. `observation` exige `evidence_refs`. Não é evidência e não entra no `SubjectEnvelope`.
+- **LabAgentEnvelope:** contexto declarado do Lab Agent — Workspace obrigatório, Project e foco
+  opcionais, contracts visíveis, evidência autorizada por referência, sessão e catálogo de
+  capabilities efetivas. Nunca contém credenciais nem concede acesso implícito a outro Project.
+- **MemoryEntry:** entrada de memória operacional do Lab Agent sob isolamento obrigatório de
+  Workspace e escopo opcional de Project, discriminada por `kind` (`rule`, `preference`, `decision`,
+  `observation`, `episode`), append-only e promovida por humano. `observation` exige
+  `evidence_refs`. Não é evidência e não entra no `SubjectEnvelope`.
 - **Cue:** pergunta que uma `MemoryEntry` responde, escrita como o usuário perguntaria; é o campo de
   descoberta, não palavra-chave. **Anti-cue** declara o que a entrada não cobre.
 - **Memory candidate:** entrada escrita pelo consolidador com `status=candidate`; não é elegível para
@@ -91,5 +100,10 @@ verification_refs: []
   blobs nem replay.
 - **Evidence Bundle portable:** perfil futuro com blobs autorizados e manifest de completude para o
   uso offline declarado.
-- **General chat:** sessão sem escopo de entidade, ainda limitada ao workspace.
+- **General chat:** sessão do Lab Agent escopada ao Workspace, sem Project ou foco. Pode navegar
+  identidades de Projects, mas não recebe acesso implícito ao conteúdo de todos eles.
+- **Project chat:** sessão do Lab Agent escopada a exatamente um Project e às regras/preferências do
+  Workspace pai. Não lê outro Project nem representa um agente próprio daquele Project.
+- **Focused chat:** sessão de Project adicionalmente estreitada a um Study, Run ou Comparison do
+  mesmo Project.
 - **Context Mount:** inclusão explícita de conhecimento ou sessão anterior.
