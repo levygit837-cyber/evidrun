@@ -6,6 +6,7 @@ import readline from "node:readline";
 import { app } from "electron";
 import type { BackendConnection, BackendState } from "../shared/desktop-contract.js";
 import { parseReadiness } from "./desktop-handshake.js";
+import { sidecarPath } from "./sidecar-path.js";
 
 export class BackendLifecycle extends EventEmitter {
   private child: ChildProcessWithoutNullStreams | null = null;
@@ -65,7 +66,7 @@ export class BackendLifecycle extends EventEmitter {
     const instanceId = randomUUID();
     const root = path.resolve(import.meta.dirname, "../../../..");
     const executable = app.isPackaged
-      ? path.join(process.resourcesPath, "backend", process.platform === "win32" ? "evidrun-backend.exe" : "evidrun-backend")
+      ? sidecarPath("evidrun-backend", process.resourcesPath)
       : "uv";
     const args = app.isPackaged
       ? ["serve", "--desktop-handshake"]
