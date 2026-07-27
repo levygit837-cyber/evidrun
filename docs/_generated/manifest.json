@@ -442,6 +442,116 @@
       "review_due": null
     },
     {
+      "id": "planning-index",
+      "path": "docs/planning/README.md",
+      "type": "planning",
+      "title": "Planejamento temporal de implementacao",
+      "status": "accepted",
+      "authority": "planning",
+      "owner": "product-engineering",
+      "updated_at": "2026-07-23",
+      "review_due": "2026-07-30"
+    },
+    {
+      "id": "planning-mvp-capability-map",
+      "path": "docs/planning/mvp-capability-map.md",
+      "type": "planning",
+      "title": "Mapa temporal de capabilities do MVP",
+      "status": "accepted",
+      "authority": "planning",
+      "owner": "product-engineering",
+      "updated_at": "2026-07-23",
+      "review_due": "2026-07-30"
+    },
+    {
+      "id": "planning-mvp-implementation-roadmap",
+      "path": "docs/planning/mvp-implementation-roadmap.md",
+      "type": "roadmap",
+      "title": "Roadmap executavel ate o MVP operacional",
+      "status": "accepted",
+      "authority": "planning",
+      "owner": "product-engineering",
+      "updated_at": "2026-07-23",
+      "review_due": "2026-07-30"
+    },
+    {
+      "id": "planning-task-runtime-kernel-integration",
+      "path": "docs/planning/tasks/00-runtime-kernel-integration.md",
+      "type": "implementation-task",
+      "title": "WS-00 Integrar Runtime Kernel, Subject real e authority",
+      "status": "accepted",
+      "authority": "planning",
+      "owner": "runtime",
+      "updated_at": "2026-07-23",
+      "review_due": "2026-07-25"
+    },
+    {
+      "id": "planning-task-mvp-operator-console",
+      "path": "docs/planning/tasks/10-mvp-operator-console.md",
+      "type": "implementation-task",
+      "title": "WS-10 Console operacional do MVP",
+      "status": "accepted",
+      "authority": "planning",
+      "owner": "web",
+      "updated_at": "2026-07-23",
+      "review_due": "2026-07-30"
+    },
+    {
+      "id": "planning-task-artifact-access-capture",
+      "path": "docs/planning/tasks/20-artifact-access-and-capture.md",
+      "type": "implementation-task",
+      "title": "WS-20 Artifact access, materializacao e capture",
+      "status": "proposed",
+      "authority": "planning",
+      "owner": "evidence",
+      "updated_at": "2026-07-23",
+      "review_due": "2026-08-06"
+    },
+    {
+      "id": "planning-task-evaluation-checkpoint-progress",
+      "path": "docs/planning/tasks/30-evaluation-checkpoint-progress.md",
+      "type": "implementation-task",
+      "title": "WS-30 Evaluation engine, checkpoints e Progress Artifacts",
+      "status": "proposed",
+      "authority": "planning",
+      "owner": "evidence",
+      "updated_at": "2026-07-23",
+      "review_due": "2026-08-13"
+    },
+    {
+      "id": "planning-task-trust-sandbox-review-package",
+      "path": "docs/planning/tasks/40-trust-sandbox-review-package.md",
+      "type": "implementation-task",
+      "title": "WS-40 Trust modes, Sandbox Run e ReviewPackage",
+      "status": "proposed",
+      "authority": "planning",
+      "owner": "governance",
+      "updated_at": "2026-07-23",
+      "review_due": "2026-08-06"
+    },
+    {
+      "id": "planning-task-lab-agent-bounded-exploration",
+      "path": "docs/planning/tasks/50-lab-agent-bounded-exploration.md",
+      "type": "implementation-task",
+      "title": "WS-50 Lab Agent e bounded exploration",
+      "status": "proposed",
+      "authority": "planning",
+      "owner": "laboratory",
+      "updated_at": "2026-07-23",
+      "review_due": "2026-08-20"
+    },
+    {
+      "id": "planning-tasks-index",
+      "path": "docs/planning/tasks/README.md",
+      "type": "planning",
+      "title": "Dispatch de workstreams para agentes",
+      "status": "accepted",
+      "authority": "planning",
+      "owner": "product-engineering",
+      "updated_at": "2026-07-23",
+      "review_due": "2026-07-30"
+    },
+    {
       "id": "product-charter",
       "path": "docs/product/charter.md",
       "type": "charter",
@@ -615,6 +725,17 @@
       "authority": "normative",
       "owner": "owner",
       "updated_at": "YYYY-MM-DD",
+      "review_due": null
+    },
+    {
+      "id": "template-agent-workstream",
+      "path": "docs/templates/agent-workstream.md",
+      "type": "template",
+      "title": "Template de workstream para agente",
+      "status": "accepted",
+      "authority": "planning",
+      "owner": "core",
+      "updated_at": "2026-07-23",
       "review_due": null
     },
     {
