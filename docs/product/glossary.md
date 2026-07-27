@@ -7,9 +7,10 @@ authority: normative
 volatility: timeless
 owner: product
 created_at: 2026-07-22
-updated_at: 2026-07-23
+updated_at: 2026-07-26
 applies_to: domain
-sources: []
+sources:
+  - docs/adr/0018-lab-agent-copilot-scope.md
 supersedes: []
 superseded_by: null
 implementation_refs:
@@ -36,8 +37,23 @@ verification_refs: []
   oculto.
 - **Subject Evaluation Guidance:** disclosure público mínimo materializado antes da Run; não é o
   EvaluationPlan completo.
-- **Subject Agent:** sistema sob teste.
-- **Lab Agent:** agente do control plane que consulta evidências e cria drafts.
+- **Subject Agent:** sistema sob teste dentro de uma Run; recebe apenas o `SubjectEnvelope`.
+- **Lab Agent:** copiloto do control plane e superfície primária de trabalho do laboratório. Conduz
+  formulação de hipótese, propõe drafts de qualquer contract de autoria, propõe métricas e graders,
+  explica Runs e evidência, e opera as mesmas superfícies públicas que um humano. Não possui
+  autoridade humana: não decide, não aceita, não atesta e não fala com o Subject. Ver
+  [ADR 0018](../adr/0018-lab-agent-copilot-scope.md).
+- **LabAgentEnvelope:** contexto declarado do Lab Agent — escopo, contracts visíveis, evidência
+  autorizada por referência, sessão e catálogo de capabilities efetivas. Nunca contém credenciais.
+- **MemoryEntry:** entrada de memória operacional do Lab Agent, escopada a um Workspace, discriminada
+  por `kind` (`rule`, `preference`, `decision`, `observation`, `episode`), append-only e promovida por
+  humano. `observation` exige `evidence_refs`. Não é evidência e não entra no `SubjectEnvelope`.
+- **Cue:** pergunta que uma `MemoryEntry` responde, escrita como o usuário perguntaria; é o campo de
+  descoberta, não palavra-chave. **Anti-cue** declara o que a entrada não cobre.
+- **Memory candidate:** entrada escrita pelo consolidador com `status=candidate`; não é elegível para
+  retrieval até promoção humana.
+- **authority subject:** conteúdo assinado numa attestation humana (`HumanSubjectEnvelope`, ADR
+  0015). É objeto de assinatura, não um agente, e não se confunde com o Subject Agent.
 - **Agent Inventory:** requisitos de runner, provider, tools, skills e runtime de uma Run.
 - **Resolved Agent Inventory:** snapshot hasheado do que a admissão realmente resolveu.
 - **Context Policy:** regra de seleção, ordem, truncamento ou transformação.
@@ -66,6 +82,11 @@ verification_refs: []
   factual; nenhum deles é pass/fail ou score.
 - **Grader:** avaliador versionado que produz EvaluationRecord; Grade é projeção legada.
 - **Comparison:** leitura pareada de runs e seus trade-offs.
+- **pass@k:** probabilidade de ao menos um acerto em k tentativas do mesmo RunSpec lógico; mede
+  potencial. Exige repetições.
+- **pass^k:** probabilidade de acertar todas as k tentativas; mede confiabilidade. Divergem com k.
+- **Batch de execução:** lote de RunSpecs de um mesmo Study enfileirado numa operação, com progresso
+  agregado e cancelamento. A matriz já é compilada por `StudyCompiler`; o lote é de execução.
 - **Evidence Bundle audit:** pacote verificável de records, refs e digests; não promete todos os
   blobs nem replay.
 - **Evidence Bundle portable:** perfil futuro com blobs autorizados e manifest de completude para o
