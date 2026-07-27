@@ -84,7 +84,8 @@ Minimo: existir Workspace e Project criaveis com nomes nao ambiguos e erros tipa
 aceitacao de revision que nao minta sobre autoridade humana, e a pagina Create deixar de executar a
 fixture `CRL-CTX-002` em vez do que foi digitado. Criar esses scopes nao provisiona Run Environment.
 
-Isso depende de WS-01 (superficie de Workspace/Project) e WS-03 (decisao de autoria default).
+WS-01 entregou a superficie de Workspace/Project. O bloqueio restante deste item e WS-03 (decisao
+de autoria default) e, para o produto visual, a integracao posterior de WS-51.
 
 ### 3. Contexto e criterios do Subject
 

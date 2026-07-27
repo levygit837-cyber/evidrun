@@ -226,6 +226,6 @@ def test_runtime_kernel_upgrades_database_already_stamped_at_human_authority(
     with migrated_engine.connect() as connection:
         assert (
             connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()
-            == "0004_runtime_kernel"
+            == "0006_project_name_identity"
         )
     migrated_engine.dispose()

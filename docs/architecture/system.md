@@ -40,8 +40,9 @@ Workspace é a raiz durável de isolamento do Control Plane; Project é a linha 
 fronteira de autoria/proveniência. Run Environment é efêmero por Run e vem de configuração
 versionada, nunca de um mount implícito do Workspace. O schema v1 ainda usa
 `WorkspaceTemplateRevision`/`RunSpec.workspace`; esses nomes de compatibilidade não unem os dois
-conceitos. A superfície pública e a unicidade de Workspace/Project estão aceitas, mas ainda não
-implementadas; hoje existem somente writes internos e listagens derivadas do dashboard.
+conceitos. A superfície pública de Workspace/Project está implementada por API e CLI sobre
+normalização única, constraints persistidas, migrations fail-closed e leituras diretas. Ela não cria
+Run Environment, Lab Agent, authority, Study ou Run.
 
 O fluxo novo é `StudyRevision aceita → compilação → RunSpec → admissão → Run → eventos`. Revisions,
 specs e admissions são imutáveis. Checkpoints e evaluations se ancoram a sequence/hash do ledger.

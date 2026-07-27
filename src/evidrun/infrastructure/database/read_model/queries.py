@@ -12,6 +12,7 @@ from datetime import UTC
 from typing import Any
 
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 
 from evidrun.contracts import (
     AdmissionRecord,
@@ -34,13 +35,19 @@ from evidrun.infrastructure.database.models import (
     EvaluationRecordRow,
     ExperimentRevisionRow,
     GradeRow,
+    ProjectRow,
     RunEventRow,
     RunRow,
     RunSpecRow,
     SubjectEnvelopeRow,
+    WorkspaceRow,
 )
 from evidrun.infrastructure.database.read_model import projections
 from evidrun.infrastructure.database.read_model.dashboard import latest_dashboard
+from evidrun.infrastructure.database.scope_errors import (
+    ScopeStorageUnavailable,
+    project_workspace_not_found,
+)
 from evidrun.infrastructure.database.timestamps import aware_utc
 from evidrun.infrastructure.database.unit_of_work import UnitOfWork
 
@@ -53,6 +60,33 @@ class ReadModel:
 
     def latest_dashboard(self) -> dict[str, Any]:
         return latest_dashboard(self.unit_of_work)
+
+    def list_workspaces(self) -> list[dict[str, Any]]:
+        try:
+            with self.unit_of_work.session() as session:
+                rows = list(
+                    session.scalars(
+                        select(WorkspaceRow).order_by(
+                            WorkspaceRow.created_at, WorkspaceRow.id
+                        )
+                    )
+                )
+        except SQLAlchemyError as exc:
+            raise ScopeStorageUnavailable() from exc
+        return [projections.workspace_document(row) for row in rows]
+
+    def list_projects(self, workspace_id: str | None = None) -> list[dict[str, Any]]:
+        try:
+            with self.unit_of_work.session() as session:
+                if workspace_id is not None and session.get(WorkspaceRow, workspace_id) is None:
+                    raise project_workspace_not_found()
+                query = select(ProjectRow).order_by(ProjectRow.created_at, ProjectRow.id)
+                if workspace_id is not None:
+                    query = query.where(ProjectRow.workspace_id == workspace_id)
+                rows = list(session.scalars(query))
+        except SQLAlchemyError as exc:
+            raise ScopeStorageUnavailable() from exc
+        return [projections.project_document(row) for row in rows]
 
     def get_run_events(self, run_id: str) -> list[dict[str, Any]]:
         with self.unit_of_work.session() as session:

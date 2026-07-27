@@ -51,3 +51,14 @@ class ContractDecisionRequest(BaseModel):
 class RunEnqueueRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     admission_id: str = Field(min_length=1)
+
+
+class WorkspaceCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str
+
+
+class ProjectCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    workspace_id: str
+    name: str

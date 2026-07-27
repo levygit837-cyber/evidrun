@@ -12,6 +12,7 @@ from evidrun.entrypoints.cli.commands.runs import (
     data_app,
     run_app,
 )
+from evidrun.entrypoints.cli.commands.scopes import project_app, workspace_app
 
 __all__ = [
     "authority_app",
@@ -20,7 +21,9 @@ __all__ = [
     "contract_app",
     "data_app",
     "experiment_app",
+    "project_app",
     "provider_app",
     "run_app",
     "study_app",
+    "workspace_app",
 ]

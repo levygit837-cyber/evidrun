@@ -49,6 +49,8 @@ verification_refs: []
 - persistencia do SubjectEnvelope exato e Bundle v3 por Run, ainda `references_only`, nao portatil e
   nao replayable;
 - Subject real opt-in, read tool confinada ao envelope e tracing factual;
+- superfície pública de Workspace/Project por API e CLI, com nomes canônicos, `ScopeError`,
+  constraints, migrations fail-closed e corredor até a primeira contract revision;
 
 ## Proximo
 
@@ -56,8 +58,8 @@ O corte imediato e o [Minimo Confortavel](../planning/comfortable-minimum.md). D
 itens abaixo, nesta ordem de destrave:
 
 - worker supervisionado pelo app instalado, sem o qual Run enfileirada nao executa;
-- superficie de Workspace/Project com nomes nao ambiguos e autoria default, sem as quais nao existe
-  Study proprio; criar esses scopes nao materializa Run Environment;
+- autoria default para que o Workspace/Project público já entregue alcance um Study próprio no
+  produto instalado; criar esses scopes não materializa Run Environment;
 - runtime de um unico Lab Agent copiloto conforme os ADRs 0018/0021, com sessoes escopadas,
   `LabAgentEnvelope`, loop de tools e proposta de draft sem decisao;
 - contrato de contexto e criterios do Subject, para que duas variants irmas difiram de forma tipada

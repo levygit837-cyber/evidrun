@@ -2,7 +2,7 @@
 id: contract-workspace-project-surface-v1
 type: contract
 title: Superfície pública de Workspace e Project v1
-status: accepted
+status: implemented
 authority: normative
 volatility: timeless
 owner: core
@@ -14,15 +14,25 @@ sources:
   - docs/contracts/triage-error.md
 supersedes: []
 superseded_by: null
-implementation_refs: []
-verification_refs: []
+implementation_refs:
+  - src/evidrun/contracts/scope.py
+  - src/evidrun/infrastructure/database/catalog.py
+  - src/evidrun/infrastructure/database/read_model/queries.py
+  - src/evidrun/entrypoints/api/routers/platform.py
+  - src/evidrun/entrypoints/cli/commands/scopes.py
+  - alembic/versions/0005_workspace_name_identity.py
+  - alembic/versions/0006_project_name_identity.py
+verification_refs:
+  - tests/unit/test_scope_contracts.py
+  - tests/integration/test_scope_surfaces.py
+  - tests/integration/test_scope_migration.py
 ---
 
 # Superfície pública de Workspace e Project v1
 
-Este contrato define criação e listagem das duas fronteiras duráveis do Control Plane. Está aceito,
-mas ainda não implementado: os writes internos existentes não satisfazem validação, unicidade,
-erros estáveis, API, CLI ou migration descritos aqui.
+Este contrato define a criação e a listagem implementadas das duas fronteiras duráveis do Control
+Plane. API e CLI reutilizam a mesma normalização, persistência, projeção e tradução de erro; as
+migrations `0005`/`0006` fazem backfill fail-closed e instalam a unicidade no storage.
 
 Criar Workspace ou Project não cria Run Environment, sandbox, processo, filesystem, credencial,
 contract decision nem `HumanAttestationRecord`.
