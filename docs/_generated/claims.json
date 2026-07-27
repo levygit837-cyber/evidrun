@@ -41,6 +41,7 @@
     "pnpm-workspace.yaml",
     "pyproject.toml",
     "schemas/generated",
+    "scripts/build_desktop_binaries.py",
     "scripts/check_code_budget.py",
     "scripts/check_import_directions.py",
     "scripts/code_budget",

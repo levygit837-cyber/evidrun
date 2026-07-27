@@ -1,14 +1,20 @@
-Electron Forge copies this directory verbatim into the packaged app, so both sidecar
-executables must exist here before packaging.
+Electron Forge copies this directory verbatim into the packaged app, so both sidecars
+must exist here before packaging:
 
-  evidrun-backend   Control Plane; the app spawns `evidrun-backend serve --desktop-handshake`
-  evidrun-worker    Execution Plane; the durable Run executor
+  evidrun-backend/  Control Plane; the app spawns `evidrun-backend serve --desktop-handshake`
+  evidrun-worker/   Execution Plane; the durable Run executor
 
-On Windows both carry the `.exe` suffix. Build them for the host platform and
-architecture with:
+Each is a PyInstaller `--onedir` build: a directory holding the executable (with the
+`.exe` suffix on Windows) next to its shared libraries. A onefile build would re-extract
+the archive on every launch and miss the readiness timeout.
 
-  uv run --extra package python scripts/build_desktop_binaries.py
+Build them for the host platform and architecture with:
 
-The executables are generated artifacts and are not tracked by git. Signing and
-notarization stay gated behind EVIDRUN_CODESIGN / EVIDRUN_NOTARIZE; a packaged
-release for macOS must sign both nested binaries.
+  pnpm build:sidecars
+
+PyInstaller does not cross-compile, so build on the platform and architecture you ship.
+
+These directories are generated artifacts and are not tracked by git. Signing and
+notarization stay gated behind EVIDRUN_CODESIGN / EVIDRUN_NOTARIZE; a macOS release must
+sign both nested binaries. Until they are signed, the first launch of a freshly built
+binary pays a one-time Gatekeeper evaluation of roughly a minute.

@@ -20,10 +20,8 @@ node_modules/
 apps/web/dist/
 apps/desktop/dist/
 apps/desktop/out/
-apps/desktop/resources/backend/evidrun-backend
-apps/desktop/resources/backend/evidrun-backend.exe
-apps/desktop/resources/backend/evidrun-worker
-apps/desktop/resources/backend/evidrun-worker.exe
+apps/desktop/resources/backend/evidrun-backend/
+apps/desktop/resources/backend/evidrun-worker/
 .pyinstaller-build/
 playwright-report/
 test-results/

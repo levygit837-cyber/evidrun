@@ -11,7 +11,10 @@ from __future__ import annotations
 import tomllib
 from pathlib import Path
 
-from scripts.build_desktop_binaries import TARGETS, executable_name
+import pytest
+
+from scripts import build_desktop_binaries as binaries
+from scripts.build_desktop_binaries import TARGETS
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -30,16 +33,27 @@ def test_targets_match_declared_console_scripts() -> None:
     assert set(TARGETS.values()) <= declared
 
 
-def test_worker_target_is_the_durable_executor() -> None:
-    """ADR 0014 keeps the executor separate from API and CLI; so does packaging."""
+def test_each_plane_maps_to_its_own_entrypoint() -> None:
+    """The planes must not collapse onto one target.
 
+    Pointing both names at the same entrypoint would still satisfy a subset check
+    against the declared scripts, and would produce a packaged app that spawns
+    `evidrun-backend serve` against a worker that has no `serve` subcommand.
+    """
+
+    assert TARGETS["evidrun-backend"] == "evidrun.entrypoints.cli.app:main"
     assert TARGETS["evidrun-worker"] == "evidrun.entrypoints.worker.app:main"
+    assert len(set(TARGETS.values())) == len(TARGETS)
 
 
-def test_executable_name_matches_the_electron_lookup() -> None:
-    """`backend-lifecycle.ts` appends `.exe` on win32 and nothing elsewhere."""
+@pytest.mark.parametrize(
+    ("platform", "expected"),
+    [("win32", "evidrun-worker.exe"), ("darwin", "evidrun-worker"), ("linux", "evidrun-worker")],
+)
+def test_executable_name_follows_the_platform(
+    monkeypatch: pytest.MonkeyPatch, platform: str, expected: str
+) -> None:
+    """`sidecar-path.ts` appends `.exe` on win32 and nothing elsewhere."""
 
-    assert executable_name("evidrun-worker") in {
-        "evidrun-worker",
-        "evidrun-worker.exe",
-    }
+    monkeypatch.setattr(binaries.sys, "platform", platform)
+    assert binaries.executable_name("evidrun-worker") == expected

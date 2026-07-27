@@ -22,8 +22,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 RESOURCES = REPO_ROOT / "apps" / "desktop" / "resources" / "backend"
 BUILD_ROOT = REPO_ROOT / ".pyinstaller-build"
 
-# Console script entrypoint -> frozen executable name expected by the Electron main
-# process. Keep these names in sync with `backend-lifecycle.ts` and `worker-lifecycle.ts`.
+# Console script entrypoint -> frozen executable name the Electron main process looks
+# up through `sidecarPath`. Keep these names in sync with `apps/desktop/src/main/sidecar-path.ts`.
 TARGETS = {
     "evidrun-backend": "evidrun.entrypoints.cli.app:main",
     "evidrun-worker": "evidrun.entrypoints.worker.app:main",
@@ -65,7 +65,16 @@ def freeze(name: str, target: str) -> Path:
         sys.executable,
         "-m",
         "PyInstaller",
-        "--onefile",
+        # `--onedir`, not `--onefile`: onefile re-extracts the whole archive into a
+        # fresh temp dir on every launch, so it pays that cost forever. onedir extracts
+        # once at build time and reaches readiness in ~2.6s, well inside the 15s
+        # handshake timeout in `backend-lifecycle.ts`.
+        #
+        # Note the FIRST launch of any newly written ad-hoc-signed binary still takes
+        # ~46s while macOS `syspolicyd` evaluates it, once per inode. That is Gatekeeper,
+        # not PyInstaller, and proper signing is what removes it — see EVIDRUN_CODESIGN
+        # in forge.config.cjs.
+        "--onedir",
         "--noconfirm",
         "--clean",
         "--name",
@@ -83,9 +92,9 @@ def freeze(name: str, target: str) -> Path:
         command += ["--hidden-import", hidden]
     command.append(str(script))
     subprocess.run(command, check=True, cwd=REPO_ROOT)
-    built = work / "dist" / executable_name(name)
-    if not built.is_file():
-        raise SystemExit(f"PyInstaller did not produce {built}")
+    built = work / "dist" / name
+    if not (built / executable_name(name)).is_file():
+        raise SystemExit(f"PyInstaller did not produce {built / executable_name(name)}")
     return built
 
 
@@ -102,10 +111,12 @@ def main() -> None:
     RESOURCES.mkdir(parents=True, exist_ok=True)
     for name in names:
         built = freeze(name, TARGETS[name])
-        destination = RESOURCES / executable_name(name)
-        shutil.copy2(built, destination)
-        destination.chmod(0o755)
-        print(f"{destination.relative_to(REPO_ROOT)}")
+        destination = RESOURCES / name
+        if destination.exists():
+            shutil.rmtree(destination)
+        shutil.copytree(built, destination)
+        (destination / executable_name(name)).chmod(0o755)
+        print(f"{(destination / executable_name(name)).relative_to(REPO_ROOT)}")
 
 
 if __name__ == "__main__":
