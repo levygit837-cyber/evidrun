@@ -206,6 +206,30 @@
       "review_due": null
     },
     {
+      "id": "adr-0018",
+      "path": "docs/adr/0018-lab-agent-copilot-scope.md",
+      "type": "adr",
+      "title": "Lab Agent como copiloto do laboratório, com fronteira de autoridade",
+      "status": "accepted",
+      "authority": "normative",
+      "volatility": "timeless",
+      "owner": "product",
+      "updated_at": "2026-07-26",
+      "review_due": null
+    },
+    {
+      "id": "adr-0019",
+      "path": "docs/adr/0019-lab-agent-operational-memory.md",
+      "type": "adr",
+      "title": "Memória operacional do Lab Agent com descoberta por cue e promoção humana",
+      "status": "accepted",
+      "authority": "normative",
+      "volatility": "timeless",
+      "owner": "product",
+      "updated_at": "2026-07-26",
+      "review_due": null
+    },
+    {
       "id": "agents-domain-docs",
       "path": "docs/agents/domain.md",
       "type": "guide",
@@ -322,7 +346,7 @@
       "authority": "normative",
       "volatility": "current",
       "owner": "core",
-      "updated_at": "2026-07-23",
+      "updated_at": "2026-07-26",
       "review_due": null
     },
     {
@@ -467,6 +491,18 @@
       "volatility": "timeless",
       "owner": "core",
       "updated_at": "2026-07-23",
+      "review_due": null
+    },
+    {
+      "id": "contract-lab-agent-memory-v1",
+      "path": "docs/contracts/lab-agent-memory-v1.md",
+      "type": "contract",
+      "title": "Memória operacional do Lab Agent v1",
+      "status": "accepted",
+      "authority": "normative",
+      "volatility": "timeless",
+      "owner": "core",
+      "updated_at": "2026-07-26",
       "review_due": null
     },
     {
@@ -650,6 +686,18 @@
       "review_due": "2026-08-08"
     },
     {
+      "id": "planning-comfortable-minimum",
+      "path": "docs/planning/comfortable-minimum.md",
+      "type": "planning",
+      "title": "Minimo Confortavel — corredor de ponta a ponta do laboratorio",
+      "status": "accepted",
+      "authority": "planning",
+      "volatility": "snapshot",
+      "owner": "product-engineering",
+      "updated_at": "2026-07-26",
+      "review_due": "2026-08-23"
+    },
+    {
       "id": "planning-mvp-capability-map",
       "path": "docs/planning/mvp-capability-map.md",
       "type": "planning",
@@ -659,7 +707,7 @@
       "volatility": "snapshot",
       "owner": "product-engineering",
       "updated_at": "2026-07-26",
-      "review_due": "2026-08-07"
+      "review_due": "2026-08-23"
     },
     {
       "id": "planning-mvp-implementation-roadmap",
@@ -670,8 +718,8 @@
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "product-engineering",
-      "updated_at": "2026-07-25",
-      "review_due": "2026-08-07"
+      "updated_at": "2026-07-26",
+      "review_due": "2026-08-23"
     },
     {
       "id": "planning-task-workspace-project-surface",
@@ -708,6 +756,54 @@
       "owner": "governance",
       "updated_at": "2026-07-24",
       "review_due": "2026-08-07"
+    },
+    {
+      "id": "planning-task-lab-agent-runtime",
+      "path": "docs/planning/tasks/04-lab-agent-runtime.md",
+      "type": "implementation-task",
+      "title": "WS-04 Runtime do Lab Agent copiloto",
+      "status": "proposed",
+      "authority": "planning",
+      "volatility": "snapshot",
+      "owner": "laboratory",
+      "updated_at": "2026-07-26",
+      "review_due": "2026-08-23"
+    },
+    {
+      "id": "planning-task-subject-context-contract",
+      "path": "docs/planning/tasks/05-subject-context-contract.md",
+      "type": "implementation-task",
+      "title": "WS-05 Contexto e criterios do Subject",
+      "status": "proposed",
+      "authority": "planning",
+      "volatility": "snapshot",
+      "owner": "core",
+      "updated_at": "2026-07-26",
+      "review_due": "2026-08-23"
+    },
+    {
+      "id": "planning-task-batch-and-minimal-metrics",
+      "path": "docs/planning/tasks/06-batch-and-minimal-metrics.md",
+      "type": "implementation-task",
+      "title": "WS-06 Batch, resiliencia de provider e metricas minimas",
+      "status": "proposed",
+      "authority": "planning",
+      "volatility": "snapshot",
+      "owner": "core",
+      "updated_at": "2026-07-26",
+      "review_due": "2026-08-23"
+    },
+    {
+      "id": "planning-task-lab-agent-memory",
+      "path": "docs/planning/tasks/07-lab-agent-memory.md",
+      "type": "implementation-task",
+      "title": "WS-07 Memoria operacional e consolidador",
+      "status": "proposed",
+      "authority": "planning",
+      "volatility": "snapshot",
+      "owner": "laboratory",
+      "updated_at": "2026-07-26",
+      "review_due": "2026-08-23"
     },
     {
       "id": "planning-task-domain-seams",
@@ -773,13 +869,13 @@
       "id": "planning-task-lab-agent-bounded-exploration",
       "path": "docs/planning/tasks/50-lab-agent-bounded-exploration.md",
       "type": "implementation-task",
-      "title": "WS-50 Lab Agent e bounded exploration",
+      "title": "WS-50 Bounded exploration e multi-turn do Subject",
       "status": "proposed",
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "laboratory",
-      "updated_at": "2026-07-23",
-      "review_due": "2026-08-20"
+      "updated_at": "2026-07-26",
+      "review_due": "2026-08-23"
     },
     {
       "id": "planning-tasks-index",
@@ -790,8 +886,8 @@
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "product-engineering",
-      "updated_at": "2026-07-24",
-      "review_due": "2026-08-07"
+      "updated_at": "2026-07-26",
+      "review_due": "2026-08-23"
     },
     {
       "id": "planning-worktree-cleanup-plan",
@@ -814,7 +910,7 @@
       "authority": "normative",
       "volatility": "timeless",
       "owner": "product",
-      "updated_at": "2026-07-22",
+      "updated_at": "2026-07-26",
       "review_due": null
     },
     {
@@ -826,8 +922,32 @@
       "authority": "normative",
       "volatility": "timeless",
       "owner": "product",
-      "updated_at": "2026-07-23",
+      "updated_at": "2026-07-26",
       "review_due": null
+    },
+    {
+      "id": "product-interaction-graph-authoring-concept",
+      "path": "docs/product/interaction-graph-authoring-concept.md",
+      "type": "product",
+      "title": "Autoria de grafo de execução com condicionais por evidência",
+      "status": "draft",
+      "authority": "incubation",
+      "volatility": "snapshot",
+      "owner": "product",
+      "updated_at": "2026-07-25",
+      "review_due": "2026-10-25"
+    },
+    {
+      "id": "product-judging-agent-concept",
+      "path": "docs/product/judging-agent-concept.md",
+      "type": "product",
+      "title": "Agente julgador e intervenção na sessão do Subject",
+      "status": "draft",
+      "authority": "incubation",
+      "volatility": "snapshot",
+      "owner": "product",
+      "updated_at": "2026-07-26",
+      "review_due": "2026-10-25"
     },
     {
       "id": "product-live-run-graph-concept",
@@ -946,7 +1066,7 @@
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "product",
-      "updated_at": "2026-07-24",
+      "updated_at": "2026-07-26",
       "review_due": null
     },
     {

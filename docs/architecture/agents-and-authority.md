@@ -9,7 +9,8 @@ owner: core
 created_at: 2026-07-22
 updated_at: 2026-07-26
 applies_to: agents
-sources: []
+sources:
+  - docs/adr/0018-lab-agent-copilot-scope.md
 supersedes: []
 superseded_by: null
 implementation_refs:
@@ -31,9 +32,24 @@ verification_refs:
 
 ## Lab Agent
 
-Poderá ler evidências autorizadas, explicar Runs e criar drafts. O Lab Agent ainda não possui runtime
-executável e, quando existir, não aceitará a própria proposta, não acessará raw sem grant, não excluirá
-dados e não executará efeitos externos sem decisão humana.
+O Lab Agent é o copiloto do laboratório e a superfície primária de trabalho do produto. Seu escopo
+funcional é o app inteiro, conforme o [ADR 0018](../adr/0018-lab-agent-copilot-scope.md): conduzir a
+formulação de uma hipótese, propor drafts de qualquer contract de autoria, propor dimensões de
+avaliação e graders novos, explicar Runs, evidência e rejeições de admissão, e operar as mesmas
+superfícies públicas que um humano opera.
+
+Ele ainda não possui runtime executável. Nada em `src/evidrun/` o implementa hoje, e a página
+`Laboratory` é mock.
+
+A fronteira do Lab Agent é de autoridade, não de capacidade. Ele não aceita a própria proposta, não
+produz attestation, review ou adjudicação, não concede grant nem efeito externo, não escreve no
+event ledger, não acessa `sensitive`/`restricted` sem grant próprio, não envia chat, hipótese ou
+rubrica oculta ao Subject, e não apresenta draft ou Progress Artifact como fato. Quando uma ação
+exige autoridade humana, ele produz um pedido de aprovação, nunca a decisão.
+
+`hidden` é oculto do Subject, não do Lab Agent: hidden graders, calibração e a hipótese do
+laboratório são invisíveis ao Subject por desenho do `SubjectEnvelope`, e o Lab Agent ajuda a
+construí-los dentro do escopo do que o humano já vê.
 
 O [ADR 0010](../adr/0010-verifiable-human-authority.md) é materializado por
 `HumanAttestationRecord`, `VerifiedHumanDecisionAuthority` e `HumanAttestationVerifier`. Uma

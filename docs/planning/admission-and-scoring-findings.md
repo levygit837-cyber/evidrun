@@ -27,8 +27,10 @@ verification_refs: []
 
 # Achados sobre admissão, scoring e fronteira de evidência
 
-Levantamento observado em `main` no commit `812b330`. Cada achado foi confirmado no código, não
-inferido de documentação. Este documento registra intenção de correção; ele não descreve
+Levantamento observado originalmente em `812b330` e revalidado em `57f86c6`, após a decomposição de
+API e CLI em módulos. Cada achado foi confirmado no código, não inferido de documentação. Os achados
+permaneceram todos válidos na revalidação; apenas coordenadas de arquivo mudaram. Este documento
+registra intenção de correção; ele não descreve
 comportamento implementado nem autoriza mudança de contrato.
 
 Os bloqueios de superfície já registrados em `docs/planning/mvp-implementation-roadmap.md` (B1
@@ -67,8 +69,8 @@ opção é mais barata e menos honesta.
 ## A2 — Motivo de rejeição não alcança o operador
 
 `src/evidrun/runs/service.py:137-138` monta a mensagem apenas com `missing_requirements` ou
-`denied_policies`. `src/evidrun/entrypoints/api/app.py:327` e
-`src/evidrun/entrypoints/cli/app.py:293` fazem o mesmo recorte.
+`denied_policies`. `src/evidrun/entrypoints/api/routers/contracts.py:150-155` e
+`src/evidrun/entrypoints/cli/commands/runs.py:71` fazem o mesmo recorte.
 
 Duas classes de rejeição não populam nenhuma das duas tuplas:
 
@@ -157,7 +159,7 @@ reasoning e adapter (`src/evidrun/contracts/runtime.py:201-212`).
 Reproduzido: um RunSpec que declara um perfil ausente do catálogo gera `AdmissionRecord` válido com
 `decision="rejected"`, e `save_admission_record` levanta
 `ValueError: admission inventory does not match the RunSpec requirements`. Como
-`src/evidrun/entrypoints/api/app.py:321-322` captura `Exception` e devolve 422, esse caso retorna erro
+`src/evidrun/entrypoints/api/routers/contracts.py:148-149` captura `Exception` e devolve 422, esse caso retorna erro
 genérico em vez do record rejeitado que a API devolve em todas as outras rejeições.
 
 `docs/architecture/codebase-layout.md:255-260` registra a correção que criou o esvaziamento, sem
@@ -209,7 +211,8 @@ Direção de correção: `GraderSpec.type` como `Literal["deterministic"]`, e er
 Não são achados de código; são divergências entre documento normativo e comportamento atual.
 
 - `docs/contracts/study-run-v1.md:37-38` afirma que API e CLI não aceitam decisão humana. Com
-  `EVIDRUN_AUTHORITY=1` ambos aceitam e persistem (`src/evidrun/entrypoints/cli/app.py:566-601`,
+  `EVIDRUN_AUTHORITY=1` ambos aceitam e persistem
+  (`src/evidrun/entrypoints/cli/commands/provider.py:157`,
   `src/evidrun/authority/router.py:145-169`). A afirmação vale apenas para o endpoint legado
   `POST /api/v1/contracts/revisions/{id}/decisions`, que é 503 fixo.
 - `docs/contracts/study-run-v1.md:102-104` afirma que o digest do SubjectEnvelope não é recomputável a

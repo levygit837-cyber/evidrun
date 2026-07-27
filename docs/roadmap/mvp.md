@@ -7,7 +7,7 @@ authority: planning
 volatility: snapshot
 owner: product
 created_at: 2026-07-22
-updated_at: 2026-07-24
+updated_at: 2026-07-26
 applies_to: product
 sources: []
 supersedes: []
@@ -47,7 +47,26 @@ verification_refs: []
   nao replayable;
 - Subject real opt-in, read tool confinada ao envelope e tracing factual;
 
-## Próximo
+## Proximo
+
+O corte imediato e o [Minimo Confortavel](../planning/comfortable-minimum.md). Dele saem os cinco
+itens abaixo, nesta ordem de destrave:
+
+- worker supervisionado pelo app instalado, sem o qual Run enfileirada nao executa;
+- superficie de Workspace/Project e autoria default, sem as quais nao existe Study proprio;
+- runtime do Lab Agent copiloto conforme o ADR 0018, com `LabAgentEnvelope`, loop de tools read-only
+  e proposta de draft sem decisao;
+- contrato de contexto e criterios do Subject, para que duas variants irmas difiram de forma tipada
+  na variavel primaria recebendo material identico por digest;
+- batch de execucao com retry/backoff e rate limiting de provider, mais metricas minimas por Run
+  (tokens, tool calls, duracao, terminal cause) e agregadas por variant (taxa de sucesso, `pass@k`,
+  `pass^k`), como read model derivado do ledger. Custo entra como projecao; `max_cost` continua
+  rejeitando a admissao;
+- memoria operacional do Lab Agent conforme o ADR 0019: `MemoryEntry` por Workspace, descoberta por
+  cue em dois estagios, consolidador em background e promocao humana de candidatos. Adjacente ao
+  corredor: melhora drafts, mas o Minimo Confortavel fecha sem ela.
+
+Depois do Minimo Confortavel:
 
 - enforcement ponta a ponta de classification e capture policy em snapshots e eventos;
 - adapter WebAuthn/passkey, cerimônia humana, enrollment/recovery e canal UI/CLI para produzir a
@@ -57,7 +76,7 @@ verification_refs: []
 - observer, scheduler, persistência e geração em background de Progress Artifact;
 - entrega de guidance `pre_run` ao runner e interações auditadas para `on_request`/`post_run`;
 - runtime de `bounded_exploration` conforme a taxonomia do ADR 0013, sem pass/fail;
-- Lab Agent com Pydantic AI;
+- multi-turn admitido com coordinator de turnos e budget aplicado;
 - approvals e resume;
 - tool simulator e sandbox;
 - runtime real de tools, skills e nested agents;
@@ -66,7 +85,7 @@ verification_refs: []
 - runtime de triggers e validators de `CheckpointPolicy`;
 - restore, replay, context extraction e fork por checkpoint;
 - export `portable` separado do Bundle v2 auditável;
-- repetições e análise estatística;
+- significancia estatistica formal, deteccao de saturacao e estatistica em escala;
 - LLM judges calibrados;
 - PyInstaller, assinatura e notarização;
 - analytics DuckDB/Parquet;

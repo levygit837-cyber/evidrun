@@ -7,7 +7,7 @@ authority: normative
 volatility: timeless
 owner: product
 created_at: 2026-07-22
-updated_at: 2026-07-22
+updated_at: 2026-07-26
 applies_to: product
 sources:
   - obsidian:40.ideas/products/context-reliability-lab
@@ -53,6 +53,9 @@ um ambiente local, inspecionável e reproduzível.
 - marketplace de prompts;
 - ranking universal de modelos;
 - execução irrestrita de shell;
-- memória global automática;
+- memória global automática, no sentido de contexto persistido sem escopo de Workspace, sem
+  proveniência ou promovido sem decisão humana. O [ADR 0019](../adr/0019-lab-agent-operational-memory.md)
+  define o que substitui esse não-objetivo: memória operacional por Workspace, com proveniência e
+  promoção humana;
 - substituir frameworks de agentes existentes.
 

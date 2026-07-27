@@ -7,7 +7,7 @@ authority: normative
 volatility: current
 owner: core
 created_at: 2026-07-22
-updated_at: 2026-07-23
+updated_at: 2026-07-26
 applies_to: repository
 sources: []
 supersedes: []
@@ -28,8 +28,9 @@ verification_refs:
 
 O Evidrun é um monólito modular com três planes:
 
-- **Control Plane:** projetos, Studies, revisions, decisões humanas e chats; o papel do Lab Agent
-  está definido, mas seu runtime ainda não existe.
+- **Control Plane:** projetos, Studies, revisions, decisões humanas e chats; é onde vive o Lab Agent,
+  copiloto do laboratório com escopo funcional amplo e sem autoridade humana
+  ([ADR 0018](../adr/0018-lab-agent-copilot-scope.md)). Seu runtime ainda não existe.
 - **Execution Plane:** compilador, admissão, coordinator, worker, Subject Runner e workspace.
 - **Evidence Plane:** event ledger, snapshots, artifacts, checkpoints, evaluations e bundles.
 

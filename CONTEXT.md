@@ -48,12 +48,31 @@ Tentativa ligada a um RunSpec e a um AdmissionRecord exatos.
 _Avoid_: test, execution, trial, job
 
 **Subject Agent**:
-O sistema sob teste. Recebe apenas o SubjectEnvelope.
-_Avoid_: model, assistant, SUT, Lab Agent
+O sistema sob teste dentro de uma Run. Recebe apenas o SubjectEnvelope. Não confundir com
+`authority subject`, que é o conteúdo assinado numa attestation humana (`HumanSubjectEnvelope`,
+ADR 0015) e não é um agente.
+_Avoid_: model, assistant, SUT, Lab Agent, authority subject
 
 **Lab Agent**:
-Agente do Control Plane que consulta evidências, explica Runs e cria drafts; aceitação e efeitos externos pertencem ao humano.
+Copiloto do Control Plane e superfície primária de trabalho do laboratório. Conduz formulação de
+hipótese, propõe drafts de qualquer contract de autoria, propõe métricas e graders, explica Runs e
+evidência. Não possui autoridade humana: não decide, não aceita, não atesta e não fala com o Subject.
 _Avoid_: Subject Agent, assistant
+
+**LabAgentEnvelope**:
+Contexto declarado do Lab Agent: escopo, contracts visíveis, evidência autorizada por referência,
+sessão e capabilities efetivas. Nunca contém credenciais.
+
+**MemoryEntry**:
+Entrada de memória operacional do Lab Agent, escopada a um Workspace, discriminada por `kind`
+(`rule`, `preference`, `decision`, `observation`, `episode`), append-only e promovida por humano.
+`observation` exige `evidence_refs`. Não é evidência e não entra no SubjectEnvelope.
+_Avoid_: memory dump, cache, história
+
+**Cue**:
+Pergunta que uma MemoryEntry responde, escrita como o usuário perguntaria. É o campo de descoberta,
+não palavra-chave. Anti-cue declara o que a entrada não cobre.
+_Avoid_: keyword, tag, label
 
 **Agent Inventory**:
 Requisitos de runner, provider, tools, skills e runtime de uma Run.
