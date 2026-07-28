@@ -30,6 +30,18 @@ function dataDir(): string {
 }
 
 /**
+ * Send a state update to the renderer, if there is still one listening.
+ *
+ * A destroyed `BrowserWindow` throws from the `webContents` getter itself, so optional
+ * chaining is not enough. This runs on the shutdown path, where a throw would abort the
+ * teardown sequence and leave the app running with no window.
+ */
+function publish(channel: string, state: unknown): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send(channel, state);
+}
+
+/**
  * Bring the executor up, tolerating failure.
  *
  * A failed executor is a stalled queue, not a dead app: evidence stays readable and the
@@ -125,10 +137,10 @@ async function registerAppProtocol(): Promise<void> {
 async function createApplicationWindow(): Promise<void> {
   const preloadPath = path.resolve(currentDir, "../preload/index.cjs");
   mainWindow = createMainWindow(preloadPath);
-  backend.on("state", (state) => mainWindow?.webContents.send(channels.backendState, state));
-  executor.on("state", (state) =>
-    mainWindow?.webContents.send(channels.executorStateChanged, state),
-  );
+  backend.removeAllListeners("state");
+  executor.removeAllListeners("state");
+  backend.on("state", (state) => publish(channels.backendState, state));
+  executor.on("state", (state) => publish(channels.executorStateChanged, state));
   mainWindow.webContents.on("will-navigate", (event, target) => {
     if (!isTrustedRendererUrl(target, devServerUrl)) event.preventDefault();
   });
@@ -142,6 +154,24 @@ async function createApplicationWindow(): Promise<void> {
   void startExecutor();
   if (devServerUrl) await mainWindow.loadURL(devServerUrl);
   else await mainWindow.loadURL("evidrun://app/");
+}
+
+/**
+ * One app instance per machine, because instances share `userData`.
+ *
+ * Two instances would supervise two executors over the same database. Lease fencing means
+ * that is safe — no Run executes twice — but it is still two processes competing where the
+ * brief asks for exactly one, and the second app's executor state would describe a queue
+ * the first one is draining.
+ */
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  });
 }
 
 app.whenReady().then(async () => {
@@ -179,9 +209,16 @@ app.on("before-quit", (event) => {
   event.preventDefault();
   shuttingDown = true;
   void (async () => {
-    await executor.stop();
-    await backend.stop();
-    app.quit();
+    // `finally`, because deferring the quit means any throw in teardown would otherwise
+    // leave the app alive with no window and no way out.
+    try {
+      await executor.stop();
+      await backend.stop();
+    } catch (error) {
+      console.error("[evidrun]", error instanceof Error ? error.message : error);
+    } finally {
+      app.quit();
+    }
   })();
 });
 app.on("window-all-closed", () => {

@@ -109,7 +109,12 @@ async def run_worker(
 
 
 def main() -> None:
-    args = build_parser().parse_args()
+    parser = build_parser()
+    args = parser.parse_args()
+    if args.desktop_handshake and args.once:
+        # `--once` never announces readiness, so a supervisor would wait out its timeout and
+        # then report a failure that never happened. Refuse instead of misleading it.
+        parser.error("--desktop-handshake cannot be combined with --once")
     data_dir = read_handshake() if args.desktop_handshake else args.data_dir
     settings = Settings.load(data_dir)
     settings.ensure_directories()

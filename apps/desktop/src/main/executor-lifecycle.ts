@@ -19,9 +19,22 @@ import { sidecarPath } from "./sidecar-path.js";
  * by every other process on the machine. Killing this process is safe by construction:
  * ADR 0014 has an expired lease produce a new attempt on the same Run, never a new Run.
  */
+/** Replace the data dir with a placeholder so diagnostics stay useful without the path. */
+export function redactDataDir(line: string, dataDir: string): string {
+  return dataDir ? line.split(dataDir).join("<data-dir>") : line;
+}
+
+/** Whether the OS process is still running, regardless of signals already sent. */
+function isRunning(child: ChildProcessWithoutNullStreams): boolean {
+  // `child.killed` only reports that a signal was delivered, so a process that ignores or
+  // is slow to handle SIGTERM still reads as `killed`. Exit is the pair going non-null.
+  return child.exitCode === null && child.signalCode === null;
+}
+
 export class ExecutorLifecycle extends EventEmitter {
   private child: ChildProcessWithoutNullStreams | null = null;
   private startPromise: Promise<ExecutorState> | null = null;
+  private stopPromise: Promise<void> | null = null;
   private stopping = false;
   private current: ExecutorState = { status: "stopped" };
 
@@ -30,7 +43,12 @@ export class ExecutorLifecycle extends EventEmitter {
   }
 
   async start(dataDir: string): Promise<ExecutorState> {
-    if (this.child) return this.current;
+    // A shutdown in flight has already cleared `child`, so starting now would spawn a
+    // second executor alongside one still dying. Wait it out first.
+    if (this.stopPromise) await this.stopPromise;
+    if (this.child && isRunning(this.child) && this.current.status !== "failed") {
+      return this.current;
+    }
     if (this.startPromise) return this.startPromise;
     this.startPromise = this.spawnExecutor(dataDir);
     try {
@@ -46,34 +64,47 @@ export class ExecutorLifecycle extends EventEmitter {
   }
 
   /**
-   * Ask the executor to finish, and wait for it.
+   * Ask the executor to finish, and wait for it to actually be gone.
    *
    * SIGTERM lets `run_forever` leave its poll and release the lease it holds; without
-   * waiting, a Run in flight would sit until its lease expired. SIGKILL is the fallback,
-   * not the opening move.
+   * waiting, a Run in flight would sit until its lease expired. SIGKILL is the fallback
+   * for a process that will not leave, so it has to be driven by real exit rather than by
+   * whether a signal was delivered.
    */
   async stop(): Promise<void> {
+    if (this.stopPromise) return this.stopPromise;
+    this.stopPromise = this.terminate();
+    try {
+      await this.stopPromise;
+    } finally {
+      this.stopPromise = null;
+    }
+  }
+
+  private async terminate(): Promise<void> {
     this.stopping = true;
     const child = this.child;
     this.child = null;
-    if (!child || child.killed) {
-      this.emitState({ status: "stopped" });
-      this.stopping = false;
-      return;
-    }
-    child.kill("SIGTERM");
-    await new Promise<void>((resolve) => {
-      const timeout = setTimeout(() => {
-        if (!child.killed) child.kill("SIGKILL");
-        resolve();
-      }, 8_000);
-      child.once("exit", () => {
-        clearTimeout(timeout);
-        resolve();
+    try {
+      if (!child || !isRunning(child)) {
+        this.emitState({ status: "stopped" });
+        return;
+      }
+      child.kill("SIGTERM");
+      await new Promise<void>((resolve) => {
+        const timeout = setTimeout(() => {
+          if (isRunning(child)) child.kill("SIGKILL");
+          resolve();
+        }, 8_000);
+        child.once("exit", () => {
+          clearTimeout(timeout);
+          resolve();
+        });
       });
-    });
-    this.emitState({ status: "stopped" });
-    this.stopping = false;
+      this.emitState({ status: "stopped" });
+    } finally {
+      this.stopping = false;
+    }
   }
 
   private spawnExecutor(dataDir: string): Promise<ExecutorState> {
@@ -96,14 +127,21 @@ export class ExecutorLifecycle extends EventEmitter {
     child.stdin.write(`${JSON.stringify({ data_dir: dataDir })}\n`);
 
     return new Promise<ExecutorState>((resolve, reject) => {
+      let ready = false;
+      // Set once the timeout fires, so the exit it causes is not reported as the reason
+      // the executor failed. The user needs to read "never answered", not "exited".
+      let timedOut = false;
+      // Readiness that never arrives must leave the object usable: reap the process
+      // instead of parking a half-dead child that neither `start` nor `stop` can act on.
       const timeout = setTimeout(() => {
-        child.kill("SIGTERM");
+        timedOut = true;
         const message = "Executor de Runs não respondeu ao handshake";
-        this.emitState({ status: "failed", message });
-        reject(new Error(message));
+        void this.stop().finally(() => {
+          this.emitState({ status: "failed", message });
+          reject(new Error(message));
+        });
       }, 30_000);
       const lines = readline.createInterface({ input: child.stdout });
-      let ready = false;
 
       lines.once("line", (line) => {
         try {
@@ -115,14 +153,17 @@ export class ExecutorLifecycle extends EventEmitter {
           resolve(state);
         } catch (error) {
           clearTimeout(timeout);
-          child.kill("SIGTERM");
-          this.emitState({ status: "failed", message: "Handshake do executor inválido" });
-          reject(error);
+          void this.stop().finally(() => {
+            this.emitState({ status: "failed", message: "Handshake do executor inválido" });
+            reject(error);
+          });
         }
       });
 
       child.stderr.on("data", (chunk: Buffer) => {
-        const line = chunk.toString("utf8").trim();
+        // A traceback from the worker quotes the paths it failed on, and the data dir is
+        // one of them. Keeping it out of argv would be pointless if the log printed it.
+        const line = redactDataDir(chunk.toString("utf8").trim(), dataDir);
         if (line) console.error(`[evidrun-worker] ${line}`);
       });
       child.once("error", (error) => {
@@ -134,6 +175,7 @@ export class ExecutorLifecycle extends EventEmitter {
       child.once("exit", (code, signal) => {
         clearTimeout(timeout);
         this.child = null;
+        if (timedOut) return;
         const message = `Executor encerrou (${code ?? signal ?? "desconhecido"})`;
         this.emitState({ status: ready && this.stopping ? "stopped" : "failed", message });
         if (!ready) reject(new Error(message));

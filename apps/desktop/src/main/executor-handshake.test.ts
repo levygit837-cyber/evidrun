@@ -13,20 +13,11 @@ describe("executor handshake", () => {
     expect(parseExecutorReadiness(JSON.stringify(valid)).worker_id).toBe("host:4321:worker_01");
   });
 
-  it("rejects the backend envelope", () => {
-    // Both processes announce on stdout; accepting the wrong banner would report a ready
-    // executor for a process that never claims a job.
+  it("rejects the backend protocol even when every other field is valid", () => {
+    // Both processes announce on stdout, so the protocol tag is what separates them.
+    // Rejecting the raw backend banner would prove nothing — it lacks `worker_id` anyway.
     expect(() =>
-      parseExecutorReadiness(
-        JSON.stringify({
-          protocol: "evidrun-desktop-v1",
-          port: 43121,
-          backend_instance_id: "backend-1",
-          schema_version: "1",
-          pid: 123,
-          health_nonce: "nonce",
-        }),
-      ),
+      parseExecutorReadiness(JSON.stringify({ ...valid, protocol: "evidrun-desktop-v1" })),
     ).toThrow();
   });
 

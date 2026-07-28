@@ -20,6 +20,7 @@
     "test:web": "vitest run --config apps/web/vitest.config.ts",
     "test:desktop": "vitest run --config apps/desktop/vitest.config.ts",
     "test:handshake": "node scripts/smoke_desktop_handshake.mjs",
+    "test:supervision": "node scripts/smoke_desktop_supervision.mjs",
     "generate:schemas": "uv run python scripts/generate_schemas.py",
     "generate:contracts": "pnpm generate:schemas && node scripts/generate_contract_types.mjs",
     "check:contracts": "uv run python scripts/generate_schemas.py --check && node scripts/generate_contract_types.mjs --check",
