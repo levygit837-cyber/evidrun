@@ -13,6 +13,7 @@ take the evidence API down with it.
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -43,6 +44,17 @@ HIDDEN_IMPORTS = (
 
 def executable_name(name: str) -> str:
     return f"{name}.exe" if sys.platform == "win32" else name
+
+
+def bundled_data() -> tuple[Path, str]:
+    """Read-only material to ship inside the bundle, as (source, bundle-relative name).
+
+    The canonical benchmark package has to stay reachable offline in the installed app.
+    `evidrun.shared.resources.benchmarks_root` looks for it under this exact name, so the
+    frozen layout matches a checkout and no caller branches on frozen-ness.
+    """
+
+    return REPO_ROOT / "benchmarks", "benchmarks"
 
 
 def write_entrypoint(name: str, target: str, directory: Path) -> Path:
@@ -87,6 +99,8 @@ def freeze(name: str, target: str) -> Path:
         str(work),
         "--paths",
         str(REPO_ROOT / "src"),
+        "--add-data",
+        os.pathsep.join(str(part) for part in bundled_data()),
     ]
     for hidden in HIDDEN_IMPORTS:
         command += ["--hidden-import", hidden]
