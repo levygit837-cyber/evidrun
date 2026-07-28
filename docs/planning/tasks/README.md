@@ -39,12 +39,12 @@ observabilidade.
 
 | Estado | Brief | Proxima acao |
 | --- | --- | --- |
-| `queued` | [WS-01 Superficie de Workspace/Project](01-workspace-project-surface.md) | Dois tracer bullets aprovados; pode iniciar em paralelo com WS-02 e WS-03 |
+| `delivered` | [WS-01 Superficie de Workspace/Project](01-workspace-project-surface.md) | API/CLI, nome canonico, constraints, migrations e corredor ate contract verificados |
 | `queued` | [WS-02 Lifecycle do worker no desktop](02-desktop-worker-lifecycle.md) | Pode iniciar imediatamente; nao toca dominio Python |
 | `queued` | [WS-03 Decisao de autoria default](03-default-authoring-authority.md) | ADR sucessor; decisao humana, precede WS-40 |
 | `delivered` | [WS-11/12 Costuras do dominio](11-domain-seams.md) | Entregue em `812b330` e `62ddec8`; desbloqueia WS-20/30/40 |
 | `delivered` | [WS-13 Costuras das paginas web](13-web-page-seams.md) | Entregue; brief esta `verified` com refs de implementacao e teste |
-| `queued` | [WS-04 Runtime do Lab Agent copiloto](04-lab-agent-runtime.md) | Depende de WS-01; nao depende de WS-20/30/40 |
+| `queued` | [WS-04 Runtime do Lab Agent copiloto](04-lab-agent-runtime.md) | WS-01 entregue; nao depende de WS-20/30/40 |
 | `queued` | [WS-05 Contexto e criterios do Subject](05-subject-context-contract.md) | Decisao de contrato; precede batch util |
 | `queued` | [WS-06 Batch, resiliencia de provider e metricas minimas](06-batch-and-minimal-metrics.md) | Depende de WS-02; paralelo com WS-05 |
 | `queued` | [WS-07 Memoria operacional e consolidador](07-lab-agent-memory.md) | Depende de WS-04; nao depende de WS-05, WS-06, WS-20, WS-30 nem WS-40 |

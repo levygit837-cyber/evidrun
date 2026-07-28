@@ -13,6 +13,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from evidrun.contracts import (
     AdmissionRecord,
@@ -21,6 +22,7 @@ from evidrun.contracts import (
     SubjectEnvelopeRecord,
     semantic_model_dump,
 )
+from evidrun.contracts.scope import normalize_scope_name
 from evidrun.infrastructure.database import clock
 from evidrun.infrastructure.database.models import (
     AdmissionRecordRow,
@@ -35,6 +37,15 @@ from evidrun.infrastructure.database.models import (
     WorkspaceRow,
 )
 from evidrun.infrastructure.database.queue.fencing import validate_optional_lease
+from evidrun.infrastructure.database.scope_errors import (
+    ScopeRejected,
+    ScopeStorageUnavailable,
+    project_name_conflict,
+    project_name_invalid,
+    project_workspace_not_found,
+    workspace_name_conflict,
+    workspace_name_invalid,
+)
 from evidrun.infrastructure.database.timestamps import aware_utc
 from evidrun.infrastructure.database.unit_of_work import LeaseFence, UnitOfWork
 from evidrun.shared.types import canonical_json, new_id, sha256_json
@@ -65,19 +76,78 @@ class CatalogStore:
         self.unit_of_work = unit_of_work
 
     def create_workspace(self, name: str) -> WorkspaceRow:
-        row = WorkspaceRow(id=new_id("ws"), name=name, created_at=clock.utc_now())
+        try:
+            normalized = normalize_scope_name(name)
+        except ValueError as exc:
+            raise workspace_name_invalid() from exc
+        row = WorkspaceRow(
+            id=new_id("ws"),
+            name=normalized.name,
+            name_key=normalized.name_key,
+            created_at=clock.utc_now(),
+        )
         with self.unit_of_work.session() as session:
-            session.add(row)
-            session.commit()
+            try:
+                session.add(row)
+                session.commit()
+            except IntegrityError as exc:
+                session.rollback()
+                try:
+                    existing = session.scalar(
+                        select(WorkspaceRow.id).where(
+                            WorkspaceRow.name_key == normalized.name_key
+                        )
+                    )
+                except SQLAlchemyError as lookup_exc:
+                    raise ScopeStorageUnavailable() from lookup_exc
+                if existing is not None:
+                    raise workspace_name_conflict() from exc
+                raise ScopeStorageUnavailable() from exc
+            except SQLAlchemyError as exc:
+                session.rollback()
+                raise ScopeStorageUnavailable() from exc
         return row
 
     def create_project(self, workspace_id: str, name: str) -> ProjectRow:
+        try:
+            normalized = normalize_scope_name(name)
+        except ValueError as exc:
+            raise project_name_invalid() from exc
         row = ProjectRow(
-            id=new_id("prj"), workspace_id=workspace_id, name=name, created_at=clock.utc_now()
+            id=new_id("prj"),
+            workspace_id=workspace_id,
+            name=normalized.name,
+            name_key=normalized.name_key,
+            created_at=clock.utc_now(),
         )
         with self.unit_of_work.session() as session:
-            session.add(row)
-            session.commit()
+            try:
+                if session.get(WorkspaceRow, workspace_id) is None:
+                    raise project_workspace_not_found()
+                session.add(row)
+                session.commit()
+            except ScopeRejected:
+                raise
+            except IntegrityError as exc:
+                session.rollback()
+                try:
+                    parent = session.get(WorkspaceRow, workspace_id)
+                    existing = session.scalar(
+                        select(ProjectRow.id).where(
+                            ProjectRow.workspace_id == workspace_id,
+                            ProjectRow.name_key == normalized.name_key,
+                        )
+                    )
+                except SQLAlchemyError as lookup_exc:
+                    raise ScopeStorageUnavailable() from lookup_exc
+                if parent is None:
+                    raise project_workspace_not_found() from exc
+                if existing is not None:
+                    raise project_name_conflict() from exc
+                raise ScopeStorageUnavailable() from exc
+            except SQLAlchemyError as exc:
+                session.rollback()
+                raise ScopeStorageUnavailable() from exc
         return row
 
     def save_run_spec(self, spec: RunSpec) -> RunSpecRow:

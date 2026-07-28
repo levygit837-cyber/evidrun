@@ -56,7 +56,7 @@ superficie e de lifecycle em cima de dominio que ja funciona.
 
 | # | Bloqueio | Evidencia observada |
 | --- | --- | --- |
-| B1 | Nao existe como criar Workspace ou Project | Banco novo tem zero Projects. Writes internos existem no `CatalogStore`, mas sem nome canonico/unicidade; nao ha comando CLI nem rota `POST`. O erro `register.project_not_found` ja foi tipado, porem ainda falta criar o Project por superficie publica. O unico bootstrap completo continua sendo `evidrun demo`. |
+| B1 | Criacao publica de Workspace ou Project | **Resolvido por WS-01.** API e CLI criam/listam scopes com nome canonico, constraints, migrations e `ScopeError`; o corredor chega a `contract register` sem fixture. |
 | B2 | O desktop empacotado nunca processa Runs | `backend-lifecycle.ts` faz spawn de `evidrun serve --desktop-handshake`; `serve` sobe apenas uvicorn. Nenhum path do produto inicia `evidrun-worker`. A UI enfileira Runs que ninguem executa. |
 | B3 | Autoria verificada e opt-in e desligada por padrao | `Settings.authority_enabled` default `False`. Sem `EVIDRUN_AUTHORITY=1`, `StudyCompiler.resolve` recusa toda revision, porque `decide` exige verifier confiavel. Por padrao o unico corredor que aceita revisions e o `repository_fixture` nao humano. |
 
@@ -92,9 +92,9 @@ utilizavel* e *o que precisa existir antes de varias frentes poderem editar em p
 
 Tres fatias independentes, sem arquivo compartilhado entre elas. Executam em paralelo.
 
-- **WS-01 Superficie de Workspace/Project:** dois tracer bullets verticais (Workspace, depois
-  Project), com nome canonico, migration/constraints, `ScopeError`, leituras diretas, rotas e CLI.
-  Resolve B1 sem criar Run Environment.
+- **WS-01 Superficie de Workspace/Project — entregue:** dois tracer bullets verticais (Workspace,
+  depois Project), com nome canonico, migration/constraints, `ScopeError`, leituras diretas, rotas e
+  CLI. Resolve B1 sem criar Run Environment.
 - **WS-02 Lifecycle do worker no desktop:** o app local passa a supervisionar execucao, nao apenas a
   API. Resolve B2. Inclui reinicio observavel e o gate de CI que hoje nao roda (`test:handshake`).
 - **WS-03 Decisao de autoria default:** ADR sucessor que define como um usuario aceita uma revision

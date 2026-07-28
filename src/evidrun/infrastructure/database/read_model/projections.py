@@ -20,6 +20,7 @@ from evidrun.infrastructure.database.models import (
     RunRow,
     WorkspaceRow,
 )
+from evidrun.infrastructure.database.timestamps import aware_utc
 
 __all__ = [
     "chat_document",
@@ -33,7 +34,11 @@ __all__ = [
 
 
 def workspace_document(row: WorkspaceRow) -> dict[str, Any]:
-    return {"id": row.id, "name": row.name, "created_at": row.created_at.isoformat()}
+    return {
+        "id": row.id,
+        "name": row.name,
+        "created_at": aware_utc(row.created_at).isoformat(),
+    }
 
 
 def project_document(row: ProjectRow) -> dict[str, Any]:
@@ -41,7 +46,7 @@ def project_document(row: ProjectRow) -> dict[str, Any]:
         "id": row.id,
         "workspace_id": row.workspace_id,
         "name": row.name,
-        "created_at": row.created_at.isoformat(),
+        "created_at": aware_utc(row.created_at).isoformat(),
     }
 
 

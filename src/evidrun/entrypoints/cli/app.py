@@ -27,9 +27,11 @@ from evidrun.entrypoints.cli.commands import (
     contract_app,
     data_app,
     experiment_app,
+    project_app,
     provider_app,
     run_app,
     study_app,
+    workspace_app,
 )
 from evidrun.entrypoints.cli.shared import components, console
 from evidrun.infrastructure.providers import ProviderCredentialStore
@@ -46,6 +48,8 @@ app.add_typer(chat_app, name="chat")
 app.add_typer(data_app, name="data")
 app.add_typer(provider_app, name="provider")
 app.add_typer(authority_app, name="authority")
+app.add_typer(workspace_app, name="workspace")
+app.add_typer(project_app, name="project")
 
 
 @app.callback()

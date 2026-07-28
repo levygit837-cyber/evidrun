@@ -9,6 +9,10 @@ from sqlalchemy import Engine, String, create_engine, event, inspect
 from sqlalchemy.orm import Session, sessionmaker
 
 from evidrun.infrastructure.database.models import Base
+from evidrun.infrastructure.database.scope_schema import (
+    ensure_project_name_schema,
+    ensure_workspace_name_schema,
+)
 
 
 class Database:
@@ -37,6 +41,7 @@ class Database:
         self._ensure_additive_run_contract_columns()
         self._ensure_additive_contract_revision_status()
         self._ensure_runtime_kernel_schema()
+        self._ensure_scope_name_schema()
 
     def _ensure_additive_run_contract_columns(self) -> None:
         """Keep pre-contract local databases readable before Alembic is invoked explicitly."""
@@ -102,6 +107,22 @@ class Database:
                         existing_type=String(),
                         nullable=True,
                     )
+
+    def _ensure_scope_name_schema(self) -> None:
+        """Upgrade legacy local scope rows before repositories use their name keys."""
+
+        with self.engine.connect() as connection:
+            connection.exec_driver_sql("PRAGMA foreign_keys=OFF")
+            connection.commit()
+            try:
+                with connection.begin():
+                    ensure_workspace_name_schema(connection)
+                    ensure_project_name_schema(connection)
+            finally:
+                if connection.in_transaction():
+                    connection.rollback()
+                connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+                connection.commit()
 
     def session(self) -> Session:
         return self.session_factory()

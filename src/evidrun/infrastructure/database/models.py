@@ -12,18 +12,24 @@ class Base(DeclarativeBase):
 
 class WorkspaceRow(Base):
     __tablename__ = "workspaces"
+    __table_args__ = (UniqueConstraint("name_key", name="uq_workspace_name_key"),)
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
+    name_key: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[datetime] = mapped_column(nullable=False)
 
 
 class ProjectRow(Base):
     __tablename__ = "projects"
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "name_key", name="uq_project_workspace_name_key"),
+    )
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
     workspace_id: Mapped[str] = mapped_column(ForeignKey("workspaces.id"), nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
+    name_key: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[datetime] = mapped_column(nullable=False)
 
 

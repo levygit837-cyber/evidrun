@@ -74,6 +74,12 @@ from evidrun.contracts.runtime.records import (
     RunRecord,
 )
 from evidrun.contracts.runtime.spec import ResolvedAgentInventory, ResolvedCapability, RunSpec
+from evidrun.contracts.scope import (
+    ScopeError,
+    ScopeErrorCategory,
+    ScopeErrorCode,
+    normalize_scope_name,
+)
 
 __all__ = [
     "AdjudicatesEvaluationRelation",
@@ -129,6 +135,9 @@ __all__ = [
     "RunSpec",
     "ScenarioRevision",
     "ScenarioSpec",
+    "ScopeError",
+    "ScopeErrorCategory",
+    "ScopeErrorCode",
     "SecretBindingRef",
     "StudyIntent",
     "StudyRevision",
@@ -143,6 +152,7 @@ __all__ = [
     "WorkspaceTemplateSpec",
     "capability_ref",
     "normalize_event_payload",
+    "normalize_scope_name",
     "parse_revision",
     "semantic_model_dump",
 ]

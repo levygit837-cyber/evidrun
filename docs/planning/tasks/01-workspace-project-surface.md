@@ -2,7 +2,7 @@
 id: planning-task-workspace-project-surface
 type: implementation-task
 title: WS-01 Superfície pública de Workspace e Project
-status: proposed
+status: verified
 authority: planning
 volatility: snapshot
 owner: product-engineering
@@ -21,13 +21,23 @@ sources:
   - CONTEXT.md
 supersedes: []
 superseded_by: null
-implementation_refs: []
-verification_refs: []
+implementation_refs:
+  - src/evidrun/contracts/scope.py
+  - src/evidrun/infrastructure/database/catalog.py
+  - src/evidrun/infrastructure/database/read_model/queries.py
+  - src/evidrun/entrypoints/api/routers/platform.py
+  - src/evidrun/entrypoints/cli/commands/scopes.py
+  - alembic/versions/0005_workspace_name_identity.py
+  - alembic/versions/0006_project_name_identity.py
+verification_refs:
+  - tests/unit/test_scope_contracts.py
+  - tests/integration/test_scope_surfaces.py
+  - tests/integration/test_scope_migration.py
 ---
 
 # WS-01 — Superfície pública de Workspace e Project
 
-`workstream_state: queued`
+`workstream_state: delivered`
 
 ## Resultado prático
 
@@ -38,6 +48,20 @@ o usuário registra uma contract revision no Project criado.
 O corte implementa o
 [contrato v1 da superfície](../../contracts/workspace-project-surface-v1.md). Ele não cria Run
 Environment, sandbox, Lab Agent por Project, policy executável, acceptance ou Run.
+
+## Entrega verificada
+
+WS-01A e WS-01B foram fechados no mesmo branch em dois revisions Alembic lineares:
+`0005_workspace_name_identity` e `0006_project_name_identity`. O corredor público parte de banco
+vazio, cria Workspace e Project e registra a primeira contract revision por API ou CLI. As provas
+cobrem normalização, duplicidade simples e concorrente, homônimos cross-Workspace, storage
+indisponível, payload extra, leitura direta e migration vazia/legada/ambígua/downgrade.
+
+O delta real antes de generated docs foi 1.377 linhas adicionadas e 14 removidas: 700 de testes, 202
+de migration/schema compatível e 475 do contrato/store/read model/API/CLI. A faixa inicial foi
+ultrapassada porque a matriz fail-closed e o caminho `Database.create_all()` para bancos locais
+legados exigiram cobertura própria; a reavaliação não encontrou regra duplicada nas bordas nem
+expansão para frontend, authority, Lab Agent ou Run Environment.
 
 ## Decisões já fechadas
 
@@ -56,7 +80,7 @@ Environment, sandbox, Lab Agent por Project, policy executável, acceptance ou R
 Não há decisão de produto bloqueante para iniciar. Rename, archive/delete, idempotency key, sync,
 ACL, metadata de propósito e policy de Run Environment permanecem deliberadamente fora do v1.
 
-## Snapshot inicial
+## Snapshot inicial histórico
 
 Verificado em `main` no commit `b591f4c` em 2026-07-27. Redescubra antes de implementar:
 
