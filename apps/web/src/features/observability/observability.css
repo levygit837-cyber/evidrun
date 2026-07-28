@@ -492,7 +492,6 @@
 .obs-stream-open { color: #07885e; }
 .obs-stream-reconnecting { color: #b26900; }
 
-.obs-stream-error,
 .obs-inline-error {
   display: flex;
   align-items: center;
@@ -597,8 +596,9 @@
   font-size: 11px;
 }
 
+/* Literal rather than `var(--danger)`, which is too light on this surface to clear 4.5:1. */
 .obs-anomaly-error {
-  color: var(--danger-strong, #b91c1c);
+  color: #b91c1c;
   font-size: 11px;
 }
 

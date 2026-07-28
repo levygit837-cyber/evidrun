@@ -23,6 +23,29 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Turn a refused admission into a sentence, falling back to the status when it cannot be read.
+ *
+ * The rejection body carries a typed error with a message and the requirements that were missing;
+ * showing the serialized JSON instead would put contract internals on screen.
+ */
+export function admissionRefusal(error: ApiError): string {
+  try {
+    const body = JSON.parse(error.detail) as {
+      decision?: string;
+      missing_requirements?: string[];
+      error?: { message?: string };
+    };
+    const reason = body.error?.message ?? body.decision ?? `HTTP ${error.status}`;
+    const missing = body.missing_requirements?.length
+      ? ` Requisitos ausentes: ${body.missing_requirements.join(", ")}.`
+      : "";
+    return `A admissão recusou este RunSpec: ${reason}.${missing}`;
+  } catch {
+    return `A admissão recusou este RunSpec (HTTP ${error.status}).`;
+  }
+}
+
 export function invalidateBackendConnection(): void {
   cachedConnection = null;
   pendingConnection = null;
@@ -68,11 +91,23 @@ export const api = {
   bootstrapDemo: () =>
     apiFetch<BootstrapDemoResult>("/api/v1/demo/bootstrap", { method: "POST" }),
   runs: () => apiFetch<Run[]>("/api/v1/runs"),
-  admitRunSpec: (runSpecId: string) =>
-    apiFetch<{ id: string; decision: string }>(
-      `/api/v1/run-specs/${encodeURIComponent(runSpecId)}/admit`,
-      { method: "POST" },
-    ),
+  /**
+   * Resolve inventory and capabilities for a RunSpec.
+   *
+   * A rejection answers 4xx with the decision in the body, so `apiFetch` throws before the caller
+   * can inspect `decision`. The reason is unwrapped here, because the raw serialized body is not
+   * something to put in front of a user.
+   */
+  admitRunSpec: async (runSpecId: string) => {
+    try {
+      return await apiFetch<{ id: string; decision: string }>(
+        `/api/v1/run-specs/${encodeURIComponent(runSpecId)}/admit`,
+        { method: "POST" },
+      );
+    } catch (error) {
+      throw error instanceof ApiError ? new Error(admissionRefusal(error)) : error;
+    }
+  },
   /**
    * Enqueue a fresh Run derived from one that already finished.
    *

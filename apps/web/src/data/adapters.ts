@@ -17,10 +17,11 @@ export const observabilityAdapter: ObservabilityAdapter = {
     // Admit first: a retry requires an AdmissionRecord created after the source Run went
     // terminal, and reusing the original one is refused by contract.
     const admission = await api.admitRunSpec(runSpecId);
-    if (admission.decision !== "admitted") {
-      throw new Error(`A admissão recusou este RunSpec: ${admission.decision}`);
-    }
-    return api.retryRun(runId, admission.id, `retry-${runId}-${Date.now()}`);
+    // The idempotency key is derived from the source Run, not from the clock. A wall-clock key
+    // differs on every click, and the queue dedupes on that key alone — so a double click used
+    // to enqueue two Runs nobody asked for. Retrying the same Run twice on purpose is still
+    // possible; it just needs the first retry to have finished and produced a new source.
+    return api.retryRun(runId, admission.id, `retry-of-${runId}`);
   },
   stream: runEventStream,
 };

@@ -176,8 +176,10 @@ function AnomalyNote({
               Refazer executa o mesmo RunSpec do zero, como Run nova com proveniência declarada.
               Esta Run permanece como está.
             </span>
+            {/* Its own `alert`, because the enclosing note is polite and a failed retry is not
+                something to leave to the next announcement. */}
             {retry.isError ? (
-              <span className="obs-anomaly-error">
+              <span className="obs-anomaly-error" role="alert">
                 {retry.error instanceof Error ? retry.error.message : "Falha ao refazer a Run."}
               </span>
             ) : null}
