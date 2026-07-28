@@ -506,6 +506,18 @@
       "review_due": null
     },
     {
+      "id": "contract-evidence-bundle-v4",
+      "path": "docs/contracts/evidence-bundle-v4.md",
+      "type": "contract",
+      "title": "Evidence Bundle v4 com Execution Trust",
+      "status": "accepted",
+      "authority": "normative",
+      "volatility": "timeless",
+      "owner": "governance",
+      "updated_at": "2026-07-28",
+      "review_due": null
+    },
+    {
       "id": "contract-evidence-bundle-v1",
       "path": "docs/contracts/evidence-bundle.md",
       "type": "contract",

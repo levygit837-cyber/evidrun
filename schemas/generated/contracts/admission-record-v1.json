@@ -160,6 +160,27 @@
       "title": "ContractType",
       "type": "string"
     },
+    "ExecutionTrustRef": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "trust_id": {
+          "minLength": 1,
+          "title": "Trust Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "trust_id",
+        "digest"
+      ],
+      "title": "ExecutionTrustRef",
+      "type": "object"
+    },
     "ResolutionReason": {
       "additionalProperties": false,
       "properties": {
@@ -431,6 +452,17 @@
       },
       "title": "Denied Policies",
       "type": "array"
+    },
+    "execution_trust": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ExecutionTrustRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "interaction_status": {
       "enum": [

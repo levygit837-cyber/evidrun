@@ -13,6 +13,7 @@ from evidrun.infrastructure.database.queue.lease import LeaseStore
 from evidrun.infrastructure.database.queue.preparation import PreparationStore
 from evidrun.infrastructure.database.read_model import ReadModel
 from evidrun.infrastructure.database.registry import ContractRegistryStore
+from evidrun.infrastructure.database.trust import ExecutionTrustStore
 from evidrun.infrastructure.database.unit_of_work import UnitOfWork
 
 __all__ = ["Repository"]
@@ -51,3 +52,4 @@ class Repository:
         self.enqueue = EnqueueStore(self.unit_of_work)
         self.lease = LeaseStore(self.unit_of_work)
         self.preparation = PreparationStore(self.unit_of_work)
+        self.execution_trust = ExecutionTrustStore(self.unit_of_work)

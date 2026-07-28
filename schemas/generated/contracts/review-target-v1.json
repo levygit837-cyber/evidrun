@@ -1,0 +1,38 @@
+{
+  "additionalProperties": false,
+  "description": "Canonical identity of the complete RunSpec matrix for human review.",
+  "properties": {
+    "project_id": {
+      "minLength": 1,
+      "title": "Project Id",
+      "type": "string"
+    },
+    "revision_set_digest": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Revision Set Digest",
+      "type": "string"
+    },
+    "run_spec_digests": {
+      "items": {
+        "pattern": "^[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Run Spec Digests",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1",
+      "default": "1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "project_id",
+    "revision_set_digest",
+    "run_spec_digests"
+  ],
+  "title": "ReviewTarget",
+  "type": "object"
+}

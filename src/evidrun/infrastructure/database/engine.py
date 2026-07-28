@@ -42,6 +42,7 @@ class Database:
         self._ensure_additive_contract_revision_status()
         self._ensure_runtime_kernel_schema()
         self._ensure_scope_name_schema()
+        self._ensure_execution_trust_schema()
 
     def _ensure_additive_run_contract_columns(self) -> None:
         """Keep pre-contract local databases readable before Alembic is invoked explicitly."""
@@ -123,6 +124,42 @@ class Database:
                     connection.rollback()
                 connection.exec_driver_sql("PRAGMA foreign_keys=ON")
                 connection.commit()
+
+    def _ensure_execution_trust_schema(self) -> None:
+        """Keep pre-trust local databases readable without inferring legacy trust."""
+
+        additions = {
+            "admission_records": {
+                "execution_trust_id": (
+                    "VARCHAR REFERENCES execution_trust_records(id)"
+                ),
+                "execution_trust_digest": "VARCHAR(64)",
+            },
+            "runs": {
+                "execution_trust_id": (
+                    "VARCHAR REFERENCES execution_trust_records(id)"
+                ),
+                "execution_trust_digest": "VARCHAR(64)",
+            },
+        }
+        with self.engine.begin() as connection:
+            for table, declarations in additions.items():
+                columns = {
+                    item["name"] for item in inspect(self.engine).get_columns(table)
+                }
+                for name, declaration in declarations.items():
+                    if name not in columns:
+                        connection.exec_driver_sql(
+                            f"ALTER TABLE {table} ADD COLUMN {name} {declaration}"
+                        )
+            connection.exec_driver_sql(
+                "CREATE INDEX IF NOT EXISTS ix_admission_records_execution_trust_id "
+                "ON admission_records (execution_trust_id)"
+            )
+            connection.exec_driver_sql(
+                "CREATE INDEX IF NOT EXISTS ix_runs_execution_trust_id "
+                "ON runs (execution_trust_id)"
+            )
 
     def session(self) -> Session:
         return self.session_factory()

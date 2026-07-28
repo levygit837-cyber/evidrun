@@ -46,91 +46,64 @@
       "title": "ContractType",
       "type": "string"
     },
-    "ExecutionTrustRef": {
+    "VerifiedDecisionBinding": {
       "additionalProperties": false,
       "properties": {
-        "digest": {
+        "decision_digest": {
           "pattern": "^[0-9a-f]{64}$",
-          "title": "Digest",
+          "title": "Decision Digest",
           "type": "string"
         },
-        "trust_id": {
-          "minLength": 1,
-          "title": "Trust Id",
-          "type": "string"
+        "revision_ref": {
+          "$ref": "#/$defs/ContractRef"
         }
       },
       "required": [
-        "trust_id",
-        "digest"
+        "revision_ref",
+        "decision_digest"
       ],
-      "title": "ExecutionTrustRef",
+      "title": "VerifiedDecisionBinding",
       "type": "object"
     }
   },
   "additionalProperties": false,
+  "description": "Immutable trust declared for one exact RunSpec.",
   "properties": {
-    "admission_digest": {
-      "pattern": "^[0-9a-f]{64}$",
-      "title": "Admission Digest",
-      "type": "string"
-    },
-    "admission_id": {
-      "minLength": 1,
-      "title": "Admission Id",
-      "type": "string"
-    },
     "created_at_utc": {
       "format": "date-time",
       "title": "Created At Utc",
       "type": "string"
     },
-    "execution_trust": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/ExecutionTrustRef"
-        },
-        {
-          "type": "null"
-        }
+    "kind": {
+      "enum": [
+        "unverified_revision_set",
+        "verified_revision_set"
       ],
-      "default": null
+      "title": "Kind",
+      "type": "string"
     },
-    "repetition_index": {
-      "exclusiveMinimum": 0,
-      "title": "Repetition Index",
-      "type": "integer"
-    },
-    "retry_of": {
-      "anyOf": [
-        {
-          "minLength": 1,
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Retry Of"
-    },
-    "run_id": {
+    "project_id": {
       "minLength": 1,
-      "title": "Run Id",
+      "title": "Project Id",
+      "type": "string"
+    },
+    "revision_refs": {
+      "items": {
+        "$ref": "#/$defs/ContractRef"
+      },
+      "minItems": 1,
+      "title": "Revision Refs",
+      "type": "array"
+    },
+    "revision_set_digest": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Revision Set Digest",
       "type": "string"
     },
     "run_spec_digest": {
       "pattern": "^[0-9a-f]{64}$",
       "title": "Run Spec Digest",
       "type": "string"
-    },
-    "run_spec_id": {
-      "minLength": 1,
-      "title": "Run Spec Id",
-      "type": "string"
-    },
-    "scenario_ref": {
-      "$ref": "#/$defs/ContractRef"
     },
     "schema_version": {
       "const": "1",
@@ -141,24 +114,30 @@
     "study_ref": {
       "$ref": "#/$defs/ContractRef"
     },
-    "variant_id": {
+    "trust_id": {
       "minLength": 1,
-      "title": "Variant Id",
+      "title": "Trust Id",
       "type": "string"
+    },
+    "verified_decisions": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/VerifiedDecisionBinding"
+      },
+      "title": "Verified Decisions",
+      "type": "array"
     }
   },
   "required": [
-    "run_id",
-    "run_spec_id",
-    "run_spec_digest",
-    "admission_id",
-    "admission_digest",
+    "trust_id",
+    "kind",
+    "project_id",
     "study_ref",
-    "scenario_ref",
-    "variant_id",
-    "repetition_index",
+    "revision_refs",
+    "revision_set_digest",
+    "run_spec_digest",
     "created_at_utc"
   ],
-  "title": "RunRecord",
+  "title": "ExecutionTrustRecord",
   "type": "object"
 }

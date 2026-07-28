@@ -19,6 +19,9 @@ from evidrun.contracts import (
     CheckpointRecord,
     ContractRef,
     EvaluationRecord,
+    ExecutionTrustProjection,
+    ExecutionTrustRecord,
+    ExecutionTrustRef,
     RevisionEnvelope,
     RunRecord,
     RunSpec,
@@ -33,6 +36,7 @@ from evidrun.infrastructure.database.models import (
     ContractDecisionRow,
     ContractRevisionRow,
     EvaluationRecordRow,
+    ExecutionTrustRecordRow,
     ExperimentRevisionRow,
     GradeRow,
     ProjectRow,
@@ -147,6 +151,19 @@ class ReadModel:
         if contracts is None or row.run_spec_id is None or row.admission_id is None:
             return None
         spec, admission = contracts
+        trust_projection = self.get_run_execution_trust(run_id)
+        execution_trust = None
+        if trust_projection.status == "recorded":
+            if trust_projection.trust_id is None or trust_projection.digest is None:
+                raise ValueError("recorded execution trust projection is incomplete")
+            execution_trust = ExecutionTrustRef(
+                trust_id=trust_projection.trust_id,
+                digest=trust_projection.digest,
+            )
+            if admission.execution_trust != execution_trust:
+                raise ValueError("Run and admission execution trust do not match")
+        elif admission.execution_trust is not None:
+            raise ValueError("Run omitted execution trust recorded by its admission")
         created_at = row.created_at
         if created_at.tzinfo is None:
             created_at = created_at.replace(tzinfo=UTC)
@@ -161,8 +178,36 @@ class ReadModel:
             variant_id=row.variant_id,
             repetition_index=row.repetition,
             retry_of=row.retry_of,
+            execution_trust=execution_trust,
             created_at_utc=created_at,
         )
+
+    def get_run_execution_trust(self, run_id: str) -> ExecutionTrustProjection:
+        """Project a stored trust record without inferring trust for legacy Runs."""
+
+        row = self.get_run(run_id)
+        if row.execution_trust_id is None and row.execution_trust_digest is None:
+            return ExecutionTrustProjection(status="not_recorded")
+        if row.execution_trust_id is None or row.execution_trust_digest is None:
+            raise ValueError("Run execution trust reference is incomplete")
+        with self.unit_of_work.session() as session:
+            trust_row = session.get(ExecutionTrustRecordRow, row.execution_trust_id)
+            if trust_row is None:
+                raise ValueError("Run references an unknown execution trust record")
+            record = ExecutionTrustRecord.model_validate(json.loads(trust_row.record_json))
+            if (
+                trust_row.digest != row.execution_trust_digest
+                or record.digest != trust_row.digest
+                or record.trust_id != trust_row.id
+                or record.kind != trust_row.kind
+            ):
+                raise ValueError("Run execution trust digest mismatch")
+            return ExecutionTrustProjection(
+                status="recorded",
+                trust_id=trust_row.id,
+                digest=trust_row.digest,
+                kind=record.kind,
+            )
 
     def get_evaluation_records(self, run_id: str) -> list[EvaluationRecord]:
         with self.unit_of_work.session() as session:

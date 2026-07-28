@@ -15,12 +15,16 @@ from evidrun.contracts import (
     EvaluationPlanRevision,
     EvaluationRecord,
     EvaluatorEnvelope,
+    ExecutionRevisionSet,
+    ExecutionTrustProjection,
+    ExecutionTrustRecord,
     GoalRevision,
     HumanAttestationRecord,
     InteractionProtocolRevision,
     ProgressArtifactContent,
     ProgressArtifactPolicyRevision,
     ProgressArtifactRecord,
+    ReviewTarget,
     RevisionDecisionRecord,
     RunEventPayload,
     RunExecutionAttempt,
@@ -55,8 +59,12 @@ CONTRACT_MODELS = {
     "subject-envelope-v1": SubjectEnvelope,
     "evaluation-record-v1": EvaluationRecord,
     "evaluator-envelope-v1": EvaluatorEnvelope,
+    "execution-revision-set-v1": ExecutionRevisionSet,
+    "execution-trust-projection-v1": ExecutionTrustProjection,
+    "execution-trust-record-v1": ExecutionTrustRecord,
     "checkpoint-record-v1": CheckpointRecord,
     "revision-decision-record-v1": RevisionDecisionRecord,
+    "review-target-v1": ReviewTarget,
     "human-attestation-record-v1": HumanAttestationRecord,
     "progress-artifact-content-v1": ProgressArtifactContent,
     "progress-artifact-record-v1": ProgressArtifactRecord,
@@ -82,8 +90,12 @@ ContractCatalog = (
     | SubjectEnvelope
     | EvaluationRecord
     | EvaluatorEnvelope
+    | ExecutionRevisionSet
+    | ExecutionTrustProjection
+    | ExecutionTrustRecord
     | CheckpointRecord
     | RevisionDecisionRecord
+    | ReviewTarget
     | HumanAttestationRecord
     | ProgressArtifactContent
     | ProgressArtifactRecord
