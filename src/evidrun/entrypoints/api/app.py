@@ -41,8 +41,7 @@ from evidrun.infrastructure.database import Database, Repository
 from evidrun.infrastructure.providers import ProviderCredentialStore
 from evidrun.runs import EvidrunService
 from evidrun.settings import Settings
-
-REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
+from evidrun.shared.resources import benchmarks_root
 
 ALLOWED_ORIGINS = (
     "http://127.0.0.1:5173",
@@ -103,7 +102,7 @@ def create_app(
         service=service,
         bundles=EvidenceBundleService(repository),
         provider_credentials=ProviderCredentialStore(),
-        benchmarks=benchmark_root or REPOSITORY_ROOT / "benchmarks",
+        benchmarks=benchmark_root or benchmarks_root(),
     )
 
     app = _build_app(database, context, launch_token=launch_token)

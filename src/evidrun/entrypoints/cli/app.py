@@ -19,7 +19,7 @@ import uvicorn
 from rich.table import Table
 
 from evidrun import __version__
-from evidrun.entrypoints.api.app import REPOSITORY_ROOT, create_app
+from evidrun.entrypoints.api.app import create_app
 from evidrun.entrypoints.cli.commands import (
     authority_app,
     bundle_app,
@@ -36,6 +36,7 @@ from evidrun.entrypoints.cli.commands import (
 from evidrun.entrypoints.cli.shared import components, console
 from evidrun.infrastructure.providers import ProviderCredentialStore
 from evidrun.runs import EvidrunService
+from evidrun.shared.resources import benchmarks_root
 
 app = typer.Typer(help="Evidrun — laboratório auditável de confiabilidade de contexto.")
 app.add_typer(experiment_app, name="experiment")
@@ -76,7 +77,9 @@ def doctor(data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None) 
         "Data directory": settings.data_dir.exists(),
         "SQLite database": settings.database_path.exists(),
         "Artifacts directory": settings.artifacts_dir.exists(),
-        "CRL-CTX-002": (REPOSITORY_ROOT / "benchmarks/experiments/crl-ctx-002-demo.yaml").exists(),
+        "CRL-CTX-002": (
+            benchmarks_root() / "experiments/crl-ctx-002-demo.yaml"
+        ).exists(),
         "Demo runs offline": True,
         "Default model is deepseek-v4-flash": (
             settings.default_provider.model == "deepseek-v4-flash"
@@ -151,7 +154,7 @@ def _serve_desktop(data_dir: Path | None) -> None:
 @app.command("demo")
 def demo(data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None) -> None:
     _, database, repository = components(data_dir)
-    result = EvidrunService(repository).bootstrap_demo(REPOSITORY_ROOT / "benchmarks")
+    result = EvidrunService(repository).bootstrap_demo(benchmarks_root())
     database.dispose()
     console.print_json(data=result)
 
