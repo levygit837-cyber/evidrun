@@ -46,7 +46,7 @@ export class ExecutorLifecycle extends EventEmitter {
     // A shutdown in flight still owns the current child. Wait for it so start cannot
     // spawn a second executor alongside one that has not exited.
     if (this.stopPromise) await this.stopPromise;
-    if (this.child && isRunning(this.child)) return this.current;
+    if (this.child) return this.current;
     if (this.startPromise) return this.startPromise;
     this.startPromise = this.spawnExecutor(dataDir);
     try {
@@ -89,6 +89,7 @@ export class ExecutorLifecycle extends EventEmitter {
         return;
       }
       await new Promise<void>((resolve, reject) => {
+        let timeout: NodeJS.Timeout;
         const onExit = () => {
           clearTimeout(timeout);
           child.off("error", onError);
@@ -100,10 +101,15 @@ export class ExecutorLifecycle extends EventEmitter {
           child.off("error", onError);
           reject(error);
         };
-        const timeout = setTimeout(() => {
-          if (isRunning(child) && !child.kill("SIGKILL")) {
+        timeout = setTimeout(() => {
+          if (!isRunning(child)) return;
+          if (!child.kill("SIGKILL")) {
             onError(new Error("Não foi possível encerrar o executor com SIGKILL"));
+            return;
           }
+          timeout = setTimeout(() => {
+            onError(new Error("Executor não confirmou saída após SIGKILL"));
+          }, 8_000);
         }, 8_000);
         child.once("exit", onExit);
         child.once("error", onError);
@@ -146,13 +152,19 @@ export class ExecutorLifecycle extends EventEmitter {
       let timedOut = false;
       // Readiness that never arrives must leave the object usable: reap the process
       // instead of parking a half-dead child that neither `start` nor `stop` can act on.
+      const rejectAfterStop = (error: unknown, fallbackMessage: string) => {
+        void this.stop().then(
+          () => {
+            this.emitState({ status: "failed", message: fallbackMessage });
+            reject(error);
+          },
+          (stopError: unknown) => reject(stopError),
+        );
+      };
       const timeout = setTimeout(() => {
         timedOut = true;
         const message = "Executor de Runs não respondeu ao handshake";
-        void this.stop().finally(() => {
-          this.emitState({ status: "failed", message });
-          reject(new Error(message));
-        });
+        rejectAfterStop(new Error(message), message);
       }, 30_000);
       const lines = readline.createInterface({ input: child.stdout });
 
@@ -166,10 +178,7 @@ export class ExecutorLifecycle extends EventEmitter {
           resolve(state);
         } catch (error) {
           clearTimeout(timeout);
-          void this.stop().finally(() => {
-            this.emitState({ status: "failed", message: "Handshake do executor inválido" });
-            reject(error);
-          });
+          rejectAfterStop(error, "Handshake do executor inválido");
         }
       });
 

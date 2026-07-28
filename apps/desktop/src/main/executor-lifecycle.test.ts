@@ -138,6 +138,19 @@ describe("executor lifecycle", () => {
     expect(spawned).toHaveLength(1);
   });
 
+  it("rejects shutdown when SIGKILL is delivered but exit never arrives", async () => {
+    vi.useFakeTimers();
+    const child = await startReady();
+    const stopping = lifecycle.stop();
+    const rejection = expect(stopping).rejects.toThrow("SIGKILL");
+    await vi.advanceTimersByTimeAsync(16_000);
+    await rejection;
+    expect(child.signals).toEqual(["SIGTERM", "SIGKILL"]);
+    expect(lifecycle.state.status).toBe("failed");
+    expect(await lifecycle.start("/data")).toEqual(lifecycle.state);
+    expect(spawned).toHaveLength(1);
+  });
+
   it("treats a crash as failed and a requested stop as stopped", async () => {
     const child = await startReady();
     child.exit(1);
@@ -186,6 +199,27 @@ describe("executor lifecycle", () => {
     await expect(settled).resolves.toContain("handshake");
     expect(child.signals).toContain("SIGTERM");
     expect(lifecycle.state.status).toBe("failed");
+  });
+
+  it("preserves a shutdown failure after the readiness timeout", async () => {
+    vi.useFakeTimers();
+    const starting = lifecycle.start("/data").catch((error: Error) => error.message);
+    const child = spawned[0]!;
+    child.refuseSigkill = true;
+    await vi.advanceTimersByTimeAsync(38_000);
+    await expect(starting).resolves.toContain("SIGKILL");
+    expect(lifecycle.state.message).toContain("SIGKILL");
+  });
+
+  it("preserves a shutdown failure after an invalid handshake", async () => {
+    vi.useFakeTimers();
+    const starting = lifecycle.start("/data").catch((error: Error) => error.message);
+    const child = spawned[0]!;
+    child.refuseSigkill = true;
+    child.stdout.emit("bad-line");
+    await vi.advanceTimersByTimeAsync(8_000);
+    await expect(starting).resolves.toContain("SIGKILL");
+    expect(lifecycle.state.message).toContain("SIGKILL");
   });
 
   it("starts a fresh executor after a failure instead of returning the failure", async () => {
