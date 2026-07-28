@@ -23,6 +23,7 @@ from evidrun.contracts.base import (
     UtcDateTime,
     semantic_model_dump,
 )
+from evidrun.contracts.execution_trust import ExecutionTrustRef
 from evidrun.contracts.runtime.spec import (
     AdmissionIssue,
     ResolvedAgentInventory,
@@ -42,6 +43,7 @@ class AdmissionRecord(ContractModel):
     denied_policies: tuple[NonEmptyStr, ...] = ()
     issues: tuple[AdmissionIssue, ...] = ()
     warnings: tuple[NonEmptyStr, ...] = ()
+    execution_trust: ExecutionTrustRef | None = None
     created_at_utc: UtcDateTime
 
     @model_validator(mode="after")
@@ -81,6 +83,7 @@ class RunRecord(ContractModel):
     variant_id: NonEmptyStr
     repetition_index: int = Field(gt=0)
     retry_of: NonEmptyStr | None = None
+    execution_trust: ExecutionTrustRef | None = None
     created_at_utc: UtcDateTime
 
     @model_validator(mode="after")

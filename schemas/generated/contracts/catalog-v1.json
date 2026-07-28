@@ -90,6 +90,17 @@
           "title": "Denied Policies",
           "type": "array"
         },
+        "execution_trust": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExecutionTrustRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "interaction_status": {
           "enum": [
             "resolved",
@@ -2244,6 +2255,198 @@
       "title": "EvidenceRef",
       "type": "object"
     },
+    "ExecutionRevisionSet": {
+      "additionalProperties": false,
+      "description": "The exact, Project-bound v1 closure used to compile a Study.",
+      "properties": {
+        "project_id": {
+          "minLength": 1,
+          "title": "Project Id",
+          "type": "string"
+        },
+        "revision_refs": {
+          "items": {
+            "$ref": "#/$defs/ContractRef"
+          },
+          "minItems": 1,
+          "title": "Revision Refs",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "1",
+          "default": "1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "study_ref": {
+          "$ref": "#/$defs/ContractRef"
+        }
+      },
+      "required": [
+        "project_id",
+        "study_ref",
+        "revision_refs"
+      ],
+      "title": "ExecutionRevisionSet",
+      "type": "object"
+    },
+    "ExecutionTrustProjection": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Digest"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "unverified_revision_set",
+                "verified_revision_set"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kind"
+        },
+        "status": {
+          "enum": [
+            "recorded",
+            "not_recorded"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "trust_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trust Id"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "ExecutionTrustProjection",
+      "type": "object"
+    },
+    "ExecutionTrustRecord": {
+      "additionalProperties": false,
+      "description": "Immutable trust declared for one exact RunSpec.",
+      "properties": {
+        "created_at_utc": {
+          "format": "date-time",
+          "title": "Created At Utc",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "unverified_revision_set",
+            "verified_revision_set"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "project_id": {
+          "minLength": 1,
+          "title": "Project Id",
+          "type": "string"
+        },
+        "revision_refs": {
+          "items": {
+            "$ref": "#/$defs/ContractRef"
+          },
+          "minItems": 1,
+          "title": "Revision Refs",
+          "type": "array"
+        },
+        "revision_set_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Revision Set Digest",
+          "type": "string"
+        },
+        "run_spec_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Run Spec Digest",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1",
+          "default": "1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "study_ref": {
+          "$ref": "#/$defs/ContractRef"
+        },
+        "trust_id": {
+          "minLength": 1,
+          "title": "Trust Id",
+          "type": "string"
+        },
+        "verified_decisions": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/VerifiedDecisionBinding"
+          },
+          "title": "Verified Decisions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "trust_id",
+        "kind",
+        "project_id",
+        "study_ref",
+        "revision_refs",
+        "revision_set_digest",
+        "run_spec_digest",
+        "created_at_utc"
+      ],
+      "title": "ExecutionTrustRecord",
+      "type": "object"
+    },
+    "ExecutionTrustRef": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "trust_id": {
+          "minLength": 1,
+          "title": "Trust Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "trust_id",
+        "digest"
+      ],
+      "title": "ExecutionTrustRef",
+      "type": "object"
+    },
     "ExtensionRef": {
       "additionalProperties": false,
       "properties": {
@@ -3996,6 +4199,44 @@
       "title": "ResolvedCapability",
       "type": "object"
     },
+    "ReviewTarget": {
+      "additionalProperties": false,
+      "description": "Canonical identity of the complete RunSpec matrix for human review.",
+      "properties": {
+        "project_id": {
+          "minLength": 1,
+          "title": "Project Id",
+          "type": "string"
+        },
+        "revision_set_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Revision Set Digest",
+          "type": "string"
+        },
+        "run_spec_digests": {
+          "items": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Run Spec Digests",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "1",
+          "default": "1",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "project_id",
+        "revision_set_digest",
+        "run_spec_digests"
+      ],
+      "title": "ReviewTarget",
+      "type": "object"
+    },
     "RevisionDecisionRecord": {
       "additionalProperties": false,
       "properties": {
@@ -4438,6 +4679,17 @@
           "format": "date-time",
           "title": "Created At Utc",
           "type": "string"
+        },
+        "execution_trust": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExecutionTrustRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "repetition_index": {
           "exclusiveMinimum": 0,
@@ -6023,6 +6275,25 @@
       "title": "VariantSpec",
       "type": "object"
     },
+    "VerifiedDecisionBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "decision_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Decision Digest",
+          "type": "string"
+        },
+        "revision_ref": {
+          "$ref": "#/$defs/ContractRef"
+        }
+      },
+      "required": [
+        "revision_ref",
+        "decision_digest"
+      ],
+      "title": "VerifiedDecisionBinding",
+      "type": "object"
+    },
     "VerifiedHumanDecisionAuthority": {
       "additionalProperties": false,
       "properties": {
@@ -6244,10 +6515,22 @@
       "$ref": "#/$defs/EvaluatorEnvelope"
     },
     {
+      "$ref": "#/$defs/ExecutionRevisionSet"
+    },
+    {
+      "$ref": "#/$defs/ExecutionTrustProjection"
+    },
+    {
+      "$ref": "#/$defs/ExecutionTrustRecord"
+    },
+    {
       "$ref": "#/$defs/CheckpointRecord"
     },
     {
       "$ref": "#/$defs/RevisionDecisionRecord"
+    },
+    {
+      "$ref": "#/$defs/ReviewTarget"
     },
     {
       "$ref": "#/$defs/HumanAttestationRecord"

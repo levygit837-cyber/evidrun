@@ -92,7 +92,8 @@ Obrigatórios, 4 documentos e até 9.000 palavras:
 
 1. [Dados e evidência](architecture/data-and-evidence.md)
 2. o contrato de bundle afetado: [v1](contracts/evidence-bundle.md),
-   [v2](contracts/evidence-bundle-v2.md) ou [v3](contracts/evidence-bundle-v3.md)
+   [v2](contracts/evidence-bundle-v2.md), [v3](contracts/evidence-bundle-v3.md) ou
+   [v4](contracts/evidence-bundle-v4.md)
 3. [Run Event](contracts/run-event.md)
 4. [ADR 0011](adr/0011-progress-artifacts-and-bundle-boundaries.md)
 

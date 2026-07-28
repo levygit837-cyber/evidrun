@@ -1,0 +1,60 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "digest": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Digest"
+    },
+    "kind": {
+      "anyOf": [
+        {
+          "enum": [
+            "unverified_revision_set",
+            "verified_revision_set"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Kind"
+    },
+    "status": {
+      "enum": [
+        "recorded",
+        "not_recorded"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "trust_id": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Trust Id"
+    }
+  },
+  "required": [
+    "status"
+  ],
+  "title": "ExecutionTrustProjection",
+  "type": "object"
+}

@@ -82,6 +82,31 @@ class RunSpecRow(Base):
     created_at: Mapped[datetime] = mapped_column(nullable=False)
 
 
+class ExecutionTrustRecordRow(Base):
+    __tablename__ = "execution_trust_records"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    kind: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), nullable=False, index=True)
+    study_logical_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    revision_set_digest: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    run_spec_digest: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    record_json: Mapped[str] = mapped_column(Text, nullable=False)
+    digest: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    semantic_digest: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    created_at: Mapped[datetime] = mapped_column(nullable=False)
+
+
+class ExecutionReviewTargetRow(Base):
+    __tablename__ = "execution_review_targets"
+
+    digest: Mapped[str] = mapped_column(String(64), primary_key=True)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), nullable=False, index=True)
+    revision_set_digest: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    target_json: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(nullable=False)
+
+
 class AdmissionRecordRow(Base):
     __tablename__ = "admission_records"
 
@@ -90,6 +115,10 @@ class AdmissionRecordRow(Base):
     decision: Mapped[str] = mapped_column(String, nullable=False)
     record_json: Mapped[str] = mapped_column(Text, nullable=False)
     digest: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    execution_trust_id: Mapped[str | None] = mapped_column(
+        ForeignKey("execution_trust_records.id"), nullable=True, index=True
+    )
+    execution_trust_digest: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(nullable=False)
 
 
@@ -123,6 +152,10 @@ class RunRow(Base):
     retry_of: Mapped[str | None] = mapped_column(ForeignKey("runs.id"))
     run_spec_id: Mapped[str | None] = mapped_column(ForeignKey("run_specs.id"))
     admission_id: Mapped[str | None] = mapped_column(ForeignKey("admission_records.id"))
+    execution_trust_id: Mapped[str | None] = mapped_column(
+        ForeignKey("execution_trust_records.id"), nullable=True, index=True
+    )
+    execution_trust_digest: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column()
 

@@ -32,9 +32,16 @@ def test_alembic_contract_foundation_bootstraps_an_empty_database(tmp_path: Path
         "run_execution_jobs",
         "run_execution_attempts",
         "subject_envelopes",
+        "execution_trust_records",
+        "execution_review_targets",
     }.issubset(tables)
     run_columns = {item["name"] for item in inspector.get_columns("runs")}
-    assert {"run_spec_id", "admission_id"}.issubset(run_columns)
+    assert {
+        "run_spec_id",
+        "admission_id",
+        "execution_trust_id",
+        "execution_trust_digest",
+    }.issubset(run_columns)
     experiment_column = next(
         item for item in inspector.get_columns("runs") if item["name"] == "experiment_revision_id"
     )
@@ -226,6 +233,6 @@ def test_runtime_kernel_upgrades_database_already_stamped_at_human_authority(
     with migrated_engine.connect() as connection:
         assert (
             connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()
-            == "0006_project_name_identity"
+            == "0007_execution_trust_foundation"
         )
     migrated_engine.dispose()

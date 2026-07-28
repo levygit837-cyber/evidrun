@@ -15,8 +15,12 @@ export type CatalogV1 =
   | SubjectEnvelope
   | EvaluationRecord
   | EvaluatorEnvelope
+  | ExecutionRevisionSet
+  | ExecutionTrustProjection
+  | ExecutionTrustRecord
   | CheckpointRecord
   | RevisionDecisionRecord
+  | ReviewTarget
   | HumanAttestationRecord
   | ProgressArtifactContent
   | ProgressArtifactRecord
@@ -340,6 +344,8 @@ export type VariantId = string;
 export type CreatedAtUtc = string;
 export type Decision = "admitted" | "rejected";
 export type DeniedPolicies = string[];
+export type Digest4 = string;
+export type TrustId = string;
 export type InteractionStatus = "resolved" | "unsupported";
 export type Blocking = boolean;
 export type Category =
@@ -452,12 +458,35 @@ export type HiddenInputRefs1 = ArtifactRef[];
 export type Inputs1 = InputBinding[];
 export type RunSpecDigest2 = string;
 export type SchemaVersion15 = "1";
+export type ProjectId9 = string;
+/**
+ * @minItems 1
+ */
+export type RevisionRefs = [ContractRef, ...ContractRef[]];
+export type SchemaVersion16 = "1";
+export type Digest5 = string | null;
+export type Kind21 = ("unverified_revision_set" | "verified_revision_set") | null;
+export type Status2 = "recorded" | "not_recorded";
+export type TrustId1 = string | null;
+export type CreatedAtUtc2 = string;
+export type Kind22 = "unverified_revision_set" | "verified_revision_set";
+export type ProjectId10 = string;
+/**
+ * @minItems 1
+ */
+export type RevisionRefs1 = [ContractRef, ...ContractRef[]];
+export type RevisionSetDigest = string;
+export type RunSpecDigest3 = string;
+export type SchemaVersion17 = "1";
+export type TrustId2 = string;
+export type DecisionDigest = string;
+export type VerifiedDecisions = VerifiedDecisionBinding[];
 export type AdmissionRecordDigest = string | null;
 export type AdmissionRecordId = string | null;
 export type CheckpointId1 = string;
 export type CompatibilityTags1 = string[];
 export type ContextSnapshotRefs = string[];
-export type CreatedAtUtc2 = string;
+export type CreatedAtUtc3 = string;
 export type DefinitionDigest = string;
 export type DefinitionId = string;
 export type EvaluationRecordRefs = string[];
@@ -465,22 +494,29 @@ export type EventHash1 = string;
 export type Replayability = "none" | "partial" | "deterministic";
 export type ReplayabilityLimitations = string[];
 export type RunId1 = string;
-export type SchemaVersion16 = "1";
+export type SchemaVersion18 = "1";
 export type UpToEventSequence1 = number;
 export type EvidenceRefs1 = EvidenceRef[];
 export type Passed = boolean;
 export type Rationale1 = string;
 export type Validations = CheckpointValidation[];
 export type Authority = VerifiedHumanDecisionAuthority | RepositoryFixtureDecisionAuthority;
-export type Kind21 = "verified_human";
+export type Kind23 = "verified_human";
 export type PrincipalId1 = string;
 export type FixtureDigest = string;
 export type FixtureId = "experiment-manifest-v1:crl-ctx-002";
-export type Kind22 = "repository_fixture";
+export type Kind24 = "repository_fixture";
 export type DecidedAtUtc = string;
 export type Decision1 = "accepted" | "rejected" | "superseded";
 export type Rationale2 = string;
-export type SchemaVersion17 = "1";
+export type SchemaVersion19 = "1";
+export type ProjectId11 = string;
+export type RevisionSetDigest1 = string;
+/**
+ * @minItems 1
+ */
+export type RunSpecDigests = [string, ...string[]];
+export type SchemaVersion20 = "1";
 export type EventHash2 = string;
 /**
  * @minItems 1
@@ -488,19 +524,19 @@ export type EventHash2 = string;
 export type Limitations5 = [string, ...string[]];
 export type Overview = string;
 export type RunId2 = string;
-export type SchemaVersion18 = "1";
+export type SchemaVersion21 = "1";
 export type Confidence1 = number | null;
 export type EvidenceRefs2 = EvidenceRef[];
 export type Id11 = string;
-export type Kind23 = "observation" | "interpretation" | "uncertainty";
+export type Kind25 = "observation" | "interpretation" | "uncertainty";
 export type Text = string;
 export type Statements = ProgressStatement[];
-export type Status2 = "provisional";
+export type Status3 = "provisional";
 export type Title9 = string;
 export type UpToEventSequence2 = number;
 export type CheckpointHash = string | null;
 export type CheckpointId2 = string | null;
-export type CreatedAtUtc3 = string;
+export type CreatedAtUtc4 = string;
 export type DefinitionDigest1 = string;
 export type DefinitionId1 = string;
 export type EventHash3 = string;
@@ -515,8 +551,8 @@ export type ProviderModel2 = string | null;
 export type ProviderProfileId3 = string | null;
 export type RecordId1 = string;
 export type RunId3 = string;
-export type SchemaVersion19 = "1";
-export type Status3 = "provisional";
+export type SchemaVersion22 = "1";
+export type Status4 = "provisional";
 export type UpToEventSequence3 = number;
 export type ContentIncluded = boolean;
 export type OmissionReason = string | null;
@@ -543,20 +579,20 @@ export type Entries = ArtifactManifestEntry[];
 export type Portable = false;
 export type Profile = "audit";
 export type Replayable = false;
-export type SchemaVersion20 = "1";
+export type SchemaVersion23 = "1";
 export type AdmissionDigest = string;
 export type AdmissionId = string;
-export type CreatedAtUtc4 = string;
+export type CreatedAtUtc5 = string;
 export type RepetitionIndex1 = number;
 export type RetryOf = string | null;
 export type RunId5 = string;
-export type RunSpecDigest3 = string;
+export type RunSpecDigest4 = string;
 export type RunSpecId = string;
-export type SchemaVersion21 = "1";
+export type SchemaVersion24 = "1";
 export type VariantId1 = string;
 export type ActiveAttemptId = string | null;
 export type AvailableAtUtc = string;
-export type CreatedAtUtc5 = string;
+export type CreatedAtUtc6 = string;
 export type FinishedAtUtc = string | null;
 export type IdempotencyKey = string;
 export type JobId = string;
@@ -564,8 +600,8 @@ export type LeaseGeneration = number;
 export type RejectionCode = string | null;
 export type RequestDigest = string;
 export type RunId6 = string;
-export type SchemaVersion22 = "1";
-export type Status4 = "queued" | "leased" | "completed" | "rejected";
+export type SchemaVersion25 = "1";
+export type Status5 = "queued" | "leased" | "completed" | "rejected";
 export type AttemptId = string;
 export type FinishedAtUtc1 = string | null;
 export type JobId1 = string;
@@ -575,15 +611,15 @@ export type LeaseGeneration1 = number;
 export type LeasedAtUtc = string;
 export type Ordinal = number;
 export type ReasonCode = string | null;
-export type SchemaVersion23 = "1";
-export type Status5 = "leased" | "completed" | "released" | "expired" | "rejected";
+export type SchemaVersion26 = "1";
+export type Status6 = "leased" | "completed" | "released" | "expired" | "rejected";
 export type WorkerId = string;
-export type CreatedAtUtc6 = string;
+export type CreatedAtUtc7 = string;
 export type RunId7 = string;
-export type SchemaVersion24 = "1";
+export type SchemaVersion27 = "1";
 export type AdmissionDigest1 = string;
 export type RunId8 = string;
-export type RunSpecDigest4 = string;
+export type RunSpecDigest5 = string;
 export type VariantId2 = string;
 export type FromStatus = "queued" | "preparing" | "running" | "paused" | "evaluating";
 export type Reason = string;
@@ -667,7 +703,7 @@ export type StopReason =
   | "human_stop"
   | "guardrail"
   | "provider_failure";
-export type Status6 =
+export type Status7 =
   "completed" | "failed" | "cancelled" | "budget_exhausted" | "guardrail_stopped";
 export type TerminalCause = string;
 
@@ -1158,6 +1194,7 @@ export interface AdmissionRecord {
   created_at_utc: CreatedAtUtc;
   decision: Decision;
   denied_policies?: DeniedPolicies;
+  execution_trust?: ExecutionTrustRef | null;
   interaction_status: InteractionStatus;
   issues?: Issues;
   missing_requirements?: MissingRequirements;
@@ -1167,6 +1204,10 @@ export interface AdmissionRecord {
   schema_version?: SchemaVersion11;
   warnings?: Warnings;
   workspace_status: WorkspaceStatus;
+}
+export interface ExecutionTrustRef {
+  digest: Digest4;
+  trust_id: TrustId;
 }
 export interface AdmissionIssue {
   blocking: Blocking;
@@ -1306,6 +1347,40 @@ export interface EvaluatorEnvelope {
   schema_version?: SchemaVersion15;
   stage: EvaluationStage;
 }
+/**
+ * The exact, Project-bound v1 closure used to compile a Study.
+ */
+export interface ExecutionRevisionSet {
+  project_id: ProjectId9;
+  revision_refs: RevisionRefs;
+  schema_version?: SchemaVersion16;
+  study_ref: ContractRef;
+}
+export interface ExecutionTrustProjection {
+  digest?: Digest5;
+  kind?: Kind21;
+  status: Status2;
+  trust_id?: TrustId1;
+}
+/**
+ * Immutable trust declared for one exact RunSpec.
+ */
+export interface ExecutionTrustRecord {
+  created_at_utc: CreatedAtUtc2;
+  kind: Kind22;
+  project_id: ProjectId10;
+  revision_refs: RevisionRefs1;
+  revision_set_digest: RevisionSetDigest;
+  run_spec_digest: RunSpecDigest3;
+  schema_version?: SchemaVersion17;
+  study_ref: ContractRef;
+  trust_id: TrustId2;
+  verified_decisions?: VerifiedDecisions;
+}
+export interface VerifiedDecisionBinding {
+  decision_digest: DecisionDigest;
+  revision_ref: ContractRef;
+}
 export interface CheckpointRecord {
   admission_record_digest?: AdmissionRecordDigest;
   admission_record_id?: AdmissionRecordId;
@@ -1313,7 +1388,7 @@ export interface CheckpointRecord {
   checkpoint_id: CheckpointId1;
   compatibility_tags?: CompatibilityTags1;
   context_snapshot_refs?: ContextSnapshotRefs;
-  created_at_utc: CreatedAtUtc2;
+  created_at_utc: CreatedAtUtc3;
   definition_digest: DefinitionDigest;
   definition_id: DefinitionId;
   evaluation_record_refs?: EvaluationRecordRefs;
@@ -1323,7 +1398,7 @@ export interface CheckpointRecord {
   replayability: Replayability;
   replayability_limitations?: ReplayabilityLimitations;
   run_id: RunId1;
-  schema_version?: SchemaVersion16;
+  schema_version?: SchemaVersion18;
   up_to_event_sequence: UpToEventSequence1;
   validations: Validations;
   workspace_snapshot_ref?: ArtifactRef | null;
@@ -1340,26 +1415,35 @@ export interface RevisionDecisionRecord {
   decision: Decision1;
   rationale: Rationale2;
   revision_ref: ContractRef;
-  schema_version?: SchemaVersion17;
+  schema_version?: SchemaVersion19;
 }
 export interface VerifiedHumanDecisionAuthority {
   attestation: HumanAttestationRecord;
-  kind?: Kind21;
+  kind?: Kind23;
   principal_id: PrincipalId1;
 }
 export interface RepositoryFixtureDecisionAuthority {
   fixture_digest: FixtureDigest;
   fixture_id?: FixtureId;
-  kind?: Kind22;
+  kind?: Kind24;
+}
+/**
+ * Canonical identity of the complete RunSpec matrix for human review.
+ */
+export interface ReviewTarget {
+  project_id: ProjectId11;
+  revision_set_digest: RevisionSetDigest1;
+  run_spec_digests: RunSpecDigests;
+  schema_version?: SchemaVersion20;
 }
 export interface ProgressArtifactContent {
   event_hash: EventHash2;
   limitations: Limitations5;
   overview: Overview;
   run_id: RunId2;
-  schema_version?: SchemaVersion18;
+  schema_version?: SchemaVersion21;
   statements: Statements;
-  status?: Status2;
+  status?: Status3;
   title: Title9;
   up_to_event_sequence: UpToEventSequence2;
 }
@@ -1367,14 +1451,14 @@ export interface ProgressStatement {
   confidence?: Confidence1;
   evidence_refs?: EvidenceRefs2;
   id: Id11;
-  kind: Kind23;
+  kind: Kind25;
   text: Text;
 }
 export interface ProgressArtifactRecord {
   artifact_ref: ArtifactRef;
   checkpoint_hash?: CheckpointHash;
   checkpoint_id?: CheckpointId2;
-  created_at_utc: CreatedAtUtc3;
+  created_at_utc: CreatedAtUtc4;
   definition_digest: DefinitionDigest1;
   definition_id: DefinitionId1;
   event_hash: EventHash3;
@@ -1387,8 +1471,8 @@ export interface ProgressArtifactRecord {
   provider_profile_id?: ProviderProfileId3;
   record_id: RecordId1;
   run_id: RunId3;
-  schema_version?: SchemaVersion19;
-  status?: Status3;
+  schema_version?: SchemaVersion22;
+  status?: Status4;
   summarizer_ref: CapabilityDescriptorRef;
   up_to_event_sequence: UpToEventSequence3;
 }
@@ -1397,7 +1481,7 @@ export interface ArtifactManifest1 {
   portable?: Portable;
   profile?: Profile;
   replayable?: Replayable;
-  schema_version?: SchemaVersion20;
+  schema_version?: SchemaVersion23;
 }
 /**
  * One intentionally materialized artifact; never a file-access activity log.
@@ -1414,14 +1498,15 @@ export interface ArtifactManifestEntry {
 export interface RunRecord {
   admission_digest: AdmissionDigest;
   admission_id: AdmissionId;
-  created_at_utc: CreatedAtUtc4;
+  created_at_utc: CreatedAtUtc5;
+  execution_trust?: ExecutionTrustRef | null;
   repetition_index: RepetitionIndex1;
   retry_of?: RetryOf;
   run_id: RunId5;
-  run_spec_digest: RunSpecDigest3;
+  run_spec_digest: RunSpecDigest4;
   run_spec_id: RunSpecId;
   scenario_ref: ContractRef;
-  schema_version?: SchemaVersion21;
+  schema_version?: SchemaVersion24;
   study_ref: ContractRef;
   variant_id: VariantId1;
 }
@@ -1431,7 +1516,7 @@ export interface RunRecord {
 export interface RunExecutionJob {
   active_attempt_id?: ActiveAttemptId;
   available_at_utc: AvailableAtUtc;
-  created_at_utc: CreatedAtUtc5;
+  created_at_utc: CreatedAtUtc6;
   finished_at_utc?: FinishedAtUtc;
   idempotency_key: IdempotencyKey;
   job_id: JobId;
@@ -1439,8 +1524,8 @@ export interface RunExecutionJob {
   rejection_code?: RejectionCode;
   request_digest: RequestDigest;
   run_id: RunId6;
-  schema_version?: SchemaVersion22;
-  status: Status4;
+  schema_version?: SchemaVersion25;
+  status: Status5;
 }
 /**
  * One fenced worker lease over a RunExecutionJob.
@@ -1455,23 +1540,23 @@ export interface RunExecutionAttempt {
   leased_at_utc: LeasedAtUtc;
   ordinal: Ordinal;
   reason_code?: ReasonCode;
-  schema_version?: SchemaVersion23;
-  status: Status5;
+  schema_version?: SchemaVersion26;
+  status: Status6;
   worker_id: WorkerId;
 }
 /**
  * The exact materialized SubjectEnvelope used for one Run.
  */
 export interface SubjectEnvelopeRecord {
-  created_at_utc: CreatedAtUtc6;
+  created_at_utc: CreatedAtUtc7;
   envelope: SubjectEnvelope;
   run_id: RunId7;
-  schema_version?: SchemaVersion24;
+  schema_version?: SchemaVersion27;
 }
 export interface RunQueuedPayload {
   admission_digest: AdmissionDigest1;
   run_id: RunId8;
-  run_spec_digest: RunSpecDigest4;
+  run_spec_digest: RunSpecDigest5;
   variant_id: VariantId2;
 }
 export interface RunPreparingPayload {
@@ -1586,7 +1671,7 @@ export interface RunTerminalPayload {
   checkpoint_refs?: CheckpointRefs;
   evaluation_record_refs?: EvaluationRecordRefs1;
   goal_result: GoalResult;
-  status: Status6;
+  status: Status7;
   terminal_cause: TerminalCause;
 }
 export interface GoalStateTerminalResult {
