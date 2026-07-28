@@ -55,6 +55,7 @@
     "scripts/import_directions_typescript.py",
     "scripts/install_git_hooks.py",
     "scripts/smoke_desktop_handshake.mjs",
+    "scripts/smoke_desktop_supervision.mjs",
     "scripts/validate_docs.py",
     "src/evidrun",
     "tests/__init__.py",

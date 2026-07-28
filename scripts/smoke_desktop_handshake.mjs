@@ -10,7 +10,9 @@ const token = randomBytes(32).toString("base64url");
 const child = spawn("uv", ["run", "evidrun", "serve", "--desktop-handshake"], {
   cwd: process.cwd(),
   stdio: ["pipe", "pipe", "pipe"],
-  env: { ...process.env, UV_CACHE_DIR: "/private/tmp/evidrun-uv-cache" },
+  // No UV_CACHE_DIR override: the hardcoded macOS path here was unreachable on Linux, which
+  // only surfaced once this smoke started running in CI.
+  env: process.env,
 });
 
 let stderr = "";
@@ -21,10 +23,12 @@ child.stderr.on("data", (chunk) => {
 function waitForReadiness() {
   return new Promise((resolve, reject) => {
     const lines = readline.createInterface({ input: child.stdout });
+    // Generous because a cold CI runner resolves and builds the environment on first
+    // `uv run`; the app's own readiness budget is separate and stays at 15s.
     const timeout = setTimeout(() => {
       child.kill("SIGKILL");
       reject(new Error(`Desktop handshake timed out.\n${stderr}`));
-    }, 15_000);
+    }, 60_000);
 
     const finish = (callback, value) => {
       clearTimeout(timeout);
