@@ -13,6 +13,15 @@ export const observabilityAdapter: ObservabilityAdapter = {
   getCheckpoints: api.runCheckpoints,
   getProvider: api.defaultProvider,
   exportRunBundle: api.exportRunBundle,
+  async retryRun(runId, runSpecId) {
+    // Admit first: a retry requires an AdmissionRecord created after the source Run went
+    // terminal, and reusing the original one is refused by contract.
+    const admission = await api.admitRunSpec(runSpecId);
+    if (admission.decision !== "admitted") {
+      throw new Error(`A admissão recusou este RunSpec: ${admission.decision}`);
+    }
+    return api.retryRun(runId, admission.id, `retry-${runId}-${Date.now()}`);
+  },
   stream: runEventStream,
 };
 

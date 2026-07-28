@@ -68,6 +68,28 @@ export const api = {
   bootstrapDemo: () =>
     apiFetch<BootstrapDemoResult>("/api/v1/demo/bootstrap", { method: "POST" }),
   runs: () => apiFetch<Run[]>("/api/v1/runs"),
+  admitRunSpec: (runSpecId: string) =>
+    apiFetch<{ id: string; decision: string }>(
+      `/api/v1/run-specs/${encodeURIComponent(runSpecId)}/admit`,
+      { method: "POST" },
+    ),
+  /**
+   * Enqueue a fresh Run derived from one that already finished.
+   *
+   * A retry needs an AdmissionRecord created after the source Run went terminal, so callers admit
+   * first. That admission is inventory resolution, not human approval — the RunSpec is unchanged
+   * and no revision is accepted — which is why it can hide behind one user action. The result is a
+   * new Run carrying `retry_of`, never a continuation of the original.
+   */
+  retryRun: (runId: string, admissionId: string, idempotencyKey: string) =>
+    apiFetch<{ run_id: string; retry_of: string | null; status: string }>(
+      `/api/v1/runs/${encodeURIComponent(runId)}/retries`,
+      {
+        method: "POST",
+        headers: { "Idempotency-Key": idempotencyKey },
+        body: JSON.stringify({ admission_id: admissionId }),
+      },
+    ),
   runDetail: (runId: string) => apiFetch<RunDetail>(`/api/v1/runs/${encodeURIComponent(runId)}`),
   runEvents: (runId: string) =>
     apiFetch<RunEvent[]>(`/api/v1/runs/${encodeURIComponent(runId)}/events`),
