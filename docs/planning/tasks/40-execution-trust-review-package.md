@@ -1,21 +1,23 @@
 ---
-id: planning-task-trust-sandbox-review-package
+id: planning-task-execution-trust-review-package
 type: implementation-task
 title: WS-40 Trust de execucao nao verificada e ReviewPackage
-status: proposed
+status: accepted
 authority: planning
 volatility: snapshot
 owner: governance
 created_at: 2026-07-23
-updated_at: 2026-07-27
-observed_at: 2026-07-27
+updated_at: 2026-07-28
+observed_at: 2026-07-28
 review_due: 2026-08-06
 applies_to: control-plane-trust
 sources:
   - docs/adr/0010-verifiable-human-authority.md
   - docs/adr/0015-human-subject-envelope-and-authenticator-lifecycle.md
   - docs/adr/0020-workspace-project-run-environment-boundaries.md
+  - docs/adr/0022-explicit-execution-trust-without-per-run-authentication.md
   - docs/contracts/agent-inventory-workspace-v1.md
+  - docs/contracts/execution-trust-v1.md
   - docs/planning/mvp-capability-map.md
 supersedes: []
 superseded_by: null
@@ -36,27 +38,20 @@ execucao local explicitamente nao verificada, embora preserve corretamente a seg
 Esta task cria um caminho explicitamente nao verificado; ela nao torna a autenticacao humana
 opcional para claims humanos e nao implementa, por si so, sandbox de OS/container.
 
-## Pre-condicao normativa
+## Pre-condicao normativa resolvida
 
-Criar ADR sucessor antes do codigo. O ADR deve decidir:
-
-- identidade e digest do pacote nao verificado;
-- como drafts/proposed imutaveis sao selados para uma execucao;
-- qual record declara trust sem se passar por `RevisionDecisionRecord`;
-- quais restricoes sao obrigatorias;
-- como funciona promocao para revisao humana;
-- se uma promocao reexecuta a Run ou apenas aceita contracts para Runs futuras.
-
-Recomendacao inicial a validar no ADR:
+O [ADR 0022](../../adr/0022-explicit-execution-trust-without-per-run-authentication.md) e o
+[contrato Execution Trust v1](../../contracts/execution-trust-v1.md) fecharam identidade, digest,
+restricoes, promocao e vocabulario. O codigo deve implementar exatamente:
 
 ```text
 ExecutionTrustRecord.kind = unverified_revision_set | verified_revision_set
 ```
 
-`unverified_revision_set` referencia os documentos e digests exatos usados para compilar, mas nao altera
-seu status para accepted. A Run e o bundle carregam trust explicitamente. Promocao nunca reescreve a
-Run passada; cria decisions humanas para o pacote e uma nova Run quando evidencia verificada for
-necessaria.
+`unverified_revision_set` referencia a closure transitiva versionada, ordenada e ligada ao Project,
+com os documentos e digests exatos usados para compilar, mas nao altera seu status para accepted. A
+Run e o bundle carregam trust explicitamente. Promocao nunca reescreve a Run passada: cria decisions
+humanas, novo trust record, nova admissao e nova Run.
 
 ## ReviewPackage
 
@@ -72,19 +67,19 @@ Um `ReviewPackage` lista explicitamente:
 - EvaluationPlan e hidden inputs sem expor seu conteudo ao Subject;
 - riscos e limitacoes.
 
-Uma confirmacao pode cobrir o pacote inteiro porque o digest inclui cada item. Ref nova ou digest
-novo invalida o pacote; nao existe aprovacao aberta para referencias futuras.
+O package apresenta o `ReviewTarget` canonico e seu `review_target_digest`. Ref nova, digest novo ou
+RunSpec diferente muda o target; nao existe aprovacao aberta para referencias futuras. WS-40 gera e
+verifica o target, mas nao implementa cerimonia de confirmacao.
 
 ## Restricoes da execucao nao verificada
 
-- local-only;
+- execucao no produto local, sem afirmar isolamento maior que o runtime comprova;
 - `public`/`internal`; nunca `sensitive` ou `restricted` neste marco;
 - external effects `denied`;
 - network no maximo `provider_only` para adapter explicitamente admitido;
 - nenhuma human review/adjudication;
 - nenhum claim `human_verified`;
-- bundle e UI marcados `unverified_revision_set` (ou nome final do ADR sucessor), nunca apenas
-  `sandbox`;
+- bundle e UI marcados `unverified_revision_set`, nunca apenas `sandbox`;
 - nenhuma promocao automatica;
 - nenhuma alteracao da Run original;
 - capabilities somente do catalogo seguro do Runtime Kernel.
@@ -107,7 +102,7 @@ desabilitado e cleanup `discard`. Opcao nao suportada rejeita admissao; nao vira
 TASK_ID=WS-40
 MAX_REPAIR_LOOPS=10
 FULL_GATE_INTERVAL=3
-ADR_REQUIRED_BEFORE_CODE=1
+ADR_REQUIRED_BEFORE_CODE=docs/adr/0022-explicit-execution-trust-without-per-run-authentication.md
 ALLOW_FAKE_HUMAN=0
 ALLOW_UNVERIFIED_PROMOTION_IN_PLACE=0
 ALLOW_EXTERNAL_EFFECTS=0
@@ -116,27 +111,26 @@ ALLOW_EXTERNAL_EFFECTS=0
 Loop:
 
 ```text
-MODEL threat and UX
--> WRITE successor ADR
--> HUMAN review of normative questions
+REDISCOVER current contracts and migrations
+-> IMPLEMENT the accepted ADR and contract
 -> IMPLEMENT trust/package contracts
 -> IMPLEMENT compiler/admission path
 -> IMPLEMENT API/CLI
 -> ATTACK claim confusion and digest drift
 -> REPAIR
--> INTEGRATE authority promotion
+-> VERIFY verified kind only from existing accepted human decisions
 -> FULL GATES
 ```
 
 ### Condicionais
 
-- Se o ADR nao fechar a fonte de verdade do package nao verificado, nao implemente.
+- Se o codigo exigir mudar a fonte de verdade fechada pelo ADR 0022, pare e proponha ADR sucessor.
 - Se qualquer resposta/API tratar nao verificado como accepted/verified, P0.
 - Se `in_process` for apresentado como sandbox seguro, P0 de claim; corrija a linguagem e mantenha a
   capability rejeitada.
-- Se um agent endpoint puder completar authority confirmation, P0.
+- Se um agent endpoint puder criar o kind verificado, P0.
 - Se a promocao puder alterar a Run original, rejeite o design.
-- Se um diff de package omitir capability, hidden input ou disclosure, nao permita confirmacao.
+- Se um diff de package omitir capability, hidden input ou disclosure, nao publique o package.
 - Se platform passkey/recovery surgir como requisito, abra follow-up; o autenticador local opt-in
   continua suficiente para o MVP local.
 
@@ -152,17 +146,19 @@ MODEL threat and UX
 - bundle/UI nunca afirmam human verified;
 - sensitive/restricted/external effect rejeitados;
 - package muda quando qualquer ref, permission, input ou disclosure muda;
+- package muda quando o mesmo conjunto de refs e ligado a outro Project ou RunSpec;
+- closure e digest independem da ordem de insercao e nao resolvem `latest`;
 - package nao aceita ref futura;
-- challenge cobre package exato;
-- agente nao completa confirmation;
-- promocao cria decisions append-only e nova Run quando executada;
-- revogacao impede novas confirmacoes sem invalidar historia;
-- replay de challenge e action/target divergentes;
+- `ReviewTarget` cobre revision set e todos os RunSpecs em ordem canonica;
+- agente nao cria kind verificado;
+- decisions humanas aceitas preexistentes permitem novo trust record, nova admissao e nova Run;
 - API/CLI equivalentes;
 - migrations empty/legacy/current.
 
 ## Criterio de saida
 
-Um usuario executa um Study draft como nao verificado sem autenticacao e recebe claims honestos. O mesmo
-pacote pode ser revisado com uma confirmacao humana explicita, e qualquer execucao verificada nasce
-como nova Run ligada ao pacote aceito.
+Um usuario executa um Study draft como nao verificado sem autenticacao e recebe claims honestos.
+Quando ja existirem decisions humanas verificadas sobre o conjunto exato, o sistema pode criar o
+kind verificado e qualquer execucao nasce como nova Run. Trust aparece como texto no bundle e nas
+projecoes de UI, separado do isolamento efetivo. Cerimonia local sobre o `ReviewPackage`, enrollment,
+recovery, rotacao e revogacao pertencem a um workstream futuro da opcao A.

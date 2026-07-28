@@ -7,11 +7,12 @@ authority: normative
 volatility: current
 owner: core
 created_at: 2026-07-22
-updated_at: 2026-07-27
+updated_at: 2026-07-28
 applies_to: repository
 sources:
   - docs/adr/0020-workspace-project-run-environment-boundaries.md
   - docs/adr/0021-hierarchical-lab-agent-scope.md
+  - docs/adr/0022-explicit-execution-trust-without-per-run-authentication.md
 supersedes: []
 superseded_by: null
 implementation_refs:
@@ -95,8 +96,10 @@ admissão. Todo disclosure de evaluation diferente de `none` também bloqueia a 
 A admissão também falha fechado para checkpoint coordinator, Progress Artifact observer, pipeline de
 evaluation fora do grader determinístico suportado, adjudicação humana required, disclosure dinâmico
 e terminal de bounded exploration. Esses contratos serem tipáveis e compiláveis não anuncia
-capacidade executável. Decisions humanas possuem schema e verifier protocol, mas API/CLI recusam o
-fluxo enquanto não houver adapter WebAuthn confiável.
+capacidade executável. Decisions humanas possuem schema, verifier protocol e adapter WebAuthn local
+opt-in; com `EVIDRUN_AUTHORITY` desligado, a composição default usa o verifier indisponível e recusa
+claims humanos. O caminho futuro sem autenticação por Run segue o ADR 0022 e ainda não está
+implementado.
 
 O SubjectEnvelope materializado é persistido antes de `subject.invoked` e referencia o input
 selecionado em CAS. Resposta raw autorizada é cifrada por projeto e pode ser retomada depois de crash

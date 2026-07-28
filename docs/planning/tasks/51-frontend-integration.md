@@ -7,17 +7,19 @@ authority: planning
 volatility: snapshot
 owner: frontend
 created_at: 2026-07-27
-updated_at: 2026-07-27
-observed_at: 2026-07-27
+updated_at: 2026-07-28
+observed_at: 2026-07-28
 review_due: 2026-08-24
 applies_to: frontend-integration
 sources:
   - docs/planning/mvp-implementation-roadmap.md
   - docs/adr/0020-workspace-project-run-environment-boundaries.md
   - docs/adr/0021-hierarchical-lab-agent-scope.md
+  - docs/adr/0022-explicit-execution-trust-without-per-run-authentication.md
   - docs/contracts/workspace-project-surface-v1.md
   - docs/contracts/lab-agent-scope-v1.md
   - docs/contracts/agent-inventory-workspace-v1.md
+  - docs/contracts/execution-trust-v1.md
 supersedes: []
 superseded_by: null
 implementation_refs: []
@@ -111,7 +113,11 @@ cleanup pertencem ao documento versionado e à admissão; não são preferência
 
 - draft do Lab Agent é visualmente draft e exige ação humana quando o contrato de authority pedir;
 - pedido de aprovação não aparece como decisão concluída;
-- trust não verificado, lifecycle, disposition e qualidade são eixos separados;
+- trust, isolamento, lifecycle, disposition e qualidade são eixos separados;
+- lista e detalhe da Run exibem sempre texto explícito, como
+  `Trust: Não verificada — sem confirmação humana` e `Isolamento: in_process`;
+- cor, ícone e tooltip apenas reforçam o texto; projeção exportável ou imprimível repete o rótulo de
+  trust e o `trust_id` em cada página, para que screenshot ou página isolada preserve o significado;
 - `ArtifactRef` não vira botão de abrir bytes sem grant/materialização;
 - memória não aparece como fato de Run;
 - mudar Project nunca mistura Runs, evidence ou memory de outro scope.
@@ -131,6 +137,8 @@ contexto global automático, editor livre de JSON/YAML, restore/replay e configu
 - Create associa draft ao Project ativo e recusa mismatch de scope;
 - Run Environment é configurado no documento versionado e opções unsupported permanecem desativadas;
 - `in_process` nunca recebe rótulo de sandbox seguro;
+- listas e detalhes distinguem os dois kinds de trust pelo texto canônico do Execution Trust v1;
+- trust e isolamento continuam legíveis sem cor e em snapshot de impressão/exportação;
 - estados de loading/failure/retry/cancel e reduced motion continuam cobertos;
 - nenhum caminho frontend cria decision, attestation ou Run antes de admission `admitted`.
 

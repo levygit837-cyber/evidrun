@@ -7,7 +7,7 @@ authority: normative
 volatility: current
 owner: core
 created_at: 2026-07-22
-updated_at: 2026-07-27
+updated_at: 2026-07-28
 applies_to: repository
 sources: []
 supersedes: []
@@ -58,7 +58,8 @@ research, incubação, planning e roadmap.
 
 Roteamento atual: Workspace/Project/Run Environment usa o
 [ADR 0020](adr/0020-workspace-project-run-environment-boundaries.md); sessão, scope e memória do Lab
-Agent usam o [ADR 0021](adr/0021-hierarchical-lab-agent-scope.md).
+Agent usam o [ADR 0021](adr/0021-hierarchical-lab-agent-scope.md); trust de execução usa o
+[ADR 0022](adr/0022-explicit-execution-trust-without-per-run-authentication.md).
 
 ### Contrato ou schema
 
@@ -118,7 +119,12 @@ Obrigatórios, 4–5 documentos e até 9.000 palavras:
 2. [Privacidade e retenção](security/privacy-and-retention.md)
 3. [Agentes e autoridade](architecture/agents-and-authority.md)
 4. [Captura e retenção](contracts/capture-and-retention.md)
-5. o ADR de autoridade vigente, quando autoridade humana estiver em escopo
+5. o ADR de autoridade vigente, quando autoridade humana ou trust de execução estiver em escopo
+
+Roteamento atual: o [ADR 0022](adr/0022-explicit-execution-trust-without-per-run-authentication.md)
+preserva a exigência de attestation para claims humanos e decide o caminho futuro de execução
+explicitamente não verificada; o [ADR 0015](adr/0015-human-subject-envelope-and-authenticator-lifecycle.md)
+continua governando o autenticador local opt-in.
 
 Opcional: segurança Electron para mudanças desktop. Planning, research, exemplos e logs não
 substituem contrato, ameaça reproduzível ou teste de segurança.

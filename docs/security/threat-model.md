@@ -7,9 +7,11 @@ authority: normative
 volatility: timeless
 owner: security
 created_at: 2026-07-22
-updated_at: 2026-07-23
+updated_at: 2026-07-28
 applies_to: system
-sources: []
+sources:
+  - docs/adr/0015-human-subject-envelope-and-authenticator-lifecycle.md
+  - docs/adr/0022-explicit-execution-trust-without-per-run-authentication.md
 supersedes: []
 superseded_by: null
 implementation_refs:
@@ -44,8 +46,9 @@ fecham todas as ameaças acima. Em particular:
 
 - o launch token protege o sidecar iniciado pelo desktop; `evidrun serve` sem handshake aceita
   qualquer processo local em loopback;
-- authority humana exige `HumanAttestationRecord` e verifier confiável; como nenhum adapter WebAuthn
-  está instalado, API, CLI e repository default falham fechado em vez de aceitar uma role alegada;
+- authority humana exige `HumanAttestationRecord` e verifier confiável; o adapter WebAuthn local
+  existe como opt-in, enquanto API, CLI e repository usam verifier indisponível por default e falham
+  fechado em vez de aceitar uma role alegada;
 - `repository_fixture` é não humano e só é permitido pelo método dedicado que confere o pacote
   canônico completo `CRL-CTX-002`; ampliar esse caminho seria uma quebra da fronteira definida no
   [ADR 0010](../adr/0010-verifiable-human-authority.md);

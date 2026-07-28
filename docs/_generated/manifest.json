@@ -254,6 +254,18 @@
       "review_due": null
     },
     {
+      "id": "adr-0022",
+      "path": "docs/adr/0022-explicit-execution-trust-without-per-run-authentication.md",
+      "type": "adr",
+      "title": "Trust explícito de execução sem autenticação por Run",
+      "status": "accepted",
+      "authority": "normative",
+      "volatility": "timeless",
+      "owner": "governance",
+      "updated_at": "2026-07-28",
+      "review_due": null
+    },
+    {
       "id": "agents-domain-docs",
       "path": "docs/agents/domain.md",
       "type": "guide",
@@ -298,7 +310,7 @@
       "authority": "normative",
       "volatility": "timeless",
       "owner": "core",
-      "updated_at": "2026-07-27",
+      "updated_at": "2026-07-28",
       "review_due": null
     },
     {
@@ -370,7 +382,7 @@
       "authority": "normative",
       "volatility": "current",
       "owner": "core",
-      "updated_at": "2026-07-27",
+      "updated_at": "2026-07-28",
       "review_due": null
     },
     {
@@ -466,7 +478,7 @@
       "authority": "normative",
       "volatility": "timeless",
       "owner": "core",
-      "updated_at": "2026-07-27",
+      "updated_at": "2026-07-28",
       "review_due": null
     },
     {
@@ -503,6 +515,18 @@
       "volatility": "timeless",
       "owner": "core",
       "updated_at": "2026-07-25",
+      "review_due": null
+    },
+    {
+      "id": "contract-execution-trust-v1",
+      "path": "docs/contracts/execution-trust-v1.md",
+      "type": "contract",
+      "title": "Execution Trust v1",
+      "status": "accepted",
+      "authority": "normative",
+      "volatility": "timeless",
+      "owner": "governance",
+      "updated_at": "2026-07-28",
       "review_due": null
     },
     {
@@ -598,7 +622,7 @@
       "authority": "normative",
       "volatility": "timeless",
       "owner": "core",
-      "updated_at": "2026-07-27",
+      "updated_at": "2026-07-28",
       "review_due": null
     },
     {
@@ -670,7 +694,7 @@
       "authority": "normative",
       "volatility": "current",
       "owner": "core",
-      "updated_at": "2026-07-27",
+      "updated_at": "2026-07-28",
       "review_due": null
     },
     {
@@ -754,7 +778,7 @@
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "product-engineering",
-      "updated_at": "2026-07-27",
+      "updated_at": "2026-07-28",
       "review_due": "2026-08-23"
     },
     {
@@ -766,7 +790,7 @@
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "product-engineering",
-      "updated_at": "2026-07-27",
+      "updated_at": "2026-07-28",
       "review_due": "2026-08-23"
     },
     {
@@ -778,7 +802,7 @@
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "product-engineering",
-      "updated_at": "2026-07-27",
+      "updated_at": "2026-07-28",
       "review_due": "2026-08-23"
     },
     {
@@ -798,11 +822,11 @@
       "path": "docs/planning/tasks/02-desktop-worker-lifecycle.md",
       "type": "implementation-task",
       "title": "WS-02 Lifecycle do worker no desktop",
-      "status": "proposed",
+      "status": "verified",
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "desktop",
-      "updated_at": "2026-07-24",
+      "updated_at": "2026-07-28",
       "review_due": "2026-08-07"
     },
     {
@@ -810,12 +834,12 @@
       "path": "docs/planning/tasks/03-default-authoring-authority.md",
       "type": "implementation-task",
       "title": "WS-03 Decisao de autoria default no produto instalado",
-      "status": "proposed",
+      "status": "accepted",
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "governance",
-      "updated_at": "2026-07-27",
-      "review_due": "2026-08-07"
+      "updated_at": "2026-07-28",
+      "review_due": "2026-08-28"
     },
     {
       "id": "planning-task-lab-agent-runtime",
@@ -914,15 +938,15 @@
       "review_due": "2026-08-13"
     },
     {
-      "id": "planning-task-trust-sandbox-review-package",
-      "path": "docs/planning/tasks/40-trust-sandbox-review-package.md",
+      "id": "planning-task-execution-trust-review-package",
+      "path": "docs/planning/tasks/40-execution-trust-review-package.md",
       "type": "implementation-task",
       "title": "WS-40 Trust de execucao nao verificada e ReviewPackage",
-      "status": "proposed",
+      "status": "accepted",
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "governance",
-      "updated_at": "2026-07-27",
+      "updated_at": "2026-07-28",
       "review_due": "2026-08-06"
     },
     {
@@ -946,7 +970,7 @@
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "frontend",
-      "updated_at": "2026-07-27",
+      "updated_at": "2026-07-28",
       "review_due": "2026-08-24"
     },
     {
@@ -958,7 +982,7 @@
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "product-engineering",
-      "updated_at": "2026-07-27",
+      "updated_at": "2026-07-28",
       "review_due": "2026-08-23"
     },
     {
@@ -994,7 +1018,7 @@
       "authority": "normative",
       "volatility": "timeless",
       "owner": "product",
-      "updated_at": "2026-07-27",
+      "updated_at": "2026-07-28",
       "review_due": null
     },
     {
@@ -1150,7 +1174,7 @@
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "product",
-      "updated_at": "2026-07-27",
+      "updated_at": "2026-07-28",
       "review_due": null
     },
     {
@@ -1186,7 +1210,7 @@
       "authority": "normative",
       "volatility": "timeless",
       "owner": "security",
-      "updated_at": "2026-07-23",
+      "updated_at": "2026-07-28",
       "review_due": null
     },
     {

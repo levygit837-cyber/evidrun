@@ -7,8 +7,8 @@ authority: planning
 volatility: snapshot
 owner: product-engineering
 created_at: 2026-07-23
-updated_at: 2026-07-27
-observed_at: 2026-07-27
+updated_at: 2026-07-28
+observed_at: 2026-07-28
 review_due: 2026-08-23
 applies_to: mvp-implementation
 sources:
@@ -16,6 +16,7 @@ sources:
   - docs/adr/0018-lab-agent-copilot-scope.md
   - docs/adr/0020-workspace-project-run-environment-boundaries.md
   - docs/adr/0021-hierarchical-lab-agent-scope.md
+  - docs/adr/0022-explicit-execution-trust-without-per-run-authentication.md
   - docs/roadmap/mvp.md
   - docs/planning/mvp-capability-map.md
   - docs/product/charter.md
@@ -47,9 +48,10 @@ O ledger emitiu a sequencia completa (`run.queued`, `run.preparing`, `context.co
 `run.completed`) e o Bundle v3 verificou todos os grupos de records.
 
 Isso significa que o problema do MVP **nao e** a espinha de execucao. A espinha existe e e auditavel.
-O problema e que ela esta inalcancavel para um usuario e estreita demais para um Study real.
+WS-01 e WS-02 tornaram parte dela alcancavel; o caminho de autoria sem autenticacao cotidiana ainda
+depende da implementacao do WS-40, e a espinha continua estreita demais para um Study real.
 
-## Os tres bloqueios que impedem uso
+## Estado dos tres bloqueios de acesso
 
 Estes bloqueios foram reproduzidos, nao inferidos. Nenhum deles e uma capability nova: sao lacunas de
 superficie e de lifecycle em cima de dominio que ja funciona.
@@ -57,8 +59,8 @@ superficie e de lifecycle em cima de dominio que ja funciona.
 | # | Bloqueio | Evidencia observada |
 | --- | --- | --- |
 | B1 | Criacao publica de Workspace ou Project | **Resolvido por WS-01.** API e CLI criam/listam scopes com nome canonico, constraints, migrations e `ScopeError`; o corredor chega a `contract register` sem fixture. |
-| B2 | O desktop empacotado nunca processa Runs | `backend-lifecycle.ts` faz spawn de `evidrun serve --desktop-handshake`; `serve` sobe apenas uvicorn. Nenhum path do produto inicia `evidrun-worker`. A UI enfileira Runs que ninguem executa. |
-| B3 | Autoria verificada e opt-in e desligada por padrao | `Settings.authority_enabled` default `False`. Sem `EVIDRUN_AUTHORITY=1`, `StudyCompiler.resolve` recusa toda revision, porque `decide` exige verifier confiavel. Por padrao o unico corredor que aceita revisions e o `repository_fixture` nao humano. |
+| B2 | O desktop empacotado nunca processa Runs | **Resolvido por WS-02 no PR #91.** O Electron Main supervisiona API e executor separados, com handshake, estado observavel, restart, shutdown e smoke do corredor. |
+| B3 | Autoria verificada e opt-in e desligada por padrao | **Decisao resolvida por WS-03; implementacao pendente em WS-40.** ADR 0022 escolhe execucao explicitamente nao verificada sem autenticacao por Run e preserva autenticacao humana como opt-in. |
 
 Corrigido neste ciclo, pela mesma investigacao: a CLI reconstruia `Repository` sem verifier, entao
 gravava aceitacao verificada que ela mesma nao conseguia reler; `authority accept` sobrescrevia o
@@ -95,14 +97,14 @@ Tres fatias independentes, sem arquivo compartilhado entre elas. Executam em par
 - **WS-01 Superficie de Workspace/Project — entregue:** dois tracer bullets verticais (Workspace,
   depois Project), com nome canonico, migration/constraints, `ScopeError`, leituras diretas, rotas e
   CLI. Resolve B1 sem criar Run Environment.
-- **WS-02 Lifecycle do worker no desktop:** o app local passa a supervisionar execucao, nao apenas a
-  API. Resolve B2. Inclui reinicio observavel e o gate de CI que hoje nao roda (`test:handshake`).
-- **WS-03 Decisao de autoria default:** ADR sucessor que define como um usuario aceita uma revision
-  no produto instalado, sem afirmar falsa autoridade humana. Resolve B3 e fixa o contrato que a
-  WS-40 vai implementar.
+- **WS-02 Lifecycle do worker no desktop — entregue:** o app local supervisiona execucao e API em
+  processos separados. Resolve B2 com estado, reinicio, shutdown e smoke no CI.
+- **WS-03 Decisao de autoria default — entregue:** ADR 0022 escolhe a execucao explicitamente nao
+  verificada sem autenticacao a cada Run, preserva o claim humano fail-closed e fixa o contrato que
+  a WS-40 implementara.
 
-WS-03 e decisao, nao codigo: ela precisa aterrissar antes da Onda 2 porque define o vocabulario de
-trust que WS-40 e o frontend consomem.
+WS-03 e decisao, nao codigo. Com o ADR aceito, WS-40 esta normativamente desbloqueado; a capability
+continua ausente ate o codigo e os testes desse workstream aterrissarem.
 
 ### Onda 1 — costuras do dominio (entregue)
 

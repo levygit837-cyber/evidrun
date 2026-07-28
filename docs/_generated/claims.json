@@ -1,6 +1,6 @@
 {
   "schema_version": "1",
-  "document_count": 104,
+  "document_count": 106,
   "repository_tree": [
     ".env.example",
     ".github/workflows",

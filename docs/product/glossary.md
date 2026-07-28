@@ -7,12 +7,14 @@ authority: normative
 volatility: timeless
 owner: product
 created_at: 2026-07-22
-updated_at: 2026-07-27
+updated_at: 2026-07-28
 applies_to: domain
 sources:
   - docs/adr/0018-lab-agent-copilot-scope.md
   - docs/adr/0020-workspace-project-run-environment-boundaries.md
   - docs/adr/0021-hierarchical-lab-agent-scope.md
+  - docs/adr/0022-explicit-execution-trust-without-per-run-authentication.md
+  - docs/contracts/execution-trust-v1.md
 supersedes: []
 superseded_by: null
 implementation_refs:
@@ -86,6 +88,14 @@ verification_refs: []
   exatos; sem adapter confiável, a operação falha fechada.
 - **Repository Fixture Authority:** importa aceitação de fixture legado por caminho interno; é
   explicitamente não humana.
+- **Execution Revision Set:** conjunto fechado e ordenado da Study e de todas as revisions
+  necessárias para compilá-la, escopado a um Project e identificado por digest canônico.
+- **Execution Trust Record:** record imutável que liga um RunSpec exato a um Execution Revision Set
+  e declara `unverified_revision_set` ou `verified_revision_set`; trust não descreve isolamento.
+- **ReviewPackage:** projeção legível do Execution Revision Set, das diferenças e das condições
+  efetivas para revisão humana; não é attestation nem concede autoridade.
+- **ReviewTarget:** documento canônico mínimo que liga o digest do Execution Revision Set aos
+  digests ordenados de todos os RunSpecs revisados; é identidade semântica, não relatório visual.
 - **Checkpoint:** marco validado e ancorado no ledger; não significa restore ou replay.
 - **Bounded exploration result:** resultado em dois eixos: disposition operacional e stop reason
   factual; nenhum deles é pass/fail ou score.

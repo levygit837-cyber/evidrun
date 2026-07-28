@@ -7,12 +7,14 @@ authority: normative
 volatility: timeless
 owner: core
 created_at: 2026-07-22
-updated_at: 2026-07-27
+updated_at: 2026-07-28
 applies_to: agents
 sources:
+  - docs/adr/0022-explicit-execution-trust-without-per-run-authentication.md
   - docs/adr/0018-lab-agent-copilot-scope.md
   - docs/adr/0021-hierarchical-lab-agent-scope.md
   - docs/contracts/lab-agent-scope-v1.md
+  - docs/contracts/execution-trust-v1.md
 supersedes: []
 superseded_by: null
 implementation_refs:
@@ -64,9 +66,16 @@ construí-los dentro do escopo do que o humano já vê.
 O [ADR 0010](../adr/0010-verifiable-human-authority.md) é materializado por
 `HumanAttestationRecord`, `VerifiedHumanDecisionAuthority` e `HumanAttestationVerifier`. Uma
 attestation cobre a ação e o digest exatos; agentes não podem produzi-la ou preencher uma decisão em
-nome do humano. O verifier default falha fechado porque nenhum adapter WebAuthn confiável está
-instalado. Consequentemente, API e CLI recusam decisions humanas; posse do launch token não é prova
-de presença ou autoridade humana.
+nome do humano. O adapter WebAuthn local existe como opt-in; a composição default mantém o verifier
+indisponível e, por isso, API e CLI recusam decisions humanas quando `EVIDRUN_AUTHORITY` está
+desligado. Posse do launch token não é prova de presença ou autoridade humana.
+
+O [ADR 0022](../adr/0022-explicit-execution-trust-without-per-run-authentication.md) preserva essa
+fronteira para todo claim humano e aceita um segundo caminho futuro: executar um conjunto fechado de
+revisions como `unverified_revision_set`, sem transformar draft em accepted. O
+`ExecutionTrustRecord` liga o conjunto e o RunSpec exatos e mantém trust separado de admissão e
+isolamento. Essa decisão ainda não está implementada; até WS-40, o compiler continua resolvendo
+somente revisions aceitas e a authority humana local continua opt-in.
 
 O bootstrap de compatibilidade do `CRL-CTX-002` é uma exceção limitada: `repository_fixture` é uma
 authority explicitamente não humana e materializa a aceitação preexistente de um benchmark
