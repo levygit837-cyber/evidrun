@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { api } from "../api/client";
 import { useBackendRuntime } from "./BackendRuntimeProvider";
+import { RuntimeAlert } from "./RuntimeAlert";
+import { planeTone } from "./runtimeStatus";
 import { Button, StatusIndicator } from "../ui/primitives";
 
 const routeNames: Record<string, string> = {
@@ -26,7 +28,7 @@ const routeIcons: Record<string, LucideIcon> = {
 
 export function AppShell() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const { state: backendState, restart } = useBackendRuntime();
+  const { state: backendState, executor, restart, restartExecutor } = useBackendRuntime();
   const provider = useQuery({
     queryKey: ["provider", "default"],
     queryFn: api.defaultProvider,
@@ -40,11 +42,11 @@ export function AppShell() {
     void window.evidrunDesktop?.getAppInfo().then((info) => setPlatform(info.platform));
   }, []);
 
-  const healthTone = useMemo(() => {
-    if (backendState.status === "ready") return "success" as const;
-    if (backendState.status === "failed") return "danger" as const;
-    return "warning" as const;
-  }, [backendState.status]);
+  // Two planes, two tones. ADR 0002 and ADR 0014 keep them apart because the failures differ:
+  // a dead executor stalls the queue while evidence stays readable, a dead backend takes
+  // reading away. Collapsing them into one health light would hide which happened.
+  const controlTone = useMemo(() => planeTone(backendState.status), [backendState.status]);
+  const executionTone = useMemo(() => planeTone(executor.status), [executor.status]);
   const RouteIcon = routeIcons[pathname] ?? Hexagon;
 
   return (
@@ -110,10 +112,18 @@ export function AppShell() {
               <dt>Authority</dt>
               <dd className="text-danger">indisponível</dd>
             </div>
+            {/* `aria-label` rather than `title`: a title on a non-interactive element is not
+                reachable by keyboard or touch, and the short visible labels need the context. */}
             <div>
-              <dt>Health</dt>
+              <dt aria-label="Control Plane, a API local">Control</dt>
               <dd>
-                <StatusIndicator tone={healthTone} label={backendState.status} />
+                <StatusIndicator shape="glyph" tone={controlTone} label={backendState.status} />
+              </dd>
+            </div>
+            <div>
+              <dt aria-label="Execution Plane, o executor durável de Runs">Execution</dt>
+              <dd>
+                <StatusIndicator shape="glyph" tone={executionTone} label={executor.status} />
               </dd>
             </div>
           </dl>
@@ -122,7 +132,12 @@ export function AppShell() {
         <footer className="sidebar-footer">
           {backendState.status === "failed" ? (
             <Button variant="quiet" size="small" onClick={() => void restart()}>
-              Tentar novamente
+              Reiniciar backend
+            </Button>
+          ) : null}
+          {backendState.status !== "failed" && executor.status === "failed" ? (
+            <Button variant="quiet" size="small" onClick={() => void restartExecutor()}>
+              Reiniciar executor
             </Button>
           ) : null}
           <span>Evidrun desktop · local-first</span>
@@ -136,12 +151,14 @@ export function AppShell() {
             <strong>{routeNames[pathname] ?? "Evidrun"}</strong>
           </div>
           <div className="topbar-runtime">
-            <StatusIndicator tone={healthTone} label={`Backend ${backendState.status}`} />
+            <StatusIndicator shape="glyph" tone={controlTone} label={`Control ${backendState.status}`} />
+            <StatusIndicator shape="glyph" tone={executionTone} label={`Execution ${executor.status}`} />
             <span className="topbar-separator" aria-hidden="true" />
             <code>{provider.data?.model ?? "provider pendente"}</code>
           </div>
         </header>
         <main className="app-workspace">
+          <RuntimeAlert />
           <Outlet />
         </main>
       </section>

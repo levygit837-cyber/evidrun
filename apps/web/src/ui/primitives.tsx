@@ -5,6 +5,7 @@ import {
   Circle,
   Info,
   LoaderCircle,
+  XCircle,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -65,10 +66,33 @@ export function Spinner({ label = "Carregando", size = 16 }: { label?: string; s
 
 type StatusTone = "neutral" | "info" | "success" | "warning" | "danger";
 
-export function StatusIndicator({ tone = "neutral", label }: { tone?: StatusTone; label: string }) {
+/** Distinct glyph per tone, for callers where colour alone would carry the difference. */
+const statusGlyphs: Record<StatusTone, LucideIcon> = {
+  neutral: Circle,
+  info: Circle,
+  success: CheckCircle2,
+  warning: AlertCircle,
+  danger: XCircle,
+};
+
+export function StatusIndicator({
+  tone = "neutral",
+  label,
+  shape = "dot",
+}: {
+  tone?: StatusTone;
+  label: string;
+  /**
+   * `dot` keeps the uniform bullet used across the app. `glyph` varies the icon per tone, so
+   * two indicators side by side stay distinguishable without relying on colour — the tones
+   * differ from each other by well under 3:1.
+   */
+  shape?: "dot" | "glyph";
+}) {
+  const Icon = shape === "glyph" ? statusGlyphs[tone] : Circle;
   return (
     <span className={`ui-status ui-status-${tone}`}>
-      <Circle aria-hidden="true" size={7} fill="currentColor" />
+      <Icon aria-hidden="true" size={shape === "glyph" ? 12 : 7} fill={shape === "glyph" ? "none" : "currentColor"} />
       <span>{label}</span>
     </span>
   );
