@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Info } from "lucide-react";
 import { api } from "../api/client";
 import { Button } from "../ui/primitives";
 import { useBackendRuntime } from "./BackendRuntimeProvider";
@@ -26,10 +26,16 @@ export function RuntimeAlert() {
   });
   const alert = runtimeAlert(backend, executor, pendingRunCount(runs.data ?? []));
   if (!alert) return null;
+  const Icon = alert.tone === "danger" ? AlertTriangle : Info;
 
   return (
-    <div className={`runtime-alert runtime-alert-${alert.tone}`} role="alert">
-      <AlertTriangle aria-hidden="true" size={16} />
+    <div
+      className={`runtime-alert runtime-alert-${alert.tone}`}
+      // Assertive only when work is genuinely stuck. A warning interrupting the screen reader
+      // every time the queue count changes would invent severity the state does not have.
+      role={alert.tone === "danger" ? "alert" : "status"}
+    >
+      <Icon aria-hidden="true" size={16} />
       <div className="runtime-alert-copy">
         <strong>{alert.title}</strong>
         <span>{alert.detail}</span>

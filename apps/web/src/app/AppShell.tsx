@@ -112,16 +112,18 @@ export function AppShell() {
               <dt>Authority</dt>
               <dd className="text-danger">indisponível</dd>
             </div>
+            {/* `aria-label` rather than `title`: a title on a non-interactive element is not
+                reachable by keyboard or touch, and the short visible labels need the context. */}
             <div>
-              <dt title="Control Plane: API local">Control</dt>
+              <dt aria-label="Control Plane, a API local">Control</dt>
               <dd>
-                <StatusIndicator tone={controlTone} label={backendState.status} />
+                <StatusIndicator shape="glyph" tone={controlTone} label={backendState.status} />
               </dd>
             </div>
             <div>
-              <dt title="Execution Plane: executor durável de Runs">Execution</dt>
+              <dt aria-label="Execution Plane, o executor durável de Runs">Execution</dt>
               <dd>
-                <StatusIndicator tone={executionTone} label={executor.status} />
+                <StatusIndicator shape="glyph" tone={executionTone} label={executor.status} />
               </dd>
             </div>
           </dl>
@@ -149,8 +151,8 @@ export function AppShell() {
             <strong>{routeNames[pathname] ?? "Evidrun"}</strong>
           </div>
           <div className="topbar-runtime">
-            <StatusIndicator tone={controlTone} label={`Control ${backendState.status}`} />
-            <StatusIndicator tone={executionTone} label={`Execution ${executor.status}`} />
+            <StatusIndicator shape="glyph" tone={controlTone} label={`Control ${backendState.status}`} />
+            <StatusIndicator shape="glyph" tone={executionTone} label={`Execution ${executor.status}`} />
             <span className="topbar-separator" aria-hidden="true" />
             <code>{provider.data?.model ?? "provider pendente"}</code>
           </div>

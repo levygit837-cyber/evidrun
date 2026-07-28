@@ -326,15 +326,24 @@ code,
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  /* `auto 1fr` so the runtime banner takes only the height it needs and the page below keeps
-     owning its own scrolling. With no banner the first track collapses to zero. */
-  display: grid;
-  grid-template-rows: auto 1fr;
+  /* Flex column, not `grid-template-rows: auto 1fr`. With no banner the page is the only child
+     and grid auto-placement puts it in the first `auto` track, so its `height: 100%` resolves
+     against a track it sizes itself — circular, and the page collapses to nothing. Flex has no
+     fixed tracks to fall into: the banner takes its content height, the page takes the rest. */
+  display: flex;
+  flex-direction: column;
   background: var(--surface);
+}
+
+/* The page owns its own scrolling; only the banner above it is allowed to be intrinsic. */
+.app-workspace > :last-child {
+  flex: 1;
+  min-height: 0;
 }
 
 .runtime-alert {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 11px;
   padding: 11px 18px;

@@ -63,6 +63,13 @@ describe("runtime alert", () => {
     expect(screen.getByRole("button", { name: "Reiniciar backend" })).toBeInTheDocument();
   });
 
+  it("interrupts assertively only when work is genuinely stuck", async () => {
+    // A warning that reannounced every time the queue count changed would invent severity.
+    renderAlert({ status: "ready" }, { status: "starting" }, waiting);
+    await waitFor(() => expect(screen.getByRole("status")).toBeInTheDocument());
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("does not query the queue while the backend is unreachable", async () => {
     renderAlert({ status: "failed" }, { status: "failed" }, waiting);
     await screen.findByRole("alert");
