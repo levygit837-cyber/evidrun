@@ -94,6 +94,8 @@ verification_refs: []
   e declara `unverified_revision_set` ou `verified_revision_set`; trust não descreve isolamento.
 - **ReviewPackage:** projeção legível do Execution Revision Set, das diferenças e das condições
   efetivas para revisão humana; não é attestation nem concede autoridade.
+- **ReviewTarget:** documento canônico mínimo que liga o digest do Execution Revision Set aos
+  digests ordenados de todos os RunSpecs revisados; é identidade semântica, não relatório visual.
 - **Checkpoint:** marco validado e ancorado no ledger; não significa restore ou replay.
 - **Bounded exploration result:** resultado em dois eixos: disposition operacional e stop reason
   factual; nenhum deles é pass/fail ou score.

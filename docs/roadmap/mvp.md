@@ -80,8 +80,9 @@ abaixo, nesta ordem de destrave:
 Depois do Minimo Confortavel:
 
 - enforcement ponta a ponta de classification e capture policy em snapshots e eventos;
-- autenticacao local opcional com cerimonia mais simples sobre o `ReviewPackage`, incluindo
-  enrollment, recovery e rotacao; passkey de plataforma permanece opcional e exige decisao propria;
+- autenticacao local por default, em uma fase futura, com cerimonia simples sobre o `ReviewTarget`
+  apresentado pelo `ReviewPackage`, incluindo enrollment, recovery e rotacao; ate essa fase, o
+  adapter local permanece opt-in, e passkey de plataforma permanece opcional e exige decisao propria;
 - pipeline executável de `human_review` e adjudicação required, preservando suas relações distintas;
 - Artifact Access Grants e records de materialização;
 - observer, scheduler, persistência e geração em background de Progress Artifact;

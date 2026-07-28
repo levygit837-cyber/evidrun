@@ -194,6 +194,11 @@ Projeção legível do Execution Revision Set, das diferenças e das condições
 precisa revisar. Não é attestation nem concede autoridade por si só.
 _Avoid_: approval bundle, Evidence Bundle
 
+**ReviewTarget**:
+Documento canônico mínimo que liga o digest do Execution Revision Set aos digests ordenados de todos
+os RunSpecs revisados. É a identidade semântica; não é o relatório visual.
+_Avoid_: ReviewPackage bytes, PDF digest, approval
+
 **Bounded exploration result**:
 Resultado em dois eixos, disposition operacional e stop reason factual; nenhum é pass/fail nem score.
 _Avoid_: pass/fail, outcome, verdict

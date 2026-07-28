@@ -114,11 +114,11 @@
       "path": "docs/adr/0010-verifiable-human-authority.md",
       "type": "adr",
       "title": "Autoridade humana verificável e separação entre review e adjudicação",
-      "status": "superseded",
+      "status": "accepted",
       "authority": "normative",
       "volatility": "timeless",
       "owner": "governance",
-      "updated_at": "2026-07-28",
+      "updated_at": "2026-07-26",
       "review_due": null
     },
     {
@@ -970,7 +970,7 @@
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "frontend",
-      "updated_at": "2026-07-27",
+      "updated_at": "2026-07-28",
       "review_due": "2026-08-24"
     },
     {

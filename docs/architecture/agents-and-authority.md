@@ -63,7 +63,7 @@ exige autoridade humana, ele produz um pedido de aprovação, nunca a decisão.
 laboratório são invisíveis ao Subject por desenho do `SubjectEnvelope`, e o Lab Agent ajuda a
 construí-los dentro do escopo do que o humano já vê.
 
-O histórico [ADR 0010](../adr/0010-verifiable-human-authority.md) é materializado por
+O [ADR 0010](../adr/0010-verifiable-human-authority.md) é materializado por
 `HumanAttestationRecord`, `VerifiedHumanDecisionAuthority` e `HumanAttestationVerifier`. Uma
 attestation cobre a ação e o digest exatos; agentes não podem produzi-la ou preencher uma decisão em
 nome do humano. O adapter WebAuthn local existe como opt-in; a composição default mantém o verifier

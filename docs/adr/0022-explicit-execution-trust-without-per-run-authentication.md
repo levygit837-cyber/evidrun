@@ -14,8 +14,7 @@ sources:
   - docs/adr/0015-human-subject-envelope-and-authenticator-lifecycle.md
   - docs/adr/0020-workspace-project-run-environment-boundaries.md
   - docs/contracts/study-run-v1.md
-supersedes:
-  - docs/adr/0010-verifiable-human-authority.md
+supersedes: []
 superseded_by: null
 implementation_refs: []
 verification_refs: []
@@ -164,13 +163,13 @@ O kind machine-readable é obrigatório na API e no bundle. A forma humana usa t
 cabeçalho/rodapé de cada página impressa. Dessa forma o significado permanece presente em export,
 impressão e captura de tela sem depender do restante da aplicação.
 
-# Escopo da supersession
+# Relação com autoridade humana
 
-Este ADR substitui somente a premissa do ADR 0010 de que toda compilação precisa resolver revisions
-aceitas e, portanto, não pode existir Run sem adapter humano confiável. Continuam vigentes a
-exigência de `HumanAttestationRecord` para claims humanos, a distinção entre review e adjudicação, a
-natureza não humana de `repository_fixture` e todas as regras append-only. O caminho não verificado
-não é uma exceção a essas regras porque não cria decision nem claim humano.
+Este ADR complementa, mas não supersede, o ADR 0010. Continuam vigentes a exigência de
+`HumanAttestationRecord` para claims humanos, a distinção entre review e adjudicação, a natureza não
+humana de `repository_fixture` e todas as regras append-only. O caminho não verificado não é uma
+exceção a essas regras porque não cria decision nem claim humano. A mudança ocorre no contrato de
+compilação futura: revisions seladas poderão compilar sem que o sistema invente uma decisão.
 
 # Alternativas consideradas
 
