@@ -291,6 +291,16 @@ code,
   font-size: 11px;
 }
 
+/* Two plane indicators sit side by side here, so they need reading room without a divider
+   between every pair. */
+.topbar-runtime .ui-status {
+  font-size: 11px;
+}
+
+.topbar-runtime .ui-status + .ui-status {
+  margin-left: 2px;
+}
+
 .topbar-context strong {
   color: var(--text);
   font-size: 13px;
@@ -316,7 +326,49 @@ code,
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  /* `auto 1fr` so the runtime banner takes only the height it needs and the page below keeps
+     owning its own scrolling. With no banner the first track collapses to zero. */
+  display: grid;
+  grid-template-rows: auto 1fr;
   background: var(--surface);
+}
+
+.runtime-alert {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 18px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+}
+
+.runtime-alert-warning {
+  border-bottom-color: #f1dfae;
+  background: #fdf8ec;
+  color: #7a4e00;
+}
+
+.runtime-alert-danger {
+  border-bottom-color: #f0cfcf;
+  background: #fdf3f3;
+  color: #8f1d1d;
+}
+
+.runtime-alert-copy {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 9px;
+  min-width: 0;
+}
+
+.runtime-alert-copy strong {
+  font-weight: 600;
+}
+
+.runtime-alert-copy span {
+  opacity: 0.85;
 }
 
 .feature-placeholder {
