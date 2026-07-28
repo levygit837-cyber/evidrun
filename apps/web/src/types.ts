@@ -145,6 +145,12 @@ export interface BackendState {
   message?: string;
 }
 
+/** Mirrors `ExecutorState` in the desktop contract: the Run executor's own process state. */
+export interface ExecutorState {
+  status: "starting" | "ready" | "failed" | "stopped";
+  message?: string;
+}
+
 export interface ProviderProfile {
   id: string;
   display_name: string;

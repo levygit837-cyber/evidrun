@@ -12,6 +12,7 @@ import {
   shell,
 } from "electron";
 import { BackendLifecycle } from "./backend-lifecycle.js";
+import { ExecutorLifecycle } from "./executor-lifecycle.js";
 import { isApprovedExternalUrl, isTrustedRendererUrl } from "./external-links.js";
 import { lockDownPermissions } from "./permissions.js";
 import { createMainWindow } from "./windows.js";
@@ -20,7 +21,39 @@ import { channels } from "../shared/desktop-contract.js";
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const devServerUrl = process.env.EVIDRUN_DEV_SERVER_URL;
 const backend = new BackendLifecycle();
+const executor = new ExecutorLifecycle();
 let mainWindow: BrowserWindow | null = null;
+
+/** The data boundary both planes share; the handshake already resolves it this way. */
+function dataDir(): string {
+  return app.getPath("userData");
+}
+
+/**
+ * Send a state update to the renderer, if there is still one listening.
+ *
+ * A destroyed `BrowserWindow` throws from the `webContents` getter itself, so optional
+ * chaining is not enough. This runs on the shutdown path, where a throw would abort the
+ * teardown sequence and leave the app running with no window.
+ */
+function publish(channel: string, state: unknown): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send(channel, state);
+}
+
+/**
+ * Bring the executor up, tolerating failure.
+ *
+ * A failed executor is a stalled queue, not a dead app: evidence stays readable and the
+ * failure is published as state. Rejecting here would take the window down with it.
+ */
+async function startExecutor(): Promise<void> {
+  try {
+    await executor.start(dataDir());
+  } catch (error) {
+    console.error("[evidrun-worker]", error instanceof Error ? error.message : error);
+  }
+}
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -55,6 +88,14 @@ function registerIpc(): void {
   ipcMain.handle(channels.backendRestart, async (event) => {
     validateSender(senderUrl(event.senderFrame));
     return backend.restart();
+  });
+  ipcMain.handle(channels.executorState, (event) => {
+    validateSender(senderUrl(event.senderFrame));
+    return executor.state;
+  });
+  ipcMain.handle(channels.executorRestart, async (event) => {
+    validateSender(senderUrl(event.senderFrame));
+    return executor.restart(dataDir());
   });
   ipcMain.handle(channels.selectFile, async (event) => {
     validateSender(senderUrl(event.senderFrame));
@@ -96,7 +137,10 @@ async function registerAppProtocol(): Promise<void> {
 async function createApplicationWindow(): Promise<void> {
   const preloadPath = path.resolve(currentDir, "../preload/index.cjs");
   mainWindow = createMainWindow(preloadPath);
-  backend.on("state", (state) => mainWindow?.webContents.send(channels.backendState, state));
+  backend.removeAllListeners("state");
+  executor.removeAllListeners("state");
+  backend.on("state", (state) => publish(channels.backendState, state));
+  executor.on("state", (state) => publish(channels.executorStateChanged, state));
   mainWindow.webContents.on("will-navigate", (event, target) => {
     if (!isTrustedRendererUrl(target, devServerUrl)) event.preventDefault();
   });
@@ -105,8 +149,29 @@ async function createApplicationWindow(): Promise<void> {
     return { action: "deny" };
   });
   await backend.start();
+  // After the backend, so the queue the executor drains is already reachable, and not
+  // awaited: a slow or failing executor must not delay the window.
+  void startExecutor();
   if (devServerUrl) await mainWindow.loadURL(devServerUrl);
   else await mainWindow.loadURL("evidrun://app/");
+}
+
+/**
+ * One app instance per machine, because instances share `userData`.
+ *
+ * Two instances would supervise two executors over the same database. Lease fencing means
+ * that is safe — no Run executes twice — but it is still two processes competing where the
+ * brief asks for exactly one, and the second app's executor state would describe a queue
+ * the first one is draining.
+ */
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  });
 }
 
 app.whenReady().then(async () => {
@@ -129,8 +194,32 @@ app.whenReady().then(async () => {
   });
 });
 
-app.on("before-quit", () => {
-  void backend.stop();
+let shuttingDown = false;
+
+/**
+ * Stop the executor before the backend, and wait for both.
+ *
+ * Order matters: the executor needs a reachable database to release the lease it holds,
+ * so tearing the backend down first would leave an in-flight Run waiting out its lease
+ * instead of being picked up promptly by the next attempt. Quitting without waiting would
+ * do the same and could orphan the process.
+ */
+app.on("before-quit", (event) => {
+  if (shuttingDown) return;
+  event.preventDefault();
+  shuttingDown = true;
+  void (async () => {
+    // `finally`, because deferring the quit means any throw in teardown would otherwise
+    // leave the app alive with no window and no way out.
+    try {
+      await executor.stop();
+      await backend.stop();
+    } catch (error) {
+      console.error("[evidrun]", error instanceof Error ? error.message : error);
+    } finally {
+      app.quit();
+    }
+  })();
 });
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();

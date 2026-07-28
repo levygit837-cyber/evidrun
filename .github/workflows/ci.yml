@@ -41,3 +41,12 @@ jobs:
       - run: pnpm test:web
       - run: pnpm test:desktop
       - run: pnpm build
+      # The smokes spawn the real sidecars through `uv run`, so this job needs Python too.
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.14"
+      - run: uv sync --extra dev
+      - run: pnpm test:handshake
+      # Guards blocker B2: fails if a Run enqueued with no terminal involved never reaches
+      # a terminal state, which is what happens when nothing supervises the executor.
+      - run: pnpm test:supervision
