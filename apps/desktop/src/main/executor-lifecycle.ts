@@ -94,7 +94,6 @@ export class ExecutorLifecycle extends EventEmitter {
       await new Promise<void>((resolve) => {
         const timeout = setTimeout(() => {
           if (isRunning(child)) child.kill("SIGKILL");
-          resolve();
         }, 8_000);
         child.once("exit", () => {
           clearTimeout(timeout);

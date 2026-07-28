@@ -22,7 +22,6 @@ class FakeChild extends EventEmitter {
   kill(signal: string): boolean {
     this.signals.push(signal);
     this.killed = true;
-    if (signal === "SIGKILL") this.exit(null, "SIGKILL");
     return true;
   }
 
@@ -105,16 +104,23 @@ describe("executor lifecycle", () => {
     expect(lifecycle.state.status).toBe("stopped");
   });
 
-  it("escalates to SIGKILL when the executor will not leave", async () => {
+  it("waits for exit after escalating to SIGKILL", async () => {
     vi.useFakeTimers();
     const starting = lifecycle.start("/data");
     const child = spawned[0]!;
     child.ready();
     await starting;
-    const stopping = lifecycle.stop();
+    let stopped = false;
+    const stopping = lifecycle.stop().then(() => {
+      stopped = true;
+    });
     await vi.advanceTimersByTimeAsync(8_000);
-    await stopping;
     expect(child.signals).toEqual(["SIGTERM", "SIGKILL"]);
+    expect(stopped).toBe(false);
+    expect(lifecycle.state).toEqual({ status: "ready" });
+    child.exit(null, "SIGKILL");
+    await stopping;
+    expect(lifecycle.state.status).toBe("stopped");
   });
 
   it("treats a crash as failed and a requested stop as stopped", async () => {
