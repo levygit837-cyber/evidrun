@@ -43,12 +43,10 @@ export class ExecutorLifecycle extends EventEmitter {
   }
 
   async start(dataDir: string): Promise<ExecutorState> {
-    // A shutdown in flight has already cleared `child`, so starting now would spawn a
-    // second executor alongside one still dying. Wait it out first.
+    // A shutdown in flight still owns the current child. Wait for it so start cannot
+    // spawn a second executor alongside one that has not exited.
     if (this.stopPromise) await this.stopPromise;
-    if (this.child && isRunning(this.child) && this.current.status !== "failed") {
-      return this.current;
-    }
+    if (this.child && isRunning(this.child)) return this.current;
     if (this.startPromise) return this.startPromise;
     this.startPromise = this.spawnExecutor(dataDir);
     try {
@@ -84,23 +82,39 @@ export class ExecutorLifecycle extends EventEmitter {
   private async terminate(): Promise<void> {
     this.stopping = true;
     const child = this.child;
-    this.child = null;
     try {
       if (!child || !isRunning(child)) {
+        this.child = null;
         this.emitState({ status: "stopped" });
         return;
       }
-      child.kill("SIGTERM");
-      await new Promise<void>((resolve) => {
-        const timeout = setTimeout(() => {
-          if (isRunning(child)) child.kill("SIGKILL");
-        }, 8_000);
-        child.once("exit", () => {
+      await new Promise<void>((resolve, reject) => {
+        const onExit = () => {
           clearTimeout(timeout);
+          child.off("error", onError);
           resolve();
-        });
+        };
+        const onError = (error: Error) => {
+          clearTimeout(timeout);
+          child.off("exit", onExit);
+          child.off("error", onError);
+          reject(error);
+        };
+        const timeout = setTimeout(() => {
+          if (isRunning(child) && !child.kill("SIGKILL")) {
+            onError(new Error("Não foi possível encerrar o executor com SIGKILL"));
+          }
+        }, 8_000);
+        child.once("exit", onExit);
+        child.once("error", onError);
+        child.kill("SIGTERM");
       });
       this.emitState({ status: "stopped" });
+    } catch (error) {
+      if (child && isRunning(child)) this.child = child;
+      const message = error instanceof Error ? error.message : String(error);
+      this.emitState({ status: "failed", message });
+      throw error;
     } finally {
       this.stopping = false;
     }

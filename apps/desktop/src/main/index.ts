@@ -197,7 +197,7 @@ app.whenReady().then(async () => {
 let shuttingDown = false;
 
 /**
- * Stop the executor before the backend, and wait for both.
+ * Stop the executor before the backend, and always attempt both.
  *
  * Order matters: the executor needs a reachable database to release the lease it holds,
  * so tearing the backend down first would leave an in-flight Run waiting out its lease
@@ -209,10 +209,12 @@ app.on("before-quit", (event) => {
   event.preventDefault();
   shuttingDown = true;
   void (async () => {
-    // `finally`, because deferring the quit means any throw in teardown would otherwise
-    // leave the app alive with no window and no way out.
     try {
       await executor.stop();
+    } catch (error) {
+      console.error("[evidrun]", error instanceof Error ? error.message : error);
+    }
+    try {
       await backend.stop();
     } catch (error) {
       console.error("[evidrun]", error instanceof Error ? error.message : error);

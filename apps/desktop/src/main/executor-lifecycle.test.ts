@@ -18,11 +18,12 @@ class FakeChild extends EventEmitter {
   exitCode: number | null = null;
   signalCode: string | null = null;
   signals: string[] = [];
+  refuseSigkill = false;
 
   kill(signal: string): boolean {
     this.signals.push(signal);
     this.killed = true;
-    return true;
+    return signal !== "SIGKILL" || !this.refuseSigkill;
   }
 
   exit(code: number | null, signal: string | null = null): void {
@@ -121,6 +122,20 @@ describe("executor lifecycle", () => {
     child.exit(null, "SIGKILL");
     await stopping;
     expect(lifecycle.state.status).toBe("stopped");
+  });
+
+  it("rejects restart when SIGKILL cannot be delivered", async () => {
+    vi.useFakeTimers();
+    const child = await startReady();
+    child.refuseSigkill = true;
+    const restarting = lifecycle.restart("/data");
+    const rejection = expect(restarting).rejects.toThrow("SIGKILL");
+    await vi.advanceTimersByTimeAsync(8_000);
+    await rejection;
+    expect(spawned).toHaveLength(1);
+    expect(lifecycle.state.status).toBe("failed");
+    expect(await lifecycle.start("/data")).toEqual(lifecycle.state);
+    expect(spawned).toHaveLength(1);
   });
 
   it("treats a crash as failed and a requested stop as stopped", async () => {
