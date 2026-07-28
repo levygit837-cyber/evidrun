@@ -55,5 +55,12 @@ export interface ObservabilityAdapter {
   getCheckpoints(runId: string): Promise<CheckpointRecordDto[]>;
   getProvider(): Promise<ProviderProfile>;
   exportRunBundle(runId: string): Promise<{ path: string; run_id: string; schema_version: "3" }>;
+  /**
+   * Run the same RunSpec again, as a new Run with `retry_of` declared.
+   *
+   * Not a resumption: the original Run stays terminal and untouched. Admission happens inside,
+   * because it resolves inventory rather than asking a human for anything.
+   */
+  retryRun(runId: string, runSpecId: string): Promise<{ run_id: string }>;
   readonly stream: RunEventStream;
 }

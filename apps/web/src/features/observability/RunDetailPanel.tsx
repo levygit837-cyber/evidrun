@@ -1,17 +1,38 @@
-import { AlertTriangle, ArrowLeft, FileWarning, Radio, RefreshCw } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CircleSlash, FileWarning, Radio, RefreshCw } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import type { ObservabilityAdapter, RunStreamState } from "../../data/contracts";
-import type { RunDetail } from "../../types";
+import type { ExecutorState, RunDetail } from "../../types";
 import { EvaluationPanel } from "./EvaluationPanel";
 import { EvidencePanel } from "./EvidencePanel";
 import { Fact, StatusMark } from "./ObservabilityParts";
 import { TracePanel } from "./TracePanel";
 import { type DetailData, formatDate, formatDuration } from "./observabilityModel";
+import { runProgressIssue, issueTone, type RunProgressIssue } from "./runProgress";
+import {
+  attemptSummary,
+  describeAttempts,
+  goalStateLabels,
+  isAnomaly,
+  runMetrics,
+  runOutcome,
+} from "./runOutcome";
 
 type DetailTab = "trace" | "evaluation" | "evidence" | "execution";
 
-function GeneralFacts({ data }: { data: DetailData }) {
+function GeneralFacts({
+  data,
+  adapter,
+  onRetried,
+}: {
+  data: DetailData;
+  adapter: ObservabilityAdapter;
+  onRetried(runId: string): void;
+}) {
   const { run } = data;
+  const outcome = runOutcome(data.events);
+  const metrics = runMetrics(data.events);
+  const attempts = attemptSummary((run.execution?.attempts ?? []).map((attempt) => attempt.status));
   return (
     <div className="obs-general-facts">
       {run.contract_mode === "legacy_v1" ? (
@@ -20,9 +41,22 @@ function GeneralFacts({ data }: { data: DetailData }) {
           <span>Run legacy. Contratos canônicos, job e attempts podem não existir.</span>
         </div>
       ) : null}
+      {isAnomaly(outcome) ? (
+        <AnomalyNote adapter={adapter} onRetried={onRetried} run={run} />
+      ) : null}
       <dl>
         <Fact label="Run">{run.id}</Fact>
         <Fact label="Status"><StatusMark status={run.status} /></Fact>
+        {outcome.goalState ? (
+          <Fact label="Resultado">{goalStateLabels[outcome.goalState]}</Fact>
+        ) : null}
+        {outcome.terminalCause ? <Fact label="Causa">{outcome.terminalCause}</Fact> : null}
+        {metrics.inputTokens !== null || metrics.outputTokens !== null ? (
+          <Fact label="Tokens">
+            {`${metrics.inputTokens ?? "?"} entrada / ${metrics.outputTokens ?? "?"} saída`}
+          </Fact>
+        ) : null}
+        {metrics.toolCalls !== null ? <Fact label="Tool calls">{metrics.toolCalls}</Fact> : null}
         <Fact label="Study revision">{run.experiment_revision_id}</Fact>
         <Fact label="Variant">{run.variant_id}</Fact>
         <Fact label="RunSpec">{run.run_spec_id ?? "Sem record"}</Fact>
@@ -32,7 +66,9 @@ function GeneralFacts({ data }: { data: DetailData }) {
         <Fact label="Duração">{formatDuration(run)}</Fact>
         <Fact label="Retry of">{run.record?.retry_of ?? "Não é retry"}</Fact>
         <Fact label="Job">{run.execution?.job.job_id ?? "Não informado"}</Fact>
-        <Fact label="Attempts">{run.execution?.attempts.length ?? "Não informado"}</Fact>
+        <Fact label="Attempts">
+          {run.execution ? describeAttempts(attempts) : "Não informado"}
+        </Fact>
         <Fact label="Criada em">{formatDate(run.created_at)}</Fact>
         <Fact label="Terminal em">{formatDate(run.completed_at)}</Fact>
       </dl>
@@ -96,6 +132,91 @@ function ExecutionPanel({ run }: { run: RunDetail }) {
   );
 }
 
+/**
+ * What `not_assessable` means, said plainly.
+ *
+ * The distinction is the point: this Run produced no gradable result, which is not the same as
+ * the Subject getting it wrong. Reading one as the other would count infrastructure failures as
+ * model failures.
+ */
+function AnomalyNote({
+  adapter,
+  run,
+  onRetried,
+}: {
+  adapter: ObservabilityAdapter;
+  run: RunDetail;
+  onRetried(runId: string): void;
+}) {
+  const retry = useMutation({
+    mutationFn: () => adapter.retryRun(run.id, run.run_spec_id!),
+    onSuccess: (result) => onRetried(result.run_id),
+  });
+  return (
+    <div className="obs-context-note obs-context-note-anomaly" role="status">
+      <CircleSlash aria-hidden="true" size={15} />
+      <div className="obs-anomaly-copy">
+        <span>
+          Ausência de resultado, não resultado negativo. A execução não chegou a produzir algo
+          avaliável, então esta Run não afirma nada sobre o Subject.
+        </span>
+        {run.run_spec_id ? (
+          <>
+            <button
+              className="obs-action-button"
+              disabled={retry.isPending}
+              onClick={() => retry.mutate()}
+              type="button"
+            >
+              {retry.isPending ? "Refazendo…" : "Refazer esta Run"}
+            </button>
+            {/* Said plainly because the distinction is load-bearing: nothing here resumes the
+                original Run, and a resumed conversation is not what happens. */}
+            <span className="obs-anomaly-hint">
+              Refazer executa o mesmo RunSpec do zero, como Run nova com proveniência declarada.
+              Esta Run permanece como está.
+            </span>
+            {/* Its own `alert`, because the enclosing note is polite and a failed retry is not
+                something to leave to the next announcement. */}
+            {retry.isError ? (
+              <span className="obs-anomaly-error" role="alert">
+                {retry.error instanceof Error ? retry.error.message : "Falha ao refazer a Run."}
+              </span>
+            ) : null}
+          </>
+        ) : (
+          <span className="obs-anomaly-hint">
+            Sem RunSpec canônico, refazer não está disponível para esta Run.
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The progress note for a Run that is not moving.
+ *
+ * A reconnecting stream is transient and recovers on its own; a stalled executor blocks the Run
+ * until someone acts. Both used to render as the same error line.
+ */
+function ProgressNote({ issue }: { issue: RunProgressIssue }) {
+  const tone = issueTone(issue);
+  return (
+    <div
+      className={`obs-progress-note obs-progress-note-${tone}`}
+      role={tone === "danger" ? "alert" : "status"}
+    >
+      {issue.kind === "executor-down" ? (
+        <AlertTriangle aria-hidden="true" size={15} />
+      ) : (
+        <RefreshCw aria-hidden="true" className="obs-spin" size={15} />
+      )}
+      <span>{issue.message}</span>
+    </div>
+  );
+}
+
 function StreamState({ state }: { state: RunStreamState }) {
   const labels: Record<RunStreamState, string> = {
     connecting: "Conectando stream",
@@ -116,16 +237,26 @@ export function RunDetailPanel({
   adapter,
   streamState,
   streamError,
+  executor,
   onBack,
+  onRetried,
 }: {
   data: DetailData;
   adapter: ObservabilityAdapter;
   streamState: RunStreamState;
   streamError: string | null;
+  /**
+   * Passed in rather than read from context, so the panel stays a plain view: a Run detail does
+   * not need to know that a desktop shell exists. Absent outside one.
+   */
+  executor?: ExecutorState;
   onBack(): void;
+  /** Called with the id of the Run a retry created, so the caller can follow it. */
+  onRetried(runId: string): void;
 }) {
   const [activeTab, setActiveTab] = useState<DetailTab>("trace");
   useEffect(() => setActiveTab("trace"), [data.run.id]);
+  const issue = runProgressIssue({ run: data.run, streamState, streamError, executor });
   const tabs: Array<{ id: DetailTab; label: string }> = [
     { id: "trace", label: "Trace" },
     { id: "evaluation", label: "Evaluation" },
@@ -159,14 +290,9 @@ export function RunDetailPanel({
         </div>
         <StreamState state={streamState} />
       </header>
-      {streamError ? (
-        <div className="obs-stream-error" role="status">
-          <AlertTriangle aria-hidden="true" size={14} />
-          {streamError}
-        </div>
-      ) : null}
+      {issue ? <ProgressNote issue={issue} /> : null}
       <div className="obs-detail-scroll">
-        <GeneralFacts data={data} />
+        <GeneralFacts adapter={adapter} data={data} onRetried={onRetried} />
         <nav className="obs-tabs" aria-label="Detalhes da Run" role="tablist">
           {tabs.map((tab) => (
             <button

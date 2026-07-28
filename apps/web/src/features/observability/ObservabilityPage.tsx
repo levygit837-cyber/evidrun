@@ -7,8 +7,10 @@ import {
   RefreshCw,
   Search,
 } from "lucide-react";
+import { useBackendRuntime } from "../../app/BackendRuntimeProvider";
 import { observabilityAdapter } from "../../data/adapters";
 import type { ObservabilityAdapter } from "../../data/contracts";
+import type { ExecutorState } from "../../types";
 import { ListLoadingState, PageState } from "./ObservabilityParts";
 import { RunDetailPanel } from "./RunDetailPanel";
 import { RunList } from "./RunList";
@@ -18,12 +20,15 @@ import "./observability.css";
 
 interface ObservabilityWorkspaceProps {
   adapter?: ObservabilityAdapter;
+  /** Absent outside the desktop shell, where no executor is supervised. */
+  executor?: ExecutorState;
   search: ObservabilitySearchState;
   onSearchChange(next: ObservabilitySearchState): void;
 }
 
 export function ObservabilityWorkspace({
   adapter = observabilityAdapter,
+  executor,
   search,
   onSearchChange,
 }: ObservabilityWorkspaceProps) {
@@ -197,7 +202,9 @@ export function ObservabilityWorkspace({
             <RunDetailPanel
               adapter={adapter}
               data={detailQuery.data}
+              executor={executor}
               onBack={() => updateSearch({ run: undefined })}
+              onRetried={(runId) => updateSearch({ run: runId })}
               streamError={streamError}
               streamState={streamState}
             />
@@ -211,8 +218,10 @@ export function ObservabilityWorkspace({
 export function ObservabilityPage() {
   const search = useSearch({ from: "/observability" }) as ObservabilitySearchState;
   const navigate = useNavigate({ from: "/observability" });
+  const { executor } = useBackendRuntime();
   return (
     <ObservabilityWorkspace
+      executor={executor}
       search={search}
       onSearchChange={(next) => {
         void navigate({ search: next, replace: true });

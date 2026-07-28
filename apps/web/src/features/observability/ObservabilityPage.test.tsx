@@ -128,6 +128,7 @@ function adapter(): ObservabilityAdapter {
       run_id: runId,
       schema_version: "3" as const,
     })),
+    retryRun: vi.fn(async () => ({ run_id: "run:retry-001" })),
     stream: {
       subscribe(_runId, callbacks) {
         callbacks.onState("open");
