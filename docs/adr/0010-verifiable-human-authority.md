@@ -2,18 +2,18 @@
 id: adr-0010
 type: adr
 title: Autoridade humana verificável e separação entre review e adjudicação
-status: accepted
+status: superseded
 authority: normative
 volatility: timeless
 owner: governance
 created_at: 2026-07-23
-updated_at: 2026-07-26
+updated_at: 2026-07-28
 applies_to: authority/human-actions@1
 sources:
   - docs/adr/0009-study-run-contract-composition.md
   - docs/architecture/agents-and-authority.md
 supersedes: []
-superseded_by: null
+superseded_by: docs/adr/0022-explicit-execution-trust-without-per-run-authentication.md
 implementation_refs:
   - src/evidrun/contracts/base.py
   - src/evidrun/contracts/authority.py

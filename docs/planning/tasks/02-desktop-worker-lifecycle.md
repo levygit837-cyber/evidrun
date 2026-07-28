@@ -2,13 +2,13 @@
 id: planning-task-desktop-worker-lifecycle
 type: implementation-task
 title: WS-02 Lifecycle do worker no desktop
-status: proposed
+status: verified
 authority: planning
 volatility: snapshot
 owner: desktop
 created_at: 2026-07-23
-updated_at: 2026-07-24
-observed_at: 2026-07-24
+updated_at: 2026-07-28
+observed_at: 2026-07-28
 review_due: 2026-08-07
 applies_to: desktop-runtime
 sources:
@@ -19,13 +19,42 @@ sources:
   - docs/adr/0014-durable-runtime-kernel.md
 supersedes: []
 superseded_by: null
-implementation_refs: []
-verification_refs: []
+implementation_refs:
+  - apps/desktop/src/main/executor-handshake.ts
+  - apps/desktop/src/main/executor-lifecycle.ts
+  - apps/desktop/src/main/index.ts
+  - apps/desktop/src/preload/index.cts
+  - apps/desktop/src/shared/desktop-contract.ts
+  - src/evidrun/entrypoints/worker/app.py
+verification_refs:
+  - apps/desktop/src/main/executor-handshake.test.ts
+  - apps/desktop/src/main/executor-lifecycle.test.ts
+  - tests/unit/test_worker_entrypoint.py
+  - scripts/smoke_desktop_supervision.mjs
 ---
 
 # WS-02 — Lifecycle do worker no desktop
 
-`workstream_state: queued`
+`workstream_state: done_on_main`
+
+## Entrega verificada em `main`
+
+O PR #91 foi integrado no commit `ced8a1d` em 2026-07-28 e adotou a opcao A: o Electron Main
+supervisiona um executor separado da API. O contrato desktop distingue os estados do backend e do
+executor; Main, preload e renderer propagam esse estado sem importar capacidades nativas no
+renderer.
+
+O ciclo inclui handshake autenticado em stdin, readiness, restart, shutdown ordenado e tratamento
+de processo morto. O smoke `scripts/smoke_desktop_supervision.mjs` cobre o corredor do produto, e os
+testes focais cobrem handshake, lifecycle e entrypoint Python. O CI do PR passou nos jobs Python e
+Node; o bloqueio B2 do roadmap esta resolvido.
+
+O estado e a acao de restart chegam ao `BackendRuntimeProvider`; o tratamento visual completo desse
+estado continua pertencendo ao WS-51. Portanto, a entrega comprova supervisao e contrato consumivel
+no renderer, nao uma interface final de operacao.
+
+O texto abaixo preserva o brief e o snapshot que orientaram a implementacao. Ele e historico; nao
+deve ser lido como trabalho ainda pendente.
 
 ## Resultado pratico
 

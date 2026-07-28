@@ -7,11 +7,12 @@ authority: planning
 volatility: snapshot
 owner: product
 created_at: 2026-07-22
-updated_at: 2026-07-27
+updated_at: 2026-07-28
 applies_to: product
 sources:
   - docs/adr/0020-workspace-project-run-environment-boundaries.md
   - docs/adr/0021-hierarchical-lab-agent-scope.md
+  - docs/adr/0022-explicit-execution-trust-without-per-run-authentication.md
 supersedes: []
 superseded_by: null
 implementation_refs: []
@@ -51,15 +52,18 @@ verification_refs: []
 - Subject real opt-in, read tool confinada ao envelope e tracing factual;
 - superfície pública de Workspace/Project por API e CLI, com nomes canônicos, `ScopeError`,
   constraints, migrations fail-closed e corredor até a primeira contract revision;
+- executor de Runs supervisionado pelo Electron Main, separado da API, com estado observavel,
+  restart, shutdown e smoke no CI;
+- decisao normativa de trust para Run explicitamente nao verificada sem autenticacao por execucao,
+  ainda sem implementacao de runtime;
 
 ## Proximo
 
-O corte imediato e o [Minimo Confortavel](../planning/comfortable-minimum.md). Dele saem os cinco
-itens abaixo, nesta ordem de destrave:
+O corte imediato e o [Minimo Confortavel](../planning/comfortable-minimum.md). Dele saem os itens
+abaixo, nesta ordem de destrave:
 
-- worker supervisionado pelo app instalado, sem o qual Run enfileirada nao executa;
-- autoria default para que o Workspace/Project público já entregue alcance um Study próprio no
-  produto instalado; criar esses scopes não materializa Run Environment;
+- implementacao do `ExecutionTrustRecord`, selamento transitivo e caminho de compilacao/admissao nao
+  verificado do WS-40; criar Workspace/Project nao materializa Run Environment;
 - runtime de um unico Lab Agent copiloto conforme os ADRs 0018/0021, com sessoes escopadas,
   `LabAgentEnvelope`, loop de tools e proposta de draft sem decisao;
 - contrato de contexto e criterios do Subject, para que duas variants irmas difiram de forma tipada
@@ -76,8 +80,8 @@ itens abaixo, nesta ordem de destrave:
 Depois do Minimo Confortavel:
 
 - enforcement ponta a ponta de classification e capture policy em snapshots e eventos;
-- adapter WebAuthn/passkey, cerimônia humana, enrollment/recovery e canal UI/CLI para produzir a
-  attestation já contratada;
+- autenticacao local opcional com cerimonia mais simples sobre o `ReviewPackage`, incluindo
+  enrollment, recovery e rotacao; passkey de plataforma permanece opcional e exige decisao propria;
 - pipeline executável de `human_review` e adjudicação required, preservando suas relações distintas;
 - Artifact Access Grants e records de materialização;
 - observer, scheduler, persistência e geração em background de Progress Artifact;

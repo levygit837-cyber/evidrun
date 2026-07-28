@@ -179,6 +179,21 @@ _Avoid_: signature, approval, token
 Importa aceitação de fixture legado por caminho interno dedicado; é explicitamente não humana.
 _Avoid_: human authority, admin
 
+**Execution Revision Set**:
+Conjunto fechado e ordenado da Study e de todas as revisions necessárias para compilá-la, escopado
+a um Project e identificado por digest canônico.
+_Avoid_: latest revisions, mutable draft collection, sandbox package
+
+**Execution Trust Record**:
+Record imutável que liga um RunSpec exato a um Execution Revision Set e declara se esse conjunto foi
+ou não confirmado por autoridade humana. Não descreve isolamento do Run Environment.
+_Avoid_: approval, sandbox, admission, authority token
+
+**ReviewPackage**:
+Projeção legível do Execution Revision Set, das diferenças e das condições efetivas que uma pessoa
+precisa revisar. Não é attestation nem concede autoridade por si só.
+_Avoid_: approval bundle, Evidence Bundle
+
 **Bounded exploration result**:
 Resultado em dois eixos, disposition operacional e stop reason factual; nenhum é pass/fail nem score.
 _Avoid_: pass/fail, outcome, verdict

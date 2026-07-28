@@ -7,14 +7,15 @@ authority: planning
 volatility: snapshot
 owner: product-engineering
 created_at: 2026-07-26
-updated_at: 2026-07-27
-observed_at: 2026-07-27
+updated_at: 2026-07-28
+observed_at: 2026-07-28
 review_due: 2026-08-23
 applies_to: mvp-implementation
 sources:
   - docs/adr/0018-lab-agent-copilot-scope.md
   - docs/adr/0020-workspace-project-run-environment-boundaries.md
   - docs/adr/0021-hierarchical-lab-agent-scope.md
+  - docs/adr/0022-explicit-execution-trust-without-per-run-authentication.md
   - docs/planning/mvp-implementation-roadmap.md
   - docs/planning/mvp-capability-map.md
   - docs/roadmap/mvp.md
@@ -84,8 +85,9 @@ Minimo: existir Workspace e Project criaveis com nomes nao ambiguos e erros tipa
 aceitacao de revision que nao minta sobre autoridade humana, e a pagina Create deixar de executar a
 fixture `CRL-CTX-002` em vez do que foi digitado. Criar esses scopes nao provisiona Run Environment.
 
-WS-01 entregou a superficie de Workspace/Project. O bloqueio restante deste item e WS-03 (decisao
-de autoria default) e, para o produto visual, a integracao posterior de WS-51.
+WS-01 entregou a superficie de Workspace/Project e WS-03 fechou a decisao de autoria default no ADR
+0022. O bloqueio tecnico restante deste item e WS-40, que implementa a Run explicitamente nao
+verificada; para o produto visual, permanece a integracao posterior de WS-51.
 
 ### 3. Contexto e criterios do Subject
 
@@ -117,8 +119,8 @@ Minimo: enfileirar todos os RunSpecs de um Study numa operacao, acompanhar progr
 lote, cancelar o lote, e sobreviver a falha parcial sem perder as Runs que terminaram. Concorrencia
 configuravel, porque o limite real e o provider, nao a maquina.
 
-Isso exige o worker rodando no app instalado (WS-02) e a camada de provider preparada para volume:
-retry com backoff, respeito a rate limit e falha que nao contamina o lote inteiro.
+O worker supervisionado no app foi entregue pelo WS-02. O restante e a camada de provider preparada
+para volume: retry com backoff, respeito a rate limit e falha que nao contamina o lote inteiro.
 
 Fora do minimo: fila distribuida, execucao remota, agendamento.
 
