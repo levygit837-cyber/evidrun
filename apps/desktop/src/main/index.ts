@@ -12,6 +12,7 @@ import {
   shell,
 } from "electron";
 import { BackendLifecycle } from "./backend-lifecycle.js";
+import { ExecutorLifecycle } from "./executor-lifecycle.js";
 import { isApprovedExternalUrl, isTrustedRendererUrl } from "./external-links.js";
 import { lockDownPermissions } from "./permissions.js";
 import { createMainWindow } from "./windows.js";
@@ -20,7 +21,27 @@ import { channels } from "../shared/desktop-contract.js";
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const devServerUrl = process.env.EVIDRUN_DEV_SERVER_URL;
 const backend = new BackendLifecycle();
+const executor = new ExecutorLifecycle();
 let mainWindow: BrowserWindow | null = null;
+
+/** The data boundary both planes share; the handshake already resolves it this way. */
+function dataDir(): string {
+  return app.getPath("userData");
+}
+
+/**
+ * Bring the executor up, tolerating failure.
+ *
+ * A failed executor is a stalled queue, not a dead app: evidence stays readable and the
+ * failure is published as state. Rejecting here would take the window down with it.
+ */
+async function startExecutor(): Promise<void> {
+  try {
+    await executor.start(dataDir());
+  } catch (error) {
+    console.error("[evidrun-worker]", error instanceof Error ? error.message : error);
+  }
+}
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -55,6 +76,14 @@ function registerIpc(): void {
   ipcMain.handle(channels.backendRestart, async (event) => {
     validateSender(senderUrl(event.senderFrame));
     return backend.restart();
+  });
+  ipcMain.handle(channels.executorState, (event) => {
+    validateSender(senderUrl(event.senderFrame));
+    return executor.state;
+  });
+  ipcMain.handle(channels.executorRestart, async (event) => {
+    validateSender(senderUrl(event.senderFrame));
+    return executor.restart(dataDir());
   });
   ipcMain.handle(channels.selectFile, async (event) => {
     validateSender(senderUrl(event.senderFrame));
@@ -97,6 +126,9 @@ async function createApplicationWindow(): Promise<void> {
   const preloadPath = path.resolve(currentDir, "../preload/index.cjs");
   mainWindow = createMainWindow(preloadPath);
   backend.on("state", (state) => mainWindow?.webContents.send(channels.backendState, state));
+  executor.on("state", (state) =>
+    mainWindow?.webContents.send(channels.executorStateChanged, state),
+  );
   mainWindow.webContents.on("will-navigate", (event, target) => {
     if (!isTrustedRendererUrl(target, devServerUrl)) event.preventDefault();
   });
@@ -105,6 +137,9 @@ async function createApplicationWindow(): Promise<void> {
     return { action: "deny" };
   });
   await backend.start();
+  // After the backend, so the queue the executor drains is already reachable, and not
+  // awaited: a slow or failing executor must not delay the window.
+  void startExecutor();
   if (devServerUrl) await mainWindow.loadURL(devServerUrl);
   else await mainWindow.loadURL("evidrun://app/");
 }
@@ -129,8 +164,25 @@ app.whenReady().then(async () => {
   });
 });
 
-app.on("before-quit", () => {
-  void backend.stop();
+let shuttingDown = false;
+
+/**
+ * Stop the executor before the backend, and wait for both.
+ *
+ * Order matters: the executor needs a reachable database to release the lease it holds,
+ * so tearing the backend down first would leave an in-flight Run waiting out its lease
+ * instead of being picked up promptly by the next attempt. Quitting without waiting would
+ * do the same and could orphan the process.
+ */
+app.on("before-quit", (event) => {
+  if (shuttingDown) return;
+  event.preventDefault();
+  shuttingDown = true;
+  void (async () => {
+    await executor.stop();
+    await backend.stop();
+    app.quit();
+  })();
 });
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
