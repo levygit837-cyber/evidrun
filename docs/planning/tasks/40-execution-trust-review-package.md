@@ -1,5 +1,5 @@
 ---
-id: planning-task-trust-sandbox-review-package
+id: planning-task-execution-trust-review-package
 type: implementation-task
 title: WS-40 Trust de execucao nao verificada e ReviewPackage
 status: accepted
@@ -67,8 +67,9 @@ Um `ReviewPackage` lista explicitamente:
 - EvaluationPlan e hidden inputs sem expor seu conteudo ao Subject;
 - riscos e limitacoes.
 
-Uma confirmacao pode cobrir o pacote inteiro porque o digest inclui cada item. Ref nova ou digest
-novo invalida o pacote; nao existe aprovacao aberta para referencias futuras.
+O package apresenta o `ReviewTarget` canonico e seu `review_target_digest`. Ref nova, digest novo ou
+RunSpec diferente muda o target; nao existe aprovacao aberta para referencias futuras. WS-40 gera e
+verifica o target, mas nao implementa cerimonia de confirmacao.
 
 ## Restricoes da execucao nao verificada
 
@@ -78,8 +79,7 @@ novo invalida o pacote; nao existe aprovacao aberta para referencias futuras.
 - network no maximo `provider_only` para adapter explicitamente admitido;
 - nenhuma human review/adjudication;
 - nenhum claim `human_verified`;
-- bundle e UI marcados `unverified_revision_set` (ou nome final do ADR sucessor), nunca apenas
-  `sandbox`;
+- bundle e UI marcados `unverified_revision_set`, nunca apenas `sandbox`;
 - nenhuma promocao automatica;
 - nenhuma alteracao da Run original;
 - capabilities somente do catalogo seguro do Runtime Kernel.
@@ -118,7 +118,7 @@ REDISCOVER current contracts and migrations
 -> IMPLEMENT API/CLI
 -> ATTACK claim confusion and digest drift
 -> REPAIR
--> INTEGRATE authority promotion
+-> VERIFY verified kind only from existing accepted human decisions
 -> FULL GATES
 ```
 
@@ -128,9 +128,9 @@ REDISCOVER current contracts and migrations
 - Se qualquer resposta/API tratar nao verificado como accepted/verified, P0.
 - Se `in_process` for apresentado como sandbox seguro, P0 de claim; corrija a linguagem e mantenha a
   capability rejeitada.
-- Se um agent endpoint puder completar authority confirmation, P0.
+- Se um agent endpoint puder criar o kind verificado, P0.
 - Se a promocao puder alterar a Run original, rejeite o design.
-- Se um diff de package omitir capability, hidden input ou disclosure, nao permita confirmacao.
+- Se um diff de package omitir capability, hidden input ou disclosure, nao publique o package.
 - Se platform passkey/recovery surgir como requisito, abra follow-up; o autenticador local opt-in
   continua suficiente para o MVP local.
 
@@ -149,17 +149,16 @@ REDISCOVER current contracts and migrations
 - package muda quando o mesmo conjunto de refs e ligado a outro Project ou RunSpec;
 - closure e digest independem da ordem de insercao e nao resolvem `latest`;
 - package nao aceita ref futura;
-- challenge cobre package exato;
-- agente nao completa confirmation;
-- promocao cria decisions append-only e nova Run quando executada;
-- revogacao impede novas confirmacoes sem invalidar historia;
-- replay de challenge e action/target divergentes;
+- `ReviewTarget` cobre revision set e todos os RunSpecs em ordem canonica;
+- agente nao cria kind verificado;
+- decisions humanas aceitas preexistentes permitem novo trust record, nova admissao e nova Run;
 - API/CLI equivalentes;
 - migrations empty/legacy/current.
 
 ## Criterio de saida
 
-Um usuario executa um Study draft como nao verificado sem autenticacao e recebe claims honestos. O
-mesmo pacote pode ser revisado com uma confirmacao humana explicita, e qualquer execucao verificada
-nasce como nova Run ligada ao pacote aceito. Trust aparece como texto no bundle e nas projecoes de UI,
-separado do isolamento efetivo.
+Um usuario executa um Study draft como nao verificado sem autenticacao e recebe claims honestos.
+Quando ja existirem decisions humanas verificadas sobre o conjunto exato, o sistema pode criar o
+kind verificado e qualquer execucao nasce como nova Run. Trust aparece como texto no bundle e nas
+projecoes de UI, separado do isolamento efetivo. Cerimonia local sobre o `ReviewPackage`, enrollment,
+recovery, rotacao e revogacao pertencem a um workstream futuro da opcao A.

@@ -7,11 +7,12 @@ authority: normative
 volatility: timeless
 owner: core
 created_at: 2026-07-23
-updated_at: 2026-07-27
+updated_at: 2026-07-28
 applies_to: schema/evaluation-checkpoint@1
 sources:
   - docs/adr/0009-study-run-contract-composition.md
   - docs/adr/0020-workspace-project-run-environment-boundaries.md
+  - docs/adr/0022-explicit-execution-trust-without-per-run-authentication.md
 supersedes: []
 superseded_by: null
 implementation_refs:
@@ -47,9 +48,10 @@ que pertencem à mesma Run, plan e stage e que evaluator/verifier estão autoriz
 `HumanAdjudicationPolicy`. Ambos são finais, append-only e exigem `HumanAttestationRecord` validado;
 nenhum sobrescreve record anterior.
 
-O schema e as relações existem, mas nenhum adapter WebAuthn ou pipeline humano está instalado. O
-verifier default falha fechado. Se `HumanAdjudicationPolicy.required=true`, a admissão rejeita a Run
-como `runtime:verified_human_adjudication`; o runtime atual não inicia uma Run que depois fingiria ter
+O schema e as relações existem e o adapter WebAuthn local pode verificar authority opt-in, mas nenhum
+pipeline público de human review/adjudication está instalado. O verifier default falha fechado. Se
+`HumanAdjudicationPolicy.required=true`, a admissão rejeita a Run como
+`runtime:verified_human_adjudication`; o runtime atual não inicia uma Run que depois fingiria ter
 recebido adjudicação.
 
 Na persistência, refs `run:` e `event:` são verificadas contra a Run e a boundary autorizada.

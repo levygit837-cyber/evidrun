@@ -7,11 +7,12 @@ authority: normative
 volatility: timeless
 owner: core
 created_at: 2026-07-23
-updated_at: 2026-07-27
+updated_at: 2026-07-28
 applies_to: schema/study-run@1
 sources:
   - docs/adr/0009-study-run-contract-composition.md
   - docs/adr/0020-workspace-project-run-environment-boundaries.md
+  - docs/adr/0022-explicit-execution-trust-without-per-run-authentication.md
 supersedes: []
 superseded_by: null
 implementation_refs:
@@ -38,9 +39,11 @@ editado. Uma correção cria nova revision. `RevisionDecisionRecord` é append-o
 rationale, timestamp, digest decidido e uma authority discriminada. `verified_human` exige
 `HumanAttestationRecord` cobrindo o conteúdo exato; `repository_fixture` é não humano e reservado ao
 import dedicado do pacote canônico `CRL-CTX-002`. Decisions comuns não aceitam essa authority. O
-verifier default falha fechado e API/CLI não aceitam decisão humana sem um adapter WebAuthn
-confiável, que ainda não existe. Consulte o
-[ADR 0010](../adr/0010-verifiable-human-authority.md).
+verifier default falha fechado. O adapter WebAuthn local existe como opt-in quando
+`EVIDRUN_AUTHORITY` está habilitado; sem ele, API/CLI recusam decisão humana. Consulte o
+[ADR 0010](../adr/0010-verifiable-human-authority.md). O caminho aceito para compilação sem decision
+humana está no [ADR 0022](../adr/0022-explicit-execution-trust-without-per-run-authentication.md),
+mas ainda não está implementado neste contrato.
 
 # Study e Goal
 

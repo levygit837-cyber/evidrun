@@ -19,7 +19,7 @@ sources:
   - docs/architecture/agents-and-authority.md
   - docs/contracts/execution-trust-v1.md
   - docs/planning/mvp-implementation-roadmap.md
-  - docs/planning/tasks/40-trust-sandbox-review-package.md
+  - docs/planning/tasks/40-execution-trust-review-package.md
 supersedes: []
 superseded_by: null
 implementation_refs: []
@@ -125,10 +125,11 @@ conta propria. Mudanca futura no mecanismo de autenticacao local exige ADR suces
 
 ## Verificacao desta entrega
 
-Como este workstream nao altera `src/` nem `apps/`, o gate focal e:
+Como este workstream nao altera `src/` nem `apps/`, o gate focal adicional e:
 
 ```bash
 uv run python scripts/validate_docs.py
 ```
 
-Os gates completos permanecem obrigatorios para o WS-40, que alterara comportamento.
+O gate focal nao substitui a verificacao obrigatoria completa do `AGENTS.md`, que tambem deve passar
+no commit final desta entrega. O WS-40 repete os gates e acrescenta testes de comportamento.

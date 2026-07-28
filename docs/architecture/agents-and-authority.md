@@ -66,9 +66,9 @@ construí-los dentro do escopo do que o humano já vê.
 O histórico [ADR 0010](../adr/0010-verifiable-human-authority.md) é materializado por
 `HumanAttestationRecord`, `VerifiedHumanDecisionAuthority` e `HumanAttestationVerifier`. Uma
 attestation cobre a ação e o digest exatos; agentes não podem produzi-la ou preencher uma decisão em
-nome do humano. O verifier default falha fechado porque nenhum adapter WebAuthn confiável está
-instalado. Consequentemente, API e CLI recusam decisions humanas; posse do launch token não é prova
-de presença ou autoridade humana.
+nome do humano. O adapter WebAuthn local existe como opt-in; a composição default mantém o verifier
+indisponível e, por isso, API e CLI recusam decisions humanas quando `EVIDRUN_AUTHORITY` está
+desligado. Posse do launch token não é prova de presença ou autoridade humana.
 
 O [ADR 0022](../adr/0022-explicit-execution-trust-without-per-run-authentication.md) preserva essa
 fronteira para todo claim humano e aceita um segundo caminho futuro: executar um conjunto fechado de

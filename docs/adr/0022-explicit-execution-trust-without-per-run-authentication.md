@@ -82,6 +82,12 @@ O compiler resolve exclusivamente o conjunto selado e produz RunSpecs imutáveis
 `ExecutionTrustRecord` liga um `revision_set_digest` a um único `run_spec_digest`; essa segunda
 ligação detecta mudança de compilação ou de override mesmo que a raiz continue igual.
 
+Para revisão legível de uma Study inteira, um `ReviewTarget` canônico liga o
+`revision_set_digest` à lista não vazia e ordenada de todos os `run_spec_digests` produzidos. Seu
+`review_target_digest` usa a mesma função SHA-256 sobre JSON canônico. O `ReviewPackage` é somente a
+projeção humana desse target: HTML, PDF, texto explicativo e ordem visual podem evoluir sem criar uma
+identidade semântica concorrente. Mudar qualquer revision ou RunSpec muda o target.
+
 ## ExecutionTrustRecord é a fonte canônica de trust da Run
 
 O contrato v1 possui os kinds:
@@ -111,6 +117,10 @@ promoção cria decisions append-only para as revisions exatas, outro `Execution
 Uma futura cerimônia pode confirmar atomicamente um `ReviewPackage`, mas precisa materializar as
 decisions exatas cobertas. Ela não concede aceitação aberta a refs futuras e não autoriza um agente a
 confirmar em nome do usuário.
+
+O WS-40 somente materializa e verifica o `ReviewTarget` e consome decisions humanas que já sejam
+válidas. Assinar o `review_target_digest`, enrollment, recovery, rotação e revogação pertencem à
+evolução futura do autenticador local; não fazem parte do caminho B.
 
 ## Não verificado não ignora segurança ou admissão
 
@@ -153,6 +163,14 @@ O kind machine-readable é obrigatório na API e no bundle. A forma humana usa t
 ícone ou tooltip: aparece na linha da Run, no cabeçalho do detalhe, no resumo do bundle e em
 cabeçalho/rodapé de cada página impressa. Dessa forma o significado permanece presente em export,
 impressão e captura de tela sem depender do restante da aplicação.
+
+# Escopo da supersession
+
+Este ADR substitui somente a premissa do ADR 0010 de que toda compilação precisa resolver revisions
+aceitas e, portanto, não pode existir Run sem adapter humano confiável. Continuam vigentes a
+exigência de `HumanAttestationRecord` para claims humanos, a distinção entre review e adjudicação, a
+natureza não humana de `repository_fixture` e todas as regras append-only. O caminho não verificado
+não é uma exceção a essas regras porque não cria decision nem claim humano.
 
 # Alternativas consideradas
 

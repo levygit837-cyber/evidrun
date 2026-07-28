@@ -382,7 +382,7 @@
       "authority": "normative",
       "volatility": "current",
       "owner": "core",
-      "updated_at": "2026-07-27",
+      "updated_at": "2026-07-28",
       "review_due": null
     },
     {
@@ -478,7 +478,7 @@
       "authority": "normative",
       "volatility": "timeless",
       "owner": "core",
-      "updated_at": "2026-07-27",
+      "updated_at": "2026-07-28",
       "review_due": null
     },
     {
@@ -622,7 +622,7 @@
       "authority": "normative",
       "volatility": "timeless",
       "owner": "core",
-      "updated_at": "2026-07-27",
+      "updated_at": "2026-07-28",
       "review_due": null
     },
     {
@@ -938,8 +938,8 @@
       "review_due": "2026-08-13"
     },
     {
-      "id": "planning-task-trust-sandbox-review-package",
-      "path": "docs/planning/tasks/40-trust-sandbox-review-package.md",
+      "id": "planning-task-execution-trust-review-package",
+      "path": "docs/planning/tasks/40-execution-trust-review-package.md",
       "type": "implementation-task",
       "title": "WS-40 Trust de execucao nao verificada e ReviewPackage",
       "status": "accepted",
@@ -1210,7 +1210,7 @@
       "authority": "normative",
       "volatility": "timeless",
       "owner": "security",
-      "updated_at": "2026-07-23",
+      "updated_at": "2026-07-28",
       "review_due": null
     },
     {

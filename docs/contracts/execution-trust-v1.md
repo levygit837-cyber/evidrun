@@ -169,7 +169,29 @@ novos. UI e Comparison podem relacionar as duas sem apresentá-las como a mesma 
 
 ## ReviewPackage
 
-`ReviewPackage` é uma projeção determinística, não um record de autoridade. Ele apresenta:
+`ReviewPackage` é uma projeção determinística, não um record de autoridade. Sua identidade semântica
+é um documento mínimo separado, o `ReviewTarget` v1:
+
+| Campo | Tipo | Regra |
+| --- | --- | --- |
+| `schema_version` | literal `1` | versão do target |
+| `project_id` | id | mesmo hard boundary do Execution Revision Set |
+| `revision_set_digest` | SHA-256 | digest do conjunto fechado de revisions |
+| `run_spec_digests` | lista não vazia de SHA-256 | todos os RunSpecs produzidos, sem duplicatas e em ordem lexicográfica |
+
+O digest semântico é:
+
+```text
+review_target_digest = SHA-256(UTF-8(canonical_json(review_target)))
+```
+
+Uma Study que produz somente um RunSpec usa uma lista de um item. O target falha fechado se qualquer
+RunSpec não puder ser reproduzido do Execution Revision Set, pertencer a outro Project ou aparecer
+fora da matriz compilada. Mudar revision, variant, repetition, override, disclosure, capability,
+classification, input, protocol ou EvaluationPlan muda `revision_set_digest`, algum
+`run_spec_digest` ou ambos.
+
+O `ReviewPackage` apresenta o `ReviewTarget`, `review_target_digest` e:
 
 - Project, Study e closure exata com digests;
 - diff para um pacote anterior selecionado;
@@ -179,9 +201,10 @@ novos. UI e Comparison podem relacionar as duas sem apresentá-las como a mesma 
 - EvaluationPlan e refs de hidden inputs sem entregar conteúdo oculto ao Subject;
 - limitações, recusas de admissão conhecidas e tipo de Run Environment.
 
-Uma futura confirmação em lote cobre o digest exato desse pacote e materializa decisions para a
-closure listada. Alterar qualquer ref, digest, permission, disclosure ou input produz outro pacote;
-não existe aprovação aberta para refs futuras.
+Não existe `review_package_digest`: bytes de HTML/PDF, texto explicativo, localização e layout não
+são autoridade. Uma futura confirmação em lote poderá cobrir o `review_target_digest` e materializar
+decisions para a closure listada. Essa cerimônia não pertence ao WS-40. Alterar qualquer entrada
+semântica produz outro target; não existe aprovação aberta para refs futuras.
 
 ## Projeção humana e machine-readable
 
