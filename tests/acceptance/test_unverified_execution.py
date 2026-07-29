@@ -63,15 +63,9 @@ def test_draft_study_executes_offline_and_bundle_v4_rejects_trust_tampering(
         media_type="text/plain",
         classification=Classification.INTERNAL,
     )
-    revisions, original_study = build_runtime_study(
-        project_id=project.id, source=source
-    )
+    revisions, original_study = build_runtime_study(project_id=project.id, source=source)
     study = original_study.model_copy(
-        update={
-            "payload": original_study.payload.model_copy(
-                update={"repetitions": 2}
-            )
-        }
+        update={"payload": original_study.payload.model_copy(update={"repetitions": 2})}
     )
     revisions = (*revisions[:-1], study)
     study_row_id = ""
@@ -89,13 +83,9 @@ def test_draft_study_executes_offline_and_bundle_v4_rejects_trust_tampering(
     prepared = preparation.run_specs[0]
     assert prepared.execution_trust.kind == "unverified_revision_set"
     assert prepared.execution_trust.verified_decisions == ()
-    admission = service.admission_service.admit(
-        prepared.spec, prepared.execution_trust
-    )
+    admission = service.admission_service.admit(prepared.spec, prepared.execution_trust)
     assert admission.decision == "admitted"
-    admission_row = repository.catalog.save_admission_record(
-        prepared.row_id, admission
-    )
+    admission_row = repository.catalog.save_admission_record(prepared.row_id, admission)
     run_id, job = service.runtime.coordinator.enqueue(
         run_spec_id=prepared.row_id,
         admission_id=admission_row.id,
@@ -127,9 +117,7 @@ def test_draft_study_executes_offline_and_bundle_v4_rejects_trust_tampering(
 
     omitted = tmp_path / "omitted-trust.zip"
     omitted_files = _archive_files(bundle)
-    trust_name = next(
-        name for name in omitted_files if name.startswith("execution-trust/")
-    )
+    trust_name = next(name for name in omitted_files if name.startswith("execution-trust/"))
     omitted_files.pop(trust_name)
     _write_resealed(omitted, omitted_files)
     assert bundles.verify(omitted)["valid"] is False

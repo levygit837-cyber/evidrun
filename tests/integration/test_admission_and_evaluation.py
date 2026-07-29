@@ -43,12 +43,10 @@ def test_rejected_admission_cannot_create_a_run(repository: Repository) -> None:
     assert source_contracts is not None
     source_admission = source_contracts[1]
     assert source_admission.execution_trust is not None
-    trust = repository.execution_trust.get_record(
-        source_admission.execution_trust.trust_id
+    trust = repository.execution_trust.get_record(source_admission.execution_trust.trust_id)
+    rejected = AdmissionService(envelope=RuntimeCapabilityEnvelope.declare(runners=())).admit(
+        spec, trust
     )
-    rejected = AdmissionService(
-        envelope=RuntimeCapabilityEnvelope.declare(runners=())
-    ).admit(spec, trust)
     assert rejected.decision == "rejected"
     spec_row = repository.catalog.save_run_spec(spec)
     admission_row = repository.catalog.save_admission_record(spec_row.id, rejected)
@@ -243,11 +241,7 @@ def test_ledger_rejects_unverified_human_progress_and_capture_bypass(
             "subject_envelope_digest": canonical_envelope.digest,
         },
     )
-    mismatched_mode = (
-        "disabled"
-        if spec.capture_policy.default_mode != "disabled"
-        else "metadata"
-    )
+    mismatched_mode = "disabled" if spec.capture_policy.default_mode != "disabled" else "metadata"
     with pytest.raises(ValueError, match="does not match the RunSpec policy"):
         repository.ledger.append_event(
             run_id=run.id,
@@ -375,9 +369,7 @@ def test_admission_persistence_rejects_an_unsealed_capability_spec(
         )
     ).admit(spec, unpersisted_unverified_trust(spec))
     assert admission.decision == "admitted"
-    assert admission.resolved_inventory.capabilities[0].context_refs == (
-        declared_instruction,
-    )
+    assert admission.resolved_inventory.capabilities[0].context_refs == (declared_instruction,)
     resolved = admission.resolved_inventory.capabilities[0].model_copy(
         update={
             "context_refs": (
@@ -394,9 +386,9 @@ def test_admission_persistence_rejects_an_unsealed_capability_spec(
         }
     )
 
-    with pytest.raises(ValueError, match="requires execution trust"):
+    with pytest.raises(ValueError, match="execution trust does not exist"):
         repository.catalog.save_admission_record(spec_row.id, admission)
-    with pytest.raises(ValueError, match="requires execution trust"):
+    with pytest.raises(ValueError, match="execution trust does not exist"):
         repository.catalog.save_admission_record(spec_row.id, tampered)
 
 
@@ -456,10 +448,12 @@ def test_unsupported_hard_gate_pipeline_is_rejected_before_run(
         }
     )
     spec_row = repository.catalog.save_run_spec(spec)
-    admission = EvidrunService(repository).admission_service.admit(spec, unpersisted_unverified_trust(spec))
+    admission = EvidrunService(repository).admission_service.admit(
+        spec, unpersisted_unverified_trust(spec)
+    )
     assert admission.decision == "rejected"
     assert "runtime:evaluation_pipeline" in admission.missing_requirements
-    with pytest.raises(ValueError, match="requires execution trust"):
+    with pytest.raises(ValueError, match="execution trust does not exist"):
         repository.catalog.save_admission_record(spec_row.id, admission)
 
 
@@ -475,21 +469,15 @@ def test_wall_time_exhaustion_writes_a_terminal_event(
     assert source_contracts is not None
     source_admission = source_contracts[1]
     assert source_admission.execution_trust is not None
-    trust = repository.execution_trust.get_record(
-        source_admission.execution_trust.trust_id
-    )
+    trust = repository.execution_trust.get_record(source_admission.execution_trust.trust_id)
     service = EvidrunService(repository)
 
     async def timeout_runner(_objective: str, _context: str) -> None:
         raise TimeoutError
 
     monkeypatch.setattr(service.runner, "execute", timeout_runner)
-    run_ids_before = {
-        item["id"] for item in repository.read_model.latest_dashboard()["runs"]
-    }
-    source = (
-        ROOT / "benchmarks/scenarios/crl-ctx-002/fixtures/long.log"
-    ).read_text()
+    run_ids_before = {item["id"] for item in repository.read_model.latest_dashboard()["runs"]}
+    source = (ROOT / "benchmarks/scenarios/crl-ctx-002/fixtures/long.log").read_text()
     with pytest.raises(TimeoutError):
         asyncio.run(
             service._execute_spec(
@@ -524,9 +512,7 @@ def test_runner_failure_writes_a_terminal_event_without_leaking_error(
     assert source_contracts is not None
     source_admission = source_contracts[1]
     assert source_admission.execution_trust is not None
-    trust = repository.execution_trust.get_record(
-        source_admission.execution_trust.trust_id
-    )
+    trust = repository.execution_trust.get_record(source_admission.execution_trust.trust_id)
     service = EvidrunService(repository)
 
     async def failing_runner(_objective: str, _context: str) -> None:
@@ -534,9 +520,7 @@ def test_runner_failure_writes_a_terminal_event_without_leaking_error(
 
     monkeypatch.setattr(service.runner, "execute", failing_runner)
     run_ids_before = {item["id"] for item in repository.read_model.latest_dashboard()["runs"]}
-    source = (
-        ROOT / "benchmarks/scenarios/crl-ctx-002/fixtures/long.log"
-    ).read_text()
+    source = (ROOT / "benchmarks/scenarios/crl-ctx-002/fixtures/long.log").read_text()
 
     with pytest.raises(RuntimeError, match="Subject runner execution failed"):
         asyncio.run(
@@ -558,7 +542,5 @@ def test_runner_failure_writes_a_terminal_event_without_leaking_error(
     assert failed_run.status == "failed"
     terminal_event = repository.read_model.get_run_events(failed_run.id)[-1]
     assert terminal_event["type"] == "run.failed"
-    assert terminal_event["payload"]["terminal_cause"] == (
-        "Subject runner execution failed"
-    )
+    assert terminal_event["payload"]["terminal_cause"] == ("Subject runner execution failed")
     assert "sensitive provider response" not in str(terminal_event)

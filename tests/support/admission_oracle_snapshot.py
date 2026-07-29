@@ -28,7 +28,9 @@ def collect() -> dict[str, list[str]]:
         return {
             case.name: list(
                 admission_fingerprint(
-                    catalogs[case.catalog].admission_service().admit(case.spec, unpersisted_unverified_trust(case.spec))
+                    catalogs[case.catalog]
+                    .admission_service()
+                    .admit(case.spec, unpersisted_unverified_trust(case.spec))
                 )
             )
             for case in build_admission_cases(store)

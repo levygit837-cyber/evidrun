@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from evidrun.contracts import (
     ExecutionRevisionSet,
@@ -32,7 +32,7 @@ def unpersisted_unverified_trust(
         revision_refs=revision_set.revision_refs,
         revision_set_digest=revision_set.revision_set_digest,
         run_spec_digest=spec.digest,
-        created_at_utc=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        created_at_utc=datetime(2026, 1, 1, tzinfo=UTC),
     )
 
 

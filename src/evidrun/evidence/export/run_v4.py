@@ -79,10 +79,7 @@ def export_run_v4(repository: Repository, run_id: str, output_path: Path) -> Pat
             ]
         ),
         f"checkpoints/{run_id}.json": ar.json_bytes(
-            [
-                ar.record_dict(record, digest_field="checkpoint_hash")
-                for record in checkpoints
-            ]
+            [ar.record_dict(record, digest_field="checkpoint_hash") for record in checkpoints]
         ),
         f"execution/jobs/{job.job_id}.json": ar.json_bytes(ar.record_dict(job)),
         f"execution/attempts/{job.job_id}.json": ar.json_bytes(
@@ -90,9 +87,7 @@ def export_run_v4(repository: Repository, run_id: str, output_path: Path) -> Pat
         ),
     }
     if subject_record is not None:
-        files[f"subject-envelopes/{run_id}.json"] = ar.json_bytes(
-            ar.record_dict(subject_record)
-        )
+        files[f"subject-envelopes/{run_id}.json"] = ar.json_bytes(ar.record_dict(subject_record))
     _add_trust_contract_members(files, revisions)
     entries = [
         entry
@@ -103,9 +98,7 @@ def export_run_v4(repository: Repository, run_id: str, output_path: Path) -> Pat
         entries.extend(ar.subject_artifact_entries(subject_record))
     entries.extend(ar.event_artifact_entries(run_id, events))
     entries.extend(ar.checkpoint_artifact_entries(run_id, checkpoints))
-    files["artifact-manifest.json"] = ar.json_bytes(
-        ar.record_dict(ar.artifact_manifest(entries))
-    )
+    files["artifact-manifest.json"] = ar.json_bytes(ar.record_dict(ar.artifact_manifest(entries)))
     return ar.write_bundle(output_path, files, schema_version="4")
 
 
@@ -115,6 +108,4 @@ def _add_trust_contract_members(
 ) -> None:
     for revision in revisions:
         reference: ContractRef = revision.ref
-        files[ar.contract_member_name(reference)] = ar.json_bytes(
-            ar.record_dict(revision)
-        )
+        files[ar.contract_member_name(reference)] = ar.json_bytes(ar.record_dict(revision))

@@ -74,9 +74,7 @@ def test_legacy_study_compiles_two_specs_and_hides_laboratory_data() -> None:
     assert "provider_profile_id" not in serialized
     assert str(ROOT / "benchmarks/scenarios/crl-ctx-002/fixtures/long.log") not in serialized
     assert "context-snapshot:incident-log" in serialized
-    evaluator = EvaluatorEnvelopeCompiler.compile(
-        baseline, baseline.evaluation_plan.stages[0].id
-    )
+    evaluator = EvaluatorEnvelopeCompiler.compile(baseline, baseline.evaluation_plan.stages[0].id)
     evaluator_serialized = evaluator.model_dump_json()
     assert manifest.graders[0].expected in evaluator_serialized
     assert manifest.hypothesis not in evaluator_serialized
@@ -99,14 +97,10 @@ def test_progress_artifact_policy_compiles_but_fails_admission_without_observer(
                     id="every-five-subject-turns",
                     label="Every five completed Subject responses",
                     trigger=SubjectTurnIntervalProgressTrigger(every_n_turns=5),
-                    summarizer_ref=capability_ref(
-                        "evidrun.observer", "progress-summarizer"
-                    ),
+                    summarizer_ref=capability_ref("evidrun.observer", "progress-summarizer"),
                 ),
             ),
-            limitations=(
-                "The summary is provisional and does not replace the Run ledger.",
-            ),
+            limitations=("The summary is provisional and does not replace the Run ledger.",),
         ),
     )
     accept(registry, policy)
@@ -129,8 +123,7 @@ def test_progress_artifact_policy_compiles_but_fails_admission_without_observer(
     assert len(specs) == 2
     assert all(spec.progress_artifact_policy_ref == policy.ref for spec in specs)
     assert all(
-        spec.progress_artifact_policy.definitions[0].trigger.kind
-        == "subject_turn_interval"
+        spec.progress_artifact_policy.definitions[0].trigger.kind == "subject_turn_interval"
         for spec in specs
         if spec.progress_artifact_policy is not None
     )
@@ -146,7 +139,9 @@ def test_progress_artifact_policy_compiles_but_fails_admission_without_observer(
             summarizer_ref=capability_ref("evidrun.observer", "unsafe"),
             authority_constraints=(),
         )
-    admission = scripted_service(specs[0].agent_inventory.runner_ref).admit(specs[0], unpersisted_unverified_trust(specs[0]))
+    admission = scripted_service(specs[0].agent_inventory.runner_ref).admit(
+        specs[0], unpersisted_unverified_trust(specs[0])
+    )
     assert admission.decision == "rejected"
     assert "runtime:background_progress_observer" in admission.missing_requirements
     observer_issue = next(
@@ -213,9 +208,7 @@ def test_pre_run_evaluation_disclosure_is_minimal_and_explicit() -> None:
     manifest, package, registry, _ = baseline_specs()
     base_study = package.study
     base_plan = next(
-        revision
-        for revision in package.revisions
-        if isinstance(revision, EvaluationPlanRevision)
+        revision for revision in package.revisions if isinstance(revision, EvaluationPlanRevision)
     )
     public_dimension = base_plan.payload.dimensions[0]
     disclosed_plan = EvaluationPlanRevision(
@@ -275,9 +268,7 @@ def test_pre_run_evaluation_disclosure_is_minimal_and_explicit() -> None:
         materialized_inputs=materialized_subject_inputs(spec),
     )
     assert envelope.evaluation_guidance is not None
-    assert [item.id for item in envelope.evaluation_guidance.dimensions] == [
-        public_dimension.id
-    ]
+    assert [item.id for item in envelope.evaluation_guidance.dimensions] == [public_dimension.id]
     guidance_json = envelope.evaluation_guidance.model_dump_json()
     assert "stages" not in guidance_json
     assert "evaluator_ref" not in guidance_json

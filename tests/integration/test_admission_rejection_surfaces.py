@@ -30,7 +30,11 @@ def test_api_and_cli_require_system_derived_execution_trust(
     cases = {case.name: case for case in build_admission_cases(store)}
     catalogs = build_catalogs(store, profile=oracle_profile())
     case = cases["subject_input_media_type_json"]
-    expected_record = catalogs[case.catalog].admission_service().admit(case.spec, unpersisted_unverified_trust(case.spec))
+    expected_record = (
+        catalogs[case.catalog]
+        .admission_service()
+        .admit(case.spec, unpersisted_unverified_trust(case.spec))
+    )
     assert admission_rejection_error(expected_record).code
     spec_row = repository.catalog.save_run_spec(case.spec)
     database.dispose()

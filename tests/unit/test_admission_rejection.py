@@ -34,7 +34,11 @@ def test_issue_only_oracle_rejection_cites_every_blocking_subject(
     cases = {case.name: case for case in build_admission_cases(store)}
     catalogs = build_catalogs(store, profile=oracle_profile())
     case = cases[case_name]
-    record = catalogs[case.catalog].admission_service().admit(case.spec, unpersisted_unverified_trust(case.spec))
+    record = (
+        catalogs[case.catalog]
+        .admission_service()
+        .admit(case.spec, unpersisted_unverified_trust(case.spec))
+    )
 
     error = admission_rejection_error(record)
     blocking_refs = tuple(item.subject_ref for item in record.issues if item.blocking)
@@ -57,7 +61,11 @@ def test_required_unresolved_capability_is_visible_without_changing_the_record(
     catalogs = build_catalogs(store, profile=oracle_profile())
     case = cases["required_capability_unregistered"]
 
-    record = catalogs[case.catalog].admission_service().admit(case.spec, unpersisted_unverified_trust(case.spec))
+    record = (
+        catalogs[case.catalog]
+        .admission_service()
+        .admit(case.spec, unpersisted_unverified_trust(case.spec))
+    )
     record_before = record.model_dump(mode="json")
     error = admission_rejection_error(record)
 
@@ -88,7 +96,11 @@ def test_structured_finding_groups_keep_the_record_order_in_the_message(
     cases = {case.name: case for case in build_admission_cases(store)}
     catalogs = build_catalogs(store, profile=oracle_profile())
     case = cases[case_name]
-    record = catalogs[case.catalog].admission_service().admit(case.spec, unpersisted_unverified_trust(case.spec))
+    record = (
+        catalogs[case.catalog]
+        .admission_service()
+        .admit(case.spec, unpersisted_unverified_trust(case.spec))
+    )
 
     error = admission_rejection_error(record)
 

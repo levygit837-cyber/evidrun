@@ -653,14 +653,16 @@ def test_repeating_prepare_response_evaluation_and_finish_is_idempotent(
     )
     persist_evaluation(kernel.coordinator.context, claimed_job, attempt, outcome)
     persist_evaluation(kernel.coordinator.context, claimed_job, attempt, outcome)
-    terminal_phase(kernel.coordinator.context, 
+    terminal_phase(
+        kernel.coordinator.context,
         claimed_job,
         attempt,
         event_type="run.completed",
         goal_result=GoalStateTerminalResult(state="achieved"),
         cause="idempotent terminal",
     )
-    terminal_phase(kernel.coordinator.context, 
+    terminal_phase(
+        kernel.coordinator.context,
         claimed_job,
         attempt,
         event_type="run.completed",

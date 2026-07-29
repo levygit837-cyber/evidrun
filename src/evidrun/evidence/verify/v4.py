@@ -28,8 +28,7 @@ def verify_v4_structure(bundle_manifest: dict[str, Any], names: set[str]) -> boo
     return (
         bundle_manifest.get("schema_version") == "4"
         and verify_v3_structure(bundle_manifest, names)
-        and trust_document.get("kind")
-        in {"unverified_revision_set", "verified_revision_set"}
+        and trust_document.get("kind") in {"unverified_revision_set", "verified_revision_set"}
         and isinstance(trust_id, str)
         and isinstance(trust_document.get("digest"), str)
         and isinstance(isolation_document.get("kind"), str)
@@ -49,9 +48,7 @@ def verify_v4_records(archive: zipfile.ZipFile, names: set[str]) -> dict[str, bo
         trust = ExecutionTrustRecord.model_validate(trust_document)
 
         run_id = str(cast(list[object], bundle["run_ids"])[0])
-        run_record = RunRecord.model_validate(
-            ar.read_json(archive, f"runs/{run_id}.json")
-        )
+        run_record = RunRecord.model_validate(ar.read_json(archive, f"runs/{run_id}.json"))
         spec_document = cast(
             dict[str, Any],
             ar.read_json(archive, f"run-specs/{run_record.run_spec_id}.json"),
@@ -60,25 +57,18 @@ def verify_v4_records(archive: zipfile.ZipFile, names: set[str]) -> dict[str, bo
         spec = RunSpec.model_validate(spec_document)
         admission_document = cast(
             dict[str, Any],
-            ar.read_json(
-                archive, f"admissions/{run_record.admission_id}.json"
-            ),
+            ar.read_json(archive, f"admissions/{run_record.admission_id}.json"),
         )
         admission_document.pop("digest")
         admission = AdmissionRecord.model_validate(admission_document)
 
-        revisions = tuple(
-            _load_revision(archive, reference) for reference in trust.revision_refs
-        )
+        revisions = tuple(_load_revision(archive, reference) for reference in trust.revision_refs)
         trust_contract_names = {
             ar.contract_member_name(reference) for reference in trust.revision_refs
         }
-        actual_contract_names = {
-            name for name in names if name.startswith("contracts/")
-        }
+        actual_contract_names = {name for name in names if name.startswith("contracts/")}
         extra_contract_names = trust_contract_names - {
-            ar.contract_member_name(reference)
-            for reference in ar.spec_revision_refs(spec)
+            ar.contract_member_name(reference) for reference in ar.spec_revision_refs(spec)
         }
         allowed_extras = {trust_name, *extra_contract_names}
         compiled_specs = validate_execution_trust_lineage(trust, spec, revisions)
@@ -114,9 +104,7 @@ def verify_v4_records(archive: zipfile.ZipFile, names: set[str]) -> dict[str, bo
 
 
 def _load_revision(archive: zipfile.ZipFile, reference: Any) -> Any:
-    document = cast(
-        dict[str, Any], ar.read_json(archive, ar.contract_member_name(reference))
-    )
+    document = cast(dict[str, Any], ar.read_json(archive, ar.contract_member_name(reference)))
     stated_digest = document.pop("digest")
     revision = parse_revision(document)
     if revision.ref != reference or revision.digest != stated_digest:

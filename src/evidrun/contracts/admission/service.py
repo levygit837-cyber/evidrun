@@ -104,9 +104,7 @@ class AdmissionService:
         ):
             findings = findings.merge(part)
         adapter_issues = tuple(
-            item
-            for validator in self.execution_validators
-            for item in validator(spec)
+            item for validator in self.execution_validators for item in validator(spec)
         )
         findings = findings.merge(AdmissionFindings(issues=adapter_issues))
 

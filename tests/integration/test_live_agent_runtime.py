@@ -514,7 +514,9 @@ def test_live_spec_variations_reject_without_enqueuing(tmp_path: Path) -> None:
         ),
     )
     for variant in variants:
-        admission = fixture.coordinator.admission_service.admit(variant, unpersisted_unverified_trust(variant))
+        admission = fixture.coordinator.admission_service.admit(
+            variant, unpersisted_unverified_trust(variant)
+        )
         assert admission.decision == "rejected"
         assert admission.issues
     assert fixture.repository.read_model.latest_dashboard()["runs"] == []

@@ -176,7 +176,9 @@
     "provider_profile_id=",
     "provider_model=",
     "provider_adapter=",
+    "denied=unverified_external_effect:approval_required",
     "denied=external_effect:approval_required",
+    "issue=policy|unverified_external_effect|denied|unverified execution requires external effects to be denied|blocking=True",
     "issue=policy|external_effect:approval_required|denied|external effect policy is not allowed by this runtime|blocking=True"
   ],
   "human_adjudication_required": [
@@ -228,7 +230,9 @@
     "provider_profile_id=",
     "provider_model=",
     "provider_adapter=",
+    "denied=unverified_network:allowlist",
     "denied=network:allowlist",
+    "issue=policy|network:allowlist|denied|unverified execution permits only disabled or provider_only network|blocking=True",
     "issue=policy|network:allowlist|denied|network policy is not allowed by this runtime|blocking=True",
     "issue=runtime|offline_network|unsupported|the scripted adapter requires disabled network|blocking=True"
   ],
@@ -432,7 +436,9 @@
     "provider_profile_id=",
     "provider_model=",
     "provider_adapter=",
+    "missing=provider_only:resolved_provider",
     "missing=provider:ghost-profile",
+    "issue=provider|ghost-profile|unavailable|provider_only requires a provider backed by the active runtime|blocking=True",
     "issue=provider|ghost-profile|unavailable|provider profile is not available in the active runtime|blocking=True",
     "issue=provider|provider_profile|unsupported|the real adapter requires its exact provider profile|blocking=True",
     "capability=tool|read-artifact-text-v1|required=True|resolved||",
@@ -492,7 +498,9 @@
     "provider_profile_id=",
     "provider_model=",
     "provider_adapter=",
+    "denied=unverified_classification:restricted",
     "denied=classification:restricted",
+    "issue=policy|classification:restricted|denied|unverified execution permits only public or internal inputs|blocking=True",
     "issue=policy|input_classification|denied|the active runtime has no classified materialization boundary for sensitive or restricted inputs|blocking=True",
     "issue=runtime|subject_input_artifact|unsupported|the Subject input cannot be verified in the canonical ArtifactStore|blocking=True"
   ],
@@ -557,7 +565,9 @@
     "provider_profile_id=",
     "provider_model=",
     "provider_adapter=",
+    "denied=unverified_classification:sensitive",
     "denied=classification:sensitive",
+    "issue=policy|classification:sensitive|denied|unverified execution permits only public or internal inputs|blocking=True",
     "issue=policy|input_classification|denied|the active runtime has no classified materialization boundary for sensitive or restricted inputs|blocking=True",
     "issue=runtime|subject_input_artifact|unsupported|the Subject input cannot be verified in the canonical ArtifactStore|blocking=True"
   ],

@@ -300,10 +300,7 @@ def _attempt_chain_valid(job: RunExecutionJob, attempts: list[RunExecutionAttemp
         and attempt.finished_at_utc is not None
         and attempt.finished_at_utc >= attempt.leased_at_utc
         and attempt.last_heartbeat_at_utc <= attempt.finished_at_utc
-        and (
-            attempt.status != "expired"
-            or attempt.finished_at_utc >= attempt.lease_expires_at_utc
-        )
+        and (attempt.status != "expired" or attempt.finished_at_utc >= attempt.lease_expires_at_utc)
         for attempt in attempts
     )
     monotonic = all(
@@ -329,9 +326,7 @@ def _manifest_valid(
         manifest_specs=manifest_specs,
     )
     canonical_expected = ar.artifact_manifest(expected).entries
-    expected_set = {
-        canonical_json(semantic_model_dump(item)) for item in canonical_expected
-    }
+    expected_set = {canonical_json(semantic_model_dump(item)) for item in canonical_expected}
     actual_set = {canonical_json(semantic_model_dump(item)) for item in manifest.entries}
     return (
         manifest.digest == manifest_digest
