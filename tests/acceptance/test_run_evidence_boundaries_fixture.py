@@ -4,13 +4,13 @@ import asyncio
 from pathlib import Path
 
 from evidrun.contracts import EvaluationRecord, RunRecord, RunSpec, SubjectEnvelope
-from evidrun.contracts.compiler import StudyCompiler
 from evidrun.infrastructure.artifacts.store import ArtifactStore
 from evidrun.infrastructure.database import Database, Repository
 from evidrun.runs import build_runtime_kernel
 from evidrun.runs.worker import DurableRunWorker
 from evidrun.settings import Settings
 from evidrun.shared.types import Classification, sha256_bytes
+from tests.support.execution_trust import prepare_registered_study
 from tests.support.human_attestation import (
     TestHumanAttestationVerifier,
     accepted_decision,
@@ -121,16 +121,13 @@ def test_minimal_run_fixture_preserves_evidence_boundaries(tmp_path: Path) -> No
         repository.registry.save_contract_revision(revision, status="proposed")
         repository.registry.decide_contract_revision(accepted_decision(revision))
 
-    specs = StudyCompiler(repository.registry.contract_registry(project.id)).compile(study)
-    assert len(specs) == 1
-    spec = specs[0]
-    spec_row = repository.catalog.save_run_spec(spec)
+    spec, trust, spec_id = prepare_registered_study(repository, study)
     kernel = build_runtime_kernel(repository, settings.artifacts_dir)
-    admission = kernel.coordinator.admission_service.admit(spec)
+    admission = kernel.coordinator.admission_service.admit(spec, trust)
     assert admission.decision == "admitted"
-    admission_row = repository.catalog.save_admission_record(spec_row.id, admission)
+    admission_row = repository.catalog.save_admission_record(spec_id, admission)
     run_id, job = kernel.coordinator.enqueue(
-        run_spec_id=spec_row.id,
+        run_spec_id=spec_id,
         admission_id=admission_row.id,
         idempotency_key="run-evidence-boundaries-v1",
     )
@@ -144,10 +141,12 @@ def test_minimal_run_fixture_preserves_evidence_boundaries(tmp_path: Path) -> No
     run_record = repository.read_model.get_run_record(run_id)
     assert run_record is not None
     assert run_record.run_id == run_id
-    assert run_record.run_spec_id == spec_row.id
+    assert run_record.run_spec_id == spec_id
     assert run_record.admission_id == admission_row.id
     assert run_record.run_spec_digest == spec.digest
     assert run_record.admission_digest == admission.digest
+    assert run_record.execution_trust == trust.ref
+    assert admission.execution_trust == trust.ref
     envelope = repository.read_model.get_subject_envelope(run_id).envelope
     events = repository.read_model.get_run_events(run_id)
     evaluations = repository.read_model.get_evaluation_records(run_id)

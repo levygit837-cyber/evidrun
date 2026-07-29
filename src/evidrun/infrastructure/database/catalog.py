@@ -17,6 +17,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from evidrun.contracts import (
     AdmissionRecord,
+    ExecutionTrustRecord,
     RunSpec,
     SubjectEnvelope,
     SubjectEnvelopeRecord,
@@ -29,6 +30,7 @@ from evidrun.infrastructure.database.models import (
     ChatMessageRow,
     ChatSessionRow,
     ComparisonRow,
+    ExecutionTrustRecordRow,
     ExperimentRevisionRow,
     ProjectRow,
     RunRow,
@@ -178,6 +180,20 @@ class CatalogStore:
                 raise KeyError(f"RunSpec not found: {run_spec_id}")
             if spec.digest != record.run_spec_digest:
                 raise ValueError("admission digest does not match its RunSpec")
+            if record.execution_trust is None:
+                raise ValueError("new AdmissionRecord requires execution trust")
+            trust_row = session.get(
+                ExecutionTrustRecordRow, record.execution_trust.trust_id
+            )
+            if trust_row is None:
+                raise ValueError("execution trust does not exist")
+            trust = ExecutionTrustRecord.model_validate(json.loads(trust_row.record_json))
+            if (
+                trust.digest != trust_row.digest
+                or trust.ref != record.execution_trust
+                or trust.run_spec_digest != spec.digest
+            ):
+                raise ValueError("admission execution trust does not match its RunSpec")
             run_spec = RunSpec.model_validate(json.loads(spec.spec_json))
             inventory = record.resolved_inventory
             if (
@@ -227,6 +243,11 @@ class CatalogStore:
                 )
             )
             if existing is not None:
+                if (
+                    existing.execution_trust_id != trust.trust_id
+                    or existing.execution_trust_digest != trust.digest
+                ):
+                    raise ValueError("stored admission execution trust mismatch")
                 return existing
             row = AdmissionRecordRow(
                 id=new_id("adm"),
@@ -234,6 +255,8 @@ class CatalogStore:
                 decision=record.decision,
                 record_json=canonical_json(semantic_model_dump(record)),
                 digest=record.digest,
+                execution_trust_id=trust.trust_id,
+                execution_trust_digest=trust.digest,
                 created_at=record.created_at_utc,
             )
             session.add(row)
@@ -294,6 +317,14 @@ class CatalogStore:
                 or admission.run_spec_digest != spec.digest
             ):
                 raise ValueError("Run requires an admitted record for the exact RunSpec")
+            if (
+                admission.execution_trust is None
+                or admission_row.execution_trust_id
+                != admission.execution_trust.trust_id
+                or admission_row.execution_trust_digest
+                != admission.execution_trust.digest
+            ):
+                raise ValueError("Run requires the AdmissionRecord execution trust")
             expected_identity = (
                 spec.variant_id,
                 spec.repetition_index,
@@ -315,6 +346,8 @@ class CatalogStore:
             objective=objective,
             run_spec_id=run_spec_id,
             admission_id=admission_id,
+            execution_trust_id=admission.execution_trust.trust_id,
+            execution_trust_digest=admission.execution_trust.digest,
             retry_of=retry_of,
             created_at=clock.utc_now(),
         )

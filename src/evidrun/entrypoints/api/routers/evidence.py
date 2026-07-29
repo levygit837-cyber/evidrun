@@ -108,11 +108,11 @@ def create_evidence_router(
         try:
             repository.read_model.get_run(run_id)
             target = settings.data_dir / "exports" / f"{run_id}.evidrun.zip"
-            await asyncio.to_thread(bundles.export_run_v3, run_id, target)
+            await asyncio.to_thread(bundles.export_run_v4, run_id, target)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="run not found") from exc
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
-        return {"path": str(target), "run_id": run_id, "schema_version": "3"}
+        return {"path": str(target), "run_id": run_id, "schema_version": "4"}
 
     return router

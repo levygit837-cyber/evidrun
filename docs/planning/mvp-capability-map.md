@@ -73,14 +73,14 @@ A limitacao nao esta na espinha, e sim no acesso a ela e na largura do que ela a
 | Criacao de Workspace/Project | `verified_main` | API e CLI criam/listam os mesmos documentos; nomes usam NFKC/whitespace/casefold, constraints e migrations `0005`/`0006`. Race, storage seguro, legado/colisao e corredor ate `contract register` possuem testes. Nao cria Run Environment, authority ou Lab Agent. |
 | Run Environment | `partial` | `WorkspaceTemplateRevision`/`RunSpec.workspace` tipam configuracao e a admissao suporta somente o perfil estreito `in_process`. Nao existe sandbox forte, policy ceiling de Workspace, provisioning de filesystem, writes, secrets ou snapshot; unsupported rejeita. ADR 0020 separa o conceito do Workspace duravel. |
 | Execucao de Runs no app instalado | `verified_main` | O Electron Main supervisiona API e executor separados, propaga estados pelo preload/renderer e cobre o corredor com testes de lifecycle, handshake e smoke. WS-02 foi integrado no PR #91. |
-| Autoria usavel no produto instalado | `partial` | Com `EVIDRUN_AUTHORITY=1` o caminho verificado funciona ponta a ponta por CLI e API. O ADR 0022 decidiu o default sem autenticacao por Run, mas o caminho nao verificado ainda depende da implementacao do WS-40. |
+| Autoria usavel no produto instalado | `partial` | API e CLI compilam uma Study draft pelo mesmo preparation service e admitem a Run com `execution_trust_id`, sem Decision humana. A tela Create ainda não usa esse corredor; com `EVIDRUN_AUTHORITY=1`, o caminho humano anterior continua opt-in. |
 | Artifact Store CAS/cifrado | `partial` | CAS e AES-GCM existem e sao testados; grants, materialization records, leitura por audiencia, TTL efetivo e enforcement ponta a ponta nao. |
 | EvaluationPlan generico | `accepted_only` | A admissao rejeita planos com mais de um stage; model judge e orquestracao humana geral nao existem. |
 | Checkpoint coordinator | `accepted_only` | Policy e record sao tipados e a persistencia isolada e testada; triggers e validators automaticos continuam reservados e a admissao rejeita `checkpoint_policy`. |
 | Progress Artifact observer | `accepted_only` | Policy/content/record possuem schema; scheduler, observer e persistencia nao existem e a admissao rejeita a policy. |
 | Disclosure de eval ao Subject | `partial` | `pre_run` e compilavel por allowlist; todo modo diferente de `none` rejeita a admissao. |
 | Bounded exploration | `accepted_only` | Terminal discriminado e ADR 0013 existem; stop coordinator e runtime permanecem indisponiveis. |
-| Trust de execucao nao verificada | `accepted_only` | ADR 0022 e Execution Trust v1 definem `ExecutionTrustRecord`, closure/digest, restricoes e promocao por nova Run. Os records, compilacao, admissao, bundle e UI ainda nao estao implementados. `AuthorityMode.SANDBOX` continua legado e nao prova isolamento. |
+| Trust de execucao nao verificada | `partial` | Records, closure/digest, migration, preparação de draft, policy de admissão, propagação pela fila/Run e Bundle v4 não verificado estão implementados e testados offline. ReviewPackage, kind verificado e projeções de UI permanecem pendentes. `AuthorityMode.SANDBOX` continua legado e não prova isolamento. |
 | Lab Agent copiloto | `accepted_only` | ADRs 0018/0021 e contrato de scope v1 fixam um unico copiloto, sessoes Workspace/Project/Focused e zero authority. Chat storage generico existe; nao ha porta, adapter, scope enforcement ou consumidor, e endpoints nao possuem teste. Enderecado por WS-04. |
 | Memoria operacional do Lab Agent | `accepted_only` | ADR 0021 e `MemoryEntry` v2 fixam hard boundary de Workspace e subescopo opcional de Project; nao existe tabela, indice FTS5, tool, consolidador nem superficie de promocao. Enderecado por WS-07. |
 | Human review/adjudication | `partial` | Contratos, authority subject e persistencia existem; o branch humano de `save_evaluation_record` nao e exercitado por teste, e fila, UI e conclusao do EvaluationPlan nao fecham o fluxo. |
@@ -94,10 +94,10 @@ A limitacao nao esta na espinha, e sim no acesso a ela e na largura do que ela a
 ## Lacuna de produto mais importante
 
 O sistema distingue autoridade humana de automacao, cria Workspace/Project por superficies publicas
-e executa uma Run auditavel com o executor supervisionado pelo app. A decisao normativa do caminho
-cotidiano tambem esta fechada. A lacuna principal deste eixo agora e tecnica: implementar o WS-40
-para compilar e admitir uma Run explicitamente nao verificada, com trust visivel, efeitos externos
-negados e sem promocao da Run original.
+e executa uma Run auditavel com o executor supervisionado pelo app. O corredor de backend também
+compila e admite uma Run explicitamente não verificada, com efeitos externos negados e Bundle v4.
+A lacuna principal deste eixo agora é fechar o WS-40 com ReviewPackage, kind verificado e projeções
+humanas, e depois integrar o corredor à tela Create sem promover `in_process` a sandbox.
 
 A segunda lacuna, agora nomeada, e o Lab Agent: pelo ADR 0018 ele e a superficie primaria de trabalho
 do produto, e nao existe em `src/evidrun/`. O corte que fecha ambas esta em

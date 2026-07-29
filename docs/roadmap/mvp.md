@@ -54,16 +54,16 @@ verification_refs: []
   constraints, migrations fail-closed e corredor até a primeira contract revision;
 - executor de Runs supervisionado pelo Electron Main, separado da API, com estado observavel,
   restart, shutdown e smoke no CI;
-- decisao normativa de trust para Run explicitamente nao verificada sem autenticacao por execucao,
-  ainda sem implementacao de runtime;
+- trust explícito para Run não verificada, com closure selada, admissão restrita, propagação pela
+  fila e Bundle v4 no backend; ReviewPackage, kind verificado e integração visual ainda pendentes;
 
 ## Proximo
 
 O corte imediato e o [Minimo Confortavel](../planning/comfortable-minimum.md). Dele saem os itens
 abaixo, nesta ordem de destrave:
 
-- implementacao do `ExecutionTrustRecord`, selamento transitivo e caminho de compilacao/admissao nao
-  verificado do WS-40; criar Workspace/Project nao materializa Run Environment;
+- fechamento do WS-40 com `ReviewPackage`, kind verificado, promoção por nova Run e projeções
+  humanas; criar Workspace/Project não materializa Run Environment;
 - runtime de um unico Lab Agent copiloto conforme os ADRs 0018/0021, com sessoes escopadas,
   `LabAgentEnvelope`, loop de tools e proposta de draft sem decisao;
 - contrato de contexto e criterios do Subject, para que duas variants irmas difiram de forma tipada

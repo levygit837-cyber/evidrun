@@ -50,7 +50,7 @@ observabilidade.
 | `queued` | [WS-07 Memoria operacional e consolidador](07-lab-agent-memory.md) | Depende de WS-04; nao depende de WS-05, WS-06, WS-20, WS-30 nem WS-40 |
 | `blocked` | [WS-20 Artifact access/capture](20-artifact-access-and-capture.md) | Costuras entregues; aguarda priorizacao apos o Minimo Confortavel |
 | `blocked` | [WS-30 Evaluation/checkpoint/progress](30-evaluation-checkpoint-progress.md) | Costuras entregues; aguarda priorizacao apos o Minimo Confortavel |
-| `queued` | [WS-40 Trust nao verificado/ReviewPackage](40-execution-trust-review-package.md) | Pre-condicao normativa resolvida pelo ADR 0022; nao equivale a sandbox de runtime |
+| `in_progress` | [WS-40 Trust nao verificado/ReviewPackage](40-execution-trust-review-package.md) | Corredor não verificado e Bundle v4 entregues na fatia atual; ReviewPackage/kind verificado ainda pendentes |
 | `queued` | [WS-50 Bounded exploration e multi-turn](50-lab-agent-bounded-exploration.md) | Reescopado: so bounded exploration. O copiloto saiu para WS-04 |
 | `blocked` | [WS-51 Integracao frontend](51-frontend-integration.md) | Project Room e scopes definidos; aguarda WS-01/03/04/06/40/41 |
 

@@ -6,13 +6,12 @@ import pytest
 
 from evidrun.contracts import (
     CheckpointRecord,
-    ContractRef,
-    ContractType,
     semantic_model_dump,
 )
 from evidrun.contracts.authoring.checkpoint import (
     CheckpointCaptureSpec,
     CheckpointDefinition,
+    CheckpointPolicyRevision,
     CheckpointPolicySpec,
     ManualCheckpointTrigger,
 )
@@ -20,6 +19,7 @@ from evidrun.contracts.legacy import capability_ref
 from evidrun.contracts.runtime.records import CheckpointValidation
 from evidrun.infrastructure.database import Repository
 from evidrun.runs import EvidrunService
+from evidrun.runs.preparation import ExecutionPreparationService
 from evidrun.shared.types import new_id, sha256_bytes, sha256_json, utc_now
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -46,20 +46,31 @@ def test_checkpoint_record_is_anchored_to_the_exact_run_ledger(
             ),
         )
     )
-    policy_ref = ContractRef(
-        contract_type=ContractType.CHECKPOINT_POLICY,
+    base_study = repository.read_model.get_contract_revision_by_ref(spec.study_ref)
+    policy_revision = CheckpointPolicyRevision(
         logical_id="checkpoint-test-policy",
         revision=1,
-        digest="d" * 64,
+        project_id=repository.read_model.project_id_for_run(source_run.id),
+        title="Checkpoint persistence fixture",
+        payload=policy,
     )
-    checkpoint_spec = spec.model_copy(
+    repository.registry.save_contract_revision(policy_revision)
+    checkpoint_study = base_study.model_copy(
         update={
-            "variant_id": "checkpoint-test",
-            "checkpoint_policy_ref": policy_ref,
-            "checkpoint_policy": policy,
+            "revision": base_study.revision + 1,
+            "payload": base_study.payload.model_copy(
+                update={
+                    "run_blueprint": base_study.payload.run_blueprint.model_copy(
+                        update={"checkpoint_policy_ref": policy_revision.ref}
+                    )
+                }
+            ),
         }
     )
-    spec_row = repository.catalog.save_run_spec(checkpoint_spec)
+    study_row = repository.registry.save_contract_revision(checkpoint_study)
+    preparation = ExecutionPreparationService(repository).prepare(study_row.id)
+    prepared = preparation.run_specs[0]
+    checkpoint_spec = prepared.spec
     source_contracts = repository.read_model.get_run_contracts(source_run.id)
     assert source_contracts is not None
     _, source_admission = source_contracts
@@ -70,16 +81,18 @@ def test_checkpoint_record_is_anchored_to_the_exact_run_ledger(
         update={
             "run_spec_ref": f"run-spec:{checkpoint_spec.digest}",
             "run_spec_digest": checkpoint_spec.digest,
+            "execution_trust": prepared.execution_trust.ref,
             "created_at_utc": utc_now(),
         }
     )
-    admission_row = repository.catalog.save_admission_record(spec_row.id, admission)
+    admission_row = repository.catalog.save_admission_record(prepared.row_id, admission)
     run = repository.catalog.create_run(
         experiment_revision_id=source_run.experiment_revision_id,
-        variant_id="checkpoint-test",
-        runner=checkpoint_spec.agent_inventory.subject_id,
+        variant_id=checkpoint_spec.variant_id,
+        runner=checkpoint_spec.agent_inventory.runner_ref.name,
         objective=checkpoint_spec.goal.instruction,
-        run_spec_id=spec_row.id,
+        repetition=checkpoint_spec.repetition_index,
+        run_spec_id=prepared.row_id,
         admission_id=admission_row.id,
     )
     boundary = repository.ledger.append_event(
@@ -109,7 +122,7 @@ def test_checkpoint_record_is_anchored_to_the_exact_run_ledger(
     record = CheckpointRecord(
         checkpoint_id=new_id("checkpoint"),
         run_id=run.id,
-        policy_ref=policy_ref,
+        policy_ref=policy_revision.ref,
         definition_id="requirements-frozen",
         definition_digest=sha256_json(semantic_model_dump(policy.definitions[0])),
         up_to_event_sequence=boundary.sequence,

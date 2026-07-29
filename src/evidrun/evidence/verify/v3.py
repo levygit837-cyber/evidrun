@@ -87,7 +87,12 @@ class RunCore:
         )
 
 
-def verify_v3_records(archive: zipfile.ZipFile, names: set[str]) -> dict[str, bool]:
+def verify_v3_records(
+    archive: zipfile.ZipFile,
+    names: set[str],
+    *,
+    allowed_extra_names: set[str] | None = None,
+) -> dict[str, bool]:
     results = verify_v2_records(archive, names)
     results.pop("comparison.json", None)
     results.pop("artifact-manifest.json", None)
@@ -101,7 +106,7 @@ def verify_v3_records(archive: zipfile.ZipFile, names: set[str]) -> dict[str, bo
         results["artifact-manifest.json"] = _manifest_valid(archive, core, subject_record)
         results["__exact_file_allowlist__"] = names == _expected_names(
             core, job_name, attempts_name, subject_record is not None
-        )
+        ) | (allowed_extra_names or set())
     except AttributeError, IndexError, KeyError, TypeError, ValueError:
         results["__v3_records__"] = False
     else:

@@ -15,15 +15,28 @@ sources:
   - docs/contracts/study-run-v1.md
 supersedes: []
 superseded_by: null
-implementation_refs: []
-verification_refs: []
+implementation_refs:
+  - src/evidrun/contracts/execution_trust.py
+  - src/evidrun/infrastructure/database/trust.py
+  - src/evidrun/runs/preparation.py
+  - src/evidrun/contracts/admission/checks/execution_trust.py
+  - src/evidrun/infrastructure/database/catalog.py
+  - src/evidrun/infrastructure/database/queue/enqueue.py
+verification_refs:
+  - tests/unit/test_execution_trust.py
+  - tests/integration/test_execution_trust_migration.py
+  - tests/unit/test_unverified_admission.py
+  - tests/acceptance/test_unverified_execution.py
+  - tests/integration/test_execution_preparation_surfaces.py
 ---
 
 # Execution Trust v1
 
-Este contrato define como uma Run futura declarará se o conjunto de revisions usado na compilação
-foi ou não confirmado por autoridade humana. Está aceito, mas ainda não implementado: não existe
-`ExecutionTrustRecord` no código, e o compiler atual continua resolvendo somente revisions aceitas.
+Este contrato define como uma Run declara se o conjunto de revisions usado na compilação foi ou não
+confirmado por autoridade humana. O corredor `unverified_revision_set` está implementado: sela a
+closure exata de uma Study draft, compila sem Decision humana, persiste trust antes da admissão e
+propaga a mesma ref para AdmissionRecord, fila e RunRecord. A criação persistida do kind
+`verified_revision_set` e a projeção completa do ReviewPackage permanecem pendentes no WS-40.
 
 Trust não é admission, lifecycle, avaliação nem isolamento. `unverified_revision_set` significa
 “sem confirmação humana”; não significa documento mutável, digest opcional ou execução sem
@@ -121,8 +134,8 @@ divergente falha fechado.
 
 ## Ligação com admissão, Run e bundle
 
-O record é persistido antes da admissão. A implementação do WS-40 acrescentará uma ref tipada e o
-digest exato do `ExecutionTrustRecord` ao `AdmissionRecord` e ao `RunRecord`. A admissão rejeita:
+O record é persistido antes da admissão. O corredor implementado acrescenta uma ref tipada e o digest
+exato do `ExecutionTrustRecord` ao `AdmissionRecord` e ao `RunRecord`. A persistência rejeita:
 
 - trust ausente;
 - kind desconhecido;
@@ -232,15 +245,16 @@ Isolamento: in_process
 
 Não existe kind `sandbox`, e `in_process` nunca recebe selo de sandbox seguro.
 
-## Compatibilidade
+## Estado de implementação e compatibilidade
 
-Este contrato não está implementado e não altera o comportamento atual. Até WS-40:
-
-- o compiler continua resolvendo somente revisions aceitas;
-- `EVIDRUN_AUTHORITY` continua opt-in;
-- WebAuthn/local authenticator existente continua funcional nos limites já implementados;
-- Runs e bundles atuais não ganham trust retroativo por inferência;
+- `ExecutionPreparationService` resolve revisions registradas por refs exatas, sem consultar
+  `latest`, sela a closure, compila a matriz inteira e cria um trust não verificado por RunSpec;
+- API e CLI recebem somente `execution_trust_id`; `kind`, ator ou claim humano enviado pelo caller
+  não escolhe o trust;
+- persistência, enqueue e worker exigem e revalidam a mesma ref de trust;
+- `EVIDRUN_AUTHORITY` e o autenticador local continuam opt-in e não são usados pelo corredor não
+  verificado;
+- Runs legadas não ganham trust retroativo: ausência permanece `not_recorded`;
+- o store ainda rejeita persistência de `verified_revision_set`; essa promoção e o ReviewPackage
+  legível são a próxima fatia do WS-40;
 - `repository_fixture` continua pelo import dedicado e explicitamente não humano.
-
-Migração futura deve classificar dados legados por regra explícita. Ausência de
-`ExecutionTrustRecord` é `not_recorded`, nunca sinônimo de verificado ou não verificado.

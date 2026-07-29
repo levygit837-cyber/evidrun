@@ -19,6 +19,9 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Protocol
 
+from evidrun.contracts.admission.checks.execution_trust import (
+    check_unverified_execution_policy,
+)
 from evidrun.contracts.admission.checks.interaction import (
     check_capture,
     check_interaction,
@@ -42,6 +45,7 @@ from evidrun.contracts.admission.checks.unsupported import (
 from evidrun.contracts.admission.checks.workspace import check_workspace
 from evidrun.contracts.admission.envelope import RuntimeCapabilityEnvelope
 from evidrun.contracts.admission.issues import AdmissionFindings
+from evidrun.contracts.execution_trust import ExecutionTrustRecord
 from evidrun.contracts.runtime.records import AdmissionRecord
 from evidrun.contracts.runtime.spec import AdmissionIssue, ResolvedAgentInventory, RunSpec
 from evidrun.shared.types import utc_now
@@ -63,7 +67,11 @@ class AdmissionService:
         self.envelope = envelope
         self.execution_validators = tuple(execution_validators)
 
-    def admit(self, spec: RunSpec) -> AdmissionRecord:
+    def admit(
+        self,
+        spec: RunSpec,
+        execution_trust: ExecutionTrustRecord | None = None,
+    ) -> AdmissionRecord:
         envelope = self.envelope
 
         runner = check_runner(spec, envelope)
@@ -77,6 +85,11 @@ class AdmissionService:
         # The fold order below IS the persisted order of the three tuples.
         findings = AdmissionFindings()
         for part in (
+            (
+                check_unverified_execution_policy(spec, execution_trust, envelope)
+                if execution_trust is not None
+                else AdmissionFindings()
+            ),
             runner.findings,
             provider.findings,
             capabilities.findings,
@@ -132,5 +145,8 @@ class AdmissionService:
             denied_policies=findings.denied_policies,
             issues=findings.issues,
             warnings=findings.warnings,
+            execution_trust=(
+                execution_trust.ref if execution_trust is not None else None
+            ),
             created_at_utc=utc_now(),
         )

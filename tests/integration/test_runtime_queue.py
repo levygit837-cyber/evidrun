@@ -16,7 +16,6 @@ import evidrun.infrastructure.database.evaluation.records as evaluation_records_
 import evidrun.infrastructure.database.queue.preparation as preparation_module
 import evidrun.runs.coordinator.budget as budget_module
 from evidrun.contracts import GoalStateTerminalResult
-from evidrun.contracts.compiler import StudyCompiler
 from evidrun.evidence.bundle import EvidenceBundleService
 from evidrun.infrastructure.artifacts.store import ArtifactStore
 from evidrun.infrastructure.database import Database, LeaseLost, Repository
@@ -28,6 +27,7 @@ from evidrun.runs.coordinator.response import persist_evaluation, persist_respon
 from evidrun.runs.coordinator.terminal import terminal as terminal_phase
 from evidrun.settings import Settings
 from evidrun.shared.types import Classification, utc_now
+from tests.support.execution_trust import prepare_registered_study
 from tests.support.human_attestation import (
     TestHumanAttestationVerifier,
     accepted_decision,
@@ -42,6 +42,7 @@ class RuntimeFixture:
     repository: Repository
     spec_id: str
     admission_id: str
+    execution_trust_id: str
 
 
 def _runtime_fixture(tmp_path: Path) -> RuntimeFixture:
@@ -62,19 +63,19 @@ def _runtime_fixture(tmp_path: Path) -> RuntimeFixture:
     for revision in revisions:
         repository.registry.save_contract_revision(revision, status="proposed")
         repository.registry.decide_contract_revision(accepted_decision(revision))
-    spec = StudyCompiler(repository.registry.contract_registry(project.id)).compile(study)[0]
-    spec_row = repository.catalog.save_run_spec(spec)
+    spec, trust, spec_id = prepare_registered_study(repository, study)
     admission = build_runtime_kernel(
         repository, settings.artifacts_dir
-    ).coordinator.admission_service.admit(spec)
+    ).coordinator.admission_service.admit(spec, trust)
     assert admission.decision == "admitted"
-    admission_row = repository.catalog.save_admission_record(spec_row.id, admission)
+    admission_row = repository.catalog.save_admission_record(spec_id, admission)
     return RuntimeFixture(
         settings=settings,
         database=database,
         repository=repository,
-        spec_id=spec_row.id,
+        spec_id=spec_id,
         admission_id=admission_row.id,
+        execution_trust_id=trust.trust_id,
     )
 
 
@@ -98,7 +99,8 @@ def test_enqueue_is_idempotent_and_two_connections_cannot_claim_same_attempt(
         first_job.job_id,
     )
     second_admission = kernel.coordinator.admission_service.admit(
-        fixture.repository.read_model.get_run_spec(fixture.spec_id)
+        fixture.repository.read_model.get_run_spec(fixture.spec_id),
+        fixture.repository.execution_trust.get_record(fixture.execution_trust_id),
     )
     second_admission_row = fixture.repository.catalog.save_admission_record(
         fixture.spec_id, second_admission
@@ -406,7 +408,10 @@ def test_crash_after_subject_invocation_fails_without_reinvocation_and_retry_is_
             retry_of=run_id,
         )
 
-    new_admission = kernel.coordinator.admission_service.admit(contracts[0])
+    new_admission = kernel.coordinator.admission_service.admit(
+        contracts[0],
+        fixture.repository.execution_trust.get_record(fixture.execution_trust_id),
+    )
     new_admission_row = fixture.repository.catalog.save_admission_record(
         fixture.spec_id, new_admission
     )
@@ -463,7 +468,7 @@ def test_runner_exception_is_sanitized_and_adapter_mismatch_is_rejected(
     assert "Subject runner execution failed" in serialized_events
     failed_bundle = tmp_path / "failed-run.evidrun.zip"
     bundle_service = EvidenceBundleService(fixture.repository)
-    bundle_service.export_run_v3(run_id, failed_bundle)
+    bundle_service.export_run_v4(run_id, failed_bundle)
     assert bundle_service.verify(failed_bundle)["valid"] is True
 
     original = fixture.repository.read_model.get_run_spec(fixture.spec_id)
@@ -529,7 +534,7 @@ def test_artifact_removed_after_admission_fails_closed_and_rejects_job(
     )
     failed_bundle = tmp_path / "preparation-failure-v3.zip"
     bundle_service = EvidenceBundleService(fixture.repository)
-    bundle_service.export_run_v3(run_id, failed_bundle)
+    bundle_service.export_run_v4(run_id, failed_bundle)
     verification = bundle_service.verify(failed_bundle)
     assert verification["valid"] is True, json.dumps(verification, indent=2)
     assert verification["records"]["__subject_envelope_absence__"] is True
@@ -577,7 +582,7 @@ def test_recovery_with_exhausted_wall_budget_does_not_invoke_subject(
     assert not any(item["type"] == "subject.invoked" for item in recovered_events)
     bundle_path = tmp_path / "recovered-budget-exhausted-v3.zip"
     bundle_service = EvidenceBundleService(fixture.repository)
-    bundle_service.export_run_v3(run_id, bundle_path)
+    bundle_service.export_run_v4(run_id, bundle_path)
     verification = bundle_service.verify(bundle_path)
     assert verification["valid"] is True, json.dumps(verification, indent=2)
     assert verification["records"][f"subject-envelopes/{run_id}.json"] is True

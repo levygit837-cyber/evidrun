@@ -71,11 +71,11 @@ indisponível e, por isso, API e CLI recusam decisions humanas quando `EVIDRUN_A
 desligado. Posse do launch token não é prova de presença ou autoridade humana.
 
 O [ADR 0022](../adr/0022-explicit-execution-trust-without-per-run-authentication.md) preserva essa
-fronteira para todo claim humano e aceita um segundo caminho futuro: executar um conjunto fechado de
-revisions como `unverified_revision_set`, sem transformar draft em accepted. O
-`ExecutionTrustRecord` liga o conjunto e o RunSpec exatos e mantém trust separado de admissão e
-isolamento. Essa decisão ainda não está implementada; até WS-40, o compiler continua resolvendo
-somente revisions aceitas e a authority humana local continua opt-in.
+fronteira para todo claim humano e também permite executar um conjunto fechado de revisions como
+`unverified_revision_set`, sem transformar draft em accepted. O `ExecutionTrustRecord` liga o
+conjunto e o RunSpec exatos e mantém trust separado de admissão e isolamento. Esse corredor já sela,
+compila, admite e executa drafts com policy restrita; a authority humana local continua opt-in. A
+criação persistida do kind verificado e a projeção do ReviewPackage permanecem no WS-40.
 
 O bootstrap de compatibilidade do `CRL-CTX-002` é uma exceção limitada: `repository_fixture` é uma
 authority explicitamente não humana e materializa a aceitação preexistente de um benchmark

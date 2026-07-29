@@ -9,15 +9,15 @@ import yaml
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 
-from evidrun.contracts import StudyRevision, parse_revision, semantic_model_dump
+from evidrun.contracts import parse_revision, semantic_model_dump
 from evidrun.contracts.admission import admission_rejection_error
-from evidrun.contracts.compiler import StudyCompiler
 from evidrun.contracts.triage import HTTP_STATUS_BY_CODE
 from evidrun.entrypoints.api.context import ApiContext
 from evidrun.entrypoints.api.schemas import (
     ContractDecisionRequest,
     ContractDocumentRequest,
     ContractRegistrationRequest,
+    ExecutionAdmissionRequest,
     ManifestRequest,
 )
 from evidrun.experiments import ExperimentManifest
@@ -32,6 +32,7 @@ def create_contract_router(
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1")
     repository = context.repository
+    service = context.service
 
     @router.post("/experiments/validate")
     async def validate_manifest(
@@ -120,28 +121,14 @@ def create_contract_router(
     @router.post("/studies/{revision_id}/compile")
     async def compile_study(
         revision_id: str, _: None = Depends(authorize)
-    ) -> list[dict[str, Any]]:
+    ) -> dict[str, Any]:
         try:
-            revision = repository.read_model.get_contract_revision(revision_id)
-            if not isinstance(revision, StudyRevision):
-                raise ValueError("contract revision is not a StudyRevision")
-            registry = repository.registry.contract_registry(revision.project_id)
-            specs = StudyCompiler(registry).compile(revision)
-            rows = [repository.catalog.save_run_spec(spec) for spec in specs]
+            preparation = service.execution_preparation.prepare(revision_id)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="Study revision not found") from exc
         except Exception as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
-        return [
-            {
-                "id": row.id,
-                "digest": row.digest,
-                "variant_id": row.variant_id,
-                "scenario_id": row.scenario_logical_id,
-                "repetition_index": row.repetition_index,
-            }
-            for row in rows
-        ]
+        return preparation.document()
 
     return router
 
@@ -158,14 +145,19 @@ def create_admission_router(
         response_model=dict[str, Any],
     )
     async def admit_run_spec(
-        run_spec_id: str, _: None = Depends(authorize)
+        run_spec_id: str,
+        payload: ExecutionAdmissionRequest,
+        _: None = Depends(authorize),
     ) -> Any:
         try:
             spec = repository.read_model.get_run_spec(run_spec_id)
-            admission = service.admission_service.admit(spec)
+            trust = repository.execution_trust.get_record(payload.execution_trust_id)
+            admission = service.admission_service.admit(spec, trust)
             row = repository.catalog.save_admission_record(run_spec_id, admission)
         except KeyError as exc:
-            raise HTTPException(status_code=404, detail="RunSpec not found") from exc
+            raise HTTPException(
+                status_code=404, detail="RunSpec or execution trust not found"
+            ) from exc
         except Exception as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         response: dict[str, Any] = {
@@ -173,6 +165,7 @@ def create_admission_router(
             "decision": admission.decision,
             "digest": admission.digest,
             "missing_requirements": admission.missing_requirements,
+            "execution_trust": semantic_model_dump(trust.ref),
         }
         if admission.decision == "rejected":
             error = admission_rejection_error(admission)

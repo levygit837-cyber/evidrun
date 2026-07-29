@@ -21,13 +21,37 @@ sources:
   - docs/planning/mvp-capability-map.md
 supersedes: []
 superseded_by: null
-implementation_refs: []
-verification_refs: []
+implementation_refs:
+  - src/evidrun/contracts/execution_trust.py
+  - src/evidrun/infrastructure/database/trust.py
+  - src/evidrun/runs/preparation.py
+  - src/evidrun/contracts/admission/checks/execution_trust.py
+  - src/evidrun/infrastructure/database/catalog.py
+  - src/evidrun/infrastructure/database/queue/enqueue.py
+  - src/evidrun/evidence/export/run_v4.py
+  - src/evidrun/evidence/verify/v4.py
+verification_refs:
+  - tests/unit/test_execution_trust.py
+  - tests/integration/test_execution_trust_migration.py
+  - tests/unit/test_unverified_admission.py
+  - tests/acceptance/test_unverified_execution.py
+  - tests/integration/test_execution_preparation_surfaces.py
+  - tests/live/test_real_agent_benchmark.py
 ---
 
 # WS-40 — Trust de execucao nao verificada e ReviewPackage
 
-`workstream_state: queued`
+`workstream_state: in_progress`
+
+## Estado da entrega
+
+- fundação de contratos, closure, digests, persistência, migration e estado legado: entregue;
+- corredor draft -> preparação -> trust não verificado -> admissão -> fila -> Run: implementado e
+  exercitado offline;
+- Bundle v4 não verificado e verificação isolada contra tampering: implementados;
+- smoke com provider real: disponível somente por opt-in;
+- `ReviewPackage`, criação fail-closed do kind verificado, promoção por nova Run e projeções humanas:
+  pendentes na próxima fatia reversível.
 
 ## Problema
 

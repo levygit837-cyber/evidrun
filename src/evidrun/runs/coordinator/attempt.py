@@ -103,7 +103,14 @@ def _coherent_contracts(
     spec, admission = contracts
     if admission.decision != "admitted" or admission.run_spec_digest != spec.digest:
         raise ValueError("execution job contracts are no longer coherent")
-    active = context.catalog.admission_service().admit(spec)
+    if admission.execution_trust is None:
+        raise ValueError("execution job admission has no execution trust")
+    trust = context.repository.execution_trust.get_record(
+        admission.execution_trust.trust_id
+    )
+    if trust.ref != admission.execution_trust:
+        raise ValueError("execution job admission trust digest mismatch")
+    active = context.catalog.admission_service().admit(spec, trust)
     if (
         active.decision != "admitted"
         or active.resolved_inventory != admission.resolved_inventory

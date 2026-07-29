@@ -60,7 +60,7 @@ superficie e de lifecycle em cima de dominio que ja funciona.
 | --- | --- | --- |
 | B1 | Criacao publica de Workspace ou Project | **Resolvido por WS-01.** API e CLI criam/listam scopes com nome canonico, constraints, migrations e `ScopeError`; o corredor chega a `contract register` sem fixture. |
 | B2 | O desktop empacotado nunca processa Runs | **Resolvido por WS-02 no PR #91.** O Electron Main supervisiona API e executor separados, com handshake, estado observavel, restart, shutdown e smoke do corredor. |
-| B3 | Autoria verificada e opt-in e desligada por padrao | **Decisao resolvida por WS-03; implementacao pendente em WS-40.** ADR 0022 escolhe execucao explicitamente nao verificada sem autenticacao por Run e preserva autenticacao humana como opt-in. |
+| B3 | Autoria verificada e opt-in e desligada por padrao | **Corredor de backend não verificado implementado parcialmente em WS-40.** Draft compila e executa com trust explícito sem autenticação por Run; ReviewPackage, kind verificado e integração da tela Create ainda faltam. |
 
 Corrigido neste ciclo, pela mesma investigacao: a CLI reconstruia `Repository` sem verifier, entao
 gravava aceitacao verificada que ela mesma nao conseguia reler; `authority accept` sobrescrevia o
@@ -101,10 +101,11 @@ Tres fatias independentes, sem arquivo compartilhado entre elas. Executam em par
   processos separados. Resolve B2 com estado, reinicio, shutdown e smoke no CI.
 - **WS-03 Decisao de autoria default — entregue:** ADR 0022 escolhe a execucao explicitamente nao
   verificada sem autenticacao a cada Run, preserva o claim humano fail-closed e fixa o contrato que
-  a WS-40 implementara.
+  o WS-40 está implementando em fatias reversíveis.
 
-WS-03 e decisao, nao codigo. Com o ADR aceito, WS-40 esta normativamente desbloqueado; a capability
-continua ausente ate o codigo e os testes desse workstream aterrissarem.
+WS-03 é decisão, não código. Com o ADR aceito, WS-40 foi normativamente desbloqueado; sua fundação e
+o corredor não verificado de backend já aterrissaram na implementação corrente, enquanto
+ReviewPackage, kind verificado e projeções humanas ainda não fecharam o workstream.
 
 ### Onda 1 — costuras do dominio (entregue)
 

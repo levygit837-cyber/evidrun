@@ -38,9 +38,16 @@ def test_rejected_admission_cannot_create_a_run(repository: Repository) -> None:
     source_run = repository.read_model.get_run(result["baseline_run_id"])
     assert source_run.run_spec_id is not None
     spec = repository.read_model.get_run_spec(source_run.run_spec_id)
+    source_contracts = repository.read_model.get_run_contracts(source_run.id)
+    assert source_contracts is not None
+    source_admission = source_contracts[1]
+    assert source_admission.execution_trust is not None
+    trust = repository.execution_trust.get_record(
+        source_admission.execution_trust.trust_id
+    )
     rejected = AdmissionService(
         envelope=RuntimeCapabilityEnvelope.declare(runners=())
-    ).admit(spec)
+    ).admit(spec, trust)
     assert rejected.decision == "rejected"
     spec_row = repository.catalog.save_run_spec(spec)
     admission_row = repository.catalog.save_admission_record(spec_row.id, rejected)
@@ -319,7 +326,7 @@ def test_ledger_rejects_unverified_human_progress_and_capture_bypass(
     assert repository.read_model.get_run(run.id).status == "evaluating"
 
 
-def test_admission_persistence_rejects_extra_subject_capability_context(
+def test_admission_persistence_rejects_an_unsealed_capability_spec(
     repository: Repository,
 ) -> None:
     result = EvidrunService(repository).bootstrap_demo(ROOT / "benchmarks")
@@ -367,7 +374,6 @@ def test_admission_persistence_rejects_extra_subject_capability_context(
         )
     ).admit(spec)
     assert admission.decision == "admitted"
-    repository.catalog.save_admission_record(spec_row.id, admission)
     assert admission.resolved_inventory.capabilities[0].context_refs == (
         declared_instruction,
     )
@@ -387,7 +393,9 @@ def test_admission_persistence_rejects_extra_subject_capability_context(
         }
     )
 
-    with pytest.raises(ValueError, match="does not satisfy its interface or authority"):
+    with pytest.raises(ValueError, match="requires execution trust"):
+        repository.catalog.save_admission_record(spec_row.id, admission)
+    with pytest.raises(ValueError, match="requires execution trust"):
         repository.catalog.save_admission_record(spec_row.id, tampered)
 
 
@@ -448,18 +456,10 @@ def test_unsupported_hard_gate_pipeline_is_rejected_before_run(
     )
     spec_row = repository.catalog.save_run_spec(spec)
     admission = EvidrunService(repository).admission_service.admit(spec)
-    admission_row = repository.catalog.save_admission_record(spec_row.id, admission)
     assert admission.decision == "rejected"
     assert "runtime:evaluation_pipeline" in admission.missing_requirements
-    with pytest.raises(ValueError, match="requires an admitted record"):
-        repository.catalog.create_run(
-            experiment_revision_id=source_run.experiment_revision_id,
-            variant_id="hard-gate-test",
-            runner=spec.agent_inventory.subject_id,
-            objective=spec.goal.instruction,
-            run_spec_id=spec_row.id,
-            admission_id=admission_row.id,
-        )
+    with pytest.raises(ValueError, match="requires execution trust"):
+        repository.catalog.save_admission_record(spec_row.id, admission)
 
 
 def test_wall_time_exhaustion_writes_a_terminal_event(
@@ -470,6 +470,13 @@ def test_wall_time_exhaustion_writes_a_terminal_event(
     source_run = repository.read_model.get_run(result["baseline_run_id"])
     assert source_run.run_spec_id is not None
     spec = repository.read_model.get_run_spec(source_run.run_spec_id)
+    source_contracts = repository.read_model.get_run_contracts(source_run.id)
+    assert source_contracts is not None
+    source_admission = source_contracts[1]
+    assert source_admission.execution_trust is not None
+    trust = repository.execution_trust.get_record(
+        source_admission.execution_trust.trust_id
+    )
     service = EvidrunService(repository)
 
     async def timeout_runner(_objective: str, _context: str) -> None:
@@ -487,6 +494,7 @@ def test_wall_time_exhaustion_writes_a_terminal_event(
             service._execute_spec(
                 source_run.experiment_revision_id,
                 spec,
+                trust,
                 source,
             )
         )
@@ -511,6 +519,13 @@ def test_runner_failure_writes_a_terminal_event_without_leaking_error(
     source_run = repository.read_model.get_run(result["baseline_run_id"])
     assert source_run.run_spec_id is not None
     spec = repository.read_model.get_run_spec(source_run.run_spec_id)
+    source_contracts = repository.read_model.get_run_contracts(source_run.id)
+    assert source_contracts is not None
+    source_admission = source_contracts[1]
+    assert source_admission.execution_trust is not None
+    trust = repository.execution_trust.get_record(
+        source_admission.execution_trust.trust_id
+    )
     service = EvidrunService(repository)
 
     async def failing_runner(_objective: str, _context: str) -> None:
@@ -527,6 +542,7 @@ def test_runner_failure_writes_a_terminal_event_without_leaking_error(
             service._execute_spec(
                 source_run.experiment_revision_id,
                 spec,
+                trust,
                 source,
             )
         )

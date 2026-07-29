@@ -134,6 +134,21 @@
         "title": "ContractRegistrationRequest",
         "type": "object"
       },
+      "ExecutionAdmissionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "execution_trust_id": {
+            "minLength": 1,
+            "title": "Execution Trust Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "execution_trust_id"
+        ],
+        "title": "ExecutionAdmissionRequest",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1496,6 +1511,16 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExecutionAdmissionRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -2108,12 +2133,9 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "additionalProperties": true,
-                    "type": "object"
-                  },
+                  "additionalProperties": true,
                   "title": "Response Compile Study Api V1 Studies  Revision Id  Compile Post",
-                  "type": "array"
+                  "type": "object"
                 }
               }
             },
