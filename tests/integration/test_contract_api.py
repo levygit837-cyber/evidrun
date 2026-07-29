@@ -27,10 +27,16 @@ def test_contract_lifecycle_compile_admit_and_bundle_v2(tmp_path: Path) -> None:
         study_row = next(item for item in revisions if item["contract_type"] == "study")
         compiled = client.post(f"/api/v1/studies/{study_row['id']}/compile")
         assert compiled.status_code == 200
-        assert len(compiled.json()) == 2
+        assert len(compiled.json()["run_specs"]) == 2
+        assert compiled.json()["revision_set"]["digest"]
+        assert compiled.json()["review_target"]["digest"]
 
-        run_spec_id = compiled.json()[0]["id"]
-        admission = client.post(f"/api/v1/run-specs/{run_spec_id}/admit")
+        prepared = compiled.json()["run_specs"][0]
+        run_spec_id = prepared["id"]
+        admission = client.post(
+            f"/api/v1/run-specs/{run_spec_id}/admit",
+            json={"execution_trust_id": prepared["execution_trust"]["trust_id"]},
+        )
         assert admission.status_code == 200
         assert admission.json()["decision"] == "admitted"
         assert client.get(f"/api/v1/run-specs/{run_spec_id}").status_code == 200

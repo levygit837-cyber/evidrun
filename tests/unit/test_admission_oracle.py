@@ -21,6 +21,7 @@ import pytest
 from evidrun.infrastructure.artifacts.store import ArtifactStore, MemoryKeyProvider
 from tests.support.admission_cases import build_admission_cases, build_catalogs
 from tests.support.admission_specs import admission_fingerprint, oracle_profile
+from tests.support.execution_trust import unpersisted_unverified_trust
 
 SNAPSHOT_PATH = Path(__file__).with_name("admission_oracle.json")
 
@@ -31,7 +32,9 @@ def _oracle(tmp_path: Path) -> dict[str, tuple[str, ...]]:
     observed: dict[str, tuple[str, ...]] = {}
     for case in build_admission_cases(store):
         service = catalogs[case.catalog].admission_service()
-        observed[case.name] = admission_fingerprint(service.admit(case.spec))
+        observed[case.name] = admission_fingerprint(
+            service.admit(case.spec, unpersisted_unverified_trust(case.spec))
+        )
     return observed
 
 
@@ -49,9 +52,7 @@ def test_admission_case_names_are_unique_and_snapshotted(tmp_path: Path) -> None
 
 
 @pytest.mark.parametrize("case_name", sorted(_snapshot()))
-def test_admission_decision_is_byte_identical_to_the_oracle(
-    case_name: str, tmp_path: Path
-) -> None:
+def test_admission_decision_is_byte_identical_to_the_oracle(case_name: str, tmp_path: Path) -> None:
     expected = tuple(_snapshot()[case_name])
 
     assert _oracle(tmp_path)[case_name] == expected
@@ -71,7 +72,11 @@ def test_unavailable_provider_profile_rejects_instead_of_raising(
     catalogs = build_catalogs(store, profile=oracle_profile())
     case = cases["provider_profile_unavailable"]
 
-    record = catalogs[case.catalog].admission_service().admit(case.spec)
+    record = (
+        catalogs[case.catalog]
+        .admission_service()
+        .admit(case.spec, unpersisted_unverified_trust(case.spec))
+    )
 
     assert record.decision == "rejected"
     assert "provider:ghost-profile" in record.missing_requirements
@@ -107,9 +112,7 @@ def test_every_rejected_case_carries_a_blocking_issue_or_a_denied_policy(
         if "decision=admitted" in lines:
             continue
         blocking = any(line.endswith("|blocking=True") for line in lines)
-        accounted = any(
-            line.startswith(("missing=", "denied=")) for line in lines
-        )
+        accounted = any(line.startswith(("missing=", "denied=")) for line in lines)
         assert blocking or accounted, f"{name} rejects without an observable reason"
 
 
@@ -182,8 +185,7 @@ def test_uncovered_branches_named_by_the_brief_are_now_exercised(tmp_path: Path)
         "supports read-only inputs|blocking=True"
     ) in observed["workspace_read_write_mount"]
     assert (
-        "issue=workspace|container|unsupported|workspace runtime is not "
-        "implemented|blocking=True"
+        "issue=workspace|container|unsupported|workspace runtime is not implemented|blocking=True"
     ) in observed["workspace_runtime_kind_unsupported"]
     assert (
         "issue=provider|provider_credential|unavailable|the provider credential is "

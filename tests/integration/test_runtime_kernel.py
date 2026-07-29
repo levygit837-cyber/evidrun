@@ -19,6 +19,10 @@ from evidrun.infrastructure.database import Database, Repository
 from evidrun.runs import RuntimeAdapterCatalog, build_runtime_kernel
 from evidrun.settings import Settings
 from evidrun.shared.types import Classification
+from tests.support.execution_trust import (
+    prepare_registered_study,
+    unpersisted_unverified_trust,
+)
 from tests.support.human_attestation import (
     TestHumanAttestationVerifier,
     accepted_decision,
@@ -49,15 +53,13 @@ def test_generic_run_survives_restart_and_executes_in_worker_subprocess(
         repository.registry.save_contract_revision(revision, status="proposed")
         repository.registry.decide_contract_revision(accepted_decision(revision))
 
-    specs = StudyCompiler(repository.registry.contract_registry(project.id)).compile(study)
-    assert len(specs) == 1
-    spec_row = repository.catalog.save_run_spec(specs[0])
+    spec, trust, spec_id = prepare_registered_study(repository, study)
     kernel = build_runtime_kernel(repository, settings.artifacts_dir)
-    admission = kernel.coordinator.admission_service.admit(specs[0])
+    admission = kernel.coordinator.admission_service.admit(spec, trust)
     assert admission.decision == "admitted"
-    admission_row = repository.catalog.save_admission_record(spec_row.id, admission)
+    admission_row = repository.catalog.save_admission_record(spec_id, admission)
     run_id, job = kernel.coordinator.enqueue(
-        run_spec_id=spec_row.id,
+        run_spec_id=spec_id,
         admission_id=admission_row.id,
         idempotency_key="generic-runtime-study-1",
     )
@@ -108,10 +110,10 @@ def test_generic_run_survives_restart_and_executes_in_worker_subprocess(
     assert envelope.digest == envelope.envelope.digest
     bundle_path = tmp_path / "generic-run.evidrun.zip"
     bundle_service = EvidenceBundleService(durable_repository)
-    bundle_service.export_run_v3(run_id, bundle_path)
+    bundle_service.export_run_v4(run_id, bundle_path)
     verification = bundle_service.verify(bundle_path)
     assert verification["valid"] is True
-    assert verification["records"]["__v3_records__"] is True
+    assert verification["records"]["__v4_records__"] is True
     tamper_cases = {
         "subject-envelopes/": lambda document: document["envelope"]["goal"].update(
             {"instruction": "tampered instruction"}
@@ -205,7 +207,7 @@ def test_admission_rejects_artifact_owned_by_another_project(tmp_path: Path) -> 
     spec = StudyCompiler(repository.registry.contract_registry(project.id)).compile(study)[0]
     kernel = build_runtime_kernel(repository, settings.artifacts_dir)
 
-    admission = kernel.coordinator.admission_service.admit(spec)
+    admission = kernel.coordinator.admission_service.admit(spec, unpersisted_unverified_trust(spec))
 
     assert admission.decision == "rejected"
     assert any(issue.subject_ref == "subject_input_artifact" for issue in admission.issues)

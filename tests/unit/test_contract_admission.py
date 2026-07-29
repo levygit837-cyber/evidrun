@@ -50,6 +50,7 @@ from tests.support.contract_fixtures import (
     legacy_package,
     materialized_subject_inputs,
 )
+from tests.support.execution_trust import unpersisted_unverified_trust
 
 
 def test_controlled_comparison_rejects_an_unexplained_second_change() -> None:
@@ -149,7 +150,7 @@ def test_required_and_optional_capabilities_have_different_admission_results() -
     required_spec = baseline.model_copy(update={"agent_inventory": required_agent})
     service = scripted_service(baseline.agent_inventory.runner_ref)
 
-    rejected = service.admit(required_spec)
+    rejected = service.admit(required_spec, unpersisted_unverified_trust(required_spec))
     assert rejected.decision == "rejected"
     assert rejected.resolved_inventory.capabilities[0].status == "unsupported"
 
@@ -161,7 +162,7 @@ def test_required_and_optional_capabilities_have_different_admission_results() -
             )
         }
     )
-    admitted = service.admit(optional_spec)
+    admitted = service.admit(optional_spec, unpersisted_unverified_trust(optional_spec))
     assert admitted.decision == "admitted"
     assert admitted.warnings
     envelope = SubjectEnvelopeCompiler.compile(
@@ -222,7 +223,7 @@ def test_admission_records_exact_capability_permissions_and_provider_resolution(
             ),
         ),
     )
-    admission = service.admit(spec)
+    admission = service.admit(spec, unpersisted_unverified_trust(spec))
     resolved = admission.resolved_inventory.capabilities[0]
     assert admission.decision == "admitted"
     assert resolved.resolved_ref == tool_ref
@@ -245,7 +246,9 @@ def test_admission_records_exact_capability_permissions_and_provider_resolution(
             )
         }
     )
-    instructions_admission = service.admit(instructions_spec)
+    instructions_admission = service.admit(
+        instructions_spec, unpersisted_unverified_trust(instructions_spec)
+    )
     assert instructions_admission.decision == "admitted"
     assert instructions_admission.resolved_inventory.capabilities[0].context_refs == (
         instruction_ref,
@@ -260,12 +263,10 @@ def test_admission_records_exact_capability_permissions_and_provider_resolution(
     excessive = requirement.model_copy(update={"requested_permissions": ("read", "write")})
     denied_spec = baseline.model_copy(
         update={
-            "agent_inventory": agent.model_copy(
-                update={"capability_requirements": (excessive,)}
-            )
+            "agent_inventory": agent.model_copy(update={"capability_requirements": (excessive,)})
         }
     )
-    denied = service.admit(denied_spec)
+    denied = service.admit(denied_spec, unpersisted_unverified_trust(denied_spec))
     assert denied.decision == "rejected"
     assert denied.resolved_inventory.capabilities[0].status == "denied"
     assert denied.resolved_inventory.capabilities[0].effective_permissions == ()
@@ -273,12 +274,12 @@ def test_admission_records_exact_capability_permissions_and_provider_resolution(
     incompatible = requirement.model_copy(update={"minimum_interface_version": "2"})
     incompatible_spec = baseline.model_copy(
         update={
-            "agent_inventory": agent.model_copy(
-                update={"capability_requirements": (incompatible,)}
-            )
+            "agent_inventory": agent.model_copy(update={"capability_requirements": (incompatible,)})
         }
     )
-    incompatible_admission = service.admit(incompatible_spec)
+    incompatible_admission = service.admit(
+        incompatible_spec, unpersisted_unverified_trust(incompatible_spec)
+    )
     assert incompatible_admission.decision == "rejected"
     assert incompatible_admission.resolved_inventory.capabilities[0].status == "unsupported"
 
@@ -294,7 +295,7 @@ def test_admission_records_exact_capability_permissions_and_provider_resolution(
         ),
         providers=service.envelope.providers.values(),
     )
-    authority_denied = unconstrained_service.admit(spec)
+    authority_denied = unconstrained_service.admit(spec, unpersisted_unverified_trust(spec))
     assert authority_denied.decision == "rejected"
     assert authority_denied.resolved_inventory.capabilities[0].status == "denied"
 
@@ -303,9 +304,7 @@ def test_nested_agent_graph_and_checkpoints_compile_but_admission_rejects_runtim
     _, package, registry, _ = baseline_specs()
     base_study = package.study
     base_agent = next(
-        revision
-        for revision in package.revisions
-        if isinstance(revision, AgentInventoryRevision)
+        revision for revision in package.revisions if isinstance(revision, AgentInventoryRevision)
     )
     tool = CapabilityRequirement(
         kind="tool",
@@ -402,12 +401,12 @@ def test_nested_agent_graph_and_checkpoints_compile_but_admission_rejects_runtim
     assert len(specs) == 2
     assert all(spec.checkpoint_policy is not None for spec in specs)
     assert all(
-        len(spec.checkpoint_policy.definitions) == 4
-        for spec in specs
-        if spec.checkpoint_policy
+        len(spec.checkpoint_policy.definitions) == 4 for spec in specs if spec.checkpoint_policy
     )
     for spec in specs:
-        admission = scripted_service(spec.agent_inventory.runner_ref).admit(spec)
+        admission = scripted_service(spec.agent_inventory.runner_ref).admit(
+            spec, unpersisted_unverified_trust(spec)
+        )
         assert admission.decision == "rejected"
         assert admission.interaction_status == "unsupported"
         assert "runtime:nested_agents" in admission.missing_requirements
@@ -424,12 +423,10 @@ def test_admission_rejects_workspace_interaction_and_capture_features_not_execut
 
     writable = baseline.model_copy(
         update={
-            "workspace": baseline.workspace.model_copy(
-                update={"write_zones": ("subject-output",)}
-            )
+            "workspace": baseline.workspace.model_copy(update={"write_zones": ("subject-output",)})
         }
     )
-    assert service.admit(writable).decision == "rejected"
+    assert service.admit(writable, unpersisted_unverified_trust(writable)).decision == "rejected"
 
     prompt_ref = ArtifactRef(
         artifact_id="system-prompt",
@@ -443,7 +440,10 @@ def test_admission_rejects_workspace_interaction_and_capture_features_not_execut
             )
         }
     )
-    assert service.admit(prompted).interaction_status == "unsupported"
+    assert (
+        service.admit(prompted, unpersisted_unverified_trust(prompted)).interaction_status
+        == "unsupported"
+    )
 
     raw_capture = baseline.model_copy(
         update={
@@ -452,20 +452,16 @@ def test_admission_rejects_workspace_interaction_and_capture_features_not_execut
             )
         }
     )
-    rejected_capture = service.admit(raw_capture)
+    rejected_capture = service.admit(raw_capture, unpersisted_unverified_trust(raw_capture))
     assert rejected_capture.decision == "rejected"
     assert "capture:raw_encrypted" in rejected_capture.denied_policies
 
     token_budget = baseline.model_copy(
-        update={
-            "budgets": baseline.budgets.model_copy(update={"max_output_tokens": 100})
-        }
+        update={"budgets": baseline.budgets.model_copy(update={"max_output_tokens": 100})}
     )
-    token_budget_admission = service.admit(token_budget)
+    token_budget_admission = service.admit(token_budget, unpersisted_unverified_trust(token_budget))
     assert token_budget_admission.decision == "rejected"
-    assert "runtime:budget:max_output_tokens" in (
-        token_budget_admission.missing_requirements
-    )
+    assert "runtime:budget:max_output_tokens" in (token_budget_admission.missing_requirements)
 
     unsupported_stop = baseline.model_copy(
         update={
@@ -475,7 +471,7 @@ def test_admission_rejects_workspace_interaction_and_capture_features_not_execut
             )
         }
     )
-    stop_admission = service.admit(unsupported_stop)
+    stop_admission = service.admit(unsupported_stop, unpersisted_unverified_trust(unsupported_stop))
     assert stop_admission.decision == "rejected"
     assert "runtime:stop_condition_coordinator" in stop_admission.missing_requirements
 
@@ -488,18 +484,16 @@ def test_admission_rejects_workspace_interaction_and_capture_features_not_execut
     restricted_scenario = baseline.scenario.model_copy(
         update={"input_bindings": (restricted_binding,)}
     )
-    restricted_mount = baseline.workspace.mounts[0].model_copy(
-        update={"source": restricted_source}
-    )
-    restricted_workspace = baseline.workspace.model_copy(
-        update={"mounts": (restricted_mount,)}
-    )
+    restricted_mount = baseline.workspace.mounts[0].model_copy(update={"source": restricted_source})
+    restricted_workspace = baseline.workspace.model_copy(update={"mounts": (restricted_mount,)})
     restricted_spec = baseline.model_copy(
         update={
             "scenario": restricted_scenario,
             "workspace": restricted_workspace,
         }
     )
-    restricted_admission = service.admit(restricted_spec)
+    restricted_admission = service.admit(
+        restricted_spec, unpersisted_unverified_trust(restricted_spec)
+    )
     assert restricted_admission.decision == "rejected"
     assert "classification:restricted" in restricted_admission.denied_policies

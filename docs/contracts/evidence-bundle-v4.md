@@ -15,8 +15,13 @@ sources:
   - docs/adr/0022-explicit-execution-trust-without-per-run-authentication.md
 supersedes: []
 superseded_by: null
-implementation_refs: []
-verification_refs: []
+implementation_refs:
+  - src/evidrun/evidence/export/run_v4.py
+  - src/evidrun/evidence/verify/v4.py
+  - src/evidrun/evidence/bundle.py
+verification_refs:
+  - tests/acceptance/test_unverified_execution.py
+  - tests/live/test_real_agent_benchmark.py
 ---
 
 # Evidence Bundle v4 com Execution Trust
@@ -26,8 +31,10 @@ record canônico verificável. Ele se aplica somente a uma Run ligada a `Executi
 Run legada sem esse record permanece `not_recorded` e usa o exportador compatível aplicável, sem
 inferência retroativa.
 
-Este contrato está aceito, mas ainda não implementado. A existência deste documento não torna o
-exportador v4 disponível até que os `implementation_refs` e `verification_refs` sejam preenchidos.
+O exportador e o verificador v4 estão implementados para `unverified_revision_set`. Eles exportam o
+record completo, recalculam a closure e todas as ligações sem consultar o SQLite original e rejeitam
+omissão, alteração, duplicação ou troca de trust. O kind `verified_revision_set` continua falhando
+fechado até a próxima fatia do WS-40 exportar e verificar todas as decisions humanas vinculadas.
 
 ## Layout exato
 
@@ -96,6 +103,10 @@ O verificador v4 executa todas as validações do v3 e, sem consultar o SQLite o
    humana exportada pelo binding canônico;
 7. valida lifecycle, ledger, evaluations, checkpoints, SubjectEnvelope, job, attempts e artifact
    manifest conforme o v3.
+
+No estado atual, os passos 1–5 e 7 estão ativos para o kind não verificado. O passo 6 é normativo,
+mas ainda não está disponível; receber um trust verificado não degrada para não verificado e não
+produz bundle parcial.
 
 Uma string de metadata, ausência de decision ou ator enviado por API não substitui o record. O
 verificador rejeita trust omitido, duplicado, trocado entre Runs ou alterado mesmo quando o checksum

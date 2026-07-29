@@ -8,13 +8,13 @@ from typing import Any
 import yaml
 
 from evidrun.contexts import ContextComposer
-from evidrun.contracts import RunSpec
+from evidrun.contracts import ExecutionTrustRecord, RunSpec
 from evidrun.contracts.admission import admission_rejection_error
-from evidrun.contracts.compiler import StudyCompiler
 from evidrun.contracts.legacy import ExperimentManifestV1Adapter
 from evidrun.experiments import ExperimentManifest
 from evidrun.infrastructure.database import Repository
 from evidrun.runs.composition import RuntimeKernel, build_runtime_kernel
+from evidrun.runs.preparation import ExecutionPreparationService
 from evidrun.runs.worker import DurableRunWorker
 from evidrun.shared.types import Classification, new_id
 
@@ -31,6 +31,7 @@ class EvidrunService:
         self.composer = ContextComposer()
         self.runner = self.runtime.catalog.subject.runner
         self.admission_service = self.runtime.coordinator.admission_service
+        self.execution_preparation = ExecutionPreparationService(repository)
 
     def bootstrap_demo(self, benchmark_root: Path) -> dict[str, Any]:
         manifest_path = benchmark_root / "experiments" / "crl-ctx-002-demo.yaml"
@@ -72,14 +73,20 @@ class EvidrunService:
             fixture_ref=fixture_ref,
         )
         self.repository.registry.import_legacy_contract_package(package)
-        registry = self.repository.registry.contract_registry(project_id)
-        run_specs = StudyCompiler(registry).compile(package.study)
+        study_row = self.repository.registry.save_contract_revision(package.study)
+        preparation = self.execution_preparation.prepare(study_row.id)
 
         runs: dict[str, dict[str, Any]] = {}
         snapshots: dict[str, dict[str, Any]] = {}
-        for spec in run_specs:
+        for prepared in preparation.run_specs:
+            spec = prepared.spec
             run, snapshot, grade = asyncio.run(
-                self._execute_spec(revision.id, spec, fixture_path.read_text())
+                self._execute_spec(
+                    revision.id,
+                    spec,
+                    prepared.execution_trust,
+                    fixture_path.read_text(),
+                )
             )
             runs[spec.variant_id] = {"run": run, "grade": grade}
             snapshots[spec.variant_id] = snapshot
@@ -128,11 +135,12 @@ class EvidrunService:
         self,
         experiment_revision_id: str,
         spec: RunSpec,
+        execution_trust: ExecutionTrustRecord,
         source: str,
     ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
         del source
         spec_row = self.repository.catalog.save_run_spec(spec)
-        admission = self.admission_service.admit(spec)
+        admission = self.admission_service.admit(spec, execution_trust)
         admission_row = self.repository.catalog.save_admission_record(spec_row.id, admission)
         if admission.decision != "admitted":
             raise ValueError(admission_rejection_error(admission).message)

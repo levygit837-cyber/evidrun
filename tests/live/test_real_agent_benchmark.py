@@ -11,18 +11,14 @@ from pathlib import Path
 import pytest
 
 from evidrun.contracts import ArtifactRef
-from evidrun.contracts.compiler import StudyCompiler
 from evidrun.evidence.bundle import EvidenceBundleService
 from evidrun.infrastructure.artifacts.store import ArtifactStore
 from evidrun.infrastructure.database import Database, Repository
 from evidrun.providers import ProviderProfile
 from evidrun.runs import build_runtime_kernel
+from evidrun.runs.preparation import ExecutionPreparationService
 from evidrun.settings import Settings
 from evidrun.shared.types import Classification
-from tests.support.human_attestation import (
-    TestHumanAttestationVerifier,
-    accepted_decision,
-)
 from tests.support.live_read_study import (
     build_live_read_study,
     fresh_incident_memo,
@@ -45,7 +41,7 @@ def test_real_model_completes_fresh_tool_grounded_study(tmp_path: Path) -> None:
 
     database = Database(settings.database_path)
     database.create_all()
-    repository = Repository(database, TestHumanAttestationVerifier())
+    repository = Repository(database)
     workspace = repository.catalog.create_workspace(f"Live benchmark {nonce}")
     project = repository.catalog.create_project(workspace.id, f"Fresh retrieval {nonce}")
     artifact_store = ArtifactStore(settings.artifacts_dir)
@@ -61,17 +57,25 @@ def test_real_model_completes_fresh_tool_grounded_study(tmp_path: Path) -> None:
         expected=expected,
         profile=profile,
     )
+    study_revision_id = ""
     for revision in revisions:
-        repository.registry.save_contract_revision(revision, status="proposed")
-        repository.registry.decide_contract_revision(accepted_decision(revision))
-    spec = StudyCompiler(repository.registry.contract_registry(project.id)).compile(study)[0]
-    spec_row = repository.catalog.save_run_spec(spec)
+        revision_row = repository.registry.save_contract_revision(
+            revision, status="draft"
+        )
+        if revision == study:
+            study_revision_id = revision_row.id
+    prepared = ExecutionPreparationService(repository).prepare(
+        study_revision_id
+    ).run_specs[0]
+    spec = prepared.spec
     kernel = build_runtime_kernel(repository, settings.artifacts_dir)
-    admission = kernel.coordinator.admission_service.admit(spec)
+    admission = kernel.coordinator.admission_service.admit(
+        spec, prepared.execution_trust
+    )
     assert admission.decision == "admitted", admission.model_dump(mode="json")
-    admission_row = repository.catalog.save_admission_record(spec_row.id, admission)
+    admission_row = repository.catalog.save_admission_record(prepared.row_id, admission)
     run_id, job = kernel.coordinator.enqueue(
-        run_spec_id=spec_row.id,
+        run_spec_id=prepared.row_id,
         admission_id=admission_row.id,
         idempotency_key=f"live-agent-{nonce}",
     )
@@ -147,15 +151,16 @@ def test_real_model_completes_fresh_tool_grounded_study(tmp_path: Path) -> None:
     assert output_document["answer"] == expected
     assert {"input_id": "incident-memo", "line": 36} in output_document["evidence"]
 
-    bundle_path = data_dir / f"{run_id}.evidence-v3.zip"
+    bundle_path = data_dir / f"{run_id}.evidence-v4.zip"
     service = EvidenceBundleService(reopened)
-    service.export_run_v3(run_id, bundle_path)
+    service.export_run_v4(run_id, bundle_path)
     verification = service.verify(bundle_path)
     assert verification["valid"] is True, verification
     with zipfile.ZipFile(bundle_path) as archive:
         envelope = json.loads(archive.read(f"subject-envelopes/{run_id}.json"))
         bundle = json.loads(archive.read("bundle.json"))
-    assert bundle["schema_version"] == "3"
+    assert bundle["schema_version"] == "4"
+    assert bundle["execution_trust"]["kind"] == "unverified_revision_set"
     invocation = next(event for event in events if event["type"] == "subject.invoked")
     assert envelope["digest"] == invocation["payload"]["subject_envelope_digest"]
     assert expected not in json.dumps(envelope, sort_keys=True)
@@ -167,8 +172,9 @@ def test_real_model_completes_fresh_tool_grounded_study(tmp_path: Path) -> None:
                 "data_dir": str(data_dir),
                 "run_id": run_id,
                 "job_id": job.job_id,
-                "run_spec_id": spec_row.id,
+                "run_spec_id": prepared.row_id,
                 "admission_id": admission_row.id,
+                "execution_trust_id": prepared.execution_trust.trust_id,
                 "expected": expected,
                 "model": profile.model,
                 "reasoning_effort": profile.reasoning_effort,

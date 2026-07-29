@@ -60,6 +60,7 @@ from tests.support.contract_fixtures import (
     baseline_specs,
     materialized_subject_inputs,
 )
+from tests.support.execution_trust import unpersisted_unverified_trust
 
 
 def test_exploratory_study_has_default_variant_and_no_aggregate_score() -> None:
@@ -109,13 +110,9 @@ def test_exploratory_study_has_default_variant_and_no_aggregate_score() -> None:
             aggregation=None,
             human_adjudication_policy=HumanAdjudicationPolicy(
                 required=True,
-                adjudicator_ref=capability_ref(
-                    "evidrun.human", "qualitative-adjudicator"
-                ),
+                adjudicator_ref=capability_ref("evidrun.human", "qualitative-adjudicator"),
                 adjudicable_stage_ids=("qualitative-judge",),
-                attestation_verifier_ref=capability_ref(
-                    "evidrun.authority", "webauthn-verifier"
-                ),
+                attestation_verifier_ref=capability_ref("evidrun.authority", "webauthn-verifier"),
             ),
         ),
     )
@@ -143,7 +140,9 @@ def test_exploratory_study_has_default_variant_and_no_aggregate_score() -> None:
     assert len(specs) == 1
     assert specs[0].variant_id == "default"
     assert specs[0].evaluation_plan.aggregation is None
-    admission = scripted_service(specs[0].agent_inventory.runner_ref).admit(specs[0])
+    admission = scripted_service(specs[0].agent_inventory.runner_ref).admit(
+        specs[0], unpersisted_unverified_trust(specs[0])
+    )
     assert admission.decision == "rejected"
     assert "runtime:bounded_exploration_terminal" in admission.missing_requirements
     assert "runtime:evaluation_pipeline" in admission.missing_requirements
@@ -264,9 +263,7 @@ def test_evaluation_validator_enforces_types_scales_and_hard_gates() -> None:
     EvaluationValidator.validate(plan, record)
     invalid = record.model_copy(
         update={
-            "dimension_values": (
-                record.dimension_values[0].model_copy(update={"value": "yes"}),
-            )
+            "dimension_values": (record.dimension_values[0].model_copy(update={"value": "yes"}),)
         }
     )
     with pytest.raises(ValueError, match="boolean"):
@@ -293,25 +290,21 @@ def test_evaluation_validator_enforces_types_scales_and_hard_gates() -> None:
             "gate_status": "passed",
         }
     )
-    assert EvaluationValidator.gate_results(
-        plan, [failed_primary, passing_adjudication]
-    ) == {"integrity": "passed"}
-    assert EvaluationValidator.gate_results(
-        plan, [passing_adjudication, failed_primary]
-    ) == {"integrity": "passed"}
+    assert EvaluationValidator.gate_results(plan, [failed_primary, passing_adjudication]) == {
+        "integrity": "passed"
+    }
+    assert EvaluationValidator.gate_results(plan, [passing_adjudication, failed_primary]) == {
+        "integrity": "passed"
+    }
     future_primary = failed_primary.model_copy(
         update={
             "record_id": "eval-integrity-future",
-            "boundary": failed_primary.boundary.model_copy(
-                update={"up_to_event_sequence": 3}
-            ),
+            "boundary": failed_primary.boundary.model_copy(update={"up_to_event_sequence": 3}),
         }
     )
     bounded_adjudication = passing_adjudication.model_copy(
         update={
-            "boundary": passing_adjudication.boundary.model_copy(
-                update={"up_to_event_sequence": 2}
-            )
+            "boundary": passing_adjudication.boundary.model_copy(update={"up_to_event_sequence": 2})
         }
     )
     with pytest.raises(ValueError, match="outside its boundary"):
@@ -354,9 +347,7 @@ def test_checkpoint_and_human_adjudication_are_append_only_records() -> None:
         CheckpointRecord.model_validate(
             checkpoint.model_copy(
                 update={
-                    "validations": (
-                        checkpoint.validations[0].model_copy(update={"passed": False}),
-                    )
+                    "validations": (checkpoint.validations[0].model_copy(update={"passed": False}),)
                 }
             ).model_dump(mode="json", exclude={"checkpoint_hash"})
         )

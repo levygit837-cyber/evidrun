@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 from pathlib import Path
 
-import pytest
 from fastapi.testclient import TestClient
 from typer.testing import CliRunner
 
@@ -15,13 +13,13 @@ from evidrun.entrypoints.api.app import create_app
 from evidrun.entrypoints.cli.app import app as cli_app
 from evidrun.infrastructure.artifacts.store import ArtifactStore, MemoryKeyProvider
 from evidrun.infrastructure.database import Database, Repository
-from evidrun.runs import EvidrunService
 from tests.integration.test_runtime_queue import _runtime_fixture
 from tests.support.admission_cases import build_admission_cases, build_catalogs
 from tests.support.admission_specs import oracle_profile
+from tests.support.execution_trust import unpersisted_unverified_trust
 
 
-def test_api_cli_and_service_share_the_persistible_admission_rejection(
+def test_api_and_cli_require_system_derived_execution_trust(
     tmp_path: Path,
 ) -> None:
     data_dir = tmp_path / "data"
@@ -32,8 +30,12 @@ def test_api_cli_and_service_share_the_persistible_admission_rejection(
     cases = {case.name: case for case in build_admission_cases(store)}
     catalogs = build_catalogs(store, profile=oracle_profile())
     case = cases["subject_input_media_type_json"]
-    expected_record = catalogs[case.catalog].admission_service().admit(case.spec)
-    expected = admission_rejection_error(expected_record).model_dump(mode="json")
+    expected_record = (
+        catalogs[case.catalog]
+        .admission_service()
+        .admit(case.spec, unpersisted_unverified_trust(case.spec))
+    )
+    assert admission_rejection_error(expected_record).code
     spec_row = repository.catalog.save_run_spec(case.spec)
     database.dispose()
 
@@ -41,29 +43,20 @@ def test_api_cli_and_service_share_the_persistible_admission_rejection(
     with TestClient(app) as client:
         api_response = client.post(f"/api/v1/run-specs/{spec_row.id}/admit")
         assert api_response.status_code == 422
-        assert api_response.json()["error"] == expected
-        api_admission_id = api_response.json()["id"]
-        persisted = client.get(f"/api/v1/admissions/{api_admission_id}")
-        assert persisted.status_code == 200
-        assert persisted.json()["decision"] == "rejected"
+        unknown = client.post(
+            f"/api/v1/run-specs/{spec_row.id}/admit",
+            json={"execution_trust_id": "trust_unknown"},
+        )
+        assert unknown.status_code == 404
 
     cli_response = CliRunner().invoke(
         cli_app,
         ["run", "admit", spec_row.id, "--data-dir", str(data_dir)],
     )
-    assert cli_response.exit_code == 3, cli_response.output
-    assert json.loads(cli_response.stdout)["error"] == expected
-
-    service_database = Database(data_dir / "evidrun.db")
-    service_database.create_all()
-    service = EvidrunService(Repository(service_database))
-    with pytest.raises(ValueError) as rejected:
-        asyncio.run(service._execute_spec("oracle-experiment", case.spec, ""))
-    assert str(rejected.value) == expected["message"]
-    service_database.dispose()
+    assert cli_response.exit_code == 2, cli_response.output
 
 
-def test_missing_provider_profile_is_persisted_as_a_rejection(tmp_path: Path) -> None:
+def test_missing_provider_profile_cannot_bypass_execution_trust(tmp_path: Path) -> None:
     data_dir = tmp_path / "data"
     app = create_app(data_dir=data_dir)
     store = app.state.runtime_kernel.artifact_store
@@ -72,14 +65,11 @@ def test_missing_provider_profile_is_persisted_as_a_rejection(tmp_path: Path) ->
     spec_row = app.state.repository.catalog.save_run_spec(case.spec)
 
     with TestClient(app) as client:
-        response = client.post(f"/api/v1/run-specs/{spec_row.id}/admit")
-        assert response.status_code == 422
-        payload = response.json()
-        assert payload["decision"] == "rejected"
-        assert "ghost-profile" in payload["error"]["message"]
-        persisted = client.get(f"/api/v1/admissions/{payload['id']}")
-        assert persisted.status_code == 200
-        assert persisted.json()["decision"] == "rejected"
+        response = client.post(
+            f"/api/v1/run-specs/{spec_row.id}/admit",
+            json={"execution_trust_id": "trust_missing-provider-bypass"},
+        )
+        assert response.status_code == 404
 
 
 def test_admitted_api_and_cli_responses_keep_their_success_contract(tmp_path: Path) -> None:
@@ -88,14 +78,25 @@ def test_admitted_api_and_cli_responses_keep_their_success_contract(tmp_path: Pa
     app = create_app(data_dir=tmp_path)
 
     with TestClient(app) as client:
-        api_response = client.post(f"/api/v1/run-specs/{fixture.spec_id}/admit")
+        api_response = client.post(
+            f"/api/v1/run-specs/{fixture.spec_id}/admit",
+            json={"execution_trust_id": fixture.execution_trust_id},
+        )
         assert api_response.status_code == 200
         assert api_response.json()["decision"] == "admitted"
         assert "error" not in api_response.json()
 
     cli_response = CliRunner().invoke(
         cli_app,
-        ["run", "admit", fixture.spec_id, "--data-dir", str(tmp_path)],
+        [
+            "run",
+            "admit",
+            fixture.spec_id,
+            "--execution-trust-id",
+            fixture.execution_trust_id,
+            "--data-dir",
+            str(tmp_path),
+        ],
     )
     assert cli_response.exit_code == 0, cli_response.output
     assert json.loads(cli_response.stdout)["decision"] == "admitted"

@@ -13,6 +13,7 @@ from typing import Any
 from evidrun.evidence.export.comparison_v1 import export_comparison
 from evidrun.evidence.export.comparison_v2 import export_comparison_v2
 from evidrun.evidence.export.run_v3 import export_run_v3
+from evidrun.evidence.export.run_v4 import export_run_v4
 from evidrun.evidence.verify.dispatch import verify
 from evidrun.infrastructure.database import Repository
 
@@ -29,6 +30,19 @@ class EvidenceBundleService:
 
     def export_run_v3(self, run_id: str, output_path: Path) -> Path:
         return export_run_v3(self.repository, run_id, output_path)
+
+    def export_run_v4(self, run_id: str, output_path: Path) -> Path:
+        return export_run_v4(self.repository, run_id, output_path)
+
+    def export_run(self, run_id: str, output_path: Path) -> tuple[Path, str]:
+        """Dispatch only on recorded trust presence; never infer a trust kind."""
+
+        record = self.repository.read_model.get_run_record(run_id)
+        if record is None:
+            raise ValueError("Run has no canonical RunRecord")
+        if record.execution_trust is None:
+            return self.export_run_v3(run_id, output_path), "3"
+        return self.export_run_v4(run_id, output_path), "4"
 
     def verify(self, bundle_path: Path) -> dict[str, Any]:
         return verify(bundle_path)

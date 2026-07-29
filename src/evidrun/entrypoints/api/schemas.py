@@ -53,6 +53,11 @@ class RunEnqueueRequest(BaseModel):
     admission_id: str = Field(min_length=1)
 
 
+class ExecutionAdmissionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    execution_trust_id: str = Field(min_length=1)
+
+
 class WorkspaceCreateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str

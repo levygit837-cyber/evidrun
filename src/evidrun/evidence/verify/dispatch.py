@@ -24,6 +24,7 @@ from evidrun.contracts.runtime.events import (
 )
 from evidrun.evidence.verify.v2 import verify_v2_records, verify_v2_structure
 from evidrun.evidence.verify.v3 import verify_v3_records, verify_v3_structure
+from evidrun.evidence.verify.v4 import verify_v4_records, verify_v4_structure
 from evidrun.infrastructure.database.ledger.transitions import TERMINAL_RUN_STATUSES
 from evidrun.shared.types import canonical_json, sha256_json
 
@@ -125,6 +126,12 @@ def _verify_records(archive: zipfile.ZipFile, names: set[str]) -> dict[str, bool
     if version == "3":
         results = verify_v3_records(archive, names)
         results["__bundle_structure__"] = verify_v3_structure(bundle_manifest, names)
+        return results
+    if version == "4":
+        results = verify_v4_records(archive, names)
+        results["__bundle_structure__"] = verify_v4_structure(
+            bundle_manifest, names
+        )
         return results
     return {}
 

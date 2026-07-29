@@ -78,6 +78,9 @@ class EnqueueStore:
             spec, admission, admission_row = _load_admitted_contracts(
                 session, run_spec_id=run_spec_id, admission_id=admission_id
             )
+            execution_trust = admission.execution_trust
+            if execution_trust is None:
+                raise ValueError("Run requires the AdmissionRecord execution trust")
             if retry_of is not None:
                 experiment_revision_id = _validate_retry(
                     session,
@@ -98,6 +101,8 @@ class EnqueueStore:
                 objective=spec.goal.instruction,
                 run_spec_id=run_spec_id,
                 admission_id=admission_id,
+                execution_trust_id=execution_trust.trust_id,
+                execution_trust_digest=execution_trust.digest,
                 retry_of=retry_of,
                 created_at=requested_at,
             )
@@ -143,6 +148,12 @@ def _load_admitted_contracts(
         or admission.run_spec_digest != spec.digest
     ):
         raise ValueError("Run requires an admitted record for the exact RunSpec")
+    if (
+        admission.execution_trust is None
+        or admission_row.execution_trust_id != admission.execution_trust.trust_id
+        or admission_row.execution_trust_digest != admission.execution_trust.digest
+    ):
+        raise ValueError("Run requires the AdmissionRecord execution trust")
     return spec, admission, admission_row
 
 

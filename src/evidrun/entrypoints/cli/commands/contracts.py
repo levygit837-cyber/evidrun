@@ -8,8 +8,7 @@ from typing import Annotated
 import typer
 import yaml
 
-from evidrun.contracts import StudyRevision, parse_revision
-from evidrun.contracts.compiler import StudyCompiler
+from evidrun.contracts import parse_revision
 from evidrun.contracts.triage import CLI_EXIT_BY_CODE
 from evidrun.entrypoints.cli.shared import components, console
 from evidrun.experiments import ExperimentManifest
@@ -17,6 +16,7 @@ from evidrun.infrastructure.database.register_errors import (
     RegisterRejected,
     RegisterStorageUnavailable,
 )
+from evidrun.runs import EvidrunService
 
 experiment_app = typer.Typer(help="Validar e aceitar manifests de experimento.")
 contract_app = typer.Typer(help="Validar, registrar e decidir contracts revisionados.")
@@ -81,23 +81,9 @@ def compile_study(
 ) -> None:
     _, database, repository = components(data_dir)
     try:
-        revision = repository.read_model.get_contract_revision(revision_id)
-        if not isinstance(revision, StudyRevision):
-            raise typer.BadParameter("contract revision is not a StudyRevision")
-        registry = repository.registry.contract_registry(revision.project_id)
-        specs = StudyCompiler(registry).compile(revision)
-        rows = [repository.catalog.save_run_spec(spec) for spec in specs]
-        console.print_json(
-            data=[
-                {
-                    "id": row.id,
-                    "digest": row.digest,
-                    "variant_id": row.variant_id,
-                    "scenario_id": row.scenario_logical_id,
-                    "repetition_index": row.repetition_index,
-                }
-                for row in rows
-            ]
+        preparation = EvidrunService(repository).execution_preparation.prepare(
+            revision_id
         )
+        console.print_json(data=preparation.document())
     finally:
         database.dispose()

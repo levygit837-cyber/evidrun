@@ -15,7 +15,6 @@ import pytest
 import evidrun.runs.coordinator.attempt as attempt_module
 from evidrun.contracts import ExtensionRef
 from evidrun.contracts.authoring.evaluation import AggregationSpec, BlindingPolicy
-from evidrun.contracts.compiler import StudyCompiler
 from evidrun.evidence.bundle import EvidenceBundleService
 from evidrun.infrastructure.artifacts.store import (
     ArtifactStore,
@@ -32,6 +31,10 @@ from evidrun.runs.adapters import (
 from evidrun.runs.coordinator import RunExecutionCoordinator
 from evidrun.settings import Settings
 from evidrun.shared.types import Classification, utc_now
+from tests.support.execution_trust import (
+    prepare_registered_study,
+    unpersisted_unverified_trust,
+)
 from tests.support.human_attestation import (
     TestHumanAttestationVerifier,
     accepted_decision,
@@ -155,8 +158,7 @@ def _fixture(
     for revision in revisions:
         repository.registry.save_contract_revision(revision, status="proposed")
         repository.registry.decide_contract_revision(accepted_decision(revision))
-    spec = StudyCompiler(repository.registry.contract_registry(project.id)).compile(study)[0]
-    spec_row = repository.catalog.save_run_spec(spec)
+    spec, trust, spec_id = prepare_registered_study(repository, study)
     provider = SequencedProvider(responses)
     real_subject = ResponsesReadAgentAdapter(
         provider,
@@ -168,9 +170,9 @@ def _fixture(
         materializer=ArtifactInputMaterializer(artifact_store),
     )
     coordinator = RunExecutionCoordinator(repository, artifact_store, catalog)
-    admission = coordinator.admission_service.admit(spec)
+    admission = coordinator.admission_service.admit(spec, trust)
     assert admission.decision == "admitted", admission.model_dump(mode="json")
-    admission_row = repository.catalog.save_admission_record(spec_row.id, admission)
+    admission_row = repository.catalog.save_admission_record(spec_id, admission)
     return LiveFixture(
         settings=settings,
         database=database,
@@ -180,7 +182,7 @@ def _fixture(
         catalog=catalog,
         coordinator=coordinator,
         provider=provider,
-        spec_id=spec_row.id,
+        spec_id=spec_id,
         admission_id=admission_row.id,
         expected=expected,
     )
@@ -247,9 +249,9 @@ def test_real_agent_adapter_traces_tool_and_completes_grounded_run(
         "function_call",
         "function_call_output",
     ]
-    bundle_path = tmp_path / "live-agent-run-v3.zip"
+    bundle_path = tmp_path / "live-agent-run-v4.zip"
     bundle_service = EvidenceBundleService(fixture.repository)
-    bundle_service.export_run_v3(run_id, bundle_path)
+    bundle_service.export_run_v4(run_id, bundle_path)
     verification = bundle_service.verify(bundle_path)
     assert verification["valid"] is True, verification
 
@@ -512,7 +514,9 @@ def test_live_spec_variations_reject_without_enqueuing(tmp_path: Path) -> None:
         ),
     )
     for variant in variants:
-        admission = fixture.coordinator.admission_service.admit(variant)
+        admission = fixture.coordinator.admission_service.admit(
+            variant, unpersisted_unverified_trust(variant)
+        )
         assert admission.decision == "rejected"
         assert admission.issues
     assert fixture.repository.read_model.latest_dashboard()["runs"] == []

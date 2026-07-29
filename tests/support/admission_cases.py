@@ -1,6 +1,6 @@
 """The admission oracle case matrix: one RunSpec per rejection branch.
 
-Every case runs the production path `catalog.admission_service().admit(spec)`, so
+Every case runs the production admission path with explicit execution trust, so
 both admission layers execute exactly as they do in a worker. Each case declares
 which adapter pair the catalog must resolve.
 """

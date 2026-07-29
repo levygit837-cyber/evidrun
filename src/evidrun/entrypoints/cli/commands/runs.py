@@ -57,19 +57,22 @@ def inspect_run(
 @run_app.command("admit")
 def admit_run_spec(
     run_spec_id: str,
+    execution_trust_id: Annotated[str, typer.Option("--execution-trust-id")],
     data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
 ) -> None:
     _, database, repository = components(data_dir)
     try:
         spec = repository.read_model.get_run_spec(run_spec_id)
+        trust = repository.execution_trust.get_record(execution_trust_id)
         service = EvidrunService(repository)
-        admission = service.admission_service.admit(spec)
+        admission = service.admission_service.admit(spec, trust)
         row = repository.catalog.save_admission_record(run_spec_id, admission)
         response: dict[str, Any] = {
             "id": row.id,
             "decision": admission.decision,
             "digest": admission.digest,
             "missing_requirements": admission.missing_requirements,
+            "execution_trust": trust.ref.model_dump(mode="json"),
         }
         exit_code: int | None = None
         if admission.decision == "rejected":
@@ -186,7 +189,7 @@ def export_run_bundle(
     settings, database, repository = components(data_dir)
     try:
         target = output or settings.data_dir / "exports" / f"{run_id}.evidrun.zip"
-        EvidenceBundleService(repository).export_run_v3(run_id, target)
+        EvidenceBundleService(repository).export_run(run_id, target)
         console.print(str(target))
     finally:
         database.dispose()
