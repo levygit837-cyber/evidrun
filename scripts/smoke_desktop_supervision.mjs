@@ -101,8 +101,15 @@ try {
   const seeded = await api(baseUrl, `/api/v1/runs/${demo.baseline_run_id}`);
   const runSpecId = seeded.run_spec_id;
   if (!runSpecId) throw new Error(`Run carries no RunSpec: ${JSON.stringify(seeded)}`);
+  const executionTrustId = seeded.record?.execution_trust?.trust_id;
+  if (!executionTrustId) {
+    throw new Error(`Run carries no execution trust: ${JSON.stringify(seeded.record)}`);
+  }
 
-  const admission = await api(baseUrl, `/api/v1/run-specs/${runSpecId}/admit`, { method: "POST" });
+  const admission = await api(baseUrl, `/api/v1/run-specs/${runSpecId}/admit`, {
+    method: "POST",
+    body: JSON.stringify({ execution_trust_id: executionTrustId }),
+  });
   if (admission.decision !== "admitted") throw new Error(`Admission was ${admission.decision}`);
 
   const enqueued = await api(baseUrl, `/api/v1/run-specs/${runSpecId}/runs`, {
