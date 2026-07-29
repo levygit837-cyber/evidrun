@@ -189,7 +189,7 @@ def export_run_bundle(
     settings, database, repository = components(data_dir)
     try:
         target = output or settings.data_dir / "exports" / f"{run_id}.evidrun.zip"
-        EvidenceBundleService(repository).export_run_v4(run_id, target)
+        EvidenceBundleService(repository).export_run(run_id, target)
         console.print(str(target))
     finally:
         database.dispose()

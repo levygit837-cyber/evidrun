@@ -29,6 +29,7 @@ from evidrun.contracts.runtime.records import DimensionValue, EvaluationBoundary
 from evidrun.infrastructure.database import Repository
 from evidrun.runs import EvidrunService
 from evidrun.shared.types import sha256_bytes, utc_now
+from tests.support.execution_trust import unpersisted_unverified_trust
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -372,7 +373,7 @@ def test_admission_persistence_rejects_an_unsealed_capability_spec(
                 ),
             ),
         )
-    ).admit(spec)
+    ).admit(spec, unpersisted_unverified_trust(spec))
     assert admission.decision == "admitted"
     assert admission.resolved_inventory.capabilities[0].context_refs == (
         declared_instruction,
@@ -455,7 +456,7 @@ def test_unsupported_hard_gate_pipeline_is_rejected_before_run(
         }
     )
     spec_row = repository.catalog.save_run_spec(spec)
-    admission = EvidrunService(repository).admission_service.admit(spec)
+    admission = EvidrunService(repository).admission_service.admit(spec, unpersisted_unverified_trust(spec))
     assert admission.decision == "rejected"
     assert "runtime:evaluation_pipeline" in admission.missing_requirements
     with pytest.raises(ValueError, match="requires execution trust"):

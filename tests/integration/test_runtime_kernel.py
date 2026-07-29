@@ -19,7 +19,10 @@ from evidrun.infrastructure.database import Database, Repository
 from evidrun.runs import RuntimeAdapterCatalog, build_runtime_kernel
 from evidrun.settings import Settings
 from evidrun.shared.types import Classification
-from tests.support.execution_trust import prepare_registered_study
+from tests.support.execution_trust import (
+    prepare_registered_study,
+    unpersisted_unverified_trust,
+)
 from tests.support.human_attestation import (
     TestHumanAttestationVerifier,
     accepted_decision,
@@ -204,7 +207,7 @@ def test_admission_rejects_artifact_owned_by_another_project(tmp_path: Path) -> 
     spec = StudyCompiler(repository.registry.contract_registry(project.id)).compile(study)[0]
     kernel = build_runtime_kernel(repository, settings.artifacts_dir)
 
-    admission = kernel.coordinator.admission_service.admit(spec)
+    admission = kernel.coordinator.admission_service.admit(spec, unpersisted_unverified_trust(spec))
 
     assert admission.decision == "rejected"
     assert any(issue.subject_ref == "subject_input_artifact" for issue in admission.issues)

@@ -70,7 +70,7 @@ class AdmissionService:
     def admit(
         self,
         spec: RunSpec,
-        execution_trust: ExecutionTrustRecord | None = None,
+        execution_trust: ExecutionTrustRecord,
     ) -> AdmissionRecord:
         envelope = self.envelope
 
@@ -85,11 +85,7 @@ class AdmissionService:
         # The fold order below IS the persisted order of the three tuples.
         findings = AdmissionFindings()
         for part in (
-            (
-                check_unverified_execution_policy(spec, execution_trust, envelope)
-                if execution_trust is not None
-                else AdmissionFindings()
-            ),
+            check_unverified_execution_policy(spec, execution_trust, envelope),
             runner.findings,
             provider.findings,
             capabilities.findings,
@@ -145,8 +141,6 @@ class AdmissionService:
             denied_policies=findings.denied_policies,
             issues=findings.issues,
             warnings=findings.warnings,
-            execution_trust=(
-                execution_trust.ref if execution_trust is not None else None
-            ),
+            execution_trust=execution_trust.ref,
             created_at_utc=utc_now(),
         )

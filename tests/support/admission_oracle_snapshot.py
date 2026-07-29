@@ -14,6 +14,7 @@ from pathlib import Path
 from evidrun.infrastructure.artifacts.store import ArtifactStore, MemoryKeyProvider
 from tests.support.admission_cases import build_admission_cases, build_catalogs
 from tests.support.admission_specs import admission_fingerprint, oracle_profile
+from tests.support.execution_trust import unpersisted_unverified_trust
 
 SNAPSHOT_PATH = Path(__file__).resolve().parents[1] / "unit" / "admission_oracle.json"
 
@@ -27,7 +28,7 @@ def collect() -> dict[str, list[str]]:
         return {
             case.name: list(
                 admission_fingerprint(
-                    catalogs[case.catalog].admission_service().admit(case.spec)
+                    catalogs[case.catalog].admission_service().admit(case.spec, unpersisted_unverified_trust(case.spec))
                 )
             )
             for case in build_admission_cases(store)

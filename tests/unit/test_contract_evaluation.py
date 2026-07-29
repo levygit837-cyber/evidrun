@@ -44,6 +44,7 @@ from evidrun.contracts.compiler import (
 from evidrun.contracts.legacy import (
     capability_ref,
 )
+from tests.support.execution_trust import unpersisted_unverified_trust
 from evidrun.contracts.runtime.records import (
     CheckpointValidation,
     DimensionValue,
@@ -143,7 +144,7 @@ def test_exploratory_study_has_default_variant_and_no_aggregate_score() -> None:
     assert len(specs) == 1
     assert specs[0].variant_id == "default"
     assert specs[0].evaluation_plan.aggregation is None
-    admission = scripted_service(specs[0].agent_inventory.runner_ref).admit(specs[0])
+    admission = scripted_service(specs[0].agent_inventory.runner_ref).admit(specs[0], unpersisted_unverified_trust(specs[0]))
     assert admission.decision == "rejected"
     assert "runtime:bounded_exploration_terminal" in admission.missing_requirements
     assert "runtime:evaluation_pipeline" in admission.missing_requirements

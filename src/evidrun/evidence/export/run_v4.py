@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from evidrun.contracts import ContractRef, semantic_model_dump
+from evidrun.contracts import (
+    ContractRef,
+    RevisionEnvelope,
+    semantic_model_dump,
+    validate_execution_trust_lineage,
+)
 from evidrun.evidence import archive as ar
 from evidrun.evidence.export.run_v3 import TERMINAL_RUN_STATUSES
 from evidrun.infrastructure.database import Repository
@@ -28,6 +33,11 @@ def export_run_v4(repository: Repository, run_id: str, output_path: Path) -> Pat
         raise ValueError("execution trust does not bind the exported RunSpec")
     if trust.kind != "unverified_revision_set":
         raise ValueError("verified Bundle v4 export requires revision decisions")
+    revisions = tuple(
+        repository.read_model.get_contract_revision_by_ref(reference)
+        for reference in trust.revision_refs
+    )
+    compiled_specs = validate_execution_trust_lineage(trust, spec, revisions)
 
     events = repository.read_model.get_run_events(run_id)
     try:
@@ -83,8 +93,12 @@ def export_run_v4(repository: Repository, run_id: str, output_path: Path) -> Pat
         files[f"subject-envelopes/{run_id}.json"] = ar.json_bytes(
             ar.record_dict(subject_record)
         )
-    _add_trust_contract_members(repository, files, trust.revision_refs)
-    entries = ar.spec_artifact_entries(run_id, spec)
+    _add_trust_contract_members(files, revisions)
+    entries = [
+        entry
+        for compiled_spec in compiled_specs
+        for entry in ar.spec_artifact_entries(run_id, compiled_spec)
+    ]
     if subject_record is not None:
         entries.extend(ar.subject_artifact_entries(subject_record))
     entries.extend(ar.event_artifact_entries(run_id, events))
@@ -96,12 +110,11 @@ def export_run_v4(repository: Repository, run_id: str, output_path: Path) -> Pat
 
 
 def _add_trust_contract_members(
-    repository: Repository,
     files: dict[str, bytes],
-    references: tuple[ContractRef, ...],
+    revisions: tuple[RevisionEnvelope, ...],
 ) -> None:
-    for reference in references:
-        revision = repository.read_model.get_contract_revision_by_ref(reference)
+    for revision in revisions:
+        reference: ContractRef = revision.ref
         files[ar.contract_member_name(reference)] = ar.json_bytes(
             ar.record_dict(revision)
         )

@@ -16,6 +16,7 @@ from evidrun.infrastructure.database import Database, Repository
 from tests.integration.test_runtime_queue import _runtime_fixture
 from tests.support.admission_cases import build_admission_cases, build_catalogs
 from tests.support.admission_specs import oracle_profile
+from tests.support.execution_trust import unpersisted_unverified_trust
 
 
 def test_api_and_cli_require_system_derived_execution_trust(
@@ -29,7 +30,7 @@ def test_api_and_cli_require_system_derived_execution_trust(
     cases = {case.name: case for case in build_admission_cases(store)}
     catalogs = build_catalogs(store, profile=oracle_profile())
     case = cases["subject_input_media_type_json"]
-    expected_record = catalogs[case.catalog].admission_service().admit(case.spec)
+    expected_record = catalogs[case.catalog].admission_service().admit(case.spec, unpersisted_unverified_trust(case.spec))
     assert admission_rejection_error(expected_record).code
     spec_row = repository.catalog.save_run_spec(case.spec)
     database.dispose()

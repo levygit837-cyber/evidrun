@@ -31,7 +31,10 @@ from evidrun.runs.adapters import (
 from evidrun.runs.coordinator import RunExecutionCoordinator
 from evidrun.settings import Settings
 from evidrun.shared.types import Classification, utc_now
-from tests.support.execution_trust import prepare_registered_study
+from tests.support.execution_trust import (
+    prepare_registered_study,
+    unpersisted_unverified_trust,
+)
 from tests.support.human_attestation import (
     TestHumanAttestationVerifier,
     accepted_decision,
@@ -511,7 +514,7 @@ def test_live_spec_variations_reject_without_enqueuing(tmp_path: Path) -> None:
         ),
     )
     for variant in variants:
-        admission = fixture.coordinator.admission_service.admit(variant)
+        admission = fixture.coordinator.admission_service.admit(variant, unpersisted_unverified_trust(variant))
         assert admission.decision == "rejected"
         assert admission.issues
     assert fixture.repository.read_model.latest_dashboard()["runs"] == []

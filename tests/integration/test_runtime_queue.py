@@ -27,7 +27,10 @@ from evidrun.runs.coordinator.response import persist_evaluation, persist_respon
 from evidrun.runs.coordinator.terminal import terminal as terminal_phase
 from evidrun.settings import Settings
 from evidrun.shared.types import Classification, utc_now
-from tests.support.execution_trust import prepare_registered_study
+from tests.support.execution_trust import (
+    prepare_registered_study,
+    unpersisted_unverified_trust,
+)
 from tests.support.human_attestation import (
     TestHumanAttestationVerifier,
     accepted_decision,
@@ -479,7 +482,7 @@ def test_runner_exception_is_sanitized_and_adapter_mismatch_is_rejected(
     bad_spec = original.model_copy(update={"scenario": bad_scenario})
     rejected = build_runtime_kernel(
         fixture.repository, fixture.settings.artifacts_dir
-    ).coordinator.admission_service.admit(bad_spec)
+    ).coordinator.admission_service.admit(bad_spec, unpersisted_unverified_trust(bad_spec))
     assert rejected.decision == "rejected"
     assert any(
         item.category == "runtime"
@@ -498,7 +501,7 @@ def test_runner_exception_is_sanitized_and_adapter_mismatch_is_rejected(
     )
     digest_admission = build_runtime_kernel(
         fixture.repository, fixture.settings.artifacts_dir
-    ).coordinator.admission_service.admit(digest_spec)
+    ).coordinator.admission_service.admit(digest_spec, unpersisted_unverified_trust(digest_spec))
     assert digest_admission.decision == "rejected"
     assert any(item.subject_ref == "subject_input_artifact" for item in digest_admission.issues)
     fixture.database.dispose()

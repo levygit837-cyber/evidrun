@@ -21,6 +21,7 @@ import pytest
 from evidrun.infrastructure.artifacts.store import ArtifactStore, MemoryKeyProvider
 from tests.support.admission_cases import build_admission_cases, build_catalogs
 from tests.support.admission_specs import admission_fingerprint, oracle_profile
+from tests.support.execution_trust import unpersisted_unverified_trust
 
 SNAPSHOT_PATH = Path(__file__).with_name("admission_oracle.json")
 
@@ -31,7 +32,7 @@ def _oracle(tmp_path: Path) -> dict[str, tuple[str, ...]]:
     observed: dict[str, tuple[str, ...]] = {}
     for case in build_admission_cases(store):
         service = catalogs[case.catalog].admission_service()
-        observed[case.name] = admission_fingerprint(service.admit(case.spec))
+        observed[case.name] = admission_fingerprint(service.admit(case.spec, unpersisted_unverified_trust(case.spec)))
     return observed
 
 
@@ -71,7 +72,7 @@ def test_unavailable_provider_profile_rejects_instead_of_raising(
     catalogs = build_catalogs(store, profile=oracle_profile())
     case = cases["provider_profile_unavailable"]
 
-    record = catalogs[case.catalog].admission_service().admit(case.spec)
+    record = catalogs[case.catalog].admission_service().admit(case.spec, unpersisted_unverified_trust(case.spec))
 
     assert record.decision == "rejected"
     assert "provider:ghost-profile" in record.missing_requirements

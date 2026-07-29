@@ -41,6 +41,7 @@ from evidrun.shared.types import (
 from tests.support.admission_specs import (
     declared_admission_service as declared_service,
 )
+from tests.support.execution_trust import unpersisted_unverified_trust
 from tests.support.admission_specs import (
     scripted_admission_service as scripted_service,
 )
@@ -149,7 +150,7 @@ def test_required_and_optional_capabilities_have_different_admission_results() -
     required_spec = baseline.model_copy(update={"agent_inventory": required_agent})
     service = scripted_service(baseline.agent_inventory.runner_ref)
 
-    rejected = service.admit(required_spec)
+    rejected = service.admit(required_spec, unpersisted_unverified_trust(required_spec))
     assert rejected.decision == "rejected"
     assert rejected.resolved_inventory.capabilities[0].status == "unsupported"
 
@@ -161,7 +162,7 @@ def test_required_and_optional_capabilities_have_different_admission_results() -
             )
         }
     )
-    admitted = service.admit(optional_spec)
+    admitted = service.admit(optional_spec, unpersisted_unverified_trust(optional_spec))
     assert admitted.decision == "admitted"
     assert admitted.warnings
     envelope = SubjectEnvelopeCompiler.compile(
@@ -222,7 +223,7 @@ def test_admission_records_exact_capability_permissions_and_provider_resolution(
             ),
         ),
     )
-    admission = service.admit(spec)
+    admission = service.admit(spec, unpersisted_unverified_trust(spec))
     resolved = admission.resolved_inventory.capabilities[0]
     assert admission.decision == "admitted"
     assert resolved.resolved_ref == tool_ref
@@ -245,7 +246,7 @@ def test_admission_records_exact_capability_permissions_and_provider_resolution(
             )
         }
     )
-    instructions_admission = service.admit(instructions_spec)
+    instructions_admission = service.admit(instructions_spec, unpersisted_unverified_trust(instructions_spec))
     assert instructions_admission.decision == "admitted"
     assert instructions_admission.resolved_inventory.capabilities[0].context_refs == (
         instruction_ref,
@@ -265,7 +266,7 @@ def test_admission_records_exact_capability_permissions_and_provider_resolution(
             )
         }
     )
-    denied = service.admit(denied_spec)
+    denied = service.admit(denied_spec, unpersisted_unverified_trust(denied_spec))
     assert denied.decision == "rejected"
     assert denied.resolved_inventory.capabilities[0].status == "denied"
     assert denied.resolved_inventory.capabilities[0].effective_permissions == ()
@@ -278,7 +279,7 @@ def test_admission_records_exact_capability_permissions_and_provider_resolution(
             )
         }
     )
-    incompatible_admission = service.admit(incompatible_spec)
+    incompatible_admission = service.admit(incompatible_spec, unpersisted_unverified_trust(incompatible_spec))
     assert incompatible_admission.decision == "rejected"
     assert incompatible_admission.resolved_inventory.capabilities[0].status == "unsupported"
 
@@ -294,7 +295,7 @@ def test_admission_records_exact_capability_permissions_and_provider_resolution(
         ),
         providers=service.envelope.providers.values(),
     )
-    authority_denied = unconstrained_service.admit(spec)
+    authority_denied = unconstrained_service.admit(spec, unpersisted_unverified_trust(spec))
     assert authority_denied.decision == "rejected"
     assert authority_denied.resolved_inventory.capabilities[0].status == "denied"
 
@@ -407,7 +408,7 @@ def test_nested_agent_graph_and_checkpoints_compile_but_admission_rejects_runtim
         if spec.checkpoint_policy
     )
     for spec in specs:
-        admission = scripted_service(spec.agent_inventory.runner_ref).admit(spec)
+        admission = scripted_service(spec.agent_inventory.runner_ref).admit(spec, unpersisted_unverified_trust(spec))
         assert admission.decision == "rejected"
         assert admission.interaction_status == "unsupported"
         assert "runtime:nested_agents" in admission.missing_requirements
@@ -429,7 +430,7 @@ def test_admission_rejects_workspace_interaction_and_capture_features_not_execut
             )
         }
     )
-    assert service.admit(writable).decision == "rejected"
+    assert service.admit(writable, unpersisted_unverified_trust(writable)).decision == "rejected"
 
     prompt_ref = ArtifactRef(
         artifact_id="system-prompt",
@@ -443,7 +444,7 @@ def test_admission_rejects_workspace_interaction_and_capture_features_not_execut
             )
         }
     )
-    assert service.admit(prompted).interaction_status == "unsupported"
+    assert service.admit(prompted, unpersisted_unverified_trust(prompted)).interaction_status == "unsupported"
 
     raw_capture = baseline.model_copy(
         update={
@@ -452,7 +453,7 @@ def test_admission_rejects_workspace_interaction_and_capture_features_not_execut
             )
         }
     )
-    rejected_capture = service.admit(raw_capture)
+    rejected_capture = service.admit(raw_capture, unpersisted_unverified_trust(raw_capture))
     assert rejected_capture.decision == "rejected"
     assert "capture:raw_encrypted" in rejected_capture.denied_policies
 
@@ -461,7 +462,7 @@ def test_admission_rejects_workspace_interaction_and_capture_features_not_execut
             "budgets": baseline.budgets.model_copy(update={"max_output_tokens": 100})
         }
     )
-    token_budget_admission = service.admit(token_budget)
+    token_budget_admission = service.admit(token_budget, unpersisted_unverified_trust(token_budget))
     assert token_budget_admission.decision == "rejected"
     assert "runtime:budget:max_output_tokens" in (
         token_budget_admission.missing_requirements
@@ -475,7 +476,7 @@ def test_admission_rejects_workspace_interaction_and_capture_features_not_execut
             )
         }
     )
-    stop_admission = service.admit(unsupported_stop)
+    stop_admission = service.admit(unsupported_stop, unpersisted_unverified_trust(unsupported_stop))
     assert stop_admission.decision == "rejected"
     assert "runtime:stop_condition_coordinator" in stop_admission.missing_requirements
 
@@ -500,6 +501,6 @@ def test_admission_rejects_workspace_interaction_and_capture_features_not_execut
             "workspace": restricted_workspace,
         }
     )
-    restricted_admission = service.admit(restricted_spec)
+    restricted_admission = service.admit(restricted_spec, unpersisted_unverified_trust(restricted_spec))
     assert restricted_admission.decision == "rejected"
     assert "classification:restricted" in restricted_admission.denied_policies

@@ -92,6 +92,7 @@ def verify_v3_records(
     names: set[str],
     *,
     allowed_extra_names: set[str] | None = None,
+    manifest_specs: tuple[RunSpec, ...] | None = None,
 ) -> dict[str, bool]:
     results = verify_v2_records(archive, names)
     results.pop("comparison.json", None)
@@ -103,7 +104,12 @@ def verify_v3_records(
             core, subject_record is not None
         )
         job_name, attempts_name = _record_execution(archive, names, core, results)
-        results["artifact-manifest.json"] = _manifest_valid(archive, core, subject_record)
+        results["artifact-manifest.json"] = _manifest_valid(
+            archive,
+            core,
+            subject_record,
+            manifest_specs=manifest_specs,
+        )
         results["__exact_file_allowlist__"] = names == _expected_names(
             core, job_name, attempts_name, subject_record is not None
         ) | (allowed_extra_names or set())
@@ -307,13 +313,25 @@ def _attempt_chain_valid(job: RunExecutionJob, attempts: list[RunExecutionAttemp
 
 
 def _manifest_valid(
-    archive: zipfile.ZipFile, core: RunCore, subject_record: SubjectEnvelopeRecord | None
+    archive: zipfile.ZipFile,
+    core: RunCore,
+    subject_record: SubjectEnvelopeRecord | None,
+    *,
+    manifest_specs: tuple[RunSpec, ...] | None = None,
 ) -> bool:
     manifest_document = ar.read_json(archive, "artifact-manifest.json")
     manifest_digest = manifest_document.pop("digest")
     manifest = ArtifactManifest.model_validate(manifest_document)
-    expected = _expected_entries(archive, core, subject_record)
-    expected_set = {canonical_json(semantic_model_dump(item)) for item in expected}
+    expected = _expected_entries(
+        archive,
+        core,
+        subject_record,
+        manifest_specs=manifest_specs,
+    )
+    canonical_expected = ar.artifact_manifest(expected).entries
+    expected_set = {
+        canonical_json(semantic_model_dump(item)) for item in canonical_expected
+    }
     actual_set = {canonical_json(semantic_model_dump(item)) for item in manifest.entries}
     return (
         manifest.digest == manifest_digest
@@ -324,9 +342,17 @@ def _manifest_valid(
 
 
 def _expected_entries(
-    archive: zipfile.ZipFile, core: RunCore, subject_record: SubjectEnvelopeRecord | None
+    archive: zipfile.ZipFile,
+    core: RunCore,
+    subject_record: SubjectEnvelopeRecord | None,
+    *,
+    manifest_specs: tuple[RunSpec, ...] | None = None,
 ) -> list[ArtifactManifestEntry]:
-    entries = ar.spec_artifact_entries(core.run_id, core.spec)
+    entries = [
+        entry
+        for spec in manifest_specs or (core.spec,)
+        for entry in ar.spec_artifact_entries(core.run_id, spec)
+    ]
     if subject_record is not None:
         entries.extend(ar.subject_artifact_entries(subject_record))
     entries.extend(ar.event_artifact_entries(core.run_id, core.events))

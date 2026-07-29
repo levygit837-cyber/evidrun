@@ -81,11 +81,13 @@ def verify_v4_records(archive: zipfile.ZipFile, names: set[str]) -> dict[str, bo
             for reference in ar.spec_revision_refs(spec)
         }
         allowed_extras = {trust_name, *extra_contract_names}
+        compiled_specs = validate_execution_trust_lineage(trust, spec, revisions)
         results.update(
             verify_v3_records(
                 archive,
                 names,
                 allowed_extra_names=allowed_extras,
+                manifest_specs=compiled_specs,
             )
         )
         results[trust_name] = (
@@ -100,7 +102,6 @@ def verify_v4_records(archive: zipfile.ZipFile, names: set[str]) -> dict[str, bo
             and bundle["isolation"]["kind"] == spec.workspace.runtime_kind
             and actual_contract_names == trust_contract_names
         )
-        validate_execution_trust_lineage(trust, spec, revisions)
         results["__execution_trust_lineage__"] = True
         results["__revision_decisions_absent__"] = not any(
             name.startswith("revision-decisions/") for name in names

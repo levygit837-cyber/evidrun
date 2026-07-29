@@ -41,6 +41,7 @@ from tests.support.contract_fixtures import (
     baseline_specs,
     materialized_subject_inputs,
 )
+from tests.support.execution_trust import unpersisted_unverified_trust
 
 
 def test_legacy_study_compiles_two_specs_and_hides_laboratory_data() -> None:
@@ -52,7 +53,7 @@ def test_legacy_study_compiles_two_specs_and_hides_laboratory_data() -> None:
         capability_ref("evidrun.runner", "scripted-log-investigator-v1")
     )
     baseline = next(spec for spec in specs if spec.variant_id == manifest.baseline_variant)
-    admission = admission_service.admit(baseline)
+    admission = admission_service.admit(baseline, unpersisted_unverified_trust(baseline))
     envelope = SubjectEnvelopeCompiler.compile(
         baseline,
         admission,
@@ -145,7 +146,7 @@ def test_progress_artifact_policy_compiles_but_fails_admission_without_observer(
             summarizer_ref=capability_ref("evidrun.observer", "unsafe"),
             authority_constraints=(),
         )
-    admission = scripted_service(specs[0].agent_inventory.runner_ref).admit(specs[0])
+    admission = scripted_service(specs[0].agent_inventory.runner_ref).admit(specs[0], unpersisted_unverified_trust(specs[0]))
     assert admission.decision == "rejected"
     assert "runtime:background_progress_observer" in admission.missing_requirements
     observer_issue = next(
@@ -254,12 +255,12 @@ def test_pre_run_evaluation_disclosure_is_minimal_and_explicit() -> None:
     accept(registry, study)
     spec = StudyCompiler(registry).compile(study)[0]
     service = scripted_service(spec.agent_inventory.runner_ref)
-    admission = service.admit(spec)
+    admission = service.admit(spec, unpersisted_unverified_trust(spec))
     assert admission.decision == "rejected"
     missing = admission.missing_requirements
     assert "runtime:subject_evaluation_guidance_delivery" in missing
     base_spec = StudyCompiler(registry).compile(base_study)[0]
-    base_admission = service.admit(base_spec)
+    base_admission = service.admit(base_spec, unpersisted_unverified_trust(base_spec))
     assert base_admission.decision == "admitted"
     # Exercise the pure envelope compiler as a future compatible runtime would.
     compatible_admission = base_admission.model_copy(
@@ -348,4 +349,3 @@ def test_trigger_and_stop_condition_references_are_not_ambiguous() -> None:
     assert StopCondition(kind="predicate", predicate_ref=predicate_ref).predicate_ref == (
         predicate_ref
     )
-

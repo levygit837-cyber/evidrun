@@ -63,7 +63,17 @@ def test_draft_study_executes_offline_and_bundle_v4_rejects_trust_tampering(
         media_type="text/plain",
         classification=Classification.INTERNAL,
     )
-    revisions, study = build_runtime_study(project_id=project.id, source=source)
+    revisions, original_study = build_runtime_study(
+        project_id=project.id, source=source
+    )
+    study = original_study.model_copy(
+        update={
+            "payload": original_study.payload.model_copy(
+                update={"repetitions": 2}
+            )
+        }
+    )
+    revisions = (*revisions[:-1], study)
     study_row_id = ""
     for revision in revisions:
         row = repository.registry.save_contract_revision(revision, status="draft")
@@ -72,6 +82,7 @@ def test_draft_study_executes_offline_and_bundle_v4_rejects_trust_tampering(
 
     service = EvidrunService(repository)
     preparation = service.execution_preparation.prepare(study_row_id)
+    assert len(preparation.run_specs) == 2
     assert preparation.review_target.run_spec_digests == tuple(
         sorted(item.spec.digest for item in preparation.run_specs)
     )
