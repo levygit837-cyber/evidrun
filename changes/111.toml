@@ -1,0 +1,90 @@
+schema_version = "1"
+change_id = "GH-111"
+issue = 111
+title = "Normalizar estados bloqueados dos workstreams"
+classification = "docs-only"
+base_ref = "origin/main"
+branch_pattern = "docs/normalize-blocked-workstreams"
+expected_outcome = "Os snapshots individuais e o indice de planning representam WS-07, WS-20, WS-30 e WS-50 como bloqueados, com motivos coerentes e sem alegar capability implementada."
+confirmed_facts = [
+  "WS-07 depende de WS-04, que ainda esta queued.",
+  "WS-20 e WS-30 aguardam priorizacao posterior ao Minimo Confortavel.",
+  "WS-50 depende de WS-30, enquanto WS-40 ja foi entregue.",
+  "Os documentos afetados sao snapshots de planning e nao provam comportamento implementado.",
+]
+stop_conditions = [
+  "A normalizacao exigir alterar contrato, ADR ou comportamento implementado.",
+  "O estado de um workstream nao puder ser justificado pelas dependencias registradas no planning atual.",
+]
+
+[impact]
+capability = "none"
+persisted_contract = "none"
+normative = "none"
+notes = [
+  "A mudanca corrige somente estado e datas observacionais em documentos de planning.",
+]
+
+[scope]
+expected = [
+  "changes/111.toml",
+  "docs/planning/tasks/07-lab-agent-memory.md",
+  "docs/planning/tasks/20-artifact-access-and-capture.md",
+  "docs/planning/tasks/30-evaluation-checkpoint-progress.md",
+  "docs/planning/tasks/50-lab-agent-bounded-exploration.md",
+  "docs/planning/tasks/README.md",
+]
+forbidden = [
+  "AGENTS.md",
+  "CONTEXT.md",
+  ".github/**",
+  "alembic/**",
+  "apps/**",
+  "docs/adr/**",
+  "docs/contracts/**",
+  "schemas/**",
+  "scripts/**",
+  "src/**",
+  "tests/**",
+]
+preexisting = []
+
+[[scope.generated]]
+patterns = ["docs/_generated/manifest.json", "docs/_generated/claims.json"]
+source_patterns = ["docs/planning/tasks/**"]
+
+[preserve]
+interfaces = [
+  "Contratos, schemas, API, CLI e eventos permanecem inalterados.",
+]
+errors = [
+  "Nenhum codigo, categoria, status ou mensagem contratual de erro e alterado.",
+]
+invariants = [
+  "Planning organiza intencao e dependencias, mas nao prova comportamento implementado.",
+  "Roadmap bloqueado nao e anunciado como capability ativa.",
+  "Documentos individuais e o indice usam o mesmo estado para cada workstream.",
+]
+
+[verification]
+focused = [
+  "uv run python scripts/validate_docs.py",
+  "uv run python scripts/check_change_contract.py --contract changes/111.toml --strict-warnings",
+]
+full_gates = [
+  "uv run pytest",
+  "uv run ruff check .",
+  "uv run python scripts/check_code_budget.py",
+  "uv run pyright",
+  "pnpm typecheck:web",
+  "pnpm typecheck:desktop",
+  "pnpm test",
+  "pnpm build",
+  "uv run python scripts/validate_docs.py",
+]
+
+[[questions]]
+text = "Os workstreams devem ser marcados como cancelados em vez de bloqueados?"
+affects_semantics = true
+status = "resolved"
+resolution = "Nao. Eles continuam planejados, mas dependem de entrega ou priorizacao futura; blocked representa esse estado sem cancelar o roadmap."

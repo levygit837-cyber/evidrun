@@ -19,6 +19,7 @@
     "benchmarks/fixtures",
     "benchmarks/scenarios",
     "changes/109.toml",
+    "changes/111.toml",
     "changes/46.toml",
     "changes/50.toml",
     "changes/52.toml",

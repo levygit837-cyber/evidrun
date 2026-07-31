@@ -47,11 +47,11 @@ observabilidade.
 | `queued` | [WS-04 Runtime do Lab Agent copiloto](04-lab-agent-runtime.md) | WS-01 entregue; nao depende de WS-20/30/40 |
 | `queued` | [WS-05 Contexto e criterios do Subject](05-subject-context-contract.md) | Decisao de contrato; precede batch util |
 | `queued` | [WS-06 Batch, resiliencia de provider e metricas minimas](06-batch-and-minimal-metrics.md) | Depende de WS-02; paralelo com WS-05 |
-| `queued` | [WS-07 Memoria operacional e consolidador](07-lab-agent-memory.md) | Depende de WS-04; nao depende de WS-05, WS-06, WS-20, WS-30 nem WS-40 |
+| `blocked` | [WS-07 Memoria operacional e consolidador](07-lab-agent-memory.md) | Aguarda WS-04; nao depende de WS-05, WS-06, WS-20, WS-30 nem WS-40 |
 | `blocked` | [WS-20 Artifact access/capture](20-artifact-access-and-capture.md) | Costuras entregues; aguarda priorizacao apos o Minimo Confortavel |
 | `blocked` | [WS-30 Evaluation/checkpoint/progress](30-evaluation-checkpoint-progress.md) | Costuras entregues; aguarda priorizacao apos o Minimo Confortavel |
 | `delivered` | [WS-40 Trust nao verificado/ReviewPackage](40-execution-trust-review-package.md) | Dois kinds, ReviewPackage/diff, Bundle v4 e projeções textuais verificados offline |
-| `queued` | [WS-50 Bounded exploration e multi-turn](50-lab-agent-bounded-exploration.md) | Reescopado: so bounded exploration. O copiloto saiu para WS-04 |
+| `blocked` | [WS-50 Bounded exploration e multi-turn](50-lab-agent-bounded-exploration.md) | Aguarda WS-30; WS-40 ja foi entregue. O copiloto saiu para WS-04 |
 | `blocked` | [WS-51 Integracao frontend](51-frontend-integration.md) | Project Room e scopes definidos; aguarda WS-01/03/04/06/40/41 |
 
 O frontend agora possui brief de integracao, mas continua bloqueado. A fatia multipagina existe em
