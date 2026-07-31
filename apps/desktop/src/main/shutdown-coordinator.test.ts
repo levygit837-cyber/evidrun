@@ -4,6 +4,14 @@ import { ShutdownCoordinator } from "./shutdown-coordinator.js";
 function quitEvent() {
   return { preventDefault: vi.fn() };
 }
+function destroyedWindow() {
+  return {
+    isDestroyed: () => true,
+    isMinimized: vi.fn(() => false),
+    restore: vi.fn(),
+    focus: vi.fn(),
+  };
+}
 
 describe("desktop shutdown coordinator", () => {
   it("keeps the backend and app alive when the executor cannot stop, then permits retry", async () => {
@@ -24,11 +32,9 @@ describe("desktop shutdown coordinator", () => {
     expect(stopBackend).not.toHaveBeenCalled();
     expect(quit).not.toHaveBeenCalled();
 
-    const retryEvent = quitEvent();
-    coordinator.handleBeforeQuit(retryEvent);
+    coordinator.handleSecondInstance(destroyedWindow());
     await vi.waitFor(() => expect(quit).toHaveBeenCalledOnce());
 
-    expect(retryEvent.preventDefault).toHaveBeenCalledOnce();
     expect(stopExecutor).toHaveBeenCalledTimes(2);
     expect(stopBackend).toHaveBeenCalledOnce();
   });
@@ -48,13 +54,75 @@ describe("desktop shutdown coordinator", () => {
 
     expect(quit).not.toHaveBeenCalled();
 
-    const retryEvent = quitEvent();
-    coordinator.handleBeforeQuit(retryEvent);
+    coordinator.handleSecondInstance(destroyedWindow());
     await vi.waitFor(() => expect(quit).toHaveBeenCalledOnce());
 
-    expect(retryEvent.preventDefault).toHaveBeenCalledOnce();
     expect(stopExecutor).toHaveBeenCalledTimes(2);
     expect(stopBackend).toHaveBeenCalledTimes(2);
+  });
+
+  it("queues a retry when a second launch arrives during teardown", async () => {
+    let rejectStop: (error: Error) => void = () => undefined;
+    const stopExecutor = vi
+      .fn<() => Promise<void>>()
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((_resolve, reject) => {
+            rejectStop = reject;
+          }),
+      )
+      .mockResolvedValueOnce();
+    const stopBackend = vi.fn<() => Promise<void>>().mockResolvedValue();
+    const quit = vi.fn();
+    const coordinator = new ShutdownCoordinator({
+      stopExecutor,
+      stopBackend,
+      quit,
+      report: vi.fn(),
+    });
+
+    coordinator.handleBeforeQuit(quitEvent());
+    coordinator.handleSecondInstance(destroyedWindow());
+    rejectStop(new Error("executor still alive"));
+    await vi.waitFor(() => expect(quit).toHaveBeenCalledOnce());
+
+    expect(stopExecutor).toHaveBeenCalledTimes(2);
+    expect(stopBackend).toHaveBeenCalledOnce();
+  });
+
+  it("does not turn an early second launch into a shutdown request", () => {
+    const stopExecutor = vi.fn<() => Promise<void>>().mockResolvedValue();
+    const coordinator = new ShutdownCoordinator({
+      stopExecutor,
+      stopBackend: vi.fn<() => Promise<void>>().mockResolvedValue(),
+      quit: vi.fn(),
+      report: vi.fn(),
+    });
+
+    coordinator.handleSecondInstance(destroyedWindow());
+    expect(stopExecutor).not.toHaveBeenCalled();
+  });
+
+  it("restores and focuses a live window instead of touching shutdown", () => {
+    const stopExecutor = vi.fn<() => Promise<void>>().mockResolvedValue();
+    const window = {
+      isDestroyed: () => false,
+      isMinimized: () => true,
+      restore: vi.fn(),
+      focus: vi.fn(),
+    };
+    const coordinator = new ShutdownCoordinator({
+      stopExecutor,
+      stopBackend: vi.fn<() => Promise<void>>().mockResolvedValue(),
+      quit: vi.fn(),
+      report: vi.fn(),
+    });
+
+    coordinator.handleSecondInstance(window);
+
+    expect(window.restore).toHaveBeenCalledOnce();
+    expect(window.focus).toHaveBeenCalledOnce();
+    expect(stopExecutor).not.toHaveBeenCalled();
   });
 
   it("authorizes the quit event emitted by its own successful teardown", async () => {

@@ -174,11 +174,7 @@ async function createApplicationWindow(): Promise<void> {
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on("second-instance", () => {
-    if (!mainWindow || mainWindow.isDestroyed()) return;
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.focus();
-  });
+  app.on("second-instance", () => shutdown.handleSecondInstance(mainWindow));
 }
 
 app.whenReady().then(async () => {
