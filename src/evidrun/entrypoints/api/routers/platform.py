@@ -46,6 +46,7 @@ def create_platform_router(
 
     @router.get("/doctor")
     async def doctor(_: None = Depends(authorize)) -> dict[str, Any]:
+        credential = provider_credentials.lookup(settings.default_provider)
         return {
             "healthy": settings.database_path.exists(),
             "data_dir": str(settings.data_dir),
@@ -54,20 +55,19 @@ def create_platform_router(
             "benchmark_available": (benchmarks / "experiments/crl-ctx-002-demo.yaml").exists(),
             "network_required_for_demo": False,
             "default_provider": settings.default_provider.public_dict(),
-            "provider_credential_available": bool(
-                provider_credentials.get(settings.default_provider)
-            ),
+            "provider_credential_available": credential.available,
+            "provider_credential_availability": credential.availability.value,
         }
 
     @router.get("/providers")
     async def providers(_: None = Depends(authorize)) -> list[dict[str, Any]]:
         profile = settings.default_provider
+        # One lookup per response: `get` followed by `source` probed the OS backend twice.
         return [
             {
                 **profile.public_dict(),
                 "default": True,
-                "credential_available": bool(provider_credentials.get(profile)),
-                "credential_source": provider_credentials.source(profile),
+                **provider_credentials.lookup(profile).document(),
             }
         ]
 
@@ -77,8 +77,7 @@ def create_platform_router(
         return {
             **profile.public_dict(),
             "default": True,
-            "credential_available": bool(provider_credentials.get(profile)),
-            "credential_source": provider_credentials.source(profile),
+            **provider_credentials.lookup(profile).document(),
         }
 
     return router

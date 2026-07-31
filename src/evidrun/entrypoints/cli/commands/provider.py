@@ -28,13 +28,11 @@ authority_app = typer.Typer(help="Enrollar credenciais e confirmar autoridade hu
 @provider_app.command("status")
 def provider_status() -> None:
     profile = Settings.load().default_provider
-    credentials = ProviderCredentialStore()
     console.print_json(
         data={
             **profile.public_dict(),
             "default": True,
-            "credential_available": bool(credentials.get(profile)),
-            "credential_source": credentials.source(profile),
+            **ProviderCredentialStore().lookup(profile).document(),
         }
     )
 
