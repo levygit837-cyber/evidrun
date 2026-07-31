@@ -7,8 +7,8 @@ authority: planning
 volatility: snapshot
 owner: laboratory
 created_at: 2026-07-26
-updated_at: 2026-07-27
-observed_at: 2026-07-27
+updated_at: 2026-07-31
+observed_at: 2026-07-31
 review_due: 2026-08-23
 applies_to: lab-agent-memory
 sources:
@@ -24,7 +24,7 @@ verification_refs: []
 
 # WS-07 — Memoria operacional e consolidador
 
-`workstream_state: queued`
+`workstream_state: blocked`
 
 ## Resultado pratico
 

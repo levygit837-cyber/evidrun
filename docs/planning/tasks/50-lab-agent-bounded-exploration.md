@@ -7,8 +7,8 @@ authority: planning
 volatility: snapshot
 owner: laboratory
 created_at: 2026-07-23
-updated_at: 2026-07-27
-observed_at: 2026-07-27
+updated_at: 2026-07-31
+observed_at: 2026-07-31
 review_due: 2026-08-23
 applies_to: bounded-exploration-runtime
 sources:
@@ -28,7 +28,7 @@ verification_refs: []
 
 # WS-50 — Bounded exploration e multi-turn do Subject
 
-`workstream_state: queued`
+`workstream_state: blocked`
 
 ## Reescopo
 

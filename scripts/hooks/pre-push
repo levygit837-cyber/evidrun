@@ -7,6 +7,11 @@ set -eu
 repo_root=$(git rev-parse --show-toplevel)
 cd "$repo_root"
 
+if ! uv run python scripts/check_secrets.py; then
+  echo "pre-push abortado: possível segredo detectado; remova e rotacione a credencial." >&2
+  exit 1
+fi
+
 if ! uv run python scripts/check_code_budget.py; then
   echo "pre-push abortado: orçamento estrutural violado." >&2
   echo "Reduza o arquivo/função ou ajuste code-budget.toml deliberadamente." >&2

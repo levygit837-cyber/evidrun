@@ -47,6 +47,7 @@ from evidrun.infrastructure.database.register_errors import (
     revision_not_monotonic,
 )
 from evidrun.infrastructure.database.unit_of_work import UnitOfWork
+from evidrun.security import emit_secure_log
 from evidrun.shared.types import canonical_json, new_id
 
 __all__ = ["ContractRegistryStore"]
@@ -76,6 +77,7 @@ class ContractRegistryStore:
     def save_contract_revision(
         self, revision: RevisionEnvelope, *, status: str = "draft"
     ) -> ContractRevisionRow:
+        correlation_id = new_id("register")
         if status not in {"draft", "proposed"}:
             raise initial_status_invalid()
         document = revision.semantic_document()
@@ -124,7 +126,15 @@ class ContractRegistryStore:
                     session.commit()
                 except IntegrityError as exc:
                     session.rollback()
-                    logger.exception("contract revision registration failed")
+                    emit_secure_log(
+                        logger,
+                        logging.ERROR,
+                        "contract.revision.registration_failed",
+                        correlation_id=correlation_id,
+                        error_code="register.integrity_error",
+                        error=exc,
+                        fields={"contract_type": revision.ref.contract_type.value},
+                    )
                     return self._recover_integrity_error(
                         session,
                         revision=revision,
@@ -136,7 +146,15 @@ class ContractRegistryStore:
         except (RegisterRejected, RegisterStorageUnavailable):
             raise
         except SQLAlchemyError as exc:
-            logger.exception("contract revision storage unavailable")
+            emit_secure_log(
+                logger,
+                logging.ERROR,
+                "contract.revision.storage_unavailable",
+                correlation_id=correlation_id,
+                error_code="register.storage_unavailable",
+                error=exc,
+                fields={"contract_type": revision.ref.contract_type.value},
+            )
             raise RegisterStorageUnavailable() from exc
 
     def _recover_integrity_error(
