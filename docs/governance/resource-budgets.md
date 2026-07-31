@@ -86,7 +86,8 @@ que atualiza esse arquivo automaticamente. O checker lê a política no merge-ba
 cenário/métrica ou mudança silenciosa de workload, repetições, paths, classificação, enforcement,
 unidade, tolerância a ruído e exclusões de cache. Essas mudanças exigem um
 `[[policy_adjustments]]` exato e justificado. Alterar baseline ou razão de warning exige
-`[[baseline_adjustments]]`. Se um PR já excede um limite anterior e também o relaxa, exige um
+`[[baseline_adjustments]]`. Qualquer aumento, remoção ou redução de minimum que relaxe um limite
+anterior exige um
 `[[limit_adjustments]]` com cenário, métrica, limites anterior/novo, `bound` quando for `minimum`, e
 justificativa concreta. Assim o mesmo PR pode propor uma mudança deliberada, mas não pode esconder a
 regressão apenas movendo ou retirando a proteção.

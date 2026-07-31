@@ -212,7 +212,7 @@ def main(argv: list[str] | None = None) -> int:
         validate_policy(config)
         document = _document(root, config, args.profile)
         if args.base_ref != "none":
-            validate_baseline_changes(root, config_path, config, document, args.base_ref)
+            validate_baseline_changes(root, config_path, config, args.base_ref)
     except (OSError, KeyError, TypeError, ValueError, tomllib.TOMLDecodeError) as exc:
         print(f"CONFIG ERROR: {exc}", file=sys.stderr)
         return 2

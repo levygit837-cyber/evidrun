@@ -32,6 +32,7 @@ expected = [
   "changes/48.toml",
   "docs/governance/resource-budgets.md",
   "docs/operations/local-development.md",
+  "pyproject.toml",
   "resource-budget.toml",
   "scripts/check_resource_budgets.py",
   "scripts/resource_budget/**",

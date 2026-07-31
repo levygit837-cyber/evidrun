@@ -12,7 +12,6 @@ def validate_baseline_changes(
     root: Path,
     config_path: Path,
     config: dict[str, Any],
-    document: dict[str, Any],
     base_ref: str,
 ) -> None:
     """Compare policy at the merge-base and require reviewable change records."""
@@ -32,11 +31,6 @@ def validate_baseline_changes(
         base.get("classifications", {}).get("cache_excluded", []),
         config.get("classifications", {}).get("cache_excluded", []),
     )
-    measured = {
-        (scenario["id"], metric["name"]): metric["value"]
-        for scenario in document["scenarios"]
-        for metric in scenario["metrics"]
-    }
     current_scenarios = config["scenarios"]
     for scenario_id, base_scenario in base.get("scenarios", {}).items():
         current_scenario = current_scenarios.get(scenario_id)
@@ -63,14 +57,13 @@ def validate_baseline_changes(
                     base_metric,
                     current_metric,
                 )
-            _check_warning_baseline(config, scenario_id, metric_name, base_metric, current_metric)
+            _check_metric_baseline(config, scenario_id, metric_name, base_metric, current_metric)
             _check_blocking_bounds(
                 config,
                 scenario_id,
                 metric_name,
                 base_metric,
                 current_metric,
-                measured.get((scenario_id, metric_name)),
             )
 
 
@@ -100,33 +93,45 @@ def _check_policy_field(
         )
 
 
-def _check_warning_baseline(
+def _check_metric_baseline(
     config: dict[str, Any],
     scenario_id: str,
     metric_name: str,
     base: dict[str, Any],
     current: dict[str, Any],
 ) -> None:
-    if base.get("enforcement") != "warning" or current.get("enforcement") != "warning":
-        return
     old_baseline = base.get("baseline")
     new_baseline = current.get("baseline")
     old_ratio = base.get("warning_ratio")
     new_ratio = current.get("warning_ratio")
     if old_baseline == new_baseline and old_ratio == new_ratio:
         return
-    if not _has_exact_adjustment(
-        config.get("baseline_adjustments", []),
-        scenario=scenario_id,
-        metric=metric_name,
-        previous_baseline=old_baseline,
-        new_baseline=new_baseline,
-        previous_warning_ratio=old_ratio,
-        new_warning_ratio=new_ratio,
-    ):
+    rendered_old_baseline: object = (
+        old_baseline if "baseline" in base else "absent"
+    )
+    rendered_new_baseline: object = (
+        new_baseline if "baseline" in current else "removed"
+    )
+    expected = {
+        "scenario": scenario_id,
+        "metric": metric_name,
+        "previous_baseline": rendered_old_baseline,
+        "new_baseline": rendered_new_baseline,
+    }
+    if "warning_ratio" in base or "warning_ratio" in current:
+        expected.update(
+            previous_warning_ratio=(
+                old_ratio if "warning_ratio" in base else "absent"
+            ),
+            new_warning_ratio=(
+                new_ratio if "warning_ratio" in current else "removed"
+            ),
+        )
+    if not _has_exact_adjustment(config.get("baseline_adjustments", []), **expected):
         raise ValueError(
-            f"{scenario_id}.{metric_name} changed warning baseline "
-            f"{old_baseline} x {old_ratio} -> {new_baseline} x {new_ratio}; "
+            f"{scenario_id}.{metric_name} changed declared baseline "
+            f"{rendered_old_baseline} x {old_ratio} -> "
+            f"{rendered_new_baseline} x {new_ratio}; "
             "add a matching [[baseline_adjustments]] record with a reviewable justification"
         )
 
@@ -137,7 +142,6 @@ def _check_blocking_bounds(
     metric_name: str,
     base: dict[str, Any],
     current: dict[str, Any],
-    value: int | float | None,
 ) -> None:
     if base.get("enforcement") != "blocking" or current.get("enforcement") != "blocking":
         return
@@ -145,8 +149,6 @@ def _check_blocking_bounds(
     new_limit = current.get("limit")
     if (
         old_limit is not None
-        and value is not None
-        and value > old_limit
         and (new_limit is None or new_limit > old_limit)
     ):
         _require_limit_adjustment(
@@ -156,8 +158,6 @@ def _check_blocking_bounds(
     new_minimum = current.get("minimum")
     if (
         old_minimum is not None
-        and value is not None
-        and value < old_minimum
         and (new_minimum is None or new_minimum < old_minimum)
     ):
         _require_limit_adjustment(
@@ -212,7 +212,7 @@ def _require_limit_adjustment(
     action = "raised" if bound == "maximum" else "lowered minimum"
     raise ValueError(
         f"{scenario_id}.{metric_name} {action} {previous} -> {rendered_new} "
-        "while the measurement exceeds the old bound; add a matching "
+        "and relaxed the old bound; add a matching "
         "[[limit_adjustments]] record with a reviewable justification"
     )
 

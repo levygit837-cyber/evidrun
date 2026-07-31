@@ -33,6 +33,7 @@ def _tracked_policy(tmp_path: Path, body: str = BLOCKING_BASE) -> Path:
 
 def test_raised_blocking_limit_requires_a_reviewable_adjustment(tmp_path: Path) -> None:
     config = _tracked_policy(tmp_path)
+    (tmp_path / "dist" / "app.js").write_bytes(b"1234")
     changed = BLOCKING_BASE.replace("limit = 8", "limit = 16")
     config.write_text(changed, encoding="utf-8")
 
@@ -70,7 +71,7 @@ def test_warning_baseline_change_requires_a_reviewable_adjustment(tmp_path: Path
     refused = run_checker(tmp_path, config, "build", base_ref="HEAD")
 
     assert refused.returncode == 2
-    assert "build.output_bytes changed warning baseline" in refused.stderr
+    assert "build.output_bytes changed declared baseline" in refused.stderr
     assert "baseline_adjustments" in refused.stderr
 
     config.write_text(
@@ -84,6 +85,61 @@ new_baseline = 8
 previous_warning_ratio = 1.5
 new_warning_ratio = 1.5
 justification = "The reviewed runtime artifact has a new canonical member."
+""",
+        encoding="utf-8",
+    )
+    approved = run_checker(tmp_path, config, "build", base_ref="HEAD")
+    assert approved.returncode == 0, approved.stderr
+
+
+def test_blocking_baseline_change_requires_a_reviewable_adjustment(tmp_path: Path) -> None:
+    config = _tracked_policy(tmp_path)
+    (tmp_path / "dist" / "app.js").write_bytes(b"1234")
+    changed = BLOCKING_BASE.replace("baseline = 5", "baseline = 6")
+    config.write_text(changed, encoding="utf-8")
+
+    refused = run_checker(tmp_path, config, "build", base_ref="HEAD")
+
+    assert refused.returncode == 2
+    assert "build.output_bytes changed declared baseline" in refused.stderr
+
+    config.write_text(
+        changed
+        + """
+[[baseline_adjustments]]
+scenario = "build"
+metric = "output_bytes"
+previous_baseline = 5
+new_baseline = 6
+justification = "The reviewed deterministic baseline reflects the canonical output."
+""",
+        encoding="utf-8",
+    )
+    approved = run_checker(tmp_path, config, "build", base_ref="HEAD")
+    assert approved.returncode == 0, approved.stderr
+
+
+def test_blocking_limit_removal_requires_a_reviewable_adjustment(tmp_path: Path) -> None:
+    baseline = BLOCKING_BASE.replace("limit = 8", "minimum = 1\nlimit = 8")
+    config = _tracked_policy(tmp_path, baseline)
+    (tmp_path / "dist" / "app.js").write_bytes(b"1234")
+    changed = baseline.replace("limit = 8\n", "")
+    config.write_text(changed, encoding="utf-8")
+
+    refused = run_checker(tmp_path, config, "build", base_ref="HEAD")
+
+    assert refused.returncode == 2
+    assert "build.output_bytes raised 8 -> removed" in refused.stderr
+
+    config.write_text(
+        changed
+        + """
+[[limit_adjustments]]
+scenario = "build"
+metric = "output_bytes"
+previous_limit = 8
+new_limit = "removed"
+justification = "The reviewed policy retains only the lower structural boundary."
 """,
         encoding="utf-8",
     )

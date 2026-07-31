@@ -43,11 +43,15 @@ def validate_policy(config: dict[str, Any]) -> None:
     noise_ratio = config.get("methodology", {}).get("noise_mad_ratio")
     if not isinstance(noise_ratio, (int, float)) or not 0 <= noise_ratio <= 1:
         raise ValueError("methodology.noise_mad_ratio must be between 0 and 1")
-    classifications = config.get("classifications", {})
-    if not isinstance(classifications, dict):
+    raw_classifications = cast(object, config.get("classifications", {}))
+    if not isinstance(raw_classifications, dict):
         raise ValueError("classifications must be a table")
-    cache_excluded = classifications.get("cache_excluded", [])
-    if not isinstance(cache_excluded, list) or not all(
+    classifications = cast(dict[str, object], raw_classifications)
+    raw_cache_excluded = classifications.get("cache_excluded", [])
+    if not isinstance(raw_cache_excluded, list):
+        raise ValueError("classifications.cache_excluded must be a list of glob patterns")
+    cache_excluded = cast(list[object], raw_cache_excluded)
+    if not all(
         isinstance(pattern, str) and pattern.strip() for pattern in cache_excluded
     ):
         raise ValueError("classifications.cache_excluded must be a list of glob patterns")
