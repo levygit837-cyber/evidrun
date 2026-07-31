@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
 
+from evidrun.contracts import parse_revision
 from evidrun.contracts.runtime.spec import AdmissionIssue, ResolutionReason
 from evidrun.contracts.triage import (
     CATEGORY_BY_CODE,
@@ -14,8 +16,10 @@ from evidrun.contracts.triage import (
     TriageError,
     TriageErrorCode,
     TriagePhase,
+    TriageRejected,
     validate_error_tables,
 )
+from tests.support.contract_fixtures import legacy_package
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -136,3 +140,61 @@ def test_triage_vocabulary_has_no_framework_or_persistence_imports() -> None:
 
     for forbidden in ("fastapi", "typer", "sqlalchemy", "evidrun.infrastructure"):
         assert forbidden not in source
+
+
+def _without_contract_type(document: dict[str, object]) -> dict[str, object]:
+    return {key: value for key, value in document.items() if key != "contract_type"}
+
+
+@pytest.mark.parametrize(
+    ("mutate", "expected_code", "expected_path"),
+    (
+        (lambda _document: [], TriageErrorCode.PARSE_DOCUMENT_NOT_OBJECT, ()),
+        (
+            _without_contract_type,
+            TriageErrorCode.PARSE_CONTRACT_TYPE_MISSING,
+            ("contract_type",),
+        ),
+        (
+            lambda document: {**document, "contract_type": "unknown"},
+            TriageErrorCode.PARSE_CONTRACT_TYPE_UNKNOWN,
+            ("contract_type",),
+        ),
+        (
+            lambda document: {**document, "unexpected": True},
+            TriageErrorCode.PARSE_FIELD_UNDECLARED,
+            ("unexpected",),
+        ),
+        (
+            lambda document: {**document, "revision": 0},
+            TriageErrorCode.PARSE_REVISION_INVALID,
+            ("revision",),
+        ),
+        (
+            lambda document: {**document, "logical_id": " "},
+            TriageErrorCode.PARSE_IDENTIFIER_EMPTY,
+            ("logical_id",),
+        ),
+        (
+            lambda document: {**document, "payload": "wrong"},
+            TriageErrorCode.PARSE_PAYLOAD_TYPE_INVALID,
+            ("payload",),
+        ),
+        (
+            lambda document: {**document, "title": 7},
+            TriageErrorCode.PARSE_SCHEMA_INVALID,
+            ("title",),
+        ),
+    ),
+)
+def test_parse_revision_emits_named_structural_refusals(
+    mutate: object, expected_code: TriageErrorCode, expected_path: tuple[str, ...]
+) -> None:
+    _, package = legacy_package()
+    document = deepcopy(package.study.semantic_document())
+
+    with pytest.raises(TriageRejected) as captured:
+        parse_revision(mutate(document))  # type: ignore[operator]
+
+    assert captured.value.error.code == expected_code
+    assert captured.value.error.field_path == expected_path

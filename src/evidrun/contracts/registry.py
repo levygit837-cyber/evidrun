@@ -26,6 +26,11 @@ from evidrun.contracts.base import (
     RevisionDecisionRecord,
     RevisionEnvelope,
 )
+from evidrun.contracts.compile_errors import (
+    compile_dependency_not_accepted,
+    compile_digest_mismatch,
+    compile_reference_not_found,
+)
 
 RevisionKey = tuple[ContractType, str, int]
 
@@ -97,14 +102,12 @@ class InMemoryContractRegistry(ContractResolver):
         key = self._key(reference)
         revision = self._revisions.get(key)
         if revision is None:
-            raise KeyError(
-                f"contract revision not found: {reference.logical_id}@{reference.revision}"
-            )
+            raise compile_reference_not_found(reference)
         if revision.digest != reference.digest:
-            raise ValueError("contract reference digest mismatch")
+            raise compile_digest_mismatch(reference)
         decision = self._decisions.get(key)
         if decision is None or decision.decision != "accepted":
-            raise ValueError("only accepted contract revisions can be resolved")
+            raise compile_dependency_not_accepted(reference)
         return revision
 
     def revisions(self) -> tuple[RevisionEnvelope, ...]:

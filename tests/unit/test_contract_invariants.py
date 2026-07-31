@@ -15,6 +15,7 @@ from evidrun.contracts import (
 from evidrun.contracts.compiler import (
     StudyCompiler,
 )
+from evidrun.contracts.triage import TriageErrorCode, TriageRejected
 from evidrun.shared.types import (
     EvidenceMode,
     sha256_bytes,
@@ -54,8 +55,9 @@ def test_contract_refs_reject_a_mismatched_digest(payload: bytes) -> None:
     if wrong_digest == package.study.digest:
         return
     wrong_ref = package.study.ref.model_copy(update={"digest": wrong_digest})
-    with pytest.raises(ValueError, match="digest mismatch"):
+    with pytest.raises(TriageRejected) as captured:
         registry.resolve(wrong_ref)
+    assert captured.value.error.code == TriageErrorCode.COMPILE_DIGEST_MISMATCH
 
 
 @given(repetitions=st.integers(min_value=1, max_value=4), variants=st.integers(1, 4))
