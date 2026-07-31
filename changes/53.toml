@@ -96,6 +96,38 @@ full_gates = [
   "uv run python scripts/validate_docs.py",
 ]
 
+[merge_gate]
+review = "proportional"
+ci_commit = "688f65ed2de417a46091833bee266f1a00ceb437"
+
+[merge_gate.spec]
+conclusion = "passed"
+evidence = [
+  "test:tests/unit/test_change_classification.py::test_feature_with_removed_schema_fails_closed_and_reports_the_diff",
+  "test:tests/unit/test_change_contract_python_diff.py",
+  "test:tests/unit/test_change_contract_schema_diff.py",
+]
+
+[merge_gate.standards]
+conclusion = "passed"
+evidence = [
+  "diff:docs/governance/change-contract.md",
+  "diff:scripts/change_contract/classification_policy.py",
+  "diff:scripts/change_contract/repository_diff.py",
+]
+
+[merge_gate.verification]
+conclusion = "passed"
+evidence = [
+  "test:528-passed-1-live-skipped",
+  "test:pnpm-test-131-passed",
+  "test:tests/unit/test_change_classification.py::test_repository_routes_event_model_cli_and_export_surfaces",
+]
+
+[merge_gate.ci]
+conclusion = "passed"
+evidence = ["run:local/full-gates@688f65ed2de417a46091833bee266f1a00ceb437"]
+
 [[questions]]
 text = "Como integrar a evidencia de compatibilidade ao schema final do merge gate da issue 47?"
 affects_semantics = false
