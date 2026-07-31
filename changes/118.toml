@@ -139,4 +139,7 @@ evidence = [
 
 [merge_gate.ci]
 conclusion = "passed"
-evidence = ["run:actions/PENDING"]
+evidence = [
+  "run:actions/30670446793",
+  "log:pytest-598-passed-1-skipped.txt",
+]
