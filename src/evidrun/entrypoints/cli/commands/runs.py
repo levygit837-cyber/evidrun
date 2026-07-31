@@ -8,10 +8,16 @@ from typing import Annotated, Any
 import typer
 
 from evidrun.contracts.admission import admission_rejection_error
-from evidrun.contracts.triage import CLI_EXIT_BY_CODE
+from evidrun.contracts.triage import CLI_EXIT_BY_CODE, TriageRejected
 from evidrun.entrypoints.cli.shared import components, console
 from evidrun.evidence.bundle import EvidenceBundleService
 from evidrun.infrastructure.database import Database, Repository
+from evidrun.infrastructure.database.ledger.transitions import RETRYABLE_RUN_STATUSES
+from evidrun.infrastructure.database.queue.enqueue_errors import (
+    enqueue_retry_admission_reused,
+    enqueue_retry_legacy_run,
+    enqueue_retry_source_succeeded,
+)
 from evidrun.runs import EvidrunService
 from evidrun.settings import Settings
 
@@ -19,6 +25,13 @@ run_app = typer.Typer(help="Executar e inspecionar runs.")
 bundle_app = typer.Typer(help="Exportar e verificar evidence bundles.")
 chat_app = typer.Typer(help="Inspecionar sessões de chat.")
 data_app = typer.Typer(help="Inspecionar e eliminar dados gerenciados.")
+
+
+def _exit_triage(rejection: TriageRejected) -> typer.Exit:
+    """Print the named refusal as JSON and exit by its contract table."""
+
+    console.print_json(data=rejection.error.model_dump(mode="json"))
+    return typer.Exit(CLI_EXIT_BY_CODE[rejection.error.code])
 
 
 @run_app.command("inspect")
@@ -95,11 +108,14 @@ def enqueue_run(
 ) -> None:
     _, database, repository = components(data_dir)
     try:
-        run_id, job = EvidrunService(repository).runtime.coordinator.enqueue(
-            run_spec_id=run_spec_id,
-            admission_id=admission_id,
-            idempotency_key=idempotency_key,
-        )
+        try:
+            run_id, job = EvidrunService(repository).runtime.coordinator.enqueue(
+                run_spec_id=run_spec_id,
+                admission_id=admission_id,
+                idempotency_key=idempotency_key,
+            )
+        except TriageRejected as exc:
+            raise _exit_triage(exc) from exc
         console.print_json(
             data={
                 "run_id": run_id,
@@ -123,17 +139,22 @@ def retry_run(
 ) -> None:
     _, database, repository = components(data_dir)
     try:
-        source = repository.read_model.get_run(run_id)
-        if source.run_spec_id is None:
-            raise typer.BadParameter("legacy Run is not eligible for retry")
-        if source.admission_id == admission_id:
-            raise typer.BadParameter("retry requires a new AdmissionRecord")
-        new_run_id, job = EvidrunService(repository).runtime.coordinator.enqueue(
-            run_spec_id=source.run_spec_id,
-            admission_id=admission_id,
-            idempotency_key=idempotency_key,
-            retry_of=run_id,
-        )
+        try:
+            source = repository.read_model.get_run(run_id)
+            if source.run_spec_id is None:
+                raise enqueue_retry_legacy_run()
+            if source.status not in RETRYABLE_RUN_STATUSES:
+                raise enqueue_retry_source_succeeded()
+            if source.admission_id == admission_id:
+                raise enqueue_retry_admission_reused()
+            new_run_id, job = EvidrunService(repository).runtime.coordinator.enqueue(
+                run_spec_id=source.run_spec_id,
+                admission_id=admission_id,
+                idempotency_key=idempotency_key,
+                retry_of=run_id,
+            )
+        except TriageRejected as exc:
+            raise _exit_triage(exc) from exc
         console.print_json(
             data={
                 "run_id": new_run_id,

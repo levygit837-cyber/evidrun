@@ -461,7 +461,7 @@ def test_contract_validation_registration_and_human_decision(tmp_path: Path) -> 
             },
         )
         assert decision.status_code == 503
-        assert "verified human authority is unavailable" in decision.json()["detail"]
+        assert decision.json()["detail"]["code"] == "decide.human_authority_unavailable"
         listed = client.get("/api/v1/contracts/revisions").json()
         stored = next(item for item in listed if item["id"] == revision_id)
         assert stored["status"] == "draft"

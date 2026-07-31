@@ -12,6 +12,8 @@ applies_to: contracts
 sources:
   - github:issue/59
   - github:issue/63
+  - github:issue/64
+  - github:issue/65
 supersedes: []
 superseded_by: null
 implementation_refs:
@@ -21,7 +23,14 @@ implementation_refs:
   - src/evidrun/contracts/compiler.py
   - src/evidrun/contracts/registry.py
   - src/evidrun/runs/preparation.py
+  - src/evidrun/infrastructure/database/decide_errors.py
+  - src/evidrun/infrastructure/database/queue/enqueue_errors.py
+  - src/evidrun/infrastructure/database/queue/enqueue.py
+  - src/evidrun/infrastructure/database/ledger/transitions.py
   - src/evidrun/infrastructure/database/register_errors.py
+  - src/evidrun/authority/router.py
+  - src/evidrun/entrypoints/api/routers/runs.py
+  - src/evidrun/entrypoints/cli/commands/provider.py
   - src/evidrun/entrypoints/cli/app.py
   - src/evidrun/entrypoints/cli/commands/contracts.py
   - src/evidrun/contracts/admission/rejection.py
@@ -32,6 +41,10 @@ verification_refs:
   - tests/unit/test_triage_errors.py
   - tests/integration/test_register_errors.py
   - tests/integration/test_execution_preparation_surfaces.py
+  - tests/integration/test_decide_errors.py
+  - tests/integration/test_runtime_surfaces.py
+  - tests/integration/test_runtime_queue.py
+  - tests/integration/test_authority_flow.py
   - tests/unit/test_contract_admission.py
   - tests/unit/test_contract_invariants.py
   - tests/unit/test_admission_rejection.py
@@ -42,9 +55,8 @@ verification_refs:
 
 As seis fases anteriores à criação de uma Run compartilham um vocabulário de recusa sem I/O e sem
 dependências de API, CLI ou persistência. Este contrato declara a representação e as tabelas
-consumidas pelas fatias verticais. As fases `parse`, `register`, `compile` e `admit` projetam esse
-vocabulário nas bordas HTTP e CLI; `decide` e `enqueue` permanecem conectadas conforme suas issues
-específicas forem implementadas.
+consumidas pelas fatias verticais. Todas as seis fases projetam esse vocabulário nas bordas HTTP e
+CLI.
 
 `TriageRejected` é a exceção que transporta um `TriageError` de dentro de uma fase até a borda. Ela
 deriva de `ValueError` para preservar os callers existentes, mas nenhuma borda deduz causa por
@@ -98,9 +110,8 @@ preserva indisponibilidade como HTTP 503; a CLI possui somente as quatro classes
 recusado, não encontrado e conflito), portanto indisponibilidade usa exit code 3. A verificação falha
 se qualquer código ficar sem entrada ou se uma tabela contiver código órfão. Adicionar erro exige, no
 mesmo patch: novo membro com prefixo da fase, categoria, ambas as traduções e caso de contrato.
-As fases `decide` e `enqueue` ainda aguardam suas fatias verticais. Parse, registro e compile
-projetam suas recusas nas superfícies da API e CLI; a rejeição de admissão projeta `admit.rejected`
-na API, CLI e fachada de execução por um único renderizador.
+As seis fases projetam suas recusas nas superfícies da API e CLI. A rejeição de admissão projeta
+`admit.rejected` na API, CLI e fachada de execução por um único renderizador.
 
 ## Fase parse
 
@@ -124,6 +135,37 @@ pertence ao resolver que exige aceitação, não ao caminho selado do ADR 0022.
 
 A CLI só mostra traceback sob `--traceback`. Sem a flag, uma falha inesperada imprime uma linha e
 termina com exit code 1, separada das recusas nomeadas que usam as tabelas.
+
+## Fase decide
+
+As quatro recusas nascem na costura de persistência: autoridade humana indisponível, revision
+inexistente, decisão conflitante com uma decisão anterior e uso do caminho de fixture fora do import
+dedicado. Nenhuma delas persiste qualquer coisa.
+
+A existência da revision é verificada antes de qualquer checagem de autoridade, então uma revision
+desconhecida responde `decide.revision_not_found` sem alcançar o verificador. A autoridade continua
+sendo estabelecida dentro da transação que persiste a decisão.
+
+Nomear a recusa não promove capability: um claim humano ainda exige attestation verificada, e
+`repository_fixture` permanece não humano e restrito ao import dedicado do pacote legado. A rota
+legada de decisão continua respondendo indisponível, agora por código.
+
+## Fase enqueue
+
+O enfileiramento traduz identidade ausente de RunSpec e de AdmissionRecord, admissão não admitida,
+admissão de outro RunSpec, digest divergente, chave de idempotência vazia e chave reusada com pedido
+diferente. Chave reusada com pedido idêntico continua devolvendo a Run original, sem recusa.
+
+As quatro recusas de retry são Run de origem que terminou com sucesso, AdmissionRecord reusado da Run
+de origem, AdmissionRecord criado antes do terminal da origem e Run legada sem RunSpec.
+
+A escolha de status HTTP vem exclusivamente da tabela de códigos. Antes desta fatia, a API decidia
+entre 409 e 422 procurando frases como `"idempotency key"` dentro da mensagem da exceção, então
+reescrever um texto mudava um status observável sem nenhum teste falhar.
+
+`RETRYABLE_RUN_STATUSES` é derivado de `TERMINAL_RUN_STATUSES` menos `completed`, em uma única fonte
+canônica no ledger, para que um status terminal novo não se torne repetível por omissão. A
+atomicidade do enfileiramento e o fencing de lease permanecem inalterados.
 
 ## Fase register
 

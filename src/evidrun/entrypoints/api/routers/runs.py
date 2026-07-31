@@ -1,8 +1,7 @@
 """Run lifecycle: enqueue, retry, inspect, and the live event stream.
 
-`enqueue_run` and `retry_run` map `ValueError` to 409 or 422 by inspecting the
-message. That is the observable contract the web app depends on, so the marker
-lists below are copied verbatim from the pre-extraction handlers.
+`enqueue_run` and `retry_run` translate a named `TriageRejected` by its stable code:
+the status comes from `HTTP_STATUS_BY_CODE`, never from inspecting message text.
 """
 
 from __future__ import annotations
@@ -16,21 +15,29 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 
 from evidrun.contracts import semantic_model_dump
+from evidrun.contracts.triage import HTTP_STATUS_BY_CODE, TriageRejected
 from evidrun.entrypoints.api.context import ApiContext
 from evidrun.entrypoints.api.schemas import RunEnqueueRequest
+from evidrun.infrastructure.database.ledger.transitions import (
+    RETRYABLE_RUN_STATUSES,
+    TERMINAL_RUN_STATUSES,
+)
+from evidrun.infrastructure.database.queue.enqueue_errors import (
+    enqueue_admission_not_admitted,
+    enqueue_admission_run_spec_mismatch,
+    enqueue_retry_legacy_run,
+    enqueue_retry_source_succeeded,
+)
 
-RETRYABLE_RUN_STATUSES = frozenset(
-    {"failed", "cancelled", "budget_exhausted", "guardrail_stopped"}
-)
-TERMINAL_RUN_STATUSES = frozenset(
-    {"completed", "failed", "cancelled", "budget_exhausted", "guardrail_stopped"}
-)
-CONFLICT_MARKERS = (
-    "idempotency key",
-    "can be retried",
-    "retry requires",
-    "retry AdmissionRecord",
-)
+
+def _triage_http_error(rejection: TriageRejected) -> HTTPException:
+    """One translation for every named enqueue refusal reaching HTTP."""
+
+    return HTTPException(
+        status_code=HTTP_STATUS_BY_CODE[rejection.error.code],
+        detail=rejection.error.model_dump(mode="json"),
+    )
+
 
 
 def create_run_router(
@@ -57,19 +64,13 @@ def create_run_router(
         _: None = Depends(authorize),
     ) -> dict[str, Any]:
         try:
-            repository.read_model.get_run_spec(run_spec_id)
-            repository.read_model.get_admission_record(payload.admission_id)
             run_id, job = service.runtime.coordinator.enqueue(
                 run_spec_id=run_spec_id,
                 admission_id=payload.admission_id,
                 idempotency_key=idempotency_key,
             )
-        except KeyError as exc:
-            raise HTTPException(status_code=404, detail="RunSpec or admission not found") from exc
-        except ValueError as exc:
-            if "idempotency key" in str(exc):
-                raise HTTPException(status_code=409, detail=str(exc)) from exc
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except TriageRejected as exc:
+            raise _triage_http_error(exc) from exc
         return {
             "run_id": run_id,
             "job_id": job.job_id,
@@ -91,28 +92,20 @@ def create_run_router(
             run_spec_id = _retryable_run_spec_id(source)
             spec = repository.read_model.get_run_spec(run_spec_id)
             retry_admission = repository.read_model.get_admission_record(payload.admission_id)
-            if (
-                retry_admission.decision != "admitted"
-                or retry_admission.run_spec_digest != spec.digest
-            ):
-                raise HTTPException(
-                    status_code=422,
-                    detail="retry admission does not admit the original RunSpec",
-                )
+            if retry_admission.decision != "admitted":
+                raise enqueue_admission_not_admitted()
+            if retry_admission.run_spec_digest != spec.digest:
+                raise enqueue_admission_run_spec_mismatch()
             new_run_id, job = service.runtime.coordinator.enqueue(
                 run_spec_id=run_spec_id,
                 admission_id=payload.admission_id,
                 idempotency_key=idempotency_key,
                 retry_of=run_id,
             )
+        except TriageRejected as exc:
+            raise _triage_http_error(exc) from exc
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="Run or admission not found") from exc
-        except HTTPException:
-            raise
-        except ValueError as exc:
-            if any(marker in str(exc) for marker in CONFLICT_MARKERS):
-                raise HTTPException(status_code=409, detail=str(exc)) from exc
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
         return {
             "run_id": new_run_id,
             "job_id": job.job_id,
@@ -208,15 +201,9 @@ def _retryable_run_spec_id(source: Any) -> str:
 
     run_spec_id: str | None = source.run_spec_id
     if run_spec_id is None:
-        raise HTTPException(
-            status_code=409,
-            detail="legacy Run is not eligible for Runtime Kernel retry",
-        )
+        raise enqueue_retry_legacy_run()
     if source.status not in RETRYABLE_RUN_STATUSES:
-        raise HTTPException(
-            status_code=409,
-            detail="only an unsuccessful terminal Run can be retried",
-        )
+        raise enqueue_retry_source_succeeded()
     return run_spec_id
 
 

@@ -10,7 +10,9 @@ import typer
 
 from evidrun.authority.policy import AuthorityMode
 from evidrun.authority.subject import RevisionDecisionSubject
+from evidrun.contracts.triage import CLI_EXIT_BY_CODE, TriageRejected
 from evidrun.entrypoints.cli.shared import authority_service, components, console
+from evidrun.infrastructure.database.decide_errors import decide_revision_not_found
 from evidrun.infrastructure.providers import (
     OpenAIResponsesProvider,
     ProviderCredentialStore,
@@ -165,7 +167,10 @@ def authority_accept(
     settings, database, repository = components(data_dir)
     try:
         service, _ = authority_service(database, settings)
-        revision = repository.read_model.get_contract_revision(revision_id)
+        try:
+            revision = repository.read_model.get_contract_revision(revision_id)
+        except KeyError as exc:
+            raise decide_revision_not_found() from exc
         subject = RevisionDecisionSubject(
             revision_ref=revision.ref,
             decision="accepted",
@@ -185,6 +190,9 @@ def authority_accept(
                 "attestation_id": attestation.attestation_id,
             }
         )
+    except TriageRejected as exc:
+        console.print_json(data=exc.error.model_dump(mode="json"))
+        raise typer.Exit(CLI_EXIT_BY_CODE[exc.error.code]) from exc
     except (ValueError, PermissionError, KeyError) as exc:
         console.print(f"[red]{exc}[/red]")
         raise typer.Exit(1) from exc

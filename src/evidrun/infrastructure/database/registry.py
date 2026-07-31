@@ -20,10 +20,19 @@ from evidrun.contracts import (
     parse_revision,
     semantic_model_dump,
 )
-from evidrun.contracts.authority import HumanAttestationVerifier
+from evidrun.contracts.authority import (
+    HumanAttestationUnavailable,
+    HumanAttestationVerifier,
+)
 from evidrun.contracts.legacy import LegacyStudyPackage
 from evidrun.contracts.registry import InMemoryContractRegistry
 from evidrun.infrastructure.database import clock
+from evidrun.infrastructure.database.decide_errors import (
+    decide_decision_conflict,
+    decide_human_authority_unavailable,
+    decide_repository_fixture_forbidden,
+    decide_revision_not_found,
+)
 from evidrun.infrastructure.database.models import (
     ContractDecisionRow,
     ContractRevisionRow,
@@ -174,9 +183,7 @@ class ContractRegistryStore:
         self, decision: RevisionDecisionRecord
     ) -> ContractDecisionRow:
         if decision.authority.kind == "repository_fixture":
-            raise PermissionError(
-                "repository fixture acceptance requires import_legacy_contract_package"
-            )
+            raise decide_repository_fixture_forbidden()
         return self._persist_contract_decision(decision)
 
     def import_legacy_contract_package(
@@ -231,21 +238,33 @@ class ContractRegistryStore:
             for decision in decisions
         )
 
+    def _authorize_decision(
+        self,
+        decision: RevisionDecisionRecord,
+        *,
+        repository_fixture_digest: str | None,
+    ) -> None:
+        """Establish authority, or refuse by name without writing anything."""
+
+        if decision.authority.kind == "verified_human":
+            try:
+                self.human_attestation_verifier.verify(
+                    decision.authority.attestation,
+                    expected_subject_digest=decision.human_subject_digest(),
+                )
+            except HumanAttestationUnavailable as exc:
+                # Naming the refusal does not relax it: no verifier means nothing is
+                # persisted, exactly as before. Only the cause becomes readable.
+                raise decide_human_authority_unavailable() from exc
+        elif repository_fixture_digest != decision.authority.fixture_digest:
+            raise decide_repository_fixture_forbidden()
+
     def _persist_contract_decision(
         self,
         decision: RevisionDecisionRecord,
         *,
         repository_fixture_digest: str | None = None,
     ) -> ContractDecisionRow:
-        if decision.authority.kind == "verified_human":
-            self.human_attestation_verifier.verify(
-                decision.authority.attestation,
-                expected_subject_digest=decision.human_subject_digest(),
-            )
-        elif repository_fixture_digest != decision.authority.fixture_digest:
-            raise PermissionError(
-                "repository fixture acceptance is restricted to the internal legacy adapter"
-            )
         with self.unit_of_work.session() as session:
             revision = session.scalar(
                 select(ContractRevisionRow).where(
@@ -255,7 +274,12 @@ class ContractRegistryStore:
                 )
             )
             if revision is None or revision.digest != decision.revision_ref.digest:
-                raise ValueError("decision references an unknown or mismatched revision")
+                raise decide_revision_not_found()
+            # Authority is established inside the transaction that persists the decision,
+            # and only after the revision is known to exist.
+            self._authorize_decision(
+                decision, repository_fixture_digest=repository_fixture_digest
+            )
             previous = session.scalar(
                 select(ContractDecisionRow)
                 .where(ContractDecisionRow.contract_revision_id == revision.id)
@@ -263,11 +287,11 @@ class ContractRegistryStore:
                 .limit(1)
             )
             if previous is None and decision.decision == "superseded":
-                raise ValueError("only an accepted revision can be superseded")
+                raise decide_decision_conflict()
             if previous is not None:
                 if previous.decision != decision.decision:
                     if not (previous.decision == "accepted" and decision.decision == "superseded"):
-                        raise ValueError("contract revision already has a conflicting decision")
+                        raise decide_decision_conflict()
                 elif not (
                     previous.actor_type == "repository_fixture"
                     and decision.authority.kind == "verified_human"
