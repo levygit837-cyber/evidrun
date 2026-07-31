@@ -21,6 +21,10 @@ from evidrun.entrypoints.api.schemas import (
     ManifestRequest,
 )
 from evidrun.experiments import ExperimentManifest
+from evidrun.infrastructure.database.decide_errors import (
+    decide_human_authority_unavailable,
+    decide_revision_not_found,
+)
 from evidrun.infrastructure.database.register_errors import (
     RegisterRejected,
     RegisterStorageUnavailable,
@@ -110,22 +114,16 @@ def create_contract_router(
         payload: ContractDecisionRequest,
         _: None = Depends(authorize),
     ) -> dict[str, Any]:
-        # Always 503: the real path is POST /api/v1/authority/revisions/decisions.
-        # The lookup runs first so an unknown revision still answers 404, which is
-        # the observable behaviour this route has always had. A docstring here
-        # would leak into the generated OpenAPI description.
+        # Always unavailable: the real path is POST /api/v1/authority/revisions/decisions.
+        # The lookup runs first so an unknown revision still answers not_found, which is
+        # the observable behaviour this route has always had. A docstring here would leak
+        # into the generated OpenAPI description.
         try:
             repository.read_model.get_contract_revision(revision_id)
         except KeyError as exc:
-            raise HTTPException(status_code=404, detail="contract revision not found") from exc
+            raise _triage_http_error(decide_revision_not_found()) from exc
         del payload
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "verified human authority is unavailable; a trusted WebAuthn verifier "
-                "must complete this decision"
-            ),
-        )
+        raise _triage_http_error(decide_human_authority_unavailable())
 
     @router.post("/studies/{revision_id}/compile")
     async def compile_study(

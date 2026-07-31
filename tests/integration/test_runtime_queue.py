@@ -16,6 +16,7 @@ import evidrun.infrastructure.database.evaluation.records as evaluation_records_
 import evidrun.infrastructure.database.queue.preparation as preparation_module
 import evidrun.runs.coordinator.budget as budget_module
 from evidrun.contracts import GoalStateTerminalResult
+from evidrun.contracts.triage import TriageErrorCode, TriageRejected
 from evidrun.evidence.bundle import EvidenceBundleService
 from evidrun.infrastructure.artifacts.store import ArtifactStore
 from evidrun.infrastructure.database import Database, LeaseLost, Repository
@@ -108,23 +109,25 @@ def test_enqueue_is_idempotent_and_two_connections_cannot_claim_same_attempt(
     second_admission_row = fixture.repository.catalog.save_admission_record(
         fixture.spec_id, second_admission
     )
-    with pytest.raises(ValueError, match="idempotency key"):
+    with pytest.raises(TriageRejected) as reused_key:
         kernel.coordinator.enqueue(
             run_spec_id=fixture.spec_id,
             admission_id=second_admission_row.id,
             idempotency_key="same-request",
         )
+    assert reused_key.value.error.code == TriageErrorCode.ENQUEUE_IDEMPOTENCY_CONFLICT
     original_spec = fixture.repository.read_model.get_run_spec(fixture.spec_id)
     divergent_spec_row = fixture.repository.catalog.save_run_spec(
         original_spec.model_copy(update={"variant_id": "divergent-variant"})
     )
     runs_before_divergence = len(fixture.repository.read_model.latest_dashboard()["runs"])
-    with pytest.raises(ValueError, match="exact RunSpec"):
+    with pytest.raises(TriageRejected) as divergent:
         kernel.coordinator.enqueue(
             run_spec_id=divergent_spec_row.id,
             admission_id=fixture.admission_id,
             idempotency_key="divergent-contracts",
         )
+    assert divergent.value.error.code == TriageErrorCode.ENQUEUE_ADMISSION_RUN_SPEC_MISMATCH
     assert len(fixture.repository.read_model.latest_dashboard()["runs"]) == runs_before_divergence
 
     databases = [Database(fixture.settings.database_path) for _ in range(2)]
@@ -403,13 +406,14 @@ def test_crash_after_subject_invocation_fails_without_reinvocation_and_retry_is_
     assert sum(item["type"] == "subject.invoked" for item in events) == 1
     assert not any(item["type"] == "subject.responded" for item in events)
 
-    with pytest.raises(ValueError, match="new AdmissionRecord"):
+    with pytest.raises(TriageRejected) as reused_admission:
         kernel.coordinator.enqueue(
             run_spec_id=fixture.spec_id,
             admission_id=fixture.admission_id,
             idempotency_key="stale-admission-retry",
             retry_of=run_id,
         )
+    assert reused_admission.value.error.code == TriageErrorCode.ENQUEUE_RETRY_ADMISSION_REUSED
 
     new_admission = kernel.coordinator.admission_service.admit(
         contracts[0],

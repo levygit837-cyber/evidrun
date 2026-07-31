@@ -31,26 +31,35 @@ class TestHumanAttestationVerifier:
             raise HumanAttestationInvalid("test attestation does not authorize this decision")
 
 
-def accepted_decision(revision: RevisionEnvelope) -> RevisionDecisionRecord:
+def decision_for(
+    revision: RevisionEnvelope, *, decision: str = "accepted"
+) -> RevisionDecisionRecord:
+    """Build a verified-human decision the test verifier accepts, for any verdict.
+
+    The attestation must cover the exact decision content, so `decision` participates in
+    both the subject digest and the attested action. Hardcoding `accepted` would make a
+    conflict case unbuildable.
+    """
+
     rationale = "Revisao humana da fixture transversal exata."
     decided_at = utc_now()
     subject_digest = sha256_json(
         {
             "revision_ref": revision.ref.model_dump(mode="json"),
-            "decision": "accepted",
+            "decision": decision,
             "rationale": rationale,
         }
     )
     attestation = HumanAttestationRecord(
-        attestation_id=f"attestation-{revision.logical_id}",
+        attestation_id=f"attestation-{revision.logical_id}-{decision}",
         principal_id="runtime-kernel-test-human",
         credential_id="test-only-credential",
-        action="revision.accepted",
+        action=f"revision.{decision}",
         target_digest=revision.digest,
         subject_digest=subject_digest,
         challenge_digest="a" * 64,
         assertion_ref=ArtifactRef(
-            artifact_id=f"assertion-{revision.logical_id}",
+            artifact_id=f"assertion-{revision.logical_id}-{decision}",
             digest="b" * 64,
             media_type="application/webauthn+json",
         ),
@@ -61,7 +70,7 @@ def accepted_decision(revision: RevisionEnvelope) -> RevisionDecisionRecord:
     )
     return RevisionDecisionRecord(
         revision_ref=revision.ref,
-        decision="accepted",
+        decision=decision,
         authority=VerifiedHumanDecisionAuthority(
             principal_id=attestation.principal_id,
             attestation=attestation,
@@ -69,3 +78,7 @@ def accepted_decision(revision: RevisionEnvelope) -> RevisionDecisionRecord:
         rationale=rationale,
         decided_at_utc=decided_at,
     )
+
+
+def accepted_decision(revision: RevisionEnvelope) -> RevisionDecisionRecord:
+    return decision_for(revision, decision="accepted")

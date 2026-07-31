@@ -11,7 +11,12 @@ from collections.abc import Mapping
 
 from evidrun.infrastructure.database.models import RunRow
 
-__all__ = ["TERMINAL_EVENT_TYPES", "TERMINAL_RUN_STATUSES", "event_transition"]
+__all__ = [
+    "RETRYABLE_RUN_STATUSES",
+    "TERMINAL_EVENT_TYPES",
+    "TERMINAL_RUN_STATUSES",
+    "event_transition",
+]
 
 #: The Run statuses past which no further event may be appended.
 TERMINAL_RUN_STATUSES = frozenset(
@@ -23,6 +28,9 @@ TERMINAL_RUN_STATUSES = frozenset(
         "guardrail_stopped",
     }
 )
+#: The terminal statuses a retry may start from: every terminal status except success.
+#: Derived rather than relisted so a new terminal status cannot silently become retryable.
+RETRYABLE_RUN_STATUSES = TERMINAL_RUN_STATUSES - {"completed"}
 #: The lifecycle events that drive a Run into one of those statuses.
 TERMINAL_EVENT_TYPES = frozenset(f"run.{status}" for status in TERMINAL_RUN_STATUSES)
 

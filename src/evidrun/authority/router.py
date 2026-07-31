@@ -17,6 +17,7 @@ from evidrun.authority.repository import (
 from evidrun.authority.service import HumanAuthorityService
 from evidrun.authority.subject import EvaluationDecisionSubject, RevisionDecisionSubject
 from evidrun.contracts.authority import HumanAttestationError
+from evidrun.contracts.triage import HTTP_STATUS_BY_CODE, TriageRejected
 from evidrun.infrastructure.database.repository import Repository
 
 
@@ -96,6 +97,15 @@ def _challenge_view(challenge: IssuedChallenge) -> dict[str, Any]:
     }
 
 
+def _triage_http_error(rejection: TriageRejected) -> HTTPException:
+    """One translation for every named decide refusal reaching HTTP."""
+
+    return HTTPException(
+        status_code=HTTP_STATUS_BY_CODE[rejection.error.code],
+        detail=rejection.error.model_dump(mode="json"),
+    )
+
+
 def create_authority_router(
     *,
     service: HumanAuthorityService,
@@ -156,6 +166,8 @@ def create_authority_router(
             )
             decision = payload.subject.build_decision(attestation)
             row = repository.registry.decide_contract_revision(decision)
+        except TriageRejected as exc:
+            raise _triage_http_error(exc) from exc
         except (ChallengeUnavailable, CredentialUnavailable) as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except HumanAttestationError as exc:

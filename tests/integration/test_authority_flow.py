@@ -16,7 +16,7 @@ from evidrun.authority.service import HumanAuthorityService
 from evidrun.authority.subject import RevisionDecisionSubject
 from evidrun.authority.verifier import LocalWebAuthnVerifier
 from evidrun.contracts.authoring.goal import GoalConstraint, GoalOutcome, GoalRevision, GoalSpec
-from evidrun.contracts.authority import HumanAttestationUnavailable
+from evidrun.contracts.triage import TriageErrorCode, TriageRejected
 from evidrun.infrastructure.artifacts.store import ArtifactStore, MemoryKeyProvider
 from evidrun.infrastructure.database import Database, Repository
 
@@ -236,7 +236,7 @@ def test_default_repository_fails_closed(tmp_path: Path) -> None:
             ),
         ),
     )
-    repository.registry.save_contract_revision(revision, status="proposed")
+    row = repository.registry.save_contract_revision(revision, status="proposed")
     credential = service.enroll(
         principal_id="alice",
         display_name="Alice",
@@ -254,6 +254,13 @@ def test_default_repository_fails_closed(tmp_path: Path) -> None:
         credential_id=credential.credential_id,
         project_id=project.id,
     )
-    with pytest.raises(HumanAttestationUnavailable):
+    # Naming the refusal must not relax it: no verifier still persists nothing.
+    with pytest.raises(TriageRejected) as unavailable:
         repository.registry.decide_contract_revision(subject.build_decision(attestation))
+    assert (
+        unavailable.value.error.code
+        == TriageErrorCode.DECIDE_HUMAN_AUTHORITY_UNAVAILABLE
+    )
+    stored = repository.read_model.list_contract_revisions()
+    assert next(item for item in stored if item["id"] == row.id)["status"] == "proposed"
     database.dispose()

@@ -28,6 +28,18 @@ from evidrun.infrastructure.database.models import (
     RunRow,
     RunSpecRow,
 )
+from evidrun.infrastructure.database.queue.enqueue_errors import (
+    enqueue_admission_not_admitted,
+    enqueue_admission_not_found,
+    enqueue_admission_run_spec_mismatch,
+    enqueue_digest_mismatch,
+    enqueue_idempotency_conflict,
+    enqueue_idempotency_key_empty,
+    enqueue_retry_admission_not_newer,
+    enqueue_retry_admission_reused,
+    enqueue_retry_source_succeeded,
+    enqueue_run_spec_not_found,
+)
 from evidrun.infrastructure.database.queue.models import execution_job_model
 from evidrun.infrastructure.database.unit_of_work import UnitOfWork
 from evidrun.shared.types import canonical_json, new_id, sha256_json
@@ -50,7 +62,7 @@ class EnqueueStore:
         now: datetime | None = None,
     ) -> tuple[RunRow, RunExecutionJob]:
         if not idempotency_key.strip():
-            raise ValueError("idempotency key cannot be empty")
+            raise enqueue_idempotency_key_empty()
         requested_at = now or clock.utc_now()
         request_digest = sha256_json(
             {
@@ -68,7 +80,7 @@ class EnqueueStore:
             )
             if existing is not None:
                 if existing.request_digest != request_digest:
-                    raise ValueError("idempotency key was already used for another request")
+                    raise enqueue_idempotency_conflict()
                 run = session.get(RunRow, existing.run_id)
                 if run is None:
                     raise ValueError("idempotent execution job references a missing Run")
@@ -135,19 +147,18 @@ def _load_admitted_contracts(
     """No Run exists before an admitted record for the exact RunSpec."""
     spec_row = session.get(RunSpecRow, run_spec_id)
     admission_row = session.get(AdmissionRecordRow, admission_id)
-    if spec_row is None or admission_row is None:
-        raise ValueError("RunSpec or AdmissionRecord does not exist")
+    if spec_row is None:
+        raise enqueue_run_spec_not_found()
+    if admission_row is None:
+        raise enqueue_admission_not_found()
     spec = RunSpec.model_validate(json.loads(spec_row.spec_json))
     admission = AdmissionRecord.model_validate(json.loads(admission_row.record_json))
     if spec.digest != spec_row.digest or admission.digest != admission_row.digest:
-        raise ValueError("Run contracts failed stored digest verification")
-    if (
-        admission_row.run_spec_id != spec_row.id
-        or admission_row.decision != "admitted"
-        or admission.decision != "admitted"
-        or admission.run_spec_digest != spec.digest
-    ):
-        raise ValueError("Run requires an admitted record for the exact RunSpec")
+        raise enqueue_digest_mismatch()
+    if admission_row.decision != "admitted" or admission.decision != "admitted":
+        raise enqueue_admission_not_admitted()
+    if admission_row.run_spec_id != spec_row.id or admission.run_spec_digest != spec.digest:
+        raise enqueue_admission_run_spec_mismatch()
     if (
         admission.execution_trust is None
         or admission_row.execution_trust_id != admission.execution_trust.trust_id
@@ -169,6 +180,8 @@ def _validate_retry(
     """A retry needs an unsuccessful terminal source and a fresh admission after it."""
     source_run = session.get(RunRow, retry_of)
     if source_run is None:
+        # Unreachable from API/CLI: both resolve the source Run before enqueuing, so a
+        # missing row here is a defect rather than a triage refusal with a stable code.
         raise ValueError("retry_of must reference an existing Run")
     if source_run.status not in {
         "failed",
@@ -176,13 +189,13 @@ def _validate_retry(
         "budget_exhausted",
         "guardrail_stopped",
     }:
-        raise ValueError("only an unsuccessful terminal Run can be retried")
+        raise enqueue_retry_source_succeeded()
     if source_run.run_spec_id != run_spec_id:
-        raise ValueError("retry admission must target the original RunSpec")
+        raise enqueue_admission_run_spec_mismatch()
     if source_run.admission_id == admission_id:
-        raise ValueError("retry requires a new AdmissionRecord")
+        raise enqueue_retry_admission_reused()
     if source_run.completed_at is None or admission_created_at <= source_run.completed_at:
-        raise ValueError("retry AdmissionRecord must be created after the source Run terminal")
+        raise enqueue_retry_admission_not_newer()
     if experiment_revision_id is None:
         return source_run.experiment_revision_id
     return experiment_revision_id
