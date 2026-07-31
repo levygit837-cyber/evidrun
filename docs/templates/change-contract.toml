@@ -38,6 +38,39 @@ invariants = ["Invariante normativa aplicável a esta mudança."]
 focused = ["uv run pytest tests/unit/test_affected.py"]
 full_gates = ["uv run pytest", "uv run ruff check ."]
 
+# As quatro camadas do merge gate. CI verde prova que os checks rodaram; ela não prova
+# resultado, padrões nem suficiência da verificação. Cada camada conclui separadamente e
+# aponta a própria evidência na forma `<kind>:<referência>`, com kind em
+# diff|test|log|review|run. Entrada `run:` é reservada à camada ci: citá-la em spec,
+# standards ou verification é exatamente a substituição que o gate recusa.
+#
+# `review` é a profundidade da revisão. `orthogonal` (revisão independente) é obrigatória
+# quando a mudança é breaking, remove/quebra capability ou documentação normativa, ou toca
+# contrato persistido. Caso contrário `proportional` é suficiente.
+#
+# `ci_commit` é o SHA em que a suíte completa rodou. Nenhum arquivo entregue pode mudar
+# depois dele; o próprio contrato pode, porque registrar a evidência não a invalida.
+[merge_gate]
+review = "proportional" # orthogonal|proportional
+ci_commit = "0000000"
+
+[merge_gate.spec]
+conclusion = "passed" # passed|not-applicable
+evidence = ["diff:src/owned/module.py"]
+
+[merge_gate.standards]
+conclusion = "passed"
+evidence = ["review:PR#0"]
+
+[merge_gate.verification]
+conclusion = "passed"
+evidence = ["test:tests/unit/test_affected.py"]
+
+# `not-applicable` exige justification; a camada ci nunca pode ser not-applicable.
+[merge_gate.ci]
+conclusion = "passed"
+evidence = ["run:actions/0"]
+
 [[questions]]
 text = "Pergunta encontrada durante discovery."
 affects_semantics = false

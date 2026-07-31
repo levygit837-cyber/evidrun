@@ -3,6 +3,7 @@
   "document_count": 109,
   "repository_tree": [
     ".env.example",
+    ".github/pull_request_template.md",
     ".github/workflows",
     ".gitignore",
     ".node-version",
@@ -20,6 +21,7 @@
     "benchmarks/scenarios",
     "changes/109.toml",
     "changes/46.toml",
+    "changes/47.toml",
     "changes/50.toml",
     "changes/90.toml",
     "code-budget.toml",

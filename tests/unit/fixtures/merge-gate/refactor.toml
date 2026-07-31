@@ -1,0 +1,62 @@
+# Exemplo: refactor. Exige [oracle] e impactos todos `none`; se algum impacto fosse
+# diferente de `none`, a mudança precisaria ser reclassificada em vez de esconder escopo.
+# A camada Verification aponta o oráculo, que é a evidência de equivalência.
+schema_version = "1"
+change_id = "GH-9002"
+issue = 9002
+title = "Exemplo de refactor com oráculo de equivalência"
+classification = "refactor"
+base_ref = "origin/main"
+branch_pattern = "refactor/issue-9002-*"
+expected_outcome = "O verificador é decomposto por eixo sem alterar nenhuma saída observável."
+confirmed_facts = ["O verificador concentra três eixos em um módulo."]
+stop_conditions = ["Descobrir que a decomposição muda alguma chave do retorno."]
+
+[impact]
+capability = "none"
+persisted_contract = "none"
+normative = "none"
+notes = ["Decomposição interna; nenhuma borda pública muda."]
+
+[scope]
+expected = ["src/evidrun/evidence/verify/**", "tests/characterization/**"]
+forbidden = ["docs/adr/**"]
+preexisting = []
+
+[preserve]
+interfaces = ["`verify()` mantém assinatura e todas as chaves do retorno."]
+errors = ["Nenhum código de recusa muda."]
+invariants = ["Os três eixos continuam obrigatórios para `valid`."]
+
+[verification]
+focused = [
+  "uv run pytest tests/characterization/test_verify_before_after.py",
+  "uv run pytest tests/unit/test_bundle_failures.py",
+]
+full_gates = ["uv run pytest", "uv run ruff check ."]
+
+[oracle]
+kind = "equivalence"
+command = "uv run pytest tests/characterization/test_verify_before_after.py"
+evidence = ["tests/characterization/test_verify_before_after.py"]
+preserves = ["capability", "persisted-contract", "fail-closed"]
+
+[merge_gate]
+review = "proportional"
+ci_commit = "6c627ea"
+
+[merge_gate.spec]
+conclusion = "passed"
+evidence = ["diff:src/evidrun/evidence/verify/dispatch.py"]
+
+[merge_gate.standards]
+conclusion = "passed"
+evidence = ["log:check_code_budget.txt"]
+
+[merge_gate.verification]
+conclusion = "passed"
+evidence = ["test:tests/characterization/test_verify_before_after.py"]
+
+[merge_gate.ci]
+conclusion = "passed"
+evidence = ["run:actions/30647773191"]

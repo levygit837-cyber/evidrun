@@ -442,3 +442,101 @@ def test_cli_missing_contract_warns_without_blocking_discovery(repository: Path)
     assert [item["code"] for item in payload["diagnostics"]] == [
         "planning.contract_missing"
     ]
+
+
+def merge_gate_text(*, ci_commit: str, review: str = "proportional") -> str:
+    return f'''
+[merge_gate]
+review = "{review}"
+ci_commit = "{ci_commit}"
+
+[merge_gate.spec]
+conclusion = "passed"
+evidence = ["diff:src/task/owned.py"]
+
+[merge_gate.standards]
+conclusion = "passed"
+evidence = ["review:PR#1"]
+
+[merge_gate.verification]
+conclusion = "passed"
+evidence = ["test:tests/unit/test_fixture.py"]
+
+[merge_gate.ci]
+conclusion = "passed"
+evidence = ["run:actions/1"]
+'''
+
+
+def test_a_contract_without_a_merge_gate_warns_but_does_not_block(
+    repository: Path,
+) -> None:
+    contract = load_fixture(repository, contract_text(expected=("src/task/**",)))
+    write(repository, "src/task/owned.py", "VALUE = 1\n")
+    git(repository, "add", "src/task/owned.py")
+
+    report = check_contract(contract, inspect_repository(repository, "main"))
+
+    # Adopting the four layers is a warning, not a blocker: contracts written before the
+    # gate existed keep working until they are updated.
+    assert "merge_gate.absent" in {item.code for item in report.warnings}
+    assert not report.blockers
+
+
+def test_a_recorded_run_that_still_covers_the_delivery_passes(repository: Path) -> None:
+    write(repository, "src/task/owned.py", "VALUE = 1\n")
+    covered = commit_all(repository, "delivery")
+    write(
+        repository,
+        "changes/123.toml",
+        contract_text(expected=("src/task/**", "changes/**"))
+        + merge_gate_text(ci_commit=covered),
+    )
+    git(repository, "add", "changes/123.toml")
+    contract = load_contract(repository / "changes/123.toml")
+
+    report = check_contract(contract, inspect_repository(repository, "main"))
+
+    # Recording the evidence moves HEAD past the covered commit. That must not invalidate
+    # the evidence, or the gate would be unsatisfiable by construction.
+    assert not report.blockers
+    assert "merge_gate.ci_coverage_stale" not in {item.code for item in report.diagnostics}
+
+
+def test_delivery_edited_after_the_recorded_run_blocks(repository: Path) -> None:
+    write(repository, "src/task/owned.py", "VALUE = 1\n")
+    covered = commit_all(repository, "delivery")
+    write(
+        repository,
+        "changes/123.toml",
+        contract_text(expected=("src/task/**", "changes/**"))
+        + merge_gate_text(ci_commit=covered),
+    )
+    git(repository, "add", "changes/123.toml")
+    write(repository, "src/task/owned.py", "VALUE = 2\n")
+
+    report = check_contract(
+        load_contract(repository / "changes/123.toml"),
+        inspect_repository(repository, "main"),
+    )
+
+    stale = [item for item in report.blockers if item.code == "merge_gate.ci_coverage_stale"]
+    assert stale, [item.code for item in report.diagnostics]
+    assert stale[0].paths == ("src/task/owned.py",)
+
+
+def test_a_ci_commit_the_repository_does_not_know_blocks(repository: Path) -> None:
+    write(
+        repository,
+        "changes/123.toml",
+        contract_text(expected=("src/task/**", "changes/**"))
+        + merge_gate_text(ci_commit="0" * 40),
+    )
+    git(repository, "add", "changes/123.toml")
+
+    report = check_contract(
+        load_contract(repository / "changes/123.toml"),
+        inspect_repository(repository, "main"),
+    )
+
+    assert "merge_gate.ci_commit_unknown" in {item.code for item in report.blockers}

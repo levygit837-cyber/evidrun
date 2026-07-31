@@ -111,6 +111,50 @@ def inspect_repository(root: Path, base_ref: str) -> GitSnapshot:
     )
 
 
+def resolve_commit(root: Path, revision: str) -> str | None:
+    """Resolve a revision to a full SHA, or None when the repository does not know it."""
+
+    result = subprocess.run(
+        ("git", "rev-parse", "--verify", f"{revision}^{{commit}}"),
+        cwd=root,
+        check=False,
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout.decode("utf-8", errors="replace").strip() or None
+
+
+def paths_changed_since(root: Path, commit: str, head: str) -> tuple[str, ...]:
+    """Paths that differ between `commit` and `head`, including the dirty worktree.
+
+    Used to decide whether a recorded CI run still covers the candidate commit: if a
+    delivered file changed afterwards, the suite ran against different code.
+    """
+
+    if commit == head:
+        changed = _name_status(
+            _git_bytes(root, "diff", "--name-status", "-z", "--find-renames", "HEAD"),
+            ChangeSource.WORKTREE,
+        )
+    else:
+        changed = _combine_changes(
+            (
+                *_name_status(
+                    _git_bytes(
+                        root, "diff", "--name-status", "-z", "--find-renames", commit, head
+                    ),
+                    ChangeSource.COMMITTED,
+                ),
+                *_name_status(
+                    _git_bytes(root, "diff", "--name-status", "-z", "--find-renames", "HEAD"),
+                    ChangeSource.WORKTREE,
+                ),
+            )
+        )
+    return tuple(sorted({path for item in changed for path in item.affected_paths}))
+
+
 def _git_text(root: Path, *args: str) -> str:
     return _git_bytes(root, *args).decode("utf-8", errors="replace").strip()
 
