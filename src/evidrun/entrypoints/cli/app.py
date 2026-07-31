@@ -34,7 +34,7 @@ from evidrun.entrypoints.cli.commands import (
     workspace_app,
 )
 from evidrun.entrypoints.cli.shared import components, console
-from evidrun.infrastructure.providers import ProviderCredentialStore
+from evidrun.infrastructure.providers import CredentialAvailability, ProviderCredentialStore
 from evidrun.runs import EvidrunService
 from evidrun.shared.resources import benchmarks_root
 
@@ -57,6 +57,14 @@ app.add_typer(project_app, name="project")
 
 
 _traceback_requested = False
+
+#: What `doctor` prints per credential outcome. `absent` is a configuration problem the user can
+#: fix; `unavailable` means the OS backend never answered and says nothing about configuration.
+_CREDENTIAL_ROW = {
+    CredentialAvailability.AVAILABLE: "OK",
+    CredentialAvailability.ABSENT: "AUSENTE (execute `evidrun provider set-key`)",
+    CredentialAvailability.UNAVAILABLE: "INDISPONÍVEL (backend do sistema não respondeu)",
+}
 
 
 @app.callback()
@@ -85,8 +93,16 @@ def initialize(
 
 @app.command()
 def doctor(data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None) -> None:
+    """Report the real state of the local install, including why a credential is unusable.
+
+    The credential row carries three outcomes rather than a boolean, because `absent` and
+    `unavailable` are different problems: one needs `provider set-key`, the other means the OS
+    backend never answered. Only `absent` fails the check — an unavailable backend is reported
+    without turning a diagnostic into a false negative about configuration.
+    """
+
     settings, database, _ = components(data_dir)
-    credentials = ProviderCredentialStore()
+    credential = ProviderCredentialStore().lookup(settings.default_provider)
     checks = {
         "Python package": True,
         "Data directory": settings.data_dir.exists(),
@@ -100,7 +116,6 @@ def doctor(data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None) 
             settings.default_provider.model == "deepseek-v4-flash"
         ),
         "Provider reasoning is max": settings.default_provider.reasoning_effort == "max",
-        "Provider credential available": bool(credentials.get(settings.default_provider)),
     }
     database.dispose()
     table = Table(title="Evidrun doctor")
@@ -108,8 +123,9 @@ def doctor(data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None) 
     table.add_column("Resultado")
     for name, passed in checks.items():
         table.add_row(name, "OK" if passed else "FALHOU")
+    table.add_row("Provider credential", _CREDENTIAL_ROW[credential.availability])
     console.print(table)
-    if not all(checks.values()):
+    if not all(checks.values()) or credential.availability is CredentialAvailability.ABSENT:
         raise typer.Exit(1)
 
 

@@ -1,4 +1,6 @@
 from evidrun.infrastructure.providers.credentials import (
+    CredentialAvailability,
+    CredentialLookup,
     MissingProviderCredentialError,
     ProviderCredentialStore,
 )
@@ -13,6 +15,8 @@ from evidrun.infrastructure.providers.openai_responses import (
 )
 
 __all__ = [
+    "CredentialAvailability",
+    "CredentialLookup",
     "MissingProviderCredentialError",
     "OpenAIResponsesProvider",
     "ProviderCredentialStore",

@@ -29,12 +29,9 @@ def build_runtime_kernel(repository: Repository, artifacts_dir: Path) -> Runtime
     artifact_store = ArtifactStore(artifacts_dir)
     profile = ProviderProfile.load_default()
     credentials = ProviderCredentialStore()
-    try:
-        credential_available = credentials.get(profile) is not None
-    except Exception:
-        # A missing/unavailable OS credential backend must fail admission closed,
-        # not prevent deterministic/offline workers from starting.
-        credential_available = False
+    # A bounded lookup already answers `unavailable` instead of hanging or raising, so an
+    # offline worker starts while admission still fails closed on a missing credential.
+    credential_available = credentials.lookup(profile).available
     real_subject = ResponsesReadAgentAdapter(
         OpenAIResponsesProvider(profile, credentials),
         profile,
