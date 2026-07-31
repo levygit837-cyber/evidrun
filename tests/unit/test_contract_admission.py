@@ -32,6 +32,7 @@ from evidrun.contracts.compiler import (
 from evidrun.contracts.legacy import (
     capability_ref,
 )
+from evidrun.contracts.triage import TriageErrorCode, TriageRejected
 from evidrun.shared.types import (
     Classification,
     EvidenceMode,
@@ -73,8 +74,9 @@ def test_controlled_comparison_rejects_an_unexplained_second_change() -> None:
         payload=study.payload.model_copy(update={"variants": tuple(variants)}),
     )
     accept(registry, changed)
-    with pytest.raises(ValueError, match="exactly its primary variable"):
+    with pytest.raises(TriageRejected) as captured:
         StudyCompiler(registry).compile(changed)
+    assert captured.value.error.code == TriageErrorCode.COMPILE_CONTROLLED_SLOTS_MISMATCH
 
 
 def test_exploratory_comparison_requires_declared_confounders_for_extra_differences() -> None:
@@ -114,8 +116,9 @@ def test_exploratory_comparison_requires_declared_confounders_for_extra_differen
         payload=explained.payload.model_copy(update={"variants": tuple(variants)}),
     )
     accept(registry, unexplained)
-    with pytest.raises(ValueError, match="declare confounders"):
+    with pytest.raises(TriageRejected) as captured:
         StudyCompiler(registry).compile(unexplained)
+    assert captured.value.error.code == TriageErrorCode.COMPILE_CONFOUNDER_MISSING
 
 
 def test_confounders_are_rejected_outside_exploratory_studies() -> None:

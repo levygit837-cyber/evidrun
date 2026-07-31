@@ -17,6 +17,12 @@ from evidrun.contracts import (
     VerifiedDecisionBinding,
     semantic_model_dump,
 )
+from evidrun.contracts.compile_errors import (
+    compile_digest_mismatch,
+    compile_reference_not_found,
+    compile_revision_not_found,
+    compile_revision_not_study,
+)
 from evidrun.contracts.compiler import StudyCompiler
 from evidrun.contracts.registry import ContractResolver
 from evidrun.infrastructure.database import Repository
@@ -30,7 +36,12 @@ class RegisteredRevisionResolver(ContractResolver):
         self._repository = repository
 
     def resolve(self, reference: ContractRef) -> RevisionEnvelope:
-        return self._repository.read_model.get_contract_revision_by_ref(reference)
+        try:
+            return self._repository.read_model.get_contract_revision_by_ref(reference)
+        except KeyError as exc:
+            raise compile_reference_not_found(reference) from exc
+        except ValueError as exc:
+            raise compile_digest_mismatch(reference) from exc
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,9 +92,14 @@ class ExecutionPreparationService:
         self._repository = repository
 
     def prepare(self, study_revision_id: str) -> ExecutionPreparation:
-        revision = self._repository.read_model.get_contract_revision(study_revision_id)
+        try:
+            revision = self._repository.read_model.get_contract_revision(
+                study_revision_id
+            )
+        except KeyError as exc:
+            raise compile_revision_not_found(study_revision_id) from exc
         if not isinstance(revision, StudyRevision):
-            raise ValueError("contract revision is not a StudyRevision")
+            raise compile_revision_not_study(type(revision).__name__)
         sealed = ExecutionRevisionSetSealer(
             RegisteredRevisionResolver(self._repository)
         ).seal(revision)

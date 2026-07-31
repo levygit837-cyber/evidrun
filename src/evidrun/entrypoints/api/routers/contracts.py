@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 
 from evidrun.contracts import parse_revision, semantic_model_dump
 from evidrun.contracts.admission import admission_rejection_error
-from evidrun.contracts.triage import HTTP_STATUS_BY_CODE
+from evidrun.contracts.triage import HTTP_STATUS_BY_CODE, TriageRejected
 from evidrun.entrypoints.api.context import ApiContext
 from evidrun.entrypoints.api.schemas import (
     ContractDecisionRequest,
@@ -25,6 +25,15 @@ from evidrun.infrastructure.database.register_errors import (
     RegisterRejected,
     RegisterStorageUnavailable,
 )
+
+
+def _triage_http_error(rejection: TriageRejected) -> HTTPException:
+    """One translation for every named triage refusal reaching HTTP."""
+
+    return HTTPException(
+        status_code=HTTP_STATUS_BY_CODE[rejection.error.code],
+        detail=rejection.error.model_dump(mode="json"),
+    )
 
 
 def create_contract_router(
@@ -55,8 +64,8 @@ def create_contract_router(
     ) -> dict[str, Any]:
         try:
             revision = parse_revision(payload.document)
-        except Exception as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except TriageRejected as exc:
+            raise _triage_http_error(exc) from exc
         return {
             "valid": True,
             "digest": revision.digest,
@@ -70,6 +79,8 @@ def create_contract_router(
         try:
             revision = parse_revision(payload.document)
             row = repository.registry.save_contract_revision(revision, status=payload.status)
+        except TriageRejected as exc:
+            raise _triage_http_error(exc) from exc
         except RegisterRejected as exc:
             raise HTTPException(
                 status_code=HTTP_STATUS_BY_CODE[exc.error.code],
@@ -80,8 +91,6 @@ def create_contract_router(
                 status_code=HTTP_STATUS_BY_CODE[exc.error.code],
                 detail=exc.error.model_dump(mode="json"),
             ) from exc
-        except Exception as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
         return {
             "id": row.id,
             "contract_type": row.contract_type,
@@ -124,10 +133,8 @@ def create_contract_router(
     ) -> dict[str, Any]:
         try:
             preparation = service.execution_preparation.prepare(revision_id)
-        except KeyError as exc:
-            raise HTTPException(status_code=404, detail="Study revision not found") from exc
-        except Exception as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except TriageRejected as exc:
+            raise _triage_http_error(exc) from exc
         return preparation.document()
 
     return router

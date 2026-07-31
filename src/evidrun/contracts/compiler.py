@@ -17,6 +17,11 @@ from evidrun.contracts.base import (
     ExtensionRef,
     RevisionEnvelope,
 )
+from evidrun.contracts.compile_errors import (
+    compile_confounder_missing,
+    compile_controlled_slots_mismatch,
+    compile_revision_not_study,
+)
 from evidrun.contracts.registry import ContractResolver
 from evidrun.contracts.runtime.envelope import (
     EvaluatorEnvelope,
@@ -118,7 +123,7 @@ class StudyCompiler:
     def compile(self, study: StudyRevision) -> tuple[RunSpec, ...]:
         resolved_study = self.resolver.resolve(study.ref)
         if not isinstance(resolved_study, StudyRevision):
-            raise TypeError("study ref did not resolve to StudyRevision")
+            raise compile_revision_not_study(type(resolved_study).__name__)
         self._validate_comparisons(study)
         specs: list[RunSpec] = []
         for scenario_ref in study.payload.scenario_refs:
@@ -261,20 +266,12 @@ class StudyCompiler:
                 study.payload.evidence_mode == EvidenceMode.PROSPECTIVE_CONTROLLED
                 and changed != frozenset({expected})
             ):
-                rendered = ", ".join(sorted(changed)) or "none"
-                raise ValueError(
-                    "controlled comparison must change exactly its primary variable; "
-                    f"expected {expected}, observed {rendered}"
-                )
+                raise compile_controlled_slots_mismatch(expected, tuple(sorted(changed)))
             if study.payload.evidence_mode == EvidenceMode.EXPLORATORY:
                 unexplained = changed - {expected}
                 candidate_variant = by_id[comparison.candidate_variant]
                 if unexplained and not candidate_variant.confounders:
-                    rendered = ", ".join(sorted(unexplained))
-                    raise ValueError(
-                        "exploratory comparison must declare confounders for additional "
-                        f"differences: {rendered}"
-                    )
+                    raise compile_confounder_missing(tuple(sorted(unexplained)))
 
     @staticmethod
     def _expected_slot(comparison: ComparisonPlan) -> str:

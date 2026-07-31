@@ -7,15 +7,22 @@ authority: normative
 volatility: current
 owner: core
 created_at: 2026-07-26
-updated_at: 2026-07-27
+updated_at: 2026-07-31
 applies_to: contracts
 sources:
   - github:issue/59
+  - github:issue/63
 supersedes: []
 superseded_by: null
 implementation_refs:
   - src/evidrun/contracts/triage.py
+  - src/evidrun/contracts/authoring/parse.py
+  - src/evidrun/contracts/compile_errors.py
+  - src/evidrun/contracts/compiler.py
+  - src/evidrun/contracts/registry.py
+  - src/evidrun/runs/preparation.py
   - src/evidrun/infrastructure/database/register_errors.py
+  - src/evidrun/entrypoints/cli/app.py
   - src/evidrun/entrypoints/cli/commands/contracts.py
   - src/evidrun/contracts/admission/rejection.py
   - src/evidrun/entrypoints/api/routers/contracts.py
@@ -24,6 +31,9 @@ implementation_refs:
 verification_refs:
   - tests/unit/test_triage_errors.py
   - tests/integration/test_register_errors.py
+  - tests/integration/test_execution_preparation_surfaces.py
+  - tests/unit/test_contract_admission.py
+  - tests/unit/test_contract_invariants.py
   - tests/unit/test_admission_rejection.py
   - tests/integration/test_admission_rejection_surfaces.py
 ---
@@ -32,8 +42,13 @@ verification_refs:
 
 As seis fases anteriores à criação de uma Run compartilham um vocabulário de recusa sem I/O e sem
 dependências de API, CLI ou persistência. Este contrato declara a representação e as tabelas
-consumidas pelas fatias verticais. A fase `register` já projeta esse vocabulário nas bordas HTTP e
-CLI; as demais fases permanecem conectadas conforme suas issues específicas forem implementadas.
+consumidas pelas fatias verticais. As fases `parse`, `register`, `compile` e `admit` projetam esse
+vocabulário nas bordas HTTP e CLI; `decide` e `enqueue` permanecem conectadas conforme suas issues
+específicas forem implementadas.
+
+`TriageRejected` é a exceção que transporta um `TriageError` de dentro de uma fase até a borda. Ela
+deriva de `ValueError` para preservar os callers existentes, mas nenhuma borda deduz causa por
+mensagem: a tradução lê apenas `code` e as tabelas.
 
 ## Representação
 
@@ -83,9 +98,32 @@ preserva indisponibilidade como HTTP 503; a CLI possui somente as quatro classes
 recusado, não encontrado e conflito), portanto indisponibilidade usa exit code 3. A verificação falha
 se qualquer código ficar sem entrada ou se uma tabela contiver código órfão. Adicionar erro exige, no
 mesmo patch: novo membro com prefixo da fase, categoria, ambas as traduções e caso de contrato.
-As fases diferentes de `register` e `admit` ainda aguardam suas fatias verticais. O registro projeta
-suas recusas nas superfícies da API e CLI; a rejeição de admissão projeta `admit.rejected` na API,
-CLI e fachada de execução por um único renderizador.
+As fases `decide` e `enqueue` ainda aguardam suas fatias verticais. Parse, registro e compile
+projetam suas recusas nas superfícies da API e CLI; a rejeição de admissão projeta `admit.rejected`
+na API, CLI e fachada de execução por um único renderizador.
+
+## Fase parse
+
+`parse_revision` é a única costura que interpreta um documento de contrato, e recusa por estrutura:
+documento não-objeto, `contract_type` ausente ou desconhecido, campo não declarado, revision inválida,
+identificador vazio, payload do tipo errado e, por fim, schema inválido como recusa residual.
+
+A classificação lê `loc` e `type` do erro Pydantic, nunca sua mensagem. Campo não declarado tem
+precedência sobre os demais achados do mesmo documento, porque é a causa mais específica e a única que
+o autor precisa remover; `field_path` aponta para o campo culpado.
+
+## Fase compile
+
+A costura de preparação de execução traduz revision inexistente e revision que não é Study; o resolver
+traduz dependência ausente, digest divergente e — apenas no resolver de revisions aceitas — dependência
+sem aceitação humana. O compilador nomeia comparação controlada com slot extra e estudo exploratório
+sem confounder, informando o slot esperado e os observados.
+
+O corredor de execução não verificada continua compilando drafts: `compile.dependency_not_accepted`
+pertence ao resolver que exige aceitação, não ao caminho selado do ADR 0022.
+
+A CLI só mostra traceback sob `--traceback`. Sem a flag, uma falha inesperada imprime uma linha e
+termina com exit code 1, separada das recusas nomeadas que usam as tabelas.
 
 ## Fase register
 

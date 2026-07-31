@@ -9,7 +9,7 @@ import typer
 import yaml
 
 from evidrun.contracts import parse_revision, semantic_model_dump
-from evidrun.contracts.triage import CLI_EXIT_BY_CODE
+from evidrun.contracts.triage import CLI_EXIT_BY_CODE, TriageRejected
 from evidrun.entrypoints.cli.shared import components, console
 from evidrun.entrypoints.review_html import render_review_package_html
 from evidrun.experiments import ExperimentManifest
@@ -21,7 +21,14 @@ from evidrun.runs import EvidrunService
 
 experiment_app = typer.Typer(help="Validar e aceitar manifests de experimento.")
 contract_app = typer.Typer(help="Validar, registrar e decidir contracts revisionados.")
-study_app = typer.Typer(help="Compilar Studies aceitos em RunSpecs imutáveis.")
+study_app = typer.Typer(help="Compilar Studies em RunSpecs imutáveis.")
+
+
+def _exit_triage(rejection: TriageRejected) -> typer.Exit:
+    """Print the named refusal as JSON and exit by its contract table."""
+
+    console.print_json(data=rejection.error.model_dump(mode="json"))
+    return typer.Exit(CLI_EXIT_BY_CODE[rejection.error.code])
 
 
 @experiment_app.command("validate")
@@ -34,7 +41,10 @@ def validate_experiment(path: Path) -> None:
 
 @contract_app.command("validate")
 def validate_contract(path: Path) -> None:
-    revision = parse_revision(yaml.safe_load(path.read_text()))
+    try:
+        revision = parse_revision(yaml.safe_load(path.read_text()))
+    except TriageRejected as exc:
+        raise _exit_triage(exc) from exc
     console.print_json(
         data={
             "valid": True,
@@ -52,9 +62,11 @@ def register_contract(
 ) -> None:
     _, database, repository = components(data_dir)
     try:
-        revision = parse_revision(yaml.safe_load(path.read_text()))
         try:
+            revision = parse_revision(yaml.safe_load(path.read_text()))
             row = repository.registry.save_contract_revision(revision, status=status)
+        except TriageRejected as exc:
+            raise _exit_triage(exc) from exc
         except RegisterRejected as exc:
             console.print_json(data=exc.error.model_dump(mode="json"))
             raise typer.Exit(CLI_EXIT_BY_CODE[exc.error.code]) from exc
@@ -82,9 +94,12 @@ def compile_study(
 ) -> None:
     _, database, repository = components(data_dir)
     try:
-        preparation = EvidrunService(repository).execution_preparation.prepare(
-            revision_id
-        )
+        try:
+            preparation = EvidrunService(repository).execution_preparation.prepare(
+                revision_id
+            )
+        except TriageRejected as exc:
+            raise _exit_triage(exc) from exc
         console.print_json(data=preparation.document())
     finally:
         database.dispose()

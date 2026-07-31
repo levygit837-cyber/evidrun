@@ -110,6 +110,14 @@ class TriageError(ContractModel):
         return self
 
 
+class TriageRejected(ValueError):
+    """A named refusal produced by a triage phase before a Run exists."""
+
+    def __init__(self, error: TriageError) -> None:
+        super().__init__(error.message)
+        self.error = error
+
+
 CATEGORY_BY_CODE: Mapping[TriageErrorCode, TriageErrorCategory] = MappingProxyType(
     {
         TriageErrorCode.PARSE_DOCUMENT_NOT_OBJECT: TriageErrorCategory.INVALID,

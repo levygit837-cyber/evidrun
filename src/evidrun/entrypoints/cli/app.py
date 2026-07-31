@@ -38,7 +38,11 @@ from evidrun.infrastructure.providers import ProviderCredentialStore
 from evidrun.runs import EvidrunService
 from evidrun.shared.resources import benchmarks_root
 
-app = typer.Typer(help="Evidrun — laboratório auditável de confiabilidade de contexto.")
+#: Rich's pretty traceback is disabled so `main` owns every unexpected-failure surface.
+app = typer.Typer(
+    help="Evidrun — laboratório auditável de confiabilidade de contexto.",
+    pretty_exceptions_enable=False,
+)
 app.add_typer(experiment_app, name="experiment")
 app.add_typer(contract_app, name="contract")
 app.add_typer(study_app, name="study")
@@ -52,8 +56,19 @@ app.add_typer(workspace_app, name="workspace")
 app.add_typer(project_app, name="project")
 
 
+_traceback_requested = False
+
+
 @app.callback()
-def root(version: Annotated[bool, typer.Option("--version")] = False) -> None:
+def root(
+    version: Annotated[bool, typer.Option("--version")] = False,
+    traceback: Annotated[
+        bool,
+        typer.Option("--traceback", help="Mostrar o traceback de uma falha inesperada."),
+    ] = False,
+) -> None:
+    global _traceback_requested
+    _traceback_requested = traceback
     if version:
         console.print(__version__)
         raise typer.Exit()
@@ -160,7 +175,21 @@ def demo(data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None) ->
 
 
 def main() -> None:
-    app()
+    """Run the CLI, keeping an unexpected failure free of traceback by default.
+
+    A named refusal already exits by its contract table. Anything else is a defect,
+    and a traceback is diagnostic output the caller must ask for explicitly.
+    """
+
+    try:
+        app()
+    except SystemExit:
+        raise
+    except Exception as error:
+        if _traceback_requested:
+            raise
+        console.print(f"[red]Falha inesperada:[/red] {error}")
+        raise SystemExit(1) from error
 
 
 if __name__ == "__main__":
