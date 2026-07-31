@@ -18,6 +18,7 @@
     "benchmarks/experiments",
     "benchmarks/fixtures",
     "benchmarks/scenarios",
+    "changes/46.toml",
     "changes/50.toml",
     "changes/90.toml",
     "code-budget.toml",
