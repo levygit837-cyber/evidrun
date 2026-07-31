@@ -140,7 +140,14 @@ def test_generic_run_survives_restart_and_executes_in_worker_subprocess(
         with zipfile.ZipFile(target, "w", compression=zipfile.ZIP_DEFLATED) as archive:
             for member_name, content in files.items():
                 archive.writestr(member_name, content)
-        assert bundle_service.verify(target)["valid"] is False
+        tampered = bundle_service.verify(target)
+        assert tampered["valid"] is False
+        # A refused bundle names why, not just that something failed. The record axis is
+        # what a tampered document lands on.
+        assert [item["code"] for item in tampered["failures"]] == [
+            "bundle.record_invalid"
+        ], tampered["failures"]
+        assert all(item["category"] == "record" for item in tampered["failures"])
     covered_extra = tmp_path / "tampered-run-covered-extra.zip"
     with zipfile.ZipFile(bundle_path) as archive:
         files = {name: archive.read(name) for name in archive.namelist()}
@@ -158,6 +165,12 @@ def test_generic_run_survives_restart_and_executes_in_worker_subprocess(
     extra_verification = bundle_service.verify(covered_extra)
     assert extra_verification["valid"] is False
     assert extra_verification["records"]["__exact_file_allowlist__"] is False
+    # A file added *with* a matching checksum passes integrity and is caught by the
+    # allowlist instead, so the code must say record and never checksum.
+    assert [item["code"] for item in extra_verification["failures"]] == [
+        "bundle.record_invalid"
+    ]
+    assert bundle_service.verify(bundle_path)["failures"] == []
     reopened.dispose()
 
 

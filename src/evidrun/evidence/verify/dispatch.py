@@ -22,6 +22,12 @@ from evidrun.contracts.runtime.events import (
     EVENT_ALLOWED_RUN_STATUSES,
     UNSUPPORTED_RUNTIME_EVENT_TYPES,
 )
+from evidrun.evidence.verify.failures import (
+    BundleVerificationCode,
+    BundleVerificationFailure,
+    BundleVerificationRefused,
+    bundle_failures,
+)
 from evidrun.evidence.verify.v2 import verify_v2_records, verify_v2_structure
 from evidrun.evidence.verify.v3 import verify_v3_records, verify_v3_structure
 from evidrun.evidence.verify.v4 import verify_v4_records, verify_v4_structure
@@ -61,7 +67,9 @@ def verify(bundle_path: Path) -> dict[str, Any]:
         member_names = archive.namelist()
         names = set(member_names)
         if "checksums.json" not in names:
-            raise ValueError("bundle has no checksums.json")
+            raise BundleVerificationRefused(
+                BundleVerificationFailure(BundleVerificationCode.CHECKSUMS_ABSENT)
+            )
         checksum_results = _verify_checksums(archive, member_names, names)
         chain_results = {
             name: _chain_valid(
@@ -77,6 +85,11 @@ def verify(bundle_path: Path) -> dict[str, Any]:
         and all(chain_results.values())
         and all(record_results.values())
     )
+    failures = bundle_failures(
+        checksums=checksum_results,
+        event_chains=chain_results,
+        records=record_results,
+    )
     return {
         "valid": valid,
         "integrity_valid": valid,
@@ -86,6 +99,8 @@ def verify(bundle_path: Path) -> dict[str, Any]:
         "checksums": checksum_results,
         "event_chains": chain_results,
         "records": record_results,
+        # Additive: names why the bundle was refused without changing any field above.
+        "failures": [item.document() for item in failures],
     }
 
 

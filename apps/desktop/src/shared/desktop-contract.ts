@@ -1,3 +1,40 @@
+/**
+ * Stable codes for the bridge's observable refusals.
+ *
+ * Main throws across an IPC boundary, so the renderer only ever receives a serialized
+ * message. Classifying by that text would make a reworded string an observable change, so
+ * the code is the contract and the message stays free.
+ */
+export const bridgeErrorCodes = {
+  untrustedSender: "bridge.untrusted_sender",
+  senderWithoutFrame: "bridge.sender_without_frame",
+  invalidBackendHandshake: "bridge.invalid_backend_handshake",
+  invalidExecutorHandshake: "bridge.invalid_executor_handshake",
+} as const;
+
+export type BridgeErrorCode = (typeof bridgeErrorCodes)[keyof typeof bridgeErrorCodes];
+
+/** A named bridge refusal. `code` is contract; `message` is text for a human. */
+export class BridgeError extends Error {
+  constructor(
+    public readonly code: BridgeErrorCode,
+    message: string,
+  ) {
+    // The code is prefixed onto the message because an Error crossing IPC arrives as a
+    // string: without it the renderer would have nothing stable left to read.
+    super(`${code}: ${message}`);
+    this.name = "BridgeError";
+  }
+}
+
+/** Read a bridge code out of anything that crossed the IPC boundary, or return null. */
+export function bridgeErrorCodeOf(value: unknown): BridgeErrorCode | null {
+  const text =
+    value instanceof Error ? value.message : typeof value === "string" ? value : "";
+  const known = Object.values(bridgeErrorCodes);
+  return known.find((code) => text.includes(code)) ?? null;
+}
+
 export interface BackendConnection {
   baseUrl: string;
   token: string;

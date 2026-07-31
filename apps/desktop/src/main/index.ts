@@ -17,7 +17,7 @@ import { isApprovedExternalUrl, isTrustedRendererUrl } from "./external-links.js
 import { lockDownPermissions } from "./permissions.js";
 import { ShutdownCoordinator } from "./shutdown-coordinator.js";
 import { createMainWindow } from "./windows.js";
-import { channels } from "../shared/desktop-contract.js";
+import { BridgeError, bridgeErrorCodes, channels } from "../shared/desktop-contract.js";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const devServerUrl = process.env.EVIDRUN_DEV_SERVER_URL;
@@ -75,11 +75,15 @@ protocol.registerSchemesAsPrivileged([
 ]);
 
 function validateSender(frameUrl: string): void {
-  if (!isTrustedRendererUrl(frameUrl, devServerUrl)) throw new Error("Untrusted IPC sender");
+  if (!isTrustedRendererUrl(frameUrl, devServerUrl)) {
+    throw new BridgeError(bridgeErrorCodes.untrustedSender, "Untrusted IPC sender");
+  }
 }
 
 function senderUrl(frame: Electron.WebFrameMain | null): string {
-  if (!frame) throw new Error("IPC sender has no frame");
+  if (!frame) {
+    throw new BridgeError(bridgeErrorCodes.senderWithoutFrame, "IPC sender has no frame");
+  }
   return frame.url;
 }
 

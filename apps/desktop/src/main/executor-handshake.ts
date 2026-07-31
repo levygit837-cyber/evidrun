@@ -1,3 +1,5 @@
+import { BridgeError, bridgeErrorCodes } from "../shared/desktop-contract.js";
+
 export interface ExecutorReadinessMessage {
   protocol: "evidrun-worker-v1";
   schema_version: "1";
@@ -22,7 +24,10 @@ export function parseExecutorReadiness(line: string): ExecutorReadinessMessage {
     typeof value.worker_id !== "string" ||
     value.worker_id.length === 0
   ) {
-    throw new Error("Executor returned an invalid desktop handshake");
+    throw new BridgeError(
+      bridgeErrorCodes.invalidExecutorHandshake,
+      "Executor returned an invalid desktop handshake",
+    );
   }
   return value as ExecutorReadinessMessage;
 }
