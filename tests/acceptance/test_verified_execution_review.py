@@ -105,7 +105,13 @@ def test_verified_promotion_creates_new_trust_admission_and_run(tmp_path: Path) 
     revisions, _, study_id, _ = _registered_study(repository, tmp_path)
     service = EvidrunService(repository)
 
-    unverified = service.execution_preparation.prepare(study_id).run_specs[0]
+    unverified_preparation = service.execution_preparation.prepare(study_id)
+    unverified = unverified_preparation.run_specs[0]
+    package_before_promotion = semantic_model_dump(
+        service.review_packages.build(
+            unverified_preparation.review_target.review_target_digest
+        )
+    )
     unverified_admission = service.admission_service.admit(
         unverified.spec, unverified.execution_trust
     )
@@ -124,7 +130,17 @@ def test_verified_promotion_creates_new_trust_admission_and_run(tmp_path: Path) 
     for revision in revisions[1:]:
         repository.registry.decide_contract_revision(accepted_decision(revision))
 
-    verified = service.execution_preparation.prepare(study_id).run_specs[0]
+    verified_preparation = service.execution_preparation.prepare(study_id)
+    verified = verified_preparation.run_specs[0]
+    assert (
+        verified_preparation.review_target.review_target_digest
+        == unverified_preparation.review_target.review_target_digest
+    )
+    assert semantic_model_dump(
+        service.review_packages.build(
+            verified_preparation.review_target.review_target_digest
+        )
+    ) == package_before_promotion
     assert verified.spec.digest == unverified.spec.digest
     assert verified.execution_trust.kind == "verified_revision_set"
     assert tuple(

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from evidrun.contracts import (
     ContractRef,
-    ExecutionTrustRecord,
     ReviewPackage,
     ReviewPackageDiff,
     ReviewRevisionChange,
@@ -13,9 +12,6 @@ from evidrun.contracts import (
     ReviewRunSpecChange,
     RunSpec,
     semantic_model_dump,
-)
-from evidrun.contracts.admission.checks.execution_trust import (
-    check_execution_trust_invariants,
 )
 from evidrun.contracts.admission.checks.unsupported import (
     check_checkpoint_coordinator,
@@ -78,10 +74,8 @@ class ReviewPackageService:
             for revision in material.revisions
         )
         run_specs = tuple(
-            _project_run_spec(spec, trust)
-            for spec, trust in zip(
-                material.run_specs, material.trust_records, strict=True
-            )
+            _project_run_spec(spec)
+            for spec in material.run_specs
         )
         return ReviewPackage(
             review_target=target,
@@ -147,7 +141,6 @@ class ReviewPackageService:
 
 def _project_run_spec(
     spec: RunSpec,
-    trust: ExecutionTrustRecord,
 ) -> ReviewRunSpec:
     permissions = tuple(
         sorted(
@@ -166,11 +159,11 @@ def _project_run_spec(
                 *spec.evaluation_plan.limitations,
                 "ReviewPackage is a projection, not human authority",
                 "The isolation label does not claim an operating-system sandbox",
-                "Runtime-dependent admission is evaluated separately from this package",
+                "Trust- and runtime-dependent admission is evaluated separately from this package",
             )
         )
     )
-    findings = _known_admission_findings(spec, trust)
+    findings = _known_admission_findings(spec)
     return ReviewRunSpec(
         run_spec_digest=spec.digest,
         run_spec=spec,
@@ -192,13 +185,11 @@ def _project_run_spec(
 
 def _known_admission_findings(
     spec: RunSpec,
-    trust: ExecutionTrustRecord,
 ) -> AdmissionFindings:
     """Return only refusals reproducible from immutable package inputs."""
 
     findings = AdmissionFindings()
     for part in (
-        check_execution_trust_invariants(spec, trust),
         check_progress_observer(spec),
         check_checkpoint_coordinator(spec),
         check_goal_mode(spec),
