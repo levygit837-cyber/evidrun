@@ -1,7 +1,11 @@
-"""Cycles, fan-in/fan-out and re-export hubs over the internal graph.
+"""Cycles, fan-in/fan-out, re-export surface and the internal/external split.
 
 Every function here is pure over its input and returns sorted tuples, because the
 report must be byte-identical for the same checkout.
+
+`partition_edges` lives here rather than in `report.py` because both the checkout and
+the merge-base side of the drift diff need it: importing it from `report` would make
+`baseline` depend on `report`, which already imports `EdgeDrift` from `baseline`.
 """
 
 from __future__ import annotations
@@ -10,8 +14,43 @@ from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import dataclass
 
+from import_graph import ImportGraph
+
 InternalEdges = tuple[tuple[str, str], ...]
 Adjacency = Mapping[str, frozenset[str]]
+
+
+def partition_edges(
+    graph: ImportGraph,
+) -> tuple[InternalEdges, InternalEdges, Mapping[str, int]]:
+    """Split the graph into internal edges, external edges and re-export counts.
+
+    Internal edges are keyed by module so a cycle names modules, not file paths.
+    External edges keep the source path, because the runtime of a dependency is
+    decided by the importing file's suffix.
+
+    A re-export is one name a package `__init__` binds from another internal module.
+    That measures the forwarded surface, which is the blast radius of the hub: an
+    importer of the package can reach every one of those names. Counting resolved
+    chains instead would measure how often the hub was traversed, which is traffic,
+    not surface.
+    """
+    internal: set[tuple[str, str]] = set()
+    external: set[tuple[str, str]] = set()
+    reexport_counts: defaultdict[str, int] = defaultdict(int)
+    internal_destinations = graph.internal_destinations()
+    for edge in graph.edges:
+        if edge.destination in internal_destinations:
+            internal.add((edge.source_module, edge.destination))
+        else:
+            external.add((edge.source_path, edge.destination))
+        if (
+            edge.source_path.endswith("/__init__.py")
+            and edge.bound_name is not None
+            and edge.destination in internal_destinations
+        ):
+            reexport_counts[edge.source_module] += 1
+    return tuple(sorted(internal)), tuple(sorted(external)), dict(reexport_counts)
 
 
 @dataclass(frozen=True)

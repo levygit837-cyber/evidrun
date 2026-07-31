@@ -16,11 +16,18 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
-from check_import_directions import evaluate
-from dependency_report import build_report, edge_drift, json_document, text_document
-from dependency_report.report import partition_edges
+from check_import_directions import ImportException, evaluate, load_exceptions
+from dependency_report import (
+    build_report,
+    edge_drift,
+    json_document,
+    text_document,
+    write_json,
+)
+from dependency_report.graph_metrics import partition_edges
 from dependency_report.vocabulary import ReportError
 from import_graph import ImportGraph, WorktreeSource, build_graph
 
@@ -47,27 +54,39 @@ def main() -> int:
     root = args.root.resolve()
     try:
         graph = build_graph(root, WorktreeSource(root))
-        forbidden = _forbidden_edges(graph)
+        forbidden = _forbidden_edges(graph, load_exceptions(root))
         internal_edges, _, _ = partition_edges(graph)
         drift = edge_drift(root, args.base_ref, internal_edges)
         report = build_report(graph, forbidden, drift)
-    except (OSError, subprocess.CalledProcessError, SyntaxError, ReportError) as exc:
+    except (
+        OSError,
+        subprocess.CalledProcessError,
+        SyntaxError,
+        tomllib.TOMLDecodeError,
+        ValueError,
+        ReportError,
+    ) as exc:
         print(f"CONFIG ERROR: {exc}", file=sys.stderr)
         return EXIT_CONFIG_ERROR
     document = json_document(report) if args.format == "json" else text_document(report)
     sys.stdout.write(document)
     if args.json_out is not None:
-        args.json_out.parent.mkdir(parents=True, exist_ok=True)
-        args.json_out.write_text(json_document(report), encoding="utf-8")
+        write_json(args.json_out, report)
     return EXIT_OK
 
 
-def _forbidden_edges(graph: ImportGraph) -> tuple[tuple[str, str], ...]:
-    """The gate's violations, keyed by module so they partition the internal edges.
+def _forbidden_edges(
+    graph: ImportGraph, exceptions: tuple[ImportException, ...]
+) -> tuple[tuple[str, str], ...]:
+    """The gate's verdict, keyed by module so it partitions the internal edges.
 
     `Violation.source` is a file path, while the report keys internal edges by module.
     Translating here keeps the gate as the single authority on what is forbidden and
     still lets `allowed`, `forbidden` and `suspicious` be counted in one unit.
+
+    Exceptions are applied exactly as the gate applies them: an edge an exception
+    covers no longer fails the gate, so calling it forbidden here would be a second,
+    divergent notion of forbidden.
     """
     module_by_path = {edge.source_path: edge.source_module for edge in graph.edges}
     return tuple(
@@ -75,10 +94,10 @@ def _forbidden_edges(graph: ImportGraph) -> tuple[tuple[str, str], ...]:
             {
                 (module_by_path.get(violation.source, violation.source), violation.destination)
                 for violation in evaluate(graph.edges)
+                if not any(exception.matches(violation) for exception in exceptions)
             }
         )
     )
-
 
 
 if __name__ == "__main__":

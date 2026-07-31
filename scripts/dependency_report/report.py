@@ -18,11 +18,23 @@ from import_graph import ImportGraph
 from .baseline import EdgeDrift
 from .externals import ExternalUsage, external_usage, unresolved_specifiers
 from .findings import Finding
-from .graph_metrics import FanMetrics, adjacency, cycles, fan_metrics, reexport_hubs
-from .slices import crosses_conceptual_direction, slice_of
+from .graph_metrics import (
+    FanMetrics,
+    adjacency,
+    cycles,
+    fan_metrics,
+    partition_edges,
+    reexport_hubs,
+)
+from .slices import SliceIndex, crosses_conceptual_direction, slice_index
 from .vocabulary import DependencyState, FindingCode
 
 SCHEMA_VERSION = "1"
+
+# One crossing between slices: source, destination, edge count, and whether it runs
+# against the documented conceptual direction. The verdict is computed once, during
+# assembly, and carried here so no consumer re-derives it.
+SliceCrossing = tuple[str, str, int, bool]
 
 # Candidate thresholds only. Issue #51 requires the first phase to inform, so these
 # gate nothing: they decide which lines are printed, never the exit code. Real values
@@ -43,10 +55,30 @@ class DependencyReport:
     fan: FanMetrics
     module_cycles: tuple[tuple[str, ...], ...]
     slice_cycles: tuple[tuple[str, ...], ...]
-    slice_crossings: tuple[tuple[str, str, int], ...]
+    slice_crossings: tuple[SliceCrossing, ...]
     externals: tuple[ExternalUsage, ...]
     drift: EdgeDrift
     findings: tuple[Finding, ...]
+    slices: SliceIndex
+    reexport_surface: tuple[tuple[str, int], ...]
+
+    def forbidden_internal_edges(self) -> tuple[tuple[str, str], ...]:
+        """Forbidden edges whose destination is a node of this graph.
+
+        Only these can take part in the partition over internal edges. A rule may
+        forbid an edge that points at an external package — `PY-CONTRACTS-EXTERNALS`
+        names `fastapi`, `TS-RENDERER-NATIVE` names `node:*` — and counting those in
+        would make the three states exceed the internal total.
+        """
+        internal = set(self.internal_edges)
+        return tuple(edge for edge in sorted(set(self.forbidden_edges)) if edge in internal)
+
+    def forbidden_external_edges(self) -> tuple[tuple[str, str], ...]:
+        """Forbidden edges pointing outside the graph, reported beside the partition."""
+        internal = set(self.internal_edges)
+        return tuple(
+            edge for edge in sorted(set(self.forbidden_edges)) if edge not in internal
+        )
 
     def suspicious_edges(self) -> tuple[tuple[str, str], ...]:
         """Internal edges no rule forbids that still deserve a reader's attention.
@@ -54,10 +86,16 @@ class DependencyReport:
         An edge is suspicious when both endpoints sit in one cycle, or when it runs
         against the documented conceptual direction. Forbidden always wins: the gate's
         verdict is not softened into a hint.
+
+        The direction verdict is read from `slice_crossings`, where assembly already
+        decided it, rather than re-derived here.
         """
         forbidden = set(self.forbidden_edges)
-        in_cycle = {
-            member for component in self.module_cycles for member in component
+        in_cycle = {member for component in self.module_cycles for member in component}
+        against_direction = {
+            (source_slice, destination_slice)
+            for source_slice, destination_slice, _, against in self.slice_crossings
+            if against
         }
         return tuple(
             sorted(
@@ -66,7 +104,8 @@ class DependencyReport:
                 if (source, destination) not in forbidden
                 and (
                     (source in in_cycle and destination in in_cycle)
-                    or crosses_conceptual_direction(slice_of(source), slice_of(destination))
+                    or (self.slices.slice_of(source), self.slices.slice_of(destination))
+                    in against_direction
                 )
             )
         )
@@ -78,49 +117,18 @@ class DependencyReport:
         )
 
     def state_counts(self) -> Mapping[str, int]:
-        """Counts of one partition over internal edges, plus forbidden edges.
+        """One partition over the internal edges: the three counts sum to their total.
 
-        All three are edge counts so they can be compared. `forbidden` may exceed the
-        internal total, because a forbidden edge can point at an external package.
+        Forbidden edges that leave the graph are excluded here and reported by
+        `forbidden_external_edges`, so the partition stays an identity a reader can
+        check by adding three numbers.
         """
         return {
             DependencyState.ALLOWED.value: len(self.allowed_edges()),
-            DependencyState.FORBIDDEN.value: len(set(self.forbidden_edges)),
+            DependencyState.FORBIDDEN.value: len(self.forbidden_internal_edges()),
             DependencyState.SUSPICIOUS.value: len(self.suspicious_edges()),
         }
 
-
-def partition_edges(
-    graph: ImportGraph,
-) -> tuple[tuple[tuple[str, str], ...], tuple[tuple[str, str], ...], Mapping[str, int]]:
-    """Split the graph into internal edges, external edges and re-export counts.
-
-    Internal edges are keyed by module so a cycle names modules, not file paths.
-    External edges keep the source path, because the runtime of a dependency is
-    decided by the importing file's suffix.
-
-    A re-export is one name a package `__init__` binds from another internal module.
-    That measures the forwarded surface, which is the blast radius of the hub: an
-    importer of the package can reach every one of those names. Counting resolved
-    chains instead would measure how often the hub was traversed, which is traffic,
-    not surface.
-    """
-    internal: set[tuple[str, str]] = set()
-    external: set[tuple[str, str]] = set()
-    reexport_counts: defaultdict[str, int] = defaultdict(int)
-    internal_destinations = graph.internal_destinations()
-    for edge in graph.edges:
-        if edge.destination in internal_destinations:
-            internal.add((edge.source_module, edge.destination))
-        else:
-            external.add((edge.source_path, edge.destination))
-        if (
-            edge.source_path.endswith("/__init__.py")
-            and edge.bound_name is not None
-            and edge.destination in internal_destinations
-        ):
-            reexport_counts[edge.source_module] += 1
-    return tuple(sorted(internal)), tuple(sorted(external)), dict(reexport_counts)
 
 
 def build_report(
@@ -129,21 +137,16 @@ def build_report(
     drift: EdgeDrift,
 ) -> DependencyReport:
     internal_edges, external_edges, reexport_counts = partition_edges(graph)
+    slices = slice_index(graph.python_modules)
 
     fan = fan_metrics(internal_edges)
     module_cycles = cycles(adjacency(internal_edges))
+    crossings = _slice_crossings(internal_edges, slices)
     slice_edges = tuple(
-        sorted(
-            {
-                (slice_of(source), slice_of(destination))
-                for source, destination in internal_edges
-                if slice_of(source) != slice_of(destination)
-            }
-        )
+        sorted({(source, destination) for source, destination, _, _ in crossings})
     )
     slice_cycles = cycles(adjacency(slice_edges))
-    crossings = _slice_crossings(internal_edges)
-    externals = external_usage(external_edges)
+    externals = external_usage(external_edges, slices)
     hubs = reexport_hubs(reexport_counts, REEXPORT_HUB_CANDIDATE)
     findings = _findings(
         module_cycles=module_cycles,
@@ -166,22 +169,36 @@ def build_report(
         externals=externals,
         drift=drift,
         findings=findings,
+        slices=slices,
+        reexport_surface=tuple(sorted(reexport_counts.items())),
     )
 
 
 def _slice_crossings(
     internal_edges: tuple[tuple[str, str], ...],
-) -> tuple[tuple[str, str, int], ...]:
+    slices: SliceIndex,
+) -> tuple[SliceCrossing, ...]:
+    """Edges between slices, each carrying the direction verdict already decided.
+
+    The verdict travels with the row so no consumer re-derives it: the renderer only
+    renders, and `suspicious_edges` reads one boolean instead of calling the predicate
+    a second time.
+    """
     counts: defaultdict[tuple[str, str], int] = defaultdict(int)
     for source, destination in internal_edges:
-        source_slice = slice_of(source)
-        destination_slice = slice_of(destination)
+        source_slice = slices.slice_of(source)
+        destination_slice = slices.slice_of(destination)
         if source_slice == destination_slice:
             continue
         counts[(source_slice, destination_slice)] += 1
     return tuple(
         sorted(
-            (source_slice, destination_slice, count)
+            (
+                source_slice,
+                destination_slice,
+                count,
+                crosses_conceptual_direction(source_slice, destination_slice),
+            )
             for (source_slice, destination_slice), count in counts.items()
         )
     )
@@ -193,7 +210,7 @@ def _findings(
     slice_cycles: tuple[tuple[str, ...], ...],
     fan: FanMetrics,
     hubs: tuple[tuple[str, int], ...],
-    crossings: tuple[tuple[str, str, int], ...],
+    crossings: tuple[SliceCrossing, ...],
     unresolved: tuple[tuple[str, str], ...],
     drift: EdgeDrift,
 ) -> tuple[Finding, ...]:
@@ -246,8 +263,8 @@ def _findings(
                 metrics=(("reexports", count), ("candidate", REEXPORT_HUB_CANDIDATE)),
             )
         )
-    for source_slice, destination_slice, count in crossings:
-        if crosses_conceptual_direction(source_slice, destination_slice):
+    for source_slice, destination_slice, count, against_direction in crossings:
+        if against_direction:
             findings.append(
                 Finding(
                     code=FindingCode.SLICE_CROSSING,
