@@ -1,4 +1,5 @@
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   app,
@@ -24,11 +25,13 @@ const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const devServerUrl = process.env.EVIDRUN_DEV_SERVER_URL;
 const backend = new BackendLifecycle();
 const executor = new ExecutorLifecycle();
+const desktopInstanceId = randomUUID();
 const shutdown = new ShutdownCoordinator({
   stopExecutor: () => executor.stop(),
   stopBackend: () => backend.stop(),
   quit: () => app.quit(),
   report: (error) => emitSecureLog("desktop.shutdown.failed", {
+    correlationId: desktopInstanceId,
     errorCode: "desktop.shutdown_failed",
     error,
     fields: { process: "main" },
@@ -64,10 +67,35 @@ async function startExecutor(): Promise<void> {
     await executor.start(dataDir());
   } catch (error) {
     emitSecureLog("desktop.sidecar.start_failed", {
+      correlationId: desktopInstanceId,
       errorCode: "desktop.worker_start_failed",
       error,
       fields: { process: "worker" },
     });
+  }
+}
+
+function reportApplicationFailure(error: unknown): void {
+  emitSecureLog("desktop.application.failed", {
+    correlationId: desktopInstanceId,
+    errorCode: "desktop.application_failed",
+    error,
+    fields: { process: "main" },
+  });
+}
+
+async function openExternalSafely(target: string): Promise<boolean> {
+  try {
+    await shell.openExternal(target);
+    return true;
+  } catch (error) {
+    emitSecureLog("desktop.external.open_failed", {
+      correlationId: desktopInstanceId,
+      errorCode: "desktop.external_open_failed",
+      error,
+      fields: { operation: "open_external", process: "main" },
+    });
+    return false;
   }
 }
 
@@ -136,8 +164,7 @@ function registerIpc(): void {
   ipcMain.handle(channels.openExternal, async (event, target: unknown) => {
     validateSender(senderUrl(event.senderFrame));
     if (typeof target !== "string" || !isApprovedExternalUrl(target)) return false;
-    await shell.openExternal(target);
-    return true;
+    return openExternalSafely(target);
   });
 }
 
@@ -156,7 +183,7 @@ async function registerAppProtocol(): Promise<void> {
 
 async function createApplicationWindow(): Promise<void> {
   const preloadPath = path.resolve(currentDir, "../preload/index.cjs");
-  mainWindow = createMainWindow(preloadPath);
+  mainWindow = createMainWindow(preloadPath, desktopInstanceId);
   backend.removeAllListeners("state");
   executor.removeAllListeners("state");
   backend.on("state", (state) => publish(channels.backendState, state));
@@ -165,7 +192,7 @@ async function createApplicationWindow(): Promise<void> {
     if (!isTrustedRendererUrl(target, devServerUrl)) event.preventDefault();
   });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (isApprovedExternalUrl(url)) void shell.openExternal(url);
+    if (isApprovedExternalUrl(url)) void openExternalSafely(url);
     return { action: "deny" };
   });
   await backend.start();
@@ -190,7 +217,7 @@ if (!app.requestSingleInstanceLock()) {
   app.on("second-instance", () => shutdown.handleSecondInstance(mainWindow));
 }
 
-app.whenReady().then(async () => {
+void app.whenReady().then(async () => {
   lockDownPermissions(session.defaultSession);
   await registerAppProtocol();
   registerIpc();
@@ -205,10 +232,12 @@ app.whenReady().then(async () => {
     ]),
   );
   await createApplicationWindow();
-  app.on("activate", async () => {
-    if (BrowserWindow.getAllWindows().length === 0) await createApplicationWindow();
+  app.on("activate", () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      void createApplicationWindow().catch(reportApplicationFailure);
+    }
   });
-});
+}).catch(reportApplicationFailure);
 
 /**
  * Stop the executor before the backend.

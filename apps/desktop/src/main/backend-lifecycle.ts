@@ -114,7 +114,13 @@ export class BackendLifecycle extends EventEmitter {
         } catch (error) {
           clearTimeout(timeout);
           child.kill("SIGTERM");
-          reject(error);
+          emitSecureLog("desktop.sidecar.handshake_invalid", {
+            correlationId: instanceId,
+            errorCode: "desktop.backend_handshake_invalid",
+            error,
+            fields: { process: "backend" },
+          });
+          reject(new Error("Handshake do backend inválido"));
         }
       });
 
@@ -136,7 +142,7 @@ export class BackendLifecycle extends EventEmitter {
           fields: { process: "backend" },
         });
         this.emitState({ status: "failed", message: "Falha ao iniciar backend local" });
-        reject(error);
+        reject(new Error("Falha ao iniciar backend local"));
       });
       child.once("exit", (code, signal) => {
         clearTimeout(timeout);

@@ -29,7 +29,7 @@ def main(argv: list[str] | None = None) -> int:
         policy = load_policy(config)
         paths = tuple(args.path) if args.path else tracked_paths(root)
         findings = scan_paths(root, paths, policy)
-    except (PolicyError, subprocess.SubprocessError, ValueError) as error:
+    except (OSError, PolicyError, subprocess.SubprocessError, ValueError) as error:
         print(
             f"secret scan configuration error: {type(error).__name__}",
             file=sys.stderr,

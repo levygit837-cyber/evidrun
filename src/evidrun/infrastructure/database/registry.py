@@ -77,6 +77,7 @@ class ContractRegistryStore:
     def save_contract_revision(
         self, revision: RevisionEnvelope, *, status: str = "draft"
     ) -> ContractRevisionRow:
+        correlation_id = new_id("register")
         if status not in {"draft", "proposed"}:
             raise initial_status_invalid()
         document = revision.semantic_document()
@@ -129,6 +130,7 @@ class ContractRegistryStore:
                         logger,
                         logging.ERROR,
                         "contract.revision.registration_failed",
+                        correlation_id=correlation_id,
                         error_code="register.integrity_error",
                         error=exc,
                         fields={"contract_type": revision.ref.contract_type.value},
@@ -148,6 +150,7 @@ class ContractRegistryStore:
                 logger,
                 logging.ERROR,
                 "contract.revision.storage_unavailable",
+                correlation_id=correlation_id,
                 error_code="register.storage_unavailable",
                 error=exc,
                 fields={"contract_type": revision.ref.contract_type.value},

@@ -18,6 +18,16 @@ type LogValue = str | int | bool
 REDACTED: Final = "<redacted>"
 _IDENTIFIER = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:@-]{0,127}")
 _EVENT_CODE = re.compile(r"[a-z][a-z0-9_.-]{2,127}")
+_SECRET_VALUE_PATTERNS = (
+    re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
+    re.compile(r"(?:AKIA|ASIA)[0-9A-Z]{16}"),
+    re.compile(r"gh[pousr]_[A-Za-z0-9]{20,}"),
+    re.compile(r"sk-(?:proj-)?[A-Za-z0-9_-]{24,}"),
+    re.compile(r"AIza[0-9A-Za-z_-]{35}"),
+    re.compile(r"xox[baprs]-[0-9A-Za-z-]{20,}"),
+    re.compile(r"Bearer[ \t]+[A-Za-z0-9._~+/=-]{24,}", re.IGNORECASE),
+    re.compile(r"[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}"),
+)
 
 LOG_FIELD_POLICY: Final[Mapping[str, Classification]] = {
     "event_code": "public",
@@ -100,5 +110,7 @@ def _safe_value(name: str, value: object) -> LogValue:
 
 
 def _safe_text(value: str, *, event: bool = False) -> str:
+    if any(pattern.search(value) for pattern in _SECRET_VALUE_PATTERNS):
+        return REDACTED
     pattern = _EVENT_CODE if event else _IDENTIFIER
     return value if pattern.fullmatch(value) else REDACTED

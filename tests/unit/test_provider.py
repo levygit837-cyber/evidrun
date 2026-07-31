@@ -144,6 +144,8 @@ async def test_provider_error_exposes_only_sanitized_code(
         if record.name == "evidrun.infrastructure.providers.openai_responses"
     )
     assert "provider.http_error" in logs
+    documents = [json.loads(line) for line in logs.splitlines()]
+    assert documents[0]["correlation_id"].startswith("provider_request_")
     assert "http_400_invalid_value_tool_choice" in logs
     assert "cliproxyapi-local" in logs
     assert "must-not-be-propagated" not in logs

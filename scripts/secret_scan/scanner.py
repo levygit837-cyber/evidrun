@@ -45,17 +45,20 @@ def scan_paths(root: Path, paths: Iterable[Path], policy: Policy) -> tuple[Findi
     lines: list[SourceLine] = []
     for path in paths:
         absolute = path if path.is_absolute() else root / path
-        try:
-            content = absolute.read_bytes()
-        except OSError:
-            continue
-        if b"\0" in content:
-            continue
-        try:
-            text = content.decode("utf-8")
-        except UnicodeDecodeError:
-            continue
-        relative = absolute.resolve().relative_to(root.resolve()).as_posix()
+        content = (
+            str(absolute.readlink()).encode("utf-8", errors="surrogateescape")
+            if absolute.is_symlink()
+            else absolute.read_bytes()
+        )
+        # Secret signatures are ASCII. Surrogate escape preserves invalid bytes without
+        # classifying them as word characters, so binary prefixes cannot suppress a
+        # token boundary and non-UTF-8 files never become a silent scanner bypass.
+        text = content.decode("utf-8", errors="surrogateescape")
+        relative = (
+            (absolute.parent.resolve() / absolute.name)
+            .relative_to(root.resolve())
+            .as_posix()
+        )
         lines.extend(
             SourceLine(path=relative, line=number, content=line)
             for number, line in enumerate(text.splitlines(), start=1)

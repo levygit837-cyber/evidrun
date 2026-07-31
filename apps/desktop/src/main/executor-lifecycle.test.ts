@@ -187,6 +187,7 @@ describe("executor lifecycle", () => {
 
     const serialized = String(report.mock.calls[0]?.[0]);
     expect(serialized).toContain('"event_code":"desktop.sidecar.stderr"');
+    expect(serialized).toMatch(/"correlation_id":"[0-9a-f-]+"/);
     expect(serialized).toContain('"process":"worker"');
     expect(serialized).not.toContain(secret);
     expect(serialized).not.toContain("someone");

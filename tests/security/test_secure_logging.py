@@ -5,7 +5,7 @@ import logging
 
 import pytest
 
-from evidrun.security import emit_secure_log
+from evidrun.security import emit_secure_log, safe_log_document
 
 
 def test_python_log_keeps_operational_identity_without_sensitive_material(
@@ -46,3 +46,22 @@ def test_python_log_keeps_operational_identity_without_sensitive_material(
     }
     assert secret not in caplog.text
     assert "claimed-human" not in caplog.text
+
+
+def test_python_log_redacts_secret_shaped_values_in_allowed_fields() -> None:
+    api_key = "sk-proj-" + "A" * 32
+
+    document = safe_log_document(
+        "provider.request.failed",
+        correlation_id=api_key,
+        error_code=api_key,
+        fields={"provider_id": api_key},
+    )
+
+    assert document == {
+        "correlation_id": "<redacted>",
+        "error_code": "<redacted>",
+        "event_code": "provider.request.failed",
+        "provider_id": "<redacted>",
+    }
+    assert api_key not in json.dumps(document)

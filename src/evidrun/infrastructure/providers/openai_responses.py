@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, TypeAdapter
 from evidrun.infrastructure.providers.credentials import ProviderCredentialStore
 from evidrun.providers import ProviderProfile
 from evidrun.security import emit_secure_log
+from evidrun.shared.types import new_id
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +116,7 @@ class OpenAIResponsesProvider:
     async def _request(
         self, method: str, path: str, *, json: Mapping[str, Any] | None = None
     ) -> Mapping[str, Any]:
+        correlation_id = new_id("provider_request")
         api_key = self.credentials.require(self.profile)
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
         owns_client = self.client is None
@@ -158,6 +160,7 @@ class OpenAIResponsesProvider:
                     logger,
                     logging.ERROR,
                     "provider.http_error",
+                    correlation_id=correlation_id,
                     error_code=error.code,
                     error=error,
                     fields={
@@ -177,6 +180,7 @@ class OpenAIResponsesProvider:
                     logger,
                     logging.ERROR,
                     "provider.invalid_response",
+                    correlation_id=correlation_id,
                     error_code=error.code,
                     error=error,
                     fields={"provider_id": self.profile.id},
@@ -192,6 +196,7 @@ class OpenAIResponsesProvider:
                 logger,
                 logging.ERROR,
                 "provider.transport_error",
+                correlation_id=correlation_id,
                 error_code=error.code,
                 error=exc,
                 fields={"provider_id": self.profile.id},

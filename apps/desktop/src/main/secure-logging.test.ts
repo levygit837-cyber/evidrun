@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { emitSecureLog } from "./secure-logging.js";
+import { emitSecureLog, safeLogDocument } from "./secure-logging.js";
 
 describe("desktop secure logging", () => {
   it("keeps stable diagnostics without exception or classified payload text", () => {
@@ -36,5 +36,23 @@ describe("desktop secure logging", () => {
     }));
     expect(sink.mock.calls[0]?.[0]).not.toContain(secret);
     expect(sink.mock.calls[0]?.[0]).not.toContain("claimed-human");
+  });
+
+  it("redacts secret-shaped values even in allowed fields", () => {
+    const apiKey = `sk-proj-${"A".repeat(32)}`;
+
+    const document = safeLogDocument("provider.request.failed", {
+      correlationId: apiKey,
+      errorCode: apiKey,
+      fields: { provider_id: apiKey },
+    });
+
+    expect(document).toEqual({
+      correlation_id: "<redacted>",
+      error_code: "<redacted>",
+      event_code: "provider.request.failed",
+      provider_id: "<redacted>",
+    });
+    expect(JSON.stringify(document)).not.toContain(apiKey);
   });
 });

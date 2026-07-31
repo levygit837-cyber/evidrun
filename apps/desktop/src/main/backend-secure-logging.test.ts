@@ -69,8 +69,24 @@ describe("backend lifecycle secure logging", () => {
 
     const serialized = String(report.mock.calls[0]?.[0]);
     expect(serialized).toContain('"event_code":"desktop.sidecar.stderr"');
+    expect(serialized).toMatch(/"correlation_id":"[0-9a-f-]+"/);
     expect(serialized).toContain('"process":"backend"');
     expect(serialized).not.toContain(secret);
     expect(serialized).not.toContain("someone");
+  });
+
+  it("rejects process failures without propagating the original exception text", async () => {
+    const report = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const secret = `sk-proj-${"A".repeat(32)}`;
+    const lifecycle = new BackendLifecycle();
+    const starting = lifecycle.start();
+
+    child.emit("error", new Error(`spawn failed with ${secret}`));
+
+    await expect(starting).rejects.toThrow("Falha ao iniciar backend local");
+    await expect(starting).rejects.not.toThrow(secret);
+    const serialized = report.mock.calls.map(([line]) => String(line)).join("\n");
+    expect(serialized).toContain('"event_code":"desktop.sidecar.failed"');
+    expect(serialized).not.toContain(secret);
   });
 });

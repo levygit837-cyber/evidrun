@@ -7,6 +7,16 @@ type LogSink = (line: string) => void;
 const REDACTED = "<redacted>";
 const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,127}$/;
 const EVENT_CODE = /^[a-z][a-z0-9_.-]{2,127}$/;
+const SECRET_VALUE_PATTERNS = [
+  /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/,
+  /(?:AKIA|ASIA)[0-9A-Z]{16}/,
+  /gh[pousr]_[A-Za-z0-9]{20,}/,
+  /sk-(?:proj-)?[A-Za-z0-9_-]{24,}/,
+  /AIza[0-9A-Za-z_-]{35}/,
+  /xox[baprs]-[0-9A-Za-z-]{20,}/,
+  /Bearer[ \t]+[A-Za-z0-9._~+/=-]{24,}/i,
+  /[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}/,
+];
 
 export const LOG_FIELD_POLICY: Readonly<Record<string, Classification>> = Object.freeze({
   event_code: "public",
@@ -82,5 +92,6 @@ function safeErrorType(error: unknown): string {
 }
 
 function safeText(value: string, event = false): string {
+  if (SECRET_VALUE_PATTERNS.some((pattern) => pattern.test(value))) return REDACTED;
   return (event ? EVENT_CODE : IDENTIFIER).test(value) ? value : REDACTED;
 }
