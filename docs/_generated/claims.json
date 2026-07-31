@@ -3,6 +3,7 @@
   "document_count": 111,
   "repository_tree": [
     ".env.example",
+    ".github/pull_request_template.md",
     ".github/workflows",
     ".gitignore",
     ".node-version",
@@ -21,6 +22,7 @@
     "changes/109.toml",
     "changes/111.toml",
     "changes/46.toml",
+    "changes/47.toml",
     "changes/50.toml",
     "changes/52.toml",
     "changes/90.toml",

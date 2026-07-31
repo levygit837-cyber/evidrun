@@ -1,0 +1,53 @@
+# Exemplo: feature aditiva de baixo risco. Revisão proporcional é suficiente porque
+# nenhuma família sensível é tocada: nada é removido, nada normativo quebra e nenhum
+# contrato persistido muda.
+schema_version = "1"
+change_id = "GH-9001"
+issue = 9001
+title = "Exemplo de feature com merge gate completo"
+classification = "feature"
+base_ref = "origin/main"
+branch_pattern = "feat/issue-9001-*"
+expected_outcome = "O usuário lista runs filtrando por status e recebe a projeção paginada."
+confirmed_facts = ["A projeção de runs já existe e não paginava."]
+stop_conditions = ["Exigir mudança no schema persistido de RunRecord."]
+
+[impact]
+capability = "additive"
+persisted_contract = "none"
+normative = "none"
+notes = ["Nenhuma resposta existente muda de forma; o filtro é opcional."]
+
+[scope]
+expected = ["src/evidrun/entrypoints/api/routers/**", "tests/integration/**"]
+forbidden = ["docs/adr/**"]
+preexisting = []
+
+[preserve]
+interfaces = ["A rota sem filtro mantém o corpo atual."]
+errors = ["Nenhum status HTTP existente muda."]
+invariants = ["Falha fechada permanece em ausência de autoridade."]
+
+[verification]
+focused = ["uv run pytest tests/integration/test_runtime_surfaces.py"]
+full_gates = ["uv run pytest", "uv run ruff check ."]
+
+[merge_gate]
+review = "proportional"
+ci_commit = "1a909e4"
+
+[merge_gate.spec]
+conclusion = "passed"
+evidence = ["diff:src/evidrun/entrypoints/api/routers/runs.py", "log:paginacao-manual.txt"]
+
+[merge_gate.standards]
+conclusion = "passed"
+evidence = ["diff:tests/integration/test_runtime_surfaces.py"]
+
+[merge_gate.verification]
+conclusion = "passed"
+evidence = ["test:tests/integration/test_runtime_surfaces.py"]
+
+[merge_gate.ci]
+conclusion = "passed"
+evidence = ["run:actions/30649277512"]

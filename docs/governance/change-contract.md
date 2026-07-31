@@ -17,10 +17,14 @@ superseded_by: null
 implementation_refs:
   - scripts/check_change_contract.py
   - scripts/change_contract
+  - scripts/change_contract/merge_gate.py
   - docs/templates/change-contract.toml
+  - .github/pull_request_template.md
   - .github/workflows/ci.yml
 verification_refs:
   - tests/unit/test_change_contract.py
+  - tests/unit/test_merge_gate.py
+  - tests/unit/fixtures/merge-gate
 ---
 
 # Contrato de mudança e gate de escopo
@@ -55,6 +59,64 @@ de esconder escopo.
 
 Pergunta aberta com `affects_semantics=true` é blocker de planejamento. Pergunta sem efeito semântico
 pode permanecer aberta e visível durante exploração.
+
+## Merge gate em quatro camadas
+
+CI verde prova que os checks rodaram. Ela não registra se o resultado atendeu a especificação, se a
+arquitetura se manteve, nem se a verificação foi suficiente. São três conclusões diferentes, e
+`[merge_gate]` as mantém separadas, na ordem de leitura:
+
+1. **Spec** — resultado, invariantes e fora de escopo atendidos;
+2. **Standards** — arquitetura, autoridade, segurança, docs e budgets;
+3. **Verification** — testes focais, contratos, regressões e evidência independente;
+4. **CI** — suíte determinística completa no commit candidato.
+
+Cada camada conclui `passed` ou `not-applicable`. As quatro são obrigatórias: um contrato que declara
+`[merge_gate]` sem alguma delas é inválido.
+
+Duas regras carregam o peso. `passed` sem evidência é blocker, então `passed` nunca fica vazio. E as
+três primeiras camadas não podem citar a execução de CI: reusar evidência `run:` nelas é exatamente a
+substituição "CI verde, logo está tudo certo" que o gate existe para recusar. A camada `ci` também
+nunca pode ser `not-applicable`, porque a suíte sempre roda.
+
+Evidência tem a forma `<kind>:<referência>`, com kind em `diff`, `test`, `log`, `review` ou `run`.
+`not-applicable` exige `justification` e dispensa evidência: é conclusão honesta quando justificada.
+
+Referência placeholder (`PENDING`, `TBD`, `todo`, `n/a`, `-`, `?` e similares) é blocker
+`merge_gate.evidence_placeholder`. Sem essa regra, `run:PENDING` satisfaz "passed exige evidência"
+sem nomear artefato algum: uma conclusão vazia disfarçada. A comparação é sobre a referência inteira,
+não substring, então um path real como `tests/test_pending_run.py` continua válido.
+
+### Profundidade de revisão
+
+`review` declara `orthogonal` (revisão independente de quem não escreveu a mudança) ou
+`proportional` (revisão dimensionada à mudança). A profundidade mínima é derivada do risco declarado,
+nunca do tamanho do diff: um diff pequeno pode remover capability e um grande pode ser um rename.
+
+`orthogonal` é obrigatória quando a classificação é `breaking`, quando capability ou documentação
+normativa é `removed`/`breaking`, ou quando o contrato persistido muda de qualquer forma. Declarar a
+profundidade não é executá-la: com `orthogonal`, alguma camada precisa apontar evidência `review:`.
+
+### Identidade do commit coberto
+
+`ci_commit` é o SHA em que a suíte completa rodou. Exigir `ci_commit == HEAD` seria insatisfazível,
+porque commitar o contrato que registra a execução move o HEAD para além dela. A regra verificável é
+outra: nenhum arquivo **entregue** pode mudar depois desse commit. O próprio contrato pode, porque
+registrar a evidência não invalida a evidência.
+
+Commit desconhecido pelo repositório bloqueia; entrega alterada depois da execução bloqueia e nomeia
+os paths afetados.
+
+### Adoção
+
+Contrato sem `[merge_gate]` produz `merge_gate.absent`, warning. No gate de merge, `--strict-warnings`
+o transforma em falha, mas contratos escritos antes desta seção continuam carregáveis até serem
+atualizados.
+
+O [template de PR](../../.github/pull_request_template.md) pede o resumo legível das mesmas camadas.
+Ele não é a fonte: um comentário de PR é efêmero e não verificável. Se o texto divergir do contrato,
+o contrato vence e o gate falha. Há um exemplo carregável por classificação em
+`tests/unit/fixtures/merge-gate/`.
 
 ## Escopo que orienta sem limitar
 
@@ -105,7 +167,16 @@ alta confiança nas linhas adicionadas. A autoridade normativa de documentos alt
 frontmatter atual ou da versão no merge-base. O diagnóstico de segredo nunca inclui o valor
 encontrado.
 
-Ele não prova que toda mudança semântica foi percebida, que um teste é suficiente ou que um novo
-comportamento não constitui capability. Essas conclusões continuam pertencendo a Spec, Standards e
-Verification. O scanner de secrets completo e a política de redaction pertencem à issue dedicada;
-este gate implementa somente a defesa mínima exigida para não aprovar segredo evidente.
+Sobre o merge gate, ele prova estrutura e disciplina de citação: as quatro camadas presentes, nenhuma
+conclusão `passed` vazia, nenhuma das três primeiras camadas citando a execução de CI, profundidade de
+revisão compatível com o risco declarado, e uma execução de CI que ainda cobre a entrega.
+
+Ele não prova que a conclusão declarada em cada camada é verdadeira. Um agente pode apontar um teste
+que não exercita o ramo relevante ou uma review superficial. O gate impede a substituição estrutural
+— tratar CI verde como prova das outras três camadas — e força cada conclusão a nomear algo
+inspecionável. Julgar a qualidade daquilo que foi apontado continua sendo trabalho humano.
+
+Ele também não prova que toda mudança semântica foi percebida, que um teste é suficiente ou que um
+novo comportamento não constitui capability. O scanner de secrets completo e a política de redaction
+pertencem à issue dedicada; este gate implementa somente a defesa mínima exigida para não aprovar
+segredo evidente.

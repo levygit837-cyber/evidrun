@@ -1,0 +1,59 @@
+# Exemplo: mudança gerada. O artefato é derivado, então Spec e Verification concluem
+# `not-applicable` e a conclusão real é Standards: o gerado corresponde à sua fonte.
+# A camada ci nunca é not-applicable, mesmo aqui: a suíte sempre roda.
+schema_version = "1"
+change_id = "GH-9004"
+issue = 9004
+title = "Exemplo de artefato regenerado"
+classification = "generated"
+base_ref = "origin/main"
+branch_pattern = "chore/issue-9004-*"
+expected_outcome = "Os schemas gerados correspondem exatamente aos contracts de origem."
+confirmed_facts = ["O gerador é determinístico e roda no CI com --check."]
+stop_conditions = ["Diferença no gerado que não venha de mudança na fonte."]
+
+[impact]
+capability = "none"
+persisted_contract = "none"
+normative = "none"
+notes = ["Projeção de contratos existentes; nenhuma fonte muda neste diff."]
+
+[scope]
+expected = ["schemas/generated/**"]
+forbidden = ["docs/adr/**"]
+preexisting = []
+
+[[scope.generated]]
+patterns = ["schemas/generated/**"]
+source_patterns = ["src/evidrun/contracts/**", "scripts/generate_schemas.py"]
+
+[preserve]
+interfaces = ["Nenhum schema publicado muda de forma."]
+errors = []
+invariants = ["O gerado nunca é autoridade normativa."]
+
+[verification]
+focused = ["uv run python scripts/generate_schemas.py --check"]
+full_gates = ["uv run pytest", "uv run python scripts/generate_schemas.py --check"]
+
+[merge_gate]
+review = "proportional"
+ci_commit = "fb98c55"
+
+[merge_gate.spec]
+conclusion = "not-applicable"
+evidence = []
+justification = "Artefato derivado: o resultado pertence à mudança que alterou a fonte."
+
+[merge_gate.standards]
+conclusion = "passed"
+evidence = ["diff:schemas/generated/study.json", "log:generate_schemas-check.txt"]
+
+[merge_gate.verification]
+conclusion = "not-applicable"
+evidence = []
+justification = "O gerador determinístico com --check é a verificação; não há ramo novo a testar."
+
+[merge_gate.ci]
+conclusion = "passed"
+evidence = ["run:actions/30647773191"]

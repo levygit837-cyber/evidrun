@@ -4,14 +4,23 @@ from __future__ import annotations
 
 import fnmatch
 from dataclasses import dataclass
-from enum import StrEnum
 from pathlib import Path, PurePosixPath
 from typing import Any
 
 from secret_scan import Policy, SourceLine, load_policy, scan_lines
 
-from .git import AddedLine, ChangeSource, GitChange, GitSnapshot
-from .model import ChangeContract, ImpactLevel, QuestionStatus
+from .diagnostics import Diagnostic, Severity
+from .git import (
+    AddedLine,
+    ChangeSource,
+    GitChange,
+    GitSnapshot,
+    paths_changed_since,
+    resolve_commit,
+)
+from .merge_gate import CiCoverage, merge_gate_diagnostics
+from .model import ChangeContract
+from .vocabulary import ImpactLevel, QuestionStatus
 
 NORMATIVE_PATTERNS = (
     "AGENTS.md",
@@ -25,28 +34,7 @@ PERSISTED_CONTRACT_PATTERNS = (
     "schemas/**",
     "src/evidrun/contracts/**",
 )
-class Severity(StrEnum):
-    BLOCKER = "blocker"
-    WARNING = "warning"
-    INFO = "info"
 
-
-@dataclass(frozen=True)
-class Diagnostic:
-    code: str
-    severity: Severity
-    message: str
-    paths: tuple[str, ...] = ()
-    remediation: str | None = None
-
-    def as_dict(self) -> dict[str, Any]:
-        return {
-            "code": self.code,
-            "severity": self.severity.value,
-            "message": self.message,
-            "paths": list(self.paths),
-            "remediation": self.remediation,
-        }
 
 
 @dataclass(frozen=True)
@@ -137,6 +125,14 @@ def check_contract(contract: ChangeContract, snapshot: GitSnapshot) -> CheckRepo
     _check_generated_sources(contract, tuple(sorted(delivery)), diagnostics)
     _check_untracked(snapshot, diagnostics)
     _check_secrets(snapshot.added_lines, diagnostics, snapshot.root)
+    diagnostics.extend(
+        merge_gate_diagnostics(
+            contract.merge_gate,
+            classification=contract.classification,
+            impact=contract.impact,
+            coverage=_ci_coverage(contract, snapshot, tuple(sorted(delivery))),
+        )
+    )
     ordered = tuple(
         sorted(
             _deduplicate(diagnostics),
@@ -366,6 +362,31 @@ def _secret_policy(root: Path | None) -> Policy:
         return Policy()
     path = root / "secret-scan.toml"
     return load_policy(path) if path.is_file() else Policy()
+
+
+def _ci_coverage(
+    contract: ChangeContract, snapshot: GitSnapshot, delivery: tuple[str, ...]
+) -> CiCoverage | None:
+    """Decide whether the recorded run still covers what is being delivered.
+
+    Only delivery paths count. A run stays valid when the contract itself moved
+    afterwards, because recording the evidence cannot invalidate the evidence.
+    """
+
+    gate = contract.merge_gate
+    if gate is None:
+        return None
+    resolved = resolve_commit(snapshot.root, gate.ci_commit)
+    if resolved is None:
+        return CiCoverage(resolved=False)
+    contract_path = _relative_contract_path(contract, snapshot)
+    delivered = set(delivery)
+    changed = tuple(
+        path
+        for path in paths_changed_since(snapshot.root, resolved, snapshot.head)
+        if path in delivered and path != contract_path
+    )
+    return CiCoverage(resolved=True, changed_paths=changed)
 
 
 def _relative_contract_path(contract: ChangeContract, snapshot: GitSnapshot) -> str:

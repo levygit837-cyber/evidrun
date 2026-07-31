@@ -1,0 +1,54 @@
+# Exemplo: docs-only. A camada Spec conclui `not-applicable` com justificativa, porque não
+# há resultado de produto para atender; Standards é onde a mudança realmente conclui.
+# `not-applicable` é conclusão honesta quando justificada, e por isso não exige evidência.
+schema_version = "1"
+change_id = "GH-9003"
+issue = 9003
+title = "Exemplo de mudança docs-only"
+classification = "docs-only"
+base_ref = "origin/main"
+branch_pattern = "docs/issue-9003-*"
+expected_outcome = "A operação do worker descreve o estado final depois do supervisor."
+confirmed_facts = ["O documento descrevia o comportamento anterior ao supervisor."]
+stop_conditions = ["Descobrir que o documento afirma capability não implementada."]
+
+[impact]
+capability = "none"
+persisted_contract = "none"
+normative = "none"
+notes = ["Documento operacional, sem autoridade normativa."]
+
+[scope]
+expected = ["docs/operations/**"]
+forbidden = ["docs/adr/**", "src/**"]
+preexisting = []
+
+[preserve]
+interfaces = []
+errors = []
+invariants = ["Nenhuma afirmação de roadmap é descrita como implementada."]
+
+[verification]
+focused = ["uv run python scripts/validate_docs.py"]
+full_gates = ["uv run pytest", "uv run python scripts/validate_docs.py"]
+
+[merge_gate]
+review = "proportional"
+ci_commit = "d0cfc67"
+
+[merge_gate.spec]
+conclusion = "not-applicable"
+evidence = []
+justification = "Mudança somente documental: não há resultado de produto para atender."
+
+[merge_gate.standards]
+conclusion = "passed"
+evidence = ["diff:docs/operations/runtime-worker.md", "log:validate_docs.txt"]
+
+[merge_gate.verification]
+conclusion = "passed"
+evidence = ["log:validate_docs.txt"]
+
+[merge_gate.ci]
+conclusion = "passed"
+evidence = ["run:actions/30649277512"]

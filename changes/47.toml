@@ -1,0 +1,124 @@
+schema_version = "1"
+change_id = "GH-47"
+issue = 47
+title = "Formalizar o merge gate em quatro camadas dentro do contrato de mudança"
+classification = "feature"
+base_ref = "origin/main"
+branch_pattern = "feat/merge-gate-four-layers"
+expected_outcome = "Um contrato declara Spec, Standards, Verification e CI separadamente; `passed` sem evidência bloqueia, citar a execução de CI nas três primeiras camadas bloqueia, e uma execução que não cobre mais a entrega bloqueia."
+confirmed_facts = [
+  "`changes/<issue>.toml` já existia e o CI já roda `check_change_contract.py --discover --strict-warnings`.",
+  "O contrato registrava intenção e escopo, mas nenhuma conclusão por camada: CI verde era a única evidência estruturada.",
+  "`model.py` estava em 430 das 500 linhas do orçamento, então os helpers de parsing foram extraídos antes de adicionar o gate.",
+]
+stop_conditions = [
+  "Exigir `ci_commit == HEAD`: insatisfazível, porque commitar o contrato que registra a execução move o HEAD para além dela.",
+  "Transformar `merge_gate.absent` em blocker no mesmo corte: quebraria todo contrato escrito antes desta seção.",
+]
+
+[impact]
+capability = "additive"
+persisted_contract = "none"
+normative = "additive"
+notes = [
+  "`[merge_gate]` é opcional no schema: sua ausência é warning, então nenhum contrato existente deixa de carregar.",
+  "`docs/governance/change-contract.md` ganha seções; nenhuma decisão anterior é revertida e nenhum ADR é reescrito.",
+  "A extração de `parsing.py`, `diagnostics.py` e `vocabulary.py` é reorganização interna do pacote: nenhuma borda pública do checker muda, e `change_contract` reexporta tudo o que já exportava.",
+]
+
+[scope]
+expected = [
+  "scripts/change_contract/**",
+  "tests/unit/test_change_contract.py",
+  "tests/unit/test_merge_gate.py",
+  "tests/unit/fixtures/merge-gate/**",
+  "docs/templates/change-contract.toml",
+  "docs/governance/change-contract.md",
+  ".github/pull_request_template.md",
+  "changes/47.toml",
+]
+forbidden = ["docs/adr/**", "src/evidrun/**"]
+preexisting = []
+
+[[scope.generated]]
+patterns = ["docs/_generated/**"]
+source_patterns = ["docs/**/*.md"]
+
+[preserve]
+interfaces = [
+  "`check_contract(contract, snapshot)` mantém assinatura e o shape de `CheckReport.as_dict()`.",
+  "`change_contract` continua exportando `Diagnostic`, `Severity`, `ContractError`, `ImpactLevel` e `load_contract`.",
+  "Todo contrato válido antes deste corte continua carregando sem `[merge_gate]`.",
+]
+errors = [
+  "Nenhum código de diagnóstico existente muda de nome ou severidade.",
+  "Exit codes de `check_change_contract.py` permanecem 0/1/2 com o mesmo significado.",
+]
+invariants = [
+  "CI verde nunca conta como evidência de Spec, Standards ou Verification.",
+  "`passed` sem evidência é blocker; `not-applicable` exige justificativa.",
+  "Profundidade de revisão deriva do risco declarado, nunca do tamanho do diff.",
+]
+
+[verification]
+focused = [
+  "uv run pytest tests/unit/test_merge_gate.py tests/unit/test_change_contract.py",
+]
+full_gates = [
+  "uv run pytest",
+  "uv run ruff check .",
+  "uv run python scripts/check_code_budget.py",
+  "uv run pyright",
+  "pnpm typecheck:web",
+  "pnpm typecheck:desktop",
+  "pnpm test",
+  "pnpm build",
+  "uv run python scripts/validate_docs.py",
+]
+
+[[questions]]
+text = "Como o gate verifica que a suíte cobriu o commit mergeado sem exigir uma igualdade insatisfazível?"
+affects_semantics = true
+status = "resolved"
+resolution = "Nenhum arquivo entregue pode mudar depois de `ci_commit`. O próprio contrato é excluído, porque registrar a evidência não a invalida. Coberto por três testes contra git real."
+
+[[questions]]
+text = "A extração de parsing/diagnostics/vocabulary precisa de oráculo de refactor?"
+affects_semantics = false
+status = "resolved"
+resolution = "Não. Ela é parte de uma entrega classificada como feature e as 21 asserções preexistentes de `test_change_contract.py` passaram sem edição, provando equivalência das bordas."
+
+[merge_gate]
+review = "proportional"
+ci_commit = "91ba030c5970c928024e1ebf81b96d6c3b7123af"
+
+[merge_gate.spec]
+conclusion = "passed"
+evidence = [
+  "test:tests/unit/test_merge_gate.py::test_the_first_three_layers_may_not_cite_the_ci_run",
+  "test:tests/unit/test_merge_gate.py::test_passed_without_evidence_is_a_blocker",
+  "log:smoke-substituicao-recusada.txt",
+]
+
+[merge_gate.standards]
+conclusion = "passed"
+evidence = [
+  "diff:scripts/change_contract/merge_gate.py",
+  "diff:docs/governance/change-contract.md",
+  "log:check_code_budget-0-violacoes.txt",
+]
+
+[merge_gate.verification]
+conclusion = "passed"
+evidence = [
+  "test:tests/unit/test_merge_gate.py",
+  "test:tests/unit/test_change_contract.py::test_delivery_edited_after_the_recorded_run_blocks",
+  "diff:tests/unit/fixtures/merge-gate",
+]
+
+[merge_gate.ci]
+conclusion = "passed"
+evidence = [
+  "run:actions/30656721928",
+  "log:pytest-525-passed-1-skipped.txt",
+]
