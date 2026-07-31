@@ -14,6 +14,7 @@ from evidrun.contracts import (
     RevisionEnvelope,
     RunSpec,
     StudyRevision,
+    VerifiedDecisionBinding,
     semantic_model_dump,
 )
 from evidrun.contracts.compiler import StudyCompiler
@@ -87,17 +88,37 @@ class ExecutionPreparationService:
             RegisteredRevisionResolver(self._repository)
         ).seal(revision)
         specs = StudyCompiler(sealed.resolver).compile(revision)
+        decisions = self._repository.execution_trust.verified_decisions_for(
+            sealed.revision_set.revision_refs
+        )
+        bindings = (
+            tuple(
+                VerifiedDecisionBinding(
+                    revision_ref=decision.revision_ref,
+                    decision_digest=decision.digest,
+                )
+                for decision in decisions
+            )
+            if decisions is not None
+            else ()
+        )
+        kind = (
+            "verified_revision_set"
+            if decisions is not None
+            else "unverified_revision_set"
+        )
         prepared: list[PreparedRunSpec] = []
         for spec in specs:
             row = self._repository.catalog.save_run_spec(spec)
             candidate = ExecutionTrustRecord(
                 trust_id=new_id("trust"),
-                kind="unverified_revision_set",
+                kind=kind,
                 project_id=revision.project_id,
                 study_ref=revision.ref,
                 revision_refs=sealed.revision_set.revision_refs,
                 revision_set_digest=sealed.revision_set.revision_set_digest,
                 run_spec_digest=spec.digest,
+                verified_decisions=bindings,
                 created_at_utc=utc_now(),
             )
             trust_row = self._repository.execution_trust.save_record(candidate)

@@ -37,6 +37,13 @@ function detail(overrides: Partial<RunDetail> = {}, events = anomalyEvents): Det
       runner: "evidrun.runner/responses-read-agent-v1",
       output: null,
       context_hash: null,
+      execution_trust: {
+        status: "recorded",
+        trust_id: "trust:anomaly-001",
+        digest: "a".repeat(64),
+        kind: "unverified_revision_set",
+      },
+      isolation: "in_process",
       created_at: "2026-07-28T10:00:00Z",
       completed_at: "2026-07-28T10:01:00Z",
       grade: null,
@@ -106,6 +113,14 @@ afterEach(() => {
 });
 
 describe("anomaly presentation", () => {
+  it("shows trust and isolation as independent text", () => {
+    renderPanel();
+    expect(screen.getByText("Trust: Não verificada")).toBeInTheDocument();
+    expect(screen.getByText("Isolamento: in_process")).toBeInTheDocument();
+    expect(screen.getByText(/Não verificada — Sem confirmação humana/)).toBeInTheDocument();
+    expect(screen.getByText("in_process")).toBeInTheDocument();
+  });
+
   it("names the anomaly and its cause", () => {
     renderPanel();
     expect(screen.getByText("Anomalia (não avaliável)")).toBeInTheDocument();

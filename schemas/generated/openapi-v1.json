@@ -1424,6 +1424,150 @@
         "summary": "Default Provider"
       }
     },
+    "/api/v1/review-targets/{review_target_digest}/package": {
+      "get": {
+        "operationId": "review_package_api_v1_review_targets__review_target_digest__package_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_target_digest",
+            "required": true,
+            "schema": {
+              "title": "Review Target Digest",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "compare_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Compare To"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Review Package Api V1 Review Targets  Review Target Digest  Package Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review Package"
+      }
+    },
+    "/api/v1/review-targets/{review_target_digest}/package.html": {
+      "get": {
+        "operationId": "review_package_html_api_v1_review_targets__review_target_digest__package_html_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_target_digest",
+            "required": true,
+            "schema": {
+              "title": "Review Target Digest",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "compare_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Compare To"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review Package Html"
+      }
+    },
     "/api/v1/run-specs/{run_spec_id}": {
       "get": {
         "operationId": "run_spec_api_v1_run_specs__run_spec_id__get",

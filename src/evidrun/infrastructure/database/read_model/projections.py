@@ -9,15 +9,23 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from evidrun.contracts import (
+    ExecutionTrustProjection,
+    ExecutionTrustRecord,
+    RunSpec,
+    semantic_model_dump,
+)
 from evidrun.infrastructure.database.models import (
     ChatSessionRow,
     ComparisonRow,
     ContextSnapshotRow,
+    ExecutionTrustRecordRow,
     ExperimentRevisionRow,
     GradeRow,
     ProjectRow,
     RunEventRow,
     RunRow,
+    RunSpecRow,
     WorkspaceRow,
 )
 from evidrun.infrastructure.database.timestamps import aware_utc
@@ -64,8 +72,14 @@ def experiment_document(row: ExperimentRevisionRow) -> dict[str, Any]:
 
 
 def run_document(
-    row: RunRow, grade: GradeRow | None, snapshot: ContextSnapshotRow | None
+    row: RunRow,
+    grade: GradeRow | None,
+    snapshot: ContextSnapshotRow | None,
+    trust_row: ExecutionTrustRecordRow | None,
+    run_spec_row: RunSpecRow | None,
 ) -> dict[str, Any]:
+    trust = _execution_trust_document(row, trust_row)
+    isolation = _run_isolation(row, run_spec_row)
     return {
         "id": row.id,
         "experiment_revision_id": row.experiment_revision_id,
@@ -77,6 +91,8 @@ def run_document(
         "runner": row.runner,
         "output": row.output,
         "context_hash": row.context_hash,
+        "execution_trust": trust,
+        "isolation": isolation,
         "created_at": row.created_at.isoformat(),
         "completed_at": row.completed_at.isoformat() if row.completed_at else None,
         "grade": (
@@ -106,6 +122,47 @@ def run_document(
             else None
         ),
     }
+
+
+def _execution_trust_document(
+    row: RunRow, trust_row: ExecutionTrustRecordRow | None
+) -> dict[str, object]:
+    if row.execution_trust_id is None and row.execution_trust_digest is None:
+        return semantic_model_dump(ExecutionTrustProjection(status="not_recorded"))
+    if (
+        row.execution_trust_id is None
+        or row.execution_trust_digest is None
+        or trust_row is None
+    ):
+        raise ValueError("Run execution trust reference is incomplete")
+    record = ExecutionTrustRecord.model_validate(json.loads(trust_row.record_json))
+    if (
+        trust_row.id != row.execution_trust_id
+        or trust_row.digest != row.execution_trust_digest
+        or record.trust_id != trust_row.id
+        or record.digest != trust_row.digest
+        or record.kind != trust_row.kind
+    ):
+        raise ValueError("Run execution trust digest mismatch")
+    return semantic_model_dump(
+        ExecutionTrustProjection(
+            status="recorded",
+            trust_id=record.trust_id,
+            digest=record.digest,
+            kind=record.kind,
+        )
+    )
+
+
+def _run_isolation(row: RunRow, run_spec_row: RunSpecRow | None) -> str:
+    if row.run_spec_id is None:
+        return "not_recorded"
+    if run_spec_row is None or run_spec_row.id != row.run_spec_id:
+        raise ValueError("Run references an unknown RunSpec")
+    spec = RunSpec.model_validate(json.loads(run_spec_row.spec_json))
+    if spec.digest != run_spec_row.digest:
+        raise ValueError("RunSpec isolation projection digest mismatch")
+    return spec.workspace.runtime_kind
 
 
 def comparison_document(row: ComparisonRow) -> dict[str, Any]:

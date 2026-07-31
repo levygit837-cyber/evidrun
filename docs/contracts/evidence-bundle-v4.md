@@ -7,7 +7,7 @@ authority: normative
 volatility: timeless
 owner: governance
 created_at: 2026-07-28
-updated_at: 2026-07-28
+updated_at: 2026-07-31
 applies_to: schema/evidence-bundle@4
 sources:
   - docs/contracts/evidence-bundle-v3.md
@@ -19,8 +19,10 @@ implementation_refs:
   - src/evidrun/evidence/export/run_v4.py
   - src/evidrun/evidence/verify/v4.py
   - src/evidrun/evidence/bundle.py
+  - src/evidrun/evidence/presentation.py
 verification_refs:
   - tests/acceptance/test_unverified_execution.py
+  - tests/acceptance/test_verified_execution_review.py
   - tests/live/test_real_agent_benchmark.py
 ---
 
@@ -31,10 +33,11 @@ record canônico verificável. Ele se aplica somente a uma Run ligada a `Executi
 Run legada sem esse record permanece `not_recorded` e usa o exportador compatível aplicável, sem
 inferência retroativa.
 
-O exportador e o verificador v4 estão implementados para `unverified_revision_set`. Eles exportam o
-record completo, recalculam a closure e todas as ligações sem consultar o SQLite original e rejeitam
-omissão, alteração, duplicação ou troca de trust. O kind `verified_revision_set` continua falhando
-fechado até a próxima fatia do WS-40 exportar e verificar todas as decisions humanas vinculadas.
+O exportador e o verificador v4 estão implementados para os dois kinds. Eles exportam o record
+completo, recalculam a closure e todas as ligações sem consultar o SQLite original e rejeitam
+omissão, alteração, duplicação ou troca de trust. No kind verificado, cada binding exige o
+`RevisionDecisionRecord` humano completo correspondente; no não verificado, qualquer decision extra
+invalida o bundle.
 
 ## Layout exato
 
@@ -53,6 +56,7 @@ subject-envelopes/<run-id>.json  # presente quando a materialização foi alcan�
 execution/jobs/<job-id>.json
 execution/attempts/<job-id>.json
 artifact-manifest.json
+summary.html
 checksums.json
 ```
 
@@ -104,9 +108,10 @@ O verificador v4 executa todas as validações do v3 e, sem consultar o SQLite o
 7. valida lifecycle, ledger, evaluations, checkpoints, SubjectEnvelope, job, attempts e artifact
    manifest conforme o v3.
 
-No estado atual, os passos 1–5 e 7 estão ativos para o kind não verificado. O passo 6 é normativo,
-mas ainda não está disponível; receber um trust verificado não degrada para não verificado e não
-produz bundle parcial.
+Todos os passos estão ativos. A verificação confiável da attestation ocorre antes da criação do trust
+verificado. O verificador isolado revalida o record persistido completo, cobertura, digests, ação,
+target, subject, autoridade `verified_human` e bindings; ele não exige nova cerimônia nem consulta ao
+autenticador durante restart ou auditoria do bundle.
 
 Uma string de metadata, ausência de decision ou ator enviado por API não substitui o record. O
 verificador rejeita trust omitido, duplicado, trocado entre Runs ou alterado mesmo quando o checksum
@@ -128,7 +133,7 @@ Trust: Verificada — revisions confirmadas por autoridade humana
 Isolamento: in_process
 ```
 
-HTML ou PDF repete pelo menos o rótulo curto e `trust_id` no cabeçalho ou rodapé de cada página.
+`summary.html` repete o rótulo curto, Run e `trust_id` em cabeçalho e rodapé fixos de impressão.
 Cor, ícone e tooltip podem reforçar, mas não substituem o texto.
 
 ## Compatibilidade

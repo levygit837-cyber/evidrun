@@ -25,6 +25,13 @@ const runs: Run[] = [
     runner: "evidrun.runner/responses-read-agent-v1",
     output: null,
     context_hash: "sha256:context",
+    execution_trust: {
+      status: "recorded",
+      trust_id: "trust:active",
+      digest: "a".repeat(64),
+      kind: "unverified_revision_set",
+    },
+    isolation: "in_process",
     created_at: "2026-07-24T15:30:00Z",
     completed_at: null,
     grade: null,
@@ -41,6 +48,13 @@ const runs: Run[] = [
     runner: "evidrun.runner/scripted-v1",
     output: null,
     context_hash: "sha256:other",
+    execution_trust: {
+      status: "recorded",
+      trust_id: "trust:completed",
+      digest: "b".repeat(64),
+      kind: "verified_revision_set",
+    },
+    isolation: "in_process",
     created_at: "2026-07-22T10:00:00Z",
     completed_at: "2026-07-22T10:00:02Z",
     grade: null,
@@ -57,6 +71,8 @@ const runs: Run[] = [
     runner: "legacy-scripted",
     output: null,
     context_hash: null,
+    execution_trust: { status: "not_recorded" },
+    isolation: "not_recorded",
     created_at: "2026-07-24T14:00:00Z",
     completed_at: "2026-07-24T14:00:03Z",
     grade: null,
@@ -211,6 +227,15 @@ describe("Observability filters and search params", () => {
 });
 
 describe("Observability layout and trace", () => {
+  it("keeps trust and isolation textual in the Run list", async () => {
+    renderWorkspace();
+    expect(await screen.findByText("Trust: Não verificada")).toBeInTheDocument();
+    expect(screen.getByText("Trust: Verificada")).toBeInTheDocument();
+    expect(screen.getByText("Trust: Não registrado")).toBeInTheDocument();
+    expect(screen.getAllByText("Isolamento: in_process")).toHaveLength(2);
+    expect(screen.getByText("Isolamento: Não registrado")).toBeInTheDocument();
+  });
+
   it("keeps full list without selection and exposes master-detail state with selection", async () => {
     const list = renderWorkspace();
     await screen.findByText("run:active-001");

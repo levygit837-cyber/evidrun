@@ -24,6 +24,7 @@ from evidrun.contracts import (
     ProgressArtifactContent,
     ProgressArtifactPolicyRevision,
     ProgressArtifactRecord,
+    ReviewPackage,
     ReviewTarget,
     RevisionDecisionRecord,
     RunEventPayload,
@@ -65,6 +66,7 @@ CONTRACT_MODELS = {
     "checkpoint-record-v1": CheckpointRecord,
     "revision-decision-record-v1": RevisionDecisionRecord,
     "review-target-v1": ReviewTarget,
+    "review-package-v1": ReviewPackage,
     "human-attestation-record-v1": HumanAttestationRecord,
     "progress-artifact-content-v1": ProgressArtifactContent,
     "progress-artifact-record-v1": ProgressArtifactRecord,
@@ -96,6 +98,7 @@ ContractCatalog = (
     | CheckpointRecord
     | RevisionDecisionRecord
     | ReviewTarget
+    | ReviewPackage
     | HumanAttestationRecord
     | ProgressArtifactContent
     | ProgressArtifactRecord

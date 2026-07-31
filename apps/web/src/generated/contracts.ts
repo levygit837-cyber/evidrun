@@ -21,6 +21,7 @@ export type CatalogV1 =
   | CheckpointRecord
   | RevisionDecisionRecord
   | ReviewTarget
+  | ReviewPackage
   | HumanAttestationRecord
   | ProgressArtifactContent
   | ProgressArtifactRecord
@@ -517,14 +518,46 @@ export type RevisionSetDigest1 = string;
  */
 export type RunSpecDigests = [string, ...string[]];
 export type SchemaVersion20 = "1";
+/**
+ * @minItems 1
+ */
+export type Closure = [ReviewRevisionDocument, ...ReviewRevisionDocument[]];
+export type BaseReviewTargetDigest = string;
+export type RevisionRefsAdded = ContractRef[];
+export type LogicalId10 = string;
+export type RevisionRefsChanged = ReviewRevisionChange[];
+export type RevisionRefsRemoved = ContractRef[];
+export type RunSpecsAdded = string[];
+export type AfterDigest = string;
+export type BeforeDigest = string;
+export type Slot1 = string;
+export type RunSpecsChanged = ReviewRunSpecChange[];
+export type RunSpecsRemoved = string[];
+export type SemanticChanges = string[];
+export type ReviewTargetDigest = string;
+/**
+ * @minItems 1
+ */
+export type RunSpecs = [ReviewRunSpec, ...ReviewRunSpec[]];
+export type CapabilityRequirements1 = CapabilityRequirement[];
+export type Classifications = Classification[];
+export type DeniedPolicies1 = string[];
+export type HiddenInputRefs2 = ArtifactRef[];
+export type Isolation = string;
+export type KnownAdmissionRefusals = AdmissionIssue[];
+export type Limitations5 = string[];
+export type MissingRequirements1 = string[];
+export type RequestedPermissions1 = string[];
+export type RunSpecDigest4 = string;
+export type SchemaVersion21 = "1";
 export type EventHash2 = string;
 /**
  * @minItems 1
  */
-export type Limitations5 = [string, ...string[]];
+export type Limitations6 = [string, ...string[]];
 export type Overview = string;
 export type RunId2 = string;
-export type SchemaVersion21 = "1";
+export type SchemaVersion22 = "1";
 export type Confidence1 = number | null;
 export type EvidenceRefs2 = EvidenceRef[];
 export type Id11 = string;
@@ -546,12 +579,12 @@ export type InputProjectionVersion = "run-event-prefix-v1";
 /**
  * @minItems 1
  */
-export type Limitations6 = [string, ...string[]];
+export type Limitations7 = [string, ...string[]];
 export type ProviderModel2 = string | null;
 export type ProviderProfileId3 = string | null;
 export type RecordId1 = string;
 export type RunId3 = string;
-export type SchemaVersion22 = "1";
+export type SchemaVersion23 = "1";
 export type Status4 = "provisional";
 export type UpToEventSequence3 = number;
 export type ContentIncluded = boolean;
@@ -579,16 +612,16 @@ export type Entries = ArtifactManifestEntry[];
 export type Portable = false;
 export type Profile = "audit";
 export type Replayable = false;
-export type SchemaVersion23 = "1";
+export type SchemaVersion24 = "1";
 export type AdmissionDigest = string;
 export type AdmissionId = string;
 export type CreatedAtUtc5 = string;
 export type RepetitionIndex1 = number;
 export type RetryOf = string | null;
 export type RunId5 = string;
-export type RunSpecDigest4 = string;
+export type RunSpecDigest5 = string;
 export type RunSpecId = string;
-export type SchemaVersion24 = "1";
+export type SchemaVersion25 = "1";
 export type VariantId1 = string;
 export type ActiveAttemptId = string | null;
 export type AvailableAtUtc = string;
@@ -600,7 +633,7 @@ export type LeaseGeneration = number;
 export type RejectionCode = string | null;
 export type RequestDigest = string;
 export type RunId6 = string;
-export type SchemaVersion25 = "1";
+export type SchemaVersion26 = "1";
 export type Status5 = "queued" | "leased" | "completed" | "rejected";
 export type AttemptId = string;
 export type FinishedAtUtc1 = string | null;
@@ -611,15 +644,15 @@ export type LeaseGeneration1 = number;
 export type LeasedAtUtc = string;
 export type Ordinal = number;
 export type ReasonCode = string | null;
-export type SchemaVersion26 = "1";
+export type SchemaVersion27 = "1";
 export type Status6 = "leased" | "completed" | "released" | "expired" | "rejected";
 export type WorkerId = string;
 export type CreatedAtUtc7 = string;
 export type RunId7 = string;
-export type SchemaVersion27 = "1";
+export type SchemaVersion28 = "1";
 export type AdmissionDigest1 = string;
 export type RunId8 = string;
-export type RunSpecDigest5 = string;
+export type RunSpecDigest6 = string;
 export type VariantId2 = string;
 export type FromStatus = "queued" | "preparing" | "running" | "paused" | "evaluating";
 export type Reason = string;
@@ -1436,12 +1469,84 @@ export interface ReviewTarget {
   run_spec_digests: RunSpecDigests;
   schema_version?: SchemaVersion20;
 }
+/**
+ * Readable projection whose only semantic identity is its ReviewTarget.
+ */
+export interface ReviewPackage {
+  closure: Closure;
+  diff?: ReviewPackageDiff | null;
+  review_target: ReviewTarget;
+  review_target_digest: ReviewTargetDigest;
+  run_specs: RunSpecs;
+  schema_version?: SchemaVersion21;
+  study_ref: ContractRef;
+}
+/**
+ * One exact closure member expanded for human review.
+ */
+export interface ReviewRevisionDocument {
+  document: Document;
+  ref: ContractRef;
+}
+export interface Document {
+  [k: string]: unknown;
+}
+/**
+ * Deterministic semantic difference from one earlier persisted target.
+ */
+export interface ReviewPackageDiff {
+  base_review_target_digest: BaseReviewTargetDigest;
+  revision_refs_added?: RevisionRefsAdded;
+  revision_refs_changed?: RevisionRefsChanged;
+  revision_refs_removed?: RevisionRefsRemoved;
+  run_specs_added?: RunSpecsAdded;
+  run_specs_changed?: RunSpecsChanged;
+  run_specs_removed?: RunSpecsRemoved;
+  semantic_changes?: SemanticChanges;
+}
+export interface ReviewRevisionChange {
+  after: ContractRef;
+  before: ContractRef;
+  contract_type: ContractType1;
+  logical_id: LogicalId10;
+}
+export interface ReviewRunSpecChange {
+  after_digest: AfterDigest;
+  before_digest: BeforeDigest;
+  slot: Slot1;
+}
+/**
+ * One RunSpec plus the security-relevant fields readers must not hunt for.
+ */
+export interface ReviewRunSpec {
+  capability_requirements?: CapabilityRequirements1;
+  classifications?: Classifications;
+  denied_policies?: DeniedPolicies1;
+  evaluation_plan: EvaluationPlanSpec;
+  external_effects: ExternalEffectPolicy;
+  hidden_input_refs?: HiddenInputRefs2;
+  isolation: Isolation;
+  known_admission_refusals?: KnownAdmissionRefusals;
+  limitations?: Limitations5;
+  missing_requirements?: MissingRequirements1;
+  network: NetworkPolicy;
+  requested_permissions?: RequestedPermissions1;
+  run_spec: RunSpec;
+  run_spec_digest: RunSpecDigest4;
+  subject_disclosure: SubjectEvaluationDisclosure1;
+}
+export interface SubjectEvaluationDisclosure1 {
+  dimension_ids?: DimensionIds;
+  include_anchors?: IncludeAnchors;
+  include_scale?: IncludeScale;
+  mode?: Mode5;
+}
 export interface ProgressArtifactContent {
   event_hash: EventHash2;
-  limitations: Limitations5;
+  limitations: Limitations6;
   overview: Overview;
   run_id: RunId2;
-  schema_version?: SchemaVersion21;
+  schema_version?: SchemaVersion22;
   statements: Statements;
   status?: Status3;
   title: Title9;
@@ -1465,13 +1570,13 @@ export interface ProgressArtifactRecord {
   input_event_count: InputEventCount;
   input_ledger_digest: InputLedgerDigest;
   input_projection_version?: InputProjectionVersion;
-  limitations: Limitations6;
+  limitations: Limitations7;
   policy_ref: ContractRef;
   provider_model?: ProviderModel2;
   provider_profile_id?: ProviderProfileId3;
   record_id: RecordId1;
   run_id: RunId3;
-  schema_version?: SchemaVersion22;
+  schema_version?: SchemaVersion23;
   status?: Status4;
   summarizer_ref: CapabilityDescriptorRef;
   up_to_event_sequence: UpToEventSequence3;
@@ -1481,7 +1586,7 @@ export interface ArtifactManifest1 {
   portable?: Portable;
   profile?: Profile;
   replayable?: Replayable;
-  schema_version?: SchemaVersion23;
+  schema_version?: SchemaVersion24;
 }
 /**
  * One intentionally materialized artifact; never a file-access activity log.
@@ -1503,10 +1608,10 @@ export interface RunRecord {
   repetition_index: RepetitionIndex1;
   retry_of?: RetryOf;
   run_id: RunId5;
-  run_spec_digest: RunSpecDigest4;
+  run_spec_digest: RunSpecDigest5;
   run_spec_id: RunSpecId;
   scenario_ref: ContractRef;
-  schema_version?: SchemaVersion24;
+  schema_version?: SchemaVersion25;
   study_ref: ContractRef;
   variant_id: VariantId1;
 }
@@ -1524,7 +1629,7 @@ export interface RunExecutionJob {
   rejection_code?: RejectionCode;
   request_digest: RequestDigest;
   run_id: RunId6;
-  schema_version?: SchemaVersion25;
+  schema_version?: SchemaVersion26;
   status: Status5;
 }
 /**
@@ -1540,7 +1645,7 @@ export interface RunExecutionAttempt {
   leased_at_utc: LeasedAtUtc;
   ordinal: Ordinal;
   reason_code?: ReasonCode;
-  schema_version?: SchemaVersion26;
+  schema_version?: SchemaVersion27;
   status: Status6;
   worker_id: WorkerId;
 }
@@ -1551,12 +1656,12 @@ export interface SubjectEnvelopeRecord {
   created_at_utc: CreatedAtUtc7;
   envelope: SubjectEnvelope;
   run_id: RunId7;
-  schema_version?: SchemaVersion27;
+  schema_version?: SchemaVersion28;
 }
 export interface RunQueuedPayload {
   admission_digest: AdmissionDigest1;
   run_id: RunId8;
-  run_spec_digest: RunSpecDigest5;
+  run_spec_digest: RunSpecDigest6;
   variant_id: VariantId2;
 }
 export interface RunPreparingPayload {

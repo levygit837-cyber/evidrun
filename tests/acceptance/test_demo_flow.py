@@ -21,6 +21,9 @@ def test_demo_runs_end_to_end_and_bundle_verifies(
     assert dashboard["summary"]["events"] >= 12
 
     runs = {run["variant_id"]: run for run in dashboard["runs"]}
+    assert {
+        run["execution_trust"]["kind"] for run in runs.values()
+    } == {"unverified_revision_set"}
     assert all(UUID(run["id"].removeprefix("run_")).version == 7 for run in runs.values())
     assert runs["head-truncation"]["grade"]["score"] == 0
     assert runs["tail-preservation"]["grade"]["score"] == 1

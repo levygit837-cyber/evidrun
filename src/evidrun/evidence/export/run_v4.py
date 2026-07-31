@@ -12,6 +12,7 @@ from evidrun.contracts import (
 )
 from evidrun.evidence import archive as ar
 from evidrun.evidence.export.run_v3 import TERMINAL_RUN_STATUSES
+from evidrun.evidence.presentation import render_run_trust_summary_html
 from evidrun.infrastructure.database import Repository
 
 
@@ -31,8 +32,7 @@ def export_run_v4(repository: Repository, run_id: str, output_path: Path) -> Pat
     trust = repository.execution_trust.get_record(run_record.execution_trust.trust_id)
     if trust.ref != run_record.execution_trust or trust.run_spec_digest != spec.digest:
         raise ValueError("execution trust does not bind the exported RunSpec")
-    if trust.kind != "unverified_revision_set":
-        raise ValueError("verified Bundle v4 export requires revision decisions")
+    decisions = repository.execution_trust.get_verified_decisions(trust)
     revisions = tuple(
         repository.read_model.get_contract_revision_by_ref(reference)
         for reference in trust.revision_refs
@@ -71,6 +71,11 @@ def export_run_v4(repository: Repository, run_id: str, output_path: Path) -> Pat
         f"admissions/{run.admission_id}.json": ar.json_bytes(ar.record_dict(admission)),
         f"runs/{run_id}.json": ar.json_bytes(semantic_model_dump(run_record)),
         f"execution-trust/{trust.trust_id}.json": ar.json_bytes(ar.record_dict(trust)),
+        "summary.html": render_run_trust_summary_html(
+            run_id=run_id,
+            trust=trust,
+            isolation=spec.workspace.runtime_kind,
+        ).encode("utf-8"),
         f"events/{run_id}.jsonl": ar.jsonl_bytes(events),
         f"evaluations/{run_id}.json": ar.json_bytes(
             [
@@ -86,6 +91,14 @@ def export_run_v4(repository: Repository, run_id: str, output_path: Path) -> Pat
             [ar.record_dict(attempt) for attempt in attempts]
         ),
     }
+    files.update(
+        {
+            f"revision-decisions/{decision.digest}.json": ar.json_bytes(
+                ar.record_dict(decision)
+            )
+            for decision in decisions
+        }
+    )
     if subject_record is not None:
         files[f"subject-envelopes/{run_id}.json"] = ar.json_bytes(ar.record_dict(subject_record))
     _add_trust_contract_members(files, revisions)

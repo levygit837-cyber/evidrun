@@ -1,4 +1,4 @@
-"""Fail-closed policy for executing an unverified revision set."""
+"""Fail-closed policy for executing an explicitly recorded revision set."""
 
 from __future__ import annotations
 
@@ -8,19 +8,19 @@ from evidrun.contracts.execution_trust import ExecutionTrustRecord
 from evidrun.contracts.runtime.spec import RunSpec
 
 
-def check_unverified_execution_policy(
+def check_execution_trust_policy(
     spec: RunSpec,
     trust: ExecutionTrustRecord,
     envelope: RuntimeCapabilityEnvelope,
 ) -> AdmissionFindings:
-    """Allow only the narrow non-human execution policy accepted by ADR 0022."""
+    """Validate the binding and add the narrow non-human policy when applicable."""
 
-    if trust.kind != "unverified_revision_set":
-        raise ValueError("this execution path requires unverified_revision_set")
     if trust.run_spec_digest != spec.digest or trust.study_ref != spec.study_ref:
         raise ValueError("execution trust does not bind the exact RunSpec and Study")
 
     found = FindingsBuilder()
+    if trust.kind == "verified_revision_set":
+        return found.freeze()
     for classification in sorted(
         {
             item.source.classification.value

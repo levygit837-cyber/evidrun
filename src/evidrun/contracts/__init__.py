@@ -65,6 +65,14 @@ from evidrun.contracts.execution_trust import (
     validate_review_target_lineage,
     validate_verified_trust,
 )
+from evidrun.contracts.review_package import (
+    ReviewPackage,
+    ReviewPackageDiff,
+    ReviewRevisionChange,
+    ReviewRevisionDocument,
+    ReviewRunSpec,
+    ReviewRunSpecChange,
+)
 from evidrun.contracts.runtime.envelope import (
     EvaluatorEnvelope,
     SubjectEnvelope,
@@ -145,6 +153,12 @@ __all__ = [
     "RepositoryFixtureDecisionAuthority",
     "ResolvedAgentInventory",
     "ResolvedCapability",
+    "ReviewPackage",
+    "ReviewPackageDiff",
+    "ReviewRevisionChange",
+    "ReviewRevisionDocument",
+    "ReviewRunSpec",
+    "ReviewRunSpecChange",
     "ReviewTarget",
     "RevisionDecisionRecord",
     "RevisionEnvelope",

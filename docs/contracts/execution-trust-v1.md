@@ -7,7 +7,7 @@ authority: normative
 volatility: timeless
 owner: governance
 created_at: 2026-07-28
-updated_at: 2026-07-28
+updated_at: 2026-07-31
 applies_to: execution-trust@1
 sources:
   - docs/adr/0022-explicit-execution-trust-without-per-run-authentication.md
@@ -17,26 +17,33 @@ supersedes: []
 superseded_by: null
 implementation_refs:
   - src/evidrun/contracts/execution_trust.py
+  - src/evidrun/contracts/review_package.py
   - src/evidrun/infrastructure/database/trust.py
   - src/evidrun/runs/preparation.py
   - src/evidrun/contracts/admission/checks/execution_trust.py
   - src/evidrun/infrastructure/database/catalog.py
   - src/evidrun/infrastructure/database/queue/enqueue.py
+  - src/evidrun/runs/review.py
+  - src/evidrun/entrypoints/api/routers/reviews.py
+  - apps/web/src/features/observability/executionTrust.ts
 verification_refs:
   - tests/unit/test_execution_trust.py
   - tests/integration/test_execution_trust_migration.py
   - tests/unit/test_unverified_admission.py
   - tests/acceptance/test_unverified_execution.py
   - tests/integration/test_execution_preparation_surfaces.py
+  - tests/acceptance/test_verified_execution_review.py
 ---
 
 # Execution Trust v1
 
 Este contrato define como uma Run declara se o conjunto de revisions usado na compilação foi ou não
-confirmado por autoridade humana. O corredor `unverified_revision_set` está implementado: sela a
-closure exata de uma Study draft, compila sem Decision humana, persiste trust antes da admissão e
-propaga a mesma ref para AdmissionRecord, fila e RunRecord. A criação persistida do kind
-`verified_revision_set` e a projeção completa do ReviewPackage permanecem pendentes no WS-40.
+confirmado por autoridade humana. Os dois kinds estão implementados. O corredor não verificado sela
+a closure exata de uma Study draft e compila sem Decision humana. Quando a closure inteira já possui
+decisions `accepted` de autoridade humana revalidada, a mesma preparação deriva o kind verificado.
+Ambos persistem trust antes da admissão e propagam a mesma ref para AdmissionRecord, fila, RunRecord,
+read models e Bundle v4. O ReviewPackage é projetado por API, CLI e HTML a partir de ReviewTargets
+persistidos; nenhum caller escolhe kind ou fornece refs futuras para o diff.
 
 Trust não é admission, lifecycle, avaliação nem isolamento. `unverified_revision_set` significa
 “sem confirmação humana”; não significa documento mutável, digest opcional ou execução sem
@@ -248,13 +255,17 @@ Não existe kind `sandbox`, e `in_process` nunca recebe selo de sandbox seguro.
 ## Estado de implementação e compatibilidade
 
 - `ExecutionPreparationService` resolve revisions registradas por refs exatas, sem consultar
-  `latest`, sela a closure, compila a matriz inteira e cria um trust não verificado por RunSpec;
+  `latest`, sela a closure, compila a matriz inteira e deriva um trust não verificado ou verificado
+  por RunSpec conforme a cobertura humana preexistente;
 - API e CLI recebem somente `execution_trust_id`; `kind`, ator ou claim humano enviado pelo caller
   não escolhe o trust;
 - persistência, enqueue e worker exigem e revalidam a mesma ref de trust;
 - `EVIDRUN_AUTHORITY` e o autenticador local continuam opt-in e não são usados pelo corredor não
   verificado;
 - Runs legadas não ganham trust retroativo: ausência permanece `not_recorded`;
-- o store ainda rejeita persistência de `verified_revision_set`; essa promoção e o ReviewPackage
-  legível são a próxima fatia do WS-40;
+- o store cria `verified_revision_set` somente depois de revalidar cada decision humana persistida;
+  restart posterior revalida documentos, digests e bindings sem exigir nova cerimônia por Run;
+- ReviewPackage JSON não possui `review_package_digest`; diff aceita somente outro ReviewTarget
+  persistido do mesmo Project, e a projeção HTML identifica o target sem se declarar autoridade;
+- lista e detalhe de Runs mostram trust e isolamento em campos textuais separados;
 - `repository_fixture` continua pelo import dedicado e explicitamente não humano.

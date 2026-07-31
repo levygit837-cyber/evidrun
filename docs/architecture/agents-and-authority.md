@@ -7,7 +7,7 @@ authority: normative
 volatility: timeless
 owner: core
 created_at: 2026-07-22
-updated_at: 2026-07-28
+updated_at: 2026-07-31
 applies_to: agents
 sources:
   - docs/adr/0022-explicit-execution-trust-without-per-run-authentication.md
@@ -74,8 +74,10 @@ O [ADR 0022](../adr/0022-explicit-execution-trust-without-per-run-authentication
 fronteira para todo claim humano e também permite executar um conjunto fechado de revisions como
 `unverified_revision_set`, sem transformar draft em accepted. O `ExecutionTrustRecord` liga o
 conjunto e o RunSpec exatos e mantém trust separado de admissão e isolamento. Esse corredor já sela,
-compila, admite e executa drafts com policy restrita; a authority humana local continua opt-in. A
-criação persistida do kind verificado e a projeção do ReviewPackage permanecem no WS-40.
+compila, admite e executa drafts com policy restrita; a authority humana local continua opt-in.
+Cobertura total por decisions humanas preexistentes deriva um novo trust verificado e uma nova Run,
+sem alterar a anterior. ReviewPackage, diff, Bundle v4 e projeções de Runs mantêm trust textual
+separado do isolamento efetivo.
 
 O bootstrap de compatibilidade do `CRL-CTX-002` é uma exceção limitada: `repository_fixture` é uma
 authority explicitamente não humana e materializa a aceitação preexistente de um benchmark

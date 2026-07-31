@@ -20,7 +20,7 @@ from collections.abc import Iterable
 from typing import Protocol
 
 from evidrun.contracts.admission.checks.execution_trust import (
-    check_unverified_execution_policy,
+    check_execution_trust_policy,
 )
 from evidrun.contracts.admission.checks.interaction import (
     check_capture,
@@ -85,7 +85,7 @@ class AdmissionService:
         # The fold order below IS the persisted order of the three tuples.
         findings = AdmissionFindings()
         for part in (
-            check_unverified_execution_policy(spec, execution_trust, envelope),
+            check_execution_trust_policy(spec, execution_trust, envelope),
             runner.findings,
             provider.findings,
             capabilities.findings,

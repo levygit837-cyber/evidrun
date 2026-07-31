@@ -8,12 +8,14 @@ from typing import Any, cast
 from evidrun.contracts import (
     AdmissionRecord,
     ExecutionTrustRecord,
+    RevisionDecisionRecord,
     RunRecord,
     RunSpec,
     parse_revision,
     validate_execution_trust_lineage,
 )
 from evidrun.evidence import archive as ar
+from evidrun.evidence.presentation import TRUST_LABELS
 from evidrun.evidence.verify.v3 import verify_v3_records, verify_v3_structure
 
 
@@ -33,6 +35,7 @@ def verify_v4_structure(bundle_manifest: dict[str, Any], names: set[str]) -> boo
         and isinstance(trust_document.get("digest"), str)
         and isinstance(isolation_document.get("kind"), str)
         and f"execution-trust/{trust_id}.json" in names
+        and "summary.html" in names
     )
 
 
@@ -66,11 +69,20 @@ def verify_v4_records(archive: zipfile.ZipFile, names: set[str]) -> dict[str, bo
         trust_contract_names = {
             ar.contract_member_name(reference) for reference in trust.revision_refs
         }
+        expected_decision_names = {
+            f"revision-decisions/{binding.decision_digest}.json"
+            for binding in trust.verified_decisions
+        }
         actual_contract_names = {name for name in names if name.startswith("contracts/")}
         extra_contract_names = trust_contract_names - {
             ar.contract_member_name(reference) for reference in ar.spec_revision_refs(spec)
         }
-        allowed_extras = {trust_name, *extra_contract_names}
+        allowed_extras = {
+            trust_name,
+            "summary.html",
+            *extra_contract_names,
+            *expected_decision_names,
+        }
         compiled_specs = validate_execution_trust_lineage(trust, spec, revisions)
         results.update(
             verify_v3_records(
@@ -83,8 +95,7 @@ def verify_v4_records(archive: zipfile.ZipFile, names: set[str]) -> dict[str, bo
         results[trust_name] = (
             trust.trust_id == trust_id
             and trust.digest == stated_trust_digest == trust_meta.get("digest")
-            and trust.kind == trust_meta.get("kind") == "unverified_revision_set"
-            and not trust.verified_decisions
+            and trust.kind == trust_meta.get("kind")
             and trust.run_spec_digest == spec.digest == stated_spec_digest
             and admission.execution_trust == trust.ref
             and run_record.execution_trust == trust.ref
@@ -93,8 +104,17 @@ def verify_v4_records(archive: zipfile.ZipFile, names: set[str]) -> dict[str, bo
             and actual_contract_names == trust_contract_names
         )
         results["__execution_trust_lineage__"] = True
-        results["__revision_decisions_absent__"] = not any(
-            name.startswith("revision-decisions/") for name in names
+        results["__revision_decision_bindings__"] = _decisions_valid(
+            archive,
+            names,
+            trust,
+            expected_decision_names,
+        )
+        results["summary.html"] = _summary_valid(
+            archive,
+            run_id=run_id,
+            trust=trust,
+            isolation=spec.workspace.runtime_kind,
         )
     except AttributeError, IndexError, KeyError, TypeError, ValueError:
         results["__v4_records__"] = False
@@ -110,3 +130,58 @@ def _load_revision(archive: zipfile.ZipFile, reference: Any) -> Any:
     if revision.ref != reference or revision.digest != stated_digest:
         raise ValueError("bundled contract revision digest mismatch")
     return revision
+
+
+def _decisions_valid(
+    archive: zipfile.ZipFile,
+    names: set[str],
+    trust: ExecutionTrustRecord,
+    expected_names: set[str],
+) -> bool:
+    actual_names = {name for name in names if name.startswith("revision-decisions/")}
+    if actual_names != expected_names:
+        return False
+    if trust.kind == "unverified_revision_set":
+        return not trust.verified_decisions and not actual_names
+    try:
+        for binding in trust.verified_decisions:
+            name = f"revision-decisions/{binding.decision_digest}.json"
+            document = cast(dict[str, Any], ar.read_json(archive, name))
+            stated_digest = str(document.pop("digest"))
+            decision = RevisionDecisionRecord.model_validate(document)
+            if (
+                decision.digest != stated_digest
+                or decision.digest != binding.decision_digest
+                or decision.revision_ref != binding.revision_ref
+                or decision.decision != "accepted"
+                or decision.authority.kind != "verified_human"
+            ):
+                return False
+    except AttributeError, KeyError, TypeError, ValueError:
+        return False
+    return True
+
+
+def _summary_valid(
+    archive: zipfile.ZipFile,
+    *,
+    run_id: str,
+    trust: ExecutionTrustRecord,
+    isolation: str,
+) -> bool:
+    try:
+        document = archive.read("summary.html").decode("utf-8")
+    except (KeyError, UnicodeDecodeError):
+        return False
+    label, explanation = TRUST_LABELS[trust.kind]
+    return all(
+        value in document
+        for value in (
+            run_id,
+            trust.trust_id,
+            trust.digest,
+            label,
+            explanation,
+            isolation,
+        )
+    )

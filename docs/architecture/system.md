@@ -7,7 +7,7 @@ authority: normative
 volatility: current
 owner: core
 created_at: 2026-07-22
-updated_at: 2026-07-28
+updated_at: 2026-07-31
 applies_to: repository
 sources:
   - docs/adr/0020-workspace-project-run-environment-boundaries.md
@@ -98,11 +98,14 @@ evaluation fora do grader determinístico suportado, adjudicação humana requir
 e terminal de bounded exploration. Esses contratos serem tipáveis e compiláveis não anuncia
 capacidade executável. Decisions humanas possuem schema, verifier protocol e adapter WebAuthn local
 opt-in; com `EVIDRUN_AUTHORITY` desligado, a composição default usa o verifier indisponível e recusa
-claims humanos. O caminho futuro sem autenticação por Run segue o ADR 0022 e ainda não está
-implementado.
+claims humanos. O caminho do ADR 0022 está implementado: drafts usam trust explicitamente não
+verificado, enquanto cobertura humana completa preexistente deriva um novo trust verificado. Nenhum
+caller escolhe o kind, e promoção cria outra admissão e outra Run.
 
 O SubjectEnvelope materializado é persistido antes de `subject.invoked` e referencia o input
 selecionado em CAS. Resposta raw autorizada é cifrada por projeto e pode ser retomada depois de crash
 sem reinvocar o provider. Evidence Bundle v3 exporta RunSpec, AdmissionRecord, revisions, ledger,
 evaluations, SubjectEnvelope quando materializado, job, attempts e refs de tool/output para
-verificação isolada, sem afirmar portabilidade ou replay.
+verificação isolada, sem afirmar portabilidade ou replay. Runs com execution trust usam Bundle v4,
+que acrescenta o record, decisions humanas quando verificadas e um resumo HTML com trust separado de
+isolamento.

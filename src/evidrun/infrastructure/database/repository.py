@@ -52,4 +52,6 @@ class Repository:
         self.enqueue = EnqueueStore(self.unit_of_work)
         self.lease = LeaseStore(self.unit_of_work)
         self.preparation = PreparationStore(self.unit_of_work)
-        self.execution_trust = ExecutionTrustStore(self.unit_of_work)
+        self.execution_trust = ExecutionTrustStore(
+            self.unit_of_work, self.human_attestation_verifier
+        )

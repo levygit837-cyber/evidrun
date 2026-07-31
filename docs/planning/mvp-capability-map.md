@@ -7,8 +7,8 @@ authority: planning
 volatility: snapshot
 owner: product-engineering
 created_at: 2026-07-23
-updated_at: 2026-07-28
-observed_at: 2026-07-28
+updated_at: 2026-07-31
+observed_at: 2026-07-31
 review_due: 2026-08-23
 applies_to: mvp-capabilities
 sources:
@@ -80,7 +80,7 @@ A limitacao nao esta na espinha, e sim no acesso a ela e na largura do que ela a
 | Progress Artifact observer | `accepted_only` | Policy/content/record possuem schema; scheduler, observer e persistencia nao existem e a admissao rejeita a policy. |
 | Disclosure de eval ao Subject | `partial` | `pre_run` e compilavel por allowlist; todo modo diferente de `none` rejeita a admissao. |
 | Bounded exploration | `accepted_only` | Terminal discriminado e ADR 0013 existem; stop coordinator e runtime permanecem indisponiveis. |
-| Trust de execucao nao verificada | `partial` | Records, closure/digest, migration, preparação de draft, policy de admissão, propagação pela fila/Run e Bundle v4 não verificado estão implementados e testados offline. ReviewPackage, kind verificado e projeções de UI permanecem pendentes. `AuthorityMode.SANDBOX` continua legado e não prova isolamento. |
+| Trust de execução | `implemented` | Closure/digest, preparação, dois kinds derivados pelo sistema, promoção por nova Run, ReviewPackage/diff, API/CLI, Bundle v4 e projeções textuais estão testados offline. `repository_fixture` permanece não humano; `AuthorityMode.SANDBOX` continua legado e não prova isolamento. |
 | Lab Agent copiloto | `accepted_only` | ADRs 0018/0021 e contrato de scope v1 fixam um unico copiloto, sessoes Workspace/Project/Focused e zero authority. Chat storage generico existe; nao ha porta, adapter, scope enforcement ou consumidor, e endpoints nao possuem teste. Enderecado por WS-04. |
 | Memoria operacional do Lab Agent | `accepted_only` | ADR 0021 e `MemoryEntry` v2 fixam hard boundary de Workspace e subescopo opcional de Project; nao existe tabela, indice FTS5, tool, consolidador nem superficie de promocao. Enderecado por WS-07. |
 | Human review/adjudication | `partial` | Contratos, authority subject e persistencia existem; o branch humano de `save_evaluation_record` nao e exercitado por teste, e fila, UI e conclusao do EvaluationPlan nao fecham o fluxo. |
@@ -96,8 +96,8 @@ A limitacao nao esta na espinha, e sim no acesso a ela e na largura do que ela a
 O sistema distingue autoridade humana de automacao, cria Workspace/Project por superficies publicas
 e executa uma Run auditavel com o executor supervisionado pelo app. O corredor de backend também
 compila e admite uma Run explicitamente não verificada, com efeitos externos negados e Bundle v4.
-A lacuna principal deste eixo agora é fechar o WS-40 com ReviewPackage, kind verificado e projeções
-humanas, e depois integrar o corredor à tela Create sem promover `in_process` a sandbox.
+A lacuna principal deste eixo agora é integrar o corredor concluído do WS-40 à tela Create, sem
+promover `in_process` a sandbox nem transformar o ReviewPackage em cerimônia de autoridade.
 
 A segunda lacuna, agora nomeada, e o Lab Agent: pelo ADR 0018 ele e a superficie primaria de trabalho
 do produto, e nao existe em `src/evidrun/`. O corte que fecha ambas esta em

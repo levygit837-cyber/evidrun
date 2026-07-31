@@ -15,6 +15,7 @@ from evidrun.experiments import ExperimentManifest
 from evidrun.infrastructure.database import Repository
 from evidrun.runs.composition import RuntimeKernel, build_runtime_kernel
 from evidrun.runs.preparation import ExecutionPreparationService
+from evidrun.runs.review import ReviewPackageService
 from evidrun.runs.worker import DurableRunWorker
 from evidrun.shared.types import Classification, new_id
 
@@ -32,6 +33,9 @@ class EvidrunService:
         self.runner = self.runtime.catalog.subject.runner
         self.admission_service = self.runtime.coordinator.admission_service
         self.execution_preparation = ExecutionPreparationService(repository)
+        self.review_packages = ReviewPackageService(
+            repository, self.admission_service
+        )
 
     def bootstrap_demo(self, benchmark_root: Path) -> dict[str, Any]:
         manifest_path = benchmark_root / "experiments" / "crl-ctx-002-demo.yaml"

@@ -9,6 +9,7 @@ import { Fact, StatusMark } from "./ObservabilityParts";
 import { TracePanel } from "./TracePanel";
 import { type DetailData, formatDate, formatDuration } from "./observabilityModel";
 import { runProgressIssue, issueTone, type RunProgressIssue } from "./runProgress";
+import { executionTrustText, isolationText } from "./executionTrust";
 import {
   attemptSummary,
   describeAttempts,
@@ -33,6 +34,7 @@ function GeneralFacts({
   const outcome = runOutcome(data.events);
   const metrics = runMetrics(data.events);
   const attempts = attemptSummary((run.execution?.attempts ?? []).map((attempt) => attempt.status));
+  const trust = executionTrustText(run.execution_trust);
   return (
     <div className="obs-general-facts">
       {run.contract_mode === "legacy_v1" ? (
@@ -47,6 +49,9 @@ function GeneralFacts({
       <dl>
         <Fact label="Run">{run.id}</Fact>
         <Fact label="Status"><StatusMark status={run.status} /></Fact>
+        <Fact label="Trust">{trust.label} — {trust.explanation}</Fact>
+        <Fact label="Trust ID">{run.execution_trust.trust_id ?? "Não registrado"}</Fact>
+        <Fact label="Isolamento">{isolationText(run.isolation)}</Fact>
         {outcome.goalState ? (
           <Fact label="Resultado">{goalStateLabels[outcome.goalState]}</Fact>
         ) : null}
@@ -257,6 +262,7 @@ export function RunDetailPanel({
   const [activeTab, setActiveTab] = useState<DetailTab>("trace");
   useEffect(() => setActiveTab("trace"), [data.run.id]);
   const issue = runProgressIssue({ run: data.run, streamState, streamError, executor });
+  const trust = executionTrustText(data.run.execution_trust);
   const tabs: Array<{ id: DetailTab; label: string }> = [
     { id: "trace", label: "Trace" },
     { id: "evaluation", label: "Evaluation" },
@@ -284,9 +290,15 @@ export function RunDetailPanel({
           <ArrowLeft aria-hidden="true" size={15} />
           Voltar às Runs
         </button>
-        <div>
-          <code title={data.run.id}>{data.run.id}</code>
-          <StatusMark status={data.run.status} />
+        <div className="obs-detail-identity">
+          <div className="obs-detail-primary">
+            <code title={data.run.id}>{data.run.id}</code>
+            <StatusMark status={data.run.status} />
+          </div>
+          <div className="obs-detail-context">
+            <span>Trust: {trust.label}</span>
+            <span>Isolamento: {isolationText(data.run.isolation)}</span>
+          </div>
         </div>
         <StreamState state={streamState} />
       </header>

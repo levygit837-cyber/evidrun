@@ -4199,6 +4199,324 @@
       "title": "ResolvedCapability",
       "type": "object"
     },
+    "ReviewPackage": {
+      "additionalProperties": false,
+      "description": "Readable projection whose only semantic identity is its ReviewTarget.",
+      "properties": {
+        "closure": {
+          "items": {
+            "$ref": "#/$defs/ReviewRevisionDocument"
+          },
+          "minItems": 1,
+          "title": "Closure",
+          "type": "array"
+        },
+        "diff": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReviewPackageDiff"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "review_target": {
+          "$ref": "#/$defs/ReviewTarget"
+        },
+        "review_target_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Review Target Digest",
+          "type": "string"
+        },
+        "run_specs": {
+          "items": {
+            "$ref": "#/$defs/ReviewRunSpec"
+          },
+          "minItems": 1,
+          "title": "Run Specs",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "1",
+          "default": "1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "study_ref": {
+          "$ref": "#/$defs/ContractRef"
+        }
+      },
+      "required": [
+        "review_target",
+        "review_target_digest",
+        "study_ref",
+        "closure",
+        "run_specs"
+      ],
+      "title": "ReviewPackage",
+      "type": "object"
+    },
+    "ReviewPackageDiff": {
+      "additionalProperties": false,
+      "description": "Deterministic semantic difference from one earlier persisted target.",
+      "properties": {
+        "base_review_target_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Base Review Target Digest",
+          "type": "string"
+        },
+        "revision_refs_added": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ContractRef"
+          },
+          "title": "Revision Refs Added",
+          "type": "array"
+        },
+        "revision_refs_changed": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ReviewRevisionChange"
+          },
+          "title": "Revision Refs Changed",
+          "type": "array"
+        },
+        "revision_refs_removed": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ContractRef"
+          },
+          "title": "Revision Refs Removed",
+          "type": "array"
+        },
+        "run_specs_added": {
+          "default": [],
+          "items": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "title": "Run Specs Added",
+          "type": "array"
+        },
+        "run_specs_changed": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ReviewRunSpecChange"
+          },
+          "title": "Run Specs Changed",
+          "type": "array"
+        },
+        "run_specs_removed": {
+          "default": [],
+          "items": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "title": "Run Specs Removed",
+          "type": "array"
+        },
+        "semantic_changes": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Semantic Changes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "base_review_target_digest"
+      ],
+      "title": "ReviewPackageDiff",
+      "type": "object"
+    },
+    "ReviewRevisionChange": {
+      "additionalProperties": false,
+      "properties": {
+        "after": {
+          "$ref": "#/$defs/ContractRef"
+        },
+        "before": {
+          "$ref": "#/$defs/ContractRef"
+        },
+        "contract_type": {
+          "$ref": "#/$defs/ContractType"
+        },
+        "logical_id": {
+          "minLength": 1,
+          "title": "Logical Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "contract_type",
+        "logical_id",
+        "before",
+        "after"
+      ],
+      "title": "ReviewRevisionChange",
+      "type": "object"
+    },
+    "ReviewRevisionDocument": {
+      "additionalProperties": false,
+      "description": "One exact closure member expanded for human review.",
+      "properties": {
+        "document": {
+          "additionalProperties": true,
+          "title": "Document",
+          "type": "object"
+        },
+        "ref": {
+          "$ref": "#/$defs/ContractRef"
+        }
+      },
+      "required": [
+        "ref",
+        "document"
+      ],
+      "title": "ReviewRevisionDocument",
+      "type": "object"
+    },
+    "ReviewRunSpec": {
+      "additionalProperties": false,
+      "description": "One RunSpec plus the security-relevant fields readers must not hunt for.",
+      "properties": {
+        "capability_requirements": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/CapabilityRequirement"
+          },
+          "title": "Capability Requirements",
+          "type": "array"
+        },
+        "classifications": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Classification"
+          },
+          "title": "Classifications",
+          "type": "array"
+        },
+        "denied_policies": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Denied Policies",
+          "type": "array"
+        },
+        "evaluation_plan": {
+          "$ref": "#/$defs/EvaluationPlanSpec"
+        },
+        "external_effects": {
+          "$ref": "#/$defs/ExternalEffectPolicy"
+        },
+        "hidden_input_refs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "title": "Hidden Input Refs",
+          "type": "array"
+        },
+        "isolation": {
+          "minLength": 1,
+          "title": "Isolation",
+          "type": "string"
+        },
+        "known_admission_refusals": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/AdmissionIssue"
+          },
+          "title": "Known Admission Refusals",
+          "type": "array"
+        },
+        "limitations": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "missing_requirements": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Missing Requirements",
+          "type": "array"
+        },
+        "network": {
+          "$ref": "#/$defs/NetworkPolicy"
+        },
+        "requested_permissions": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Requested Permissions",
+          "type": "array"
+        },
+        "run_spec": {
+          "$ref": "#/$defs/RunSpec"
+        },
+        "run_spec_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Run Spec Digest",
+          "type": "string"
+        },
+        "subject_disclosure": {
+          "$ref": "#/$defs/SubjectEvaluationDisclosure"
+        }
+      },
+      "required": [
+        "run_spec_digest",
+        "run_spec",
+        "subject_disclosure",
+        "network",
+        "external_effects",
+        "evaluation_plan",
+        "isolation"
+      ],
+      "title": "ReviewRunSpec",
+      "type": "object"
+    },
+    "ReviewRunSpecChange": {
+      "additionalProperties": false,
+      "properties": {
+        "after_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "After Digest",
+          "type": "string"
+        },
+        "before_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Before Digest",
+          "type": "string"
+        },
+        "slot": {
+          "minLength": 1,
+          "title": "Slot",
+          "type": "string"
+        }
+      },
+      "required": [
+        "slot",
+        "before_digest",
+        "after_digest"
+      ],
+      "title": "ReviewRunSpecChange",
+      "type": "object"
+    },
     "ReviewTarget": {
       "additionalProperties": false,
       "description": "Canonical identity of the complete RunSpec matrix for human review.",
@@ -6531,6 +6849,9 @@
     },
     {
       "$ref": "#/$defs/ReviewTarget"
+    },
+    {
+      "$ref": "#/$defs/ReviewPackage"
     },
     {
       "$ref": "#/$defs/HumanAttestationRecord"

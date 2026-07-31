@@ -7,8 +7,8 @@ authority: planning
 volatility: snapshot
 owner: product-engineering
 created_at: 2026-07-23
-updated_at: 2026-07-28
-observed_at: 2026-07-28
+updated_at: 2026-07-31
+observed_at: 2026-07-31
 review_due: 2026-08-23
 applies_to: mvp-implementation
 sources:
@@ -60,7 +60,7 @@ superficie e de lifecycle em cima de dominio que ja funciona.
 | --- | --- | --- |
 | B1 | Criacao publica de Workspace ou Project | **Resolvido por WS-01.** API e CLI criam/listam scopes com nome canonico, constraints, migrations e `ScopeError`; o corredor chega a `contract register` sem fixture. |
 | B2 | O desktop empacotado nunca processa Runs | **Resolvido por WS-02 no PR #91.** O Electron Main supervisiona API e executor separados, com handshake, estado observavel, restart, shutdown e smoke do corredor. |
-| B3 | Autoria verificada e opt-in e desligada por padrao | **Corredor de backend não verificado implementado parcialmente em WS-40.** Draft compila e executa com trust explícito sem autenticação por Run; ReviewPackage, kind verificado e integração da tela Create ainda faltam. |
+| B3 | Autoria verificada e opt-in e desligada por padrao | **Backend resolvido por WS-40.** Draft compila e executa com trust explícito; decisions humanas preexistentes derivam novo trust/Run verificados; ReviewPackage e projeções estão disponíveis. A integração da tela Create permanece no WS-51. |
 
 Corrigido neste ciclo, pela mesma investigacao: a CLI reconstruia `Repository` sem verifier, entao
 gravava aceitacao verificada que ela mesma nao conseguia reler; `authority accept` sobrescrevia o
@@ -103,9 +103,9 @@ Tres fatias independentes, sem arquivo compartilhado entre elas. Executam em par
   verificada sem autenticacao a cada Run, preserva o claim humano fail-closed e fixa o contrato que
   o WS-40 está implementando em fatias reversíveis.
 
-WS-03 é decisão, não código. Com o ADR aceito, WS-40 foi normativamente desbloqueado; sua fundação e
-o corredor não verificado de backend já aterrissaram na implementação corrente, enquanto
-ReviewPackage, kind verificado e projeções humanas ainda não fecharam o workstream.
+WS-03 é decisão, não código. Com o ADR aceito, WS-40 foi normativamente desbloqueado e depois
+entregou fundação, corredor não verificado, kind verificado derivado de decisions preexistentes,
+ReviewPackage/diff, Bundle v4 e projeções humanas. A tela Create continua em WS-51.
 
 ### Onda 1 — costuras do dominio (entregue)
 

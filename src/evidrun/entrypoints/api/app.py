@@ -32,6 +32,7 @@ from evidrun.entrypoints.api.routers import (
     create_contract_router,
     create_evidence_router,
     create_platform_router,
+    create_review_router,
     create_run_read_router,
     create_run_router,
 )
@@ -54,6 +55,7 @@ ROUTER_FACTORIES = (
     create_platform_router,
     create_catalog_router,
     create_contract_router,
+    create_review_router,
     create_admission_router,
     create_run_router,
     create_run_read_router,

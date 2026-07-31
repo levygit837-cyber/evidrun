@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 import typer
 import yaml
 
-from evidrun.contracts import parse_revision
+from evidrun.contracts import parse_revision, semantic_model_dump
 from evidrun.contracts.triage import CLI_EXIT_BY_CODE
 from evidrun.entrypoints.cli.shared import components, console
 from evidrun.experiments import ExperimentManifest
@@ -17,6 +17,7 @@ from evidrun.infrastructure.database.register_errors import (
     RegisterStorageUnavailable,
 )
 from evidrun.runs import EvidrunService
+from evidrun.runs.review import render_review_package_html
 
 experiment_app = typer.Typer(help="Validar e aceitar manifests de experimento.")
 contract_app = typer.Typer(help="Validar, registrar e decidir contracts revisionados.")
@@ -85,5 +86,34 @@ def compile_study(
             revision_id
         )
         console.print_json(data=preparation.document())
+    finally:
+        database.dispose()
+
+
+@study_app.command("review-package")
+def review_package(
+    review_target_digest: str,
+    compare_to: Annotated[str | None, typer.Option("--compare-to")] = None,
+    output_format: Annotated[
+        Literal["json", "html"], typer.Option("--format")
+    ] = "json",
+    output: Annotated[Path | None, typer.Option("--output")] = None,
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+) -> None:
+    _, database, repository = components(data_dir)
+    try:
+        package = EvidrunService(repository).review_packages.build(
+            review_target_digest,
+            compare_to_digest=compare_to,
+        )
+        if output_format == "json":
+            if output is not None:
+                raise typer.BadParameter("--output is available only with --format html")
+            console.print_json(data=semantic_model_dump(package))
+            return
+        if output is None:
+            raise typer.BadParameter("--format html requires --output")
+        output.write_text(render_review_package_html(package), encoding="utf-8")
+        console.print(str(output))
     finally:
         database.dispose()

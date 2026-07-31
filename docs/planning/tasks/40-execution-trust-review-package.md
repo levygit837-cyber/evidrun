@@ -2,13 +2,13 @@
 id: planning-task-execution-trust-review-package
 type: implementation-task
 title: WS-40 Trust de execucao nao verificada e ReviewPackage
-status: accepted
+status: verified
 authority: planning
 volatility: snapshot
 owner: governance
 created_at: 2026-07-23
-updated_at: 2026-07-28
-observed_at: 2026-07-28
+updated_at: 2026-07-31
+observed_at: 2026-07-31
 review_due: 2026-08-06
 applies_to: control-plane-trust
 sources:
@@ -23,6 +23,7 @@ supersedes: []
 superseded_by: null
 implementation_refs:
   - src/evidrun/contracts/execution_trust.py
+  - src/evidrun/contracts/review_package.py
   - src/evidrun/infrastructure/database/trust.py
   - src/evidrun/runs/preparation.py
   - src/evidrun/contracts/admission/checks/execution_trust.py
@@ -30,6 +31,8 @@ implementation_refs:
   - src/evidrun/infrastructure/database/queue/enqueue.py
   - src/evidrun/evidence/export/run_v4.py
   - src/evidrun/evidence/verify/v4.py
+  - src/evidrun/runs/review.py
+  - apps/web/src/features/observability/executionTrust.ts
 verification_refs:
   - tests/unit/test_execution_trust.py
   - tests/integration/test_execution_trust_migration.py
@@ -37,21 +40,23 @@ verification_refs:
   - tests/acceptance/test_unverified_execution.py
   - tests/integration/test_execution_preparation_surfaces.py
   - tests/live/test_real_agent_benchmark.py
+  - tests/acceptance/test_verified_execution_review.py
 ---
 
 # WS-40 — Trust de execucao nao verificada e ReviewPackage
 
-`workstream_state: in_progress`
+`workstream_state: delivered`
 
 ## Estado da entrega
 
 - fundação de contratos, closure, digests, persistência, migration e estado legado: entregue;
 - corredor draft -> preparação -> trust não verificado -> admissão -> fila -> Run: implementado e
   exercitado offline;
-- Bundle v4 não verificado e verificação isolada contra tampering: implementados;
+- Bundle v4 para ambos os kinds e verificação isolada contra tampering: implementados;
 - smoke com provider real: disponível somente por opt-in;
-- `ReviewPackage`, criação fail-closed do kind verificado, promoção por nova Run e projeções humanas:
-  pendentes na próxima fatia reversível.
+- `ReviewPackage`, diff fechado, criação fail-closed do kind verificado, promoção por nova Run e
+  projeções humanas: implementados e verificados offline;
+- a integração da tela Create permanece no WS-51 e não faz parte deste workstream.
 
 ## Problema
 

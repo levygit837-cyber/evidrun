@@ -39,6 +39,13 @@ export interface Run {
   runner: string;
   output: string | null;
   context_hash: string | null;
+  execution_trust: {
+    status: "recorded" | "not_recorded";
+    trust_id?: string;
+    digest?: string;
+    kind?: "unverified_revision_set" | "verified_revision_set";
+  };
+  isolation: string;
   created_at: string;
   completed_at: string | null;
   grade: Grade | null;

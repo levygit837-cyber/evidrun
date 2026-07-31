@@ -12,6 +12,7 @@ from evidrun.contracts import (
     ExecutionTrustProjection,
     ExecutionTrustRecord,
     ReviewTarget,
+    RevisionDecisionRecord,
     RevisionEnvelope,
     RunRecord,
     VerifiedDecisionBinding,
@@ -229,6 +230,10 @@ def test_verified_trust_requires_exact_decisions_and_a_trusted_human_verifier() 
             tuple(reversed(decisions)),
             TestHumanAttestationVerifier(),
         )
+    replayed_document = semantic_model_dump(decisions[0])
+    replayed_document["revision_ref"] = semantic_model_dump(decisions[1].revision_ref)
+    with pytest.raises(ValueError, match="attestation target does not match"):
+        RevisionDecisionRecord.model_validate(replayed_document)
     with pytest.raises(ValueError, match="authority is unavailable"):
         validate_verified_trust(record, decisions, UnavailableHumanAttestationVerifier())
 
@@ -316,10 +321,15 @@ def test_trust_store_is_idempotent_by_semantic_content(repository: Repository) -
     )
     fabricated_verified = ExecutionTrustRecord.model_validate(
         first.model_copy(
-            update={"kind": "verified_revision_set", "verified_decisions": bindings}
+            update={
+                "trust_id": new_id("trust"),
+                "kind": "verified_revision_set",
+                "verified_decisions": bindings,
+                "created_at_utc": first.created_at_utc + timedelta(seconds=2),
+            }
         )
     )
-    with pytest.raises(PermissionError, match="validated human decisions"):
+    with pytest.raises(ValueError, match="unknown decision"):
         repository.execution_trust.save_record(fabricated_verified)
 
     other_project = repository.catalog.create_project(workspace.id, "Other Project")
@@ -333,7 +343,7 @@ def test_trust_store_is_idempotent_by_semantic_content(repository: Repository) -
             "trust_id": new_id("trust"),
             "project_id": other_project.id,
             "revision_set_digest": crossed_set.revision_set_digest,
-            "created_at_utc": first.created_at_utc + timedelta(seconds=2),
+            "created_at_utc": first.created_at_utc + timedelta(seconds=3),
         }
     )
     with pytest.raises(ValueError, match="Project boundary"):
@@ -423,6 +433,13 @@ def test_legacy_run_record_omits_absent_execution_trust(repository: Repository) 
         session.commit()
     stored_projection = repository.read_model.get_run_execution_trust(record.run_id)
     assert semantic_model_dump(stored_projection) == {"status": "not_recorded"}
+    legacy_document = next(
+        item
+        for item in repository.read_model.latest_dashboard()["runs"]
+        if item["id"] == record.run_id
+    )
+    assert legacy_document["execution_trust"] == {"status": "not_recorded"}
+    assert legacy_document["isolation"] == "not_recorded"
     projection = ExecutionTrustProjection(status="not_recorded")
     assert semantic_model_dump(projection) == {"status": "not_recorded"}
     with pytest.raises(ValueError, match="cannot infer"):
