@@ -103,6 +103,16 @@ def compare_migration_surface(
     return ContractDiffReport(path, ContractSurface.PERSISTED_MODEL, tuple(changes))
 
 
+def declares_explicit_exports(source: str, *, path: str) -> bool:
+    """Return whether a Python module assigns __all__ at module scope."""
+
+    try:
+        tree = ast.parse(source, filename=path)
+    except SyntaxError as error:
+        raise SchemaDiffError(f"{path} nao e Python valido: {error.msg}") from error
+    return any(_all_value(node) is not None for node in tree.body)
+
+
 def _snapshot(
     source: str,
     path: str,

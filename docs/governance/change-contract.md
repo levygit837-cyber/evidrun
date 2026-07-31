@@ -61,8 +61,9 @@ As classificações também limitam o que o diff pode conter:
 
 Uma mudança `breaking` declara justificativa, estratégia `expand-contract` ou `migration`, política
 de versionamento e testes de leitura de artefatos anteriores. Esses testes precisam constar também
-em `verification.focused`, apontar explicitamente para um target existente sob `tests/` e exercitar
-as fixtures anteriores. Quando documentação normativa muda, `breaking.adr_successors` aponta ADRs
+em `verification.focused`, apontar explicitamente para um arquivo existente sob `tests/` e
+referenciar pelo path cada `breaking.previous_artifact_fixtures` versionada sob `tests/`. Quando
+documentação normativa muda, `breaking.adr_successors` aponta ADRs
 sucessores existentes em `docs/adr/`; um ADR aceito nunca é reescrito para esconder a decisão
 anterior.
 

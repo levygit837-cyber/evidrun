@@ -8,7 +8,11 @@ from pathlib import Path, PurePosixPath
 
 from .git import GitChange, GitSnapshot
 from .openapi_diff import compare_openapi
-from .python_diff import compare_migration_surface, compare_python_surface
+from .python_diff import (
+    compare_migration_surface,
+    compare_python_surface,
+    declares_explicit_exports,
+)
 from .schema_diff import (
     Compatibility,
     ContractChange,
@@ -34,31 +38,69 @@ def detect_repository_contract_diffs(
 
     reports: list[ContractDiffReport] = []
     for change in snapshot.changes:
-        report = _detect_change(snapshot, change)
-        if report is not None and report.changes:
-            reports.append(report)
+        reports.extend(
+            report for report in _detect_change(snapshot, change) if report.changes
+        )
     return tuple(sorted(reports, key=lambda item: (item.path, item.surface.value)))
 
 
 def _detect_change(
     snapshot: GitSnapshot,
     change: GitChange,
-) -> ContractDiffReport | None:
+) -> tuple[ContractDiffReport, ...]:
     old_path = change.old_path or change.path
     old_text = _baseline_text(snapshot, old_path)
     candidate_path = snapshot.root / change.path
     new_text = _worktree_text(snapshot.root, change.path) if candidate_path.is_file() else None
-    old_surface = _surface(old_path, old_text) if old_text is not None else None
-    new_surface = _surface(change.path, new_text) if new_text is not None else None
+    if old_path.startswith("alembic/") or change.path.startswith("alembic/"):
+        try:
+            return (
+                compare_migration_surface(
+                    old_text or "",
+                    new_text or "",
+                    path=change.path,
+                ),
+            )
+        except SchemaDiffError as error:
+            raise RepositoryDiffError(change.path, str(error)) from error
+    try:
+        old_surfaces = _surfaces(old_path, old_text) if old_text is not None else ()
+        new_surfaces = _surfaces(change.path, new_text) if new_text is not None else ()
+        return tuple(
+            _compare_surface(
+                change,
+                surface,
+                old_text,
+                new_text,
+                surface in old_surfaces,
+                surface in new_surfaces,
+            )
+            for surface in sorted(
+                set(old_surfaces) | set(new_surfaces),
+                key=lambda item: item.value,
+            )
+        )
+    except (SchemaDiffError, json.JSONDecodeError) as error:
+        raise RepositoryDiffError(change.path, str(error)) from error
+
+
+def _compare_surface(
+    change: GitChange,
+    surface: ContractSurface,
+    old_text: str | None,
+    new_text: str | None,
+    existed_before: bool,
+    exists_after: bool,
+) -> ContractDiffReport:
     if (
-        old_text is not None
+        surface is ContractSurface.EXPORT
+        and old_text is not None
         and new_text is not None
-        and _declares_exports(old_path, old_text)
-        != _declares_exports(change.path, new_text)
+        and existed_before != exists_after
     ):
         return ContractDiffReport(
             change.path,
-            ContractSurface.EXPORT,
+            surface,
             (
                 ContractChange(
                     "explicit-exports-changed",
@@ -68,31 +110,13 @@ def _detect_change(
                 ),
             ),
         )
-    if (
-        old_text is not None
-        and new_text is not None
-        and _declares_exports(old_path, old_text)
-        and _declares_exports(change.path, new_text)
-    ):
-        old_surface = new_surface = ContractSurface.EXPORT
-    if old_path.startswith("alembic/") or change.path.startswith("alembic/"):
-        try:
-            return compare_migration_surface(
-                old_text or "",
-                new_text or "",
-                path=change.path,
-            )
-        except SchemaDiffError as error:
-            raise RepositoryDiffError(change.path, str(error)) from error
-    if old_surface is None and new_surface is None:
-        return None
-    if old_surface != new_surface or old_text is None or new_text is None:
-        return _file_level_report(change, old_surface, new_surface)
-    assert new_surface is not None
-    try:
-        return _compare_text(old_text, new_text, change.path, new_surface)
-    except (SchemaDiffError, json.JSONDecodeError) as error:
-        raise RepositoryDiffError(change.path, str(error)) from error
+    if not existed_before or not exists_after or old_text is None or new_text is None:
+        return _file_level_report(
+            change,
+            surface if existed_before else None,
+            surface if exists_after else None,
+        )
+    return _compare_text(old_text, new_text, change.path, surface)
 
 
 def _compare_text(
@@ -143,33 +167,27 @@ def _file_level_report(
     )
 
 
-def _surface(path: str, text: str | None) -> ContractSurface | None:
+def _surfaces(path: str, text: str) -> tuple[ContractSurface, ...]:
     pure = PurePosixPath(path)
+    surfaces: list[ContractSurface] = []
     if path.startswith("schemas/") and pure.suffix == ".json":
-        if "openapi" in pure.name.lower() or (text is not None and '"openapi"' in text[:1000]):
-            return ContractSurface.OPENAPI
-        return ContractSurface.JSON_SCHEMA
-    if path.startswith("alembic/") and pure.suffix == ".py":
-        return ContractSurface.PERSISTED_MODEL
-    if pure.name == "models.py" and text is not None and "Mapped[" in text:
-        return ContractSurface.PERSISTED_MODEL
+        if "openapi" in pure.name.lower() or '"openapi"' in text[:1000]:
+            return (ContractSurface.OPENAPI,)
+        return (ContractSurface.JSON_SCHEMA,)
+    if pure.name == "models.py" and "Mapped[" in text:
+        surfaces.append(ContractSurface.PERSISTED_MODEL)
     if path.startswith("src/evidrun/contracts/") and pure.name in {
         "events.py",
         "event.py",
     }:
-        return ContractSurface.EVENT
+        surfaces.append(ContractSurface.EVENT)
     if path.startswith("src/evidrun/entrypoints/cli/") and pure.suffix == ".py":
-        return ContractSurface.CLI
-    if path.startswith("src/evidrun/") and (
-        pure.name == "__init__.py" or (text is not None and "__all__" in text)
+        surfaces.append(ContractSurface.CLI)
+    if path.startswith("src/evidrun/") and pure.suffix == ".py" and (
+        pure.name == "__init__.py" or declares_explicit_exports(text, path=path)
     ):
-        return ContractSurface.EXPORT
-    return None
-
-
-def _declares_exports(path: str, text: str) -> bool:
-    pure = PurePosixPath(path)
-    return path.startswith("src/evidrun/") and pure.suffix == ".py" and "__all__" in text
+        surfaces.append(ContractSurface.EXPORT)
+    return tuple(surfaces)
 
 
 def _baseline_text(snapshot: GitSnapshot, path: str) -> str | None:

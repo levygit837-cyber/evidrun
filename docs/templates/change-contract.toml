@@ -46,6 +46,7 @@ full_gates = ["uv run pytest", "uv run ruff check ."]
 # versioning = "Versões antigas aceitas durante a janela e condição de remoção."
 # adr_successors = ["docs/adr/NNNN-successor.md"] # obrigatório se normative != none
 # previous_artifact_tests = ["uv run pytest tests/compat/test_previous_bundle.py"]
+# previous_artifact_fixtures = ["tests/fixtures/previous-bundle.zip"]
 
 # As quatro camadas do merge gate. CI verde prova que os checks rodaram; ela não prova
 # resultado, padrões nem suficiência da verificação. Cada camada conclui separadamente e

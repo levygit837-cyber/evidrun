@@ -49,7 +49,11 @@ def repository(tmp_path: Path) -> Path:
     write(
         tmp_path,
         "src/evidrun/contracts/runtime/events.py",
-        "class EventPayload(BaseModel):\n    event_id: str\n",
+        (
+            "class EventPayload(BaseModel):\n"
+            "    event_id: str\n"
+            '__all__ = ["EventPayload"]\n'
+        ),
     )
     write(
         tmp_path,
@@ -66,12 +70,23 @@ def repository(tmp_path: Path) -> Path:
         "src/evidrun/infrastructure/database/models.py",
         "class RunRow(Base):\n    id: Mapped[str] = mapped_column(nullable=False)\n",
     )
-    write(tmp_path, "tests/compat/test_old_bundle.py", "def test_old_bundle():\n    pass\n")
+    write(
+        tmp_path,
+        "tests/compat/test_old_bundle.py",
+        (
+            "from pathlib import Path\n\n"
+            "def test_old_bundle():\n"
+            '    artifact = Path("tests/fixtures/old-bundle.json").read_text()\n'
+            "    assert artifact\n"
+        ),
+    )
+    write(tmp_path, "tests/fixtures/old-bundle.json", "{}\n")
     write(
         tmp_path,
         "src/evidrun/public.py",
         'from .contracts import EventPayload\n__all__ = ["EventPayload"]\n',
     )
+    write(tmp_path, "src/evidrun/messages.py", 'MESSAGE = "before"\n')
     commit_all(tmp_path, "baseline")
     git(tmp_path, "switch", "-qc", "feat/issue-53-fixture")
     return tmp_path
@@ -124,6 +139,7 @@ def breaking_text(
     *,
     successors: str = "[]",
     previous_test: str = "uv run pytest tests/compat/test_old_bundle.py",
+    fixtures: str = '["tests/fixtures/old-bundle.json"]',
 ) -> str:
     return f"""
 [breaking]
@@ -132,6 +148,7 @@ strategy = "expand-contract"
 versioning = "Bundle v5 preserva leitura de v4 durante a migracao."
 adr_successors = {successors}
 previous_artifact_tests = ["{previous_test}"]
+previous_artifact_fixtures = {fixtures}
 """
 
 
@@ -255,6 +272,7 @@ def test_breaking_evidence_must_exist_in_candidate(repository: Path) -> None:
             breaking=breaking_text(
                 successors='["docs/adr/0099-missing.md"]',
                 previous_test=missing_test,
+                fixtures='["tests/fixtures/missing-bundle.json"]',
             ),
         ),
     )
@@ -268,6 +286,8 @@ def test_breaking_evidence_must_exist_in_candidate(repository: Path) -> None:
     assert {
         "breaking.adr_successor_missing",
         "breaking.previous_artifact_test_missing",
+        "breaking.previous_artifact_fixture_missing",
+        "breaking.previous_artifact_fixture_unreferenced",
     }.issubset({item.code for item in report.blockers})
 
 
@@ -348,3 +368,34 @@ def test_repository_routes_explicit_exports_outside_init_modules(repository: Pat
     assert [(item.kind, item.compatibility) for item in export.changes] == [
         ("explicit-exports-changed", Compatibility.BREAKING)
     ]
+
+
+def test_export_detection_ignores_mentions_and_preserves_other_surfaces(
+    repository: Path,
+) -> None:
+    write(
+        repository,
+        "src/evidrun/messages.py",
+        '# documentation about __all__\nMESSAGE = "after"\n',
+    )
+    write(
+        repository,
+        "src/evidrun/contracts/runtime/events.py",
+        (
+            "class EventPayload(BaseModel):\n"
+            "    event_id: int\n"
+            "__all__: list[str] = []\n"
+        ),
+    )
+    git(repository, "add", "src/evidrun")
+
+    reports = detect_repository_contract_diffs(inspect_repository(repository, "main"))
+
+    assert all(report.path != "src/evidrun/messages.py" for report in reports)
+    event_reports = tuple(
+        report for report in reports if report.path.endswith("/events.py")
+    )
+    assert {report.surface for report in event_reports} == {
+        ContractSurface.EVENT,
+        ContractSurface.EXPORT,
+    }

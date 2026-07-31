@@ -24,6 +24,7 @@ class BreakingPlan:
     versioning: str
     adr_successors: tuple[str, ...]
     previous_artifact_tests: tuple[str, ...]
+    previous_artifact_fixtures: tuple[str, ...]
 
 
 def evidence_diagnostics(
@@ -50,10 +51,11 @@ def evidence_diagnostics(
                 remediation="Adicione o ADR sucessor referido pelo plano breaking.",
             )
         )
-    if any(
-        not _command_has_existing_test_target(command, root)
+    test_targets = tuple(
+        _existing_test_targets(command, root)
         for command in plan.previous_artifact_tests
-    ):
+    )
+    if any(not targets for targets in test_targets):
         diagnostics.append(
             Diagnostic(
                 code="breaking.previous_artifact_test_missing",
@@ -65,14 +67,50 @@ def evidence_diagnostics(
                 ),
             )
         )
+    missing_fixtures = tuple(
+        path
+        for path in plan.previous_artifact_fixtures
+        if not _existing_test_file(path, root)
+    )
+    if missing_fixtures:
+        diagnostics.append(
+            Diagnostic(
+                code="breaking.previous_artifact_fixture_missing",
+                severity=Severity.BLOCKER,
+                message="Fixture de artefato anterior nao existe sob tests/.",
+                paths=missing_fixtures,
+                remediation="Adicione ao candidate cada fixture declarada pelo plano breaking.",
+            )
+        )
+    test_sources = "\n".join(
+        target.read_text(encoding="utf-8", errors="replace")
+        for targets in test_targets
+        for target in targets
+    )
+    unreferenced = tuple(
+        path
+        for path in plan.previous_artifact_fixtures
+        if path not in test_sources
+    )
+    if unreferenced:
+        diagnostics.append(
+            Diagnostic(
+                code="breaking.previous_artifact_fixture_unreferenced",
+                severity=Severity.BLOCKER,
+                message="Fixture anterior nao esta ligada explicitamente ao teste declarado.",
+                paths=unreferenced,
+                remediation="Leia a fixture pelo path declarado no teste de compatibilidade.",
+            )
+        )
     return tuple(diagnostics)
 
 
-def _command_has_existing_test_target(command: str, root: Path) -> bool:
+def _existing_test_targets(command: str, root: Path) -> tuple[Path, ...]:
     try:
         tokens = shlex.split(command)
     except ValueError:
-        return False
+        return ()
+    targets: list[Path] = []
     for token in tokens:
         target = token.split("::", maxsplit=1)[0].removeprefix("./")
         pure = PurePosixPath(target)
@@ -80,10 +118,20 @@ def _command_has_existing_test_target(command: str, root: Path) -> bool:
             pure.parts
             and pure.parts[0] == "tests"
             and ".." not in pure.parts
-            and (root / pure).exists()
+            and (root / pure).is_file()
         ):
-            return True
-    return False
+            targets.append(root / pure)
+    return tuple(targets)
+
+
+def _existing_test_file(path: str, root: Path) -> bool:
+    pure = PurePosixPath(path)
+    return (
+        bool(pure.parts)
+        and pure.parts[0] == "tests"
+        and ".." not in pure.parts
+        and (root / pure).is_file()
+    )
 
 
 def parse_breaking_plan(
@@ -129,6 +177,13 @@ def _parse_required_plan(
         prefix="breaking.",
         nonempty=True,
     )
+    previous_fixtures = read_patterns(
+        table,
+        "previous_artifact_fixtures",
+        errors,
+        prefix="breaking.",
+        nonempty=True,
+    )
     missing_tests = tuple(test for test in previous_tests if test not in focused_tests)
     if missing_tests:
         errors.append(
@@ -145,4 +200,11 @@ def _parse_required_plan(
             )
     if justification is None or strategy is None or versioning is None:
         return None
-    return BreakingPlan(justification, strategy, versioning, successors, previous_tests)
+    return BreakingPlan(
+        justification,
+        strategy,
+        versioning,
+        successors,
+        previous_tests,
+        previous_fixtures,
+    )
