@@ -218,6 +218,210 @@ def test_a_forbidden_edge_is_separated_from_allowed_and_suspicious(tmp_path: Pat
     )
 
 
+def test_a_forbidden_edge_leaving_the_graph_stays_out_of_the_partition(
+    tmp_path: Path,
+) -> None:
+    """`PY-CONTRACTS-EXTERNALS` forbids an edge to a package, which is not internal.
+
+    Counting it inside the partition made the three states exceed
+    `internal_edge_count`, so the identity a reader checks by adding three numbers was
+    false whenever a rule named an external destination.
+    """
+    commit_tracked(
+        tmp_path,
+        {
+            "src/evidrun/contracts/bad.py": (
+                "import fastapi\nfrom evidrun.shared import types\n"
+            ),
+            "src/evidrun/shared/types.py": "value = 1\n",
+        },
+        message="external forbidden",
+    )
+
+    document = report_of(tmp_path)
+
+    assert document["forbidden_external_edges"] == [
+        {"source": "evidrun.contracts.bad", "destination": "fastapi"}
+    ]
+    assert document["forbidden_edges"] == []
+    states: dict[str, int] = document["dependency_states"]  # type: ignore[assignment]
+    assert (
+        states["allowed"] + states["forbidden"] + states["suspicious"]
+        == document["internal_edge_count"]
+    )
+
+
+def test_an_exception_the_gate_honours_is_not_reported_as_forbidden(tmp_path: Path) -> None:
+    """The gate and the report must agree on what is forbidden.
+
+    An exception in `import-directions.toml` makes the gate pass; calling the same
+    edge forbidden here would be a second, divergent notion of forbidden.
+    """
+    commit_tracked(
+        tmp_path,
+        {
+            "src/evidrun/contracts/known.py": "from evidrun.infrastructure import database\n",
+            "src/evidrun/infrastructure/database.py": "value = 1\n",
+            "import-directions.toml": (
+                'schema_version = "1"\n'
+                "\n"
+                "[[exceptions]]\n"
+                'source = "src/evidrun/contracts/known.py"\n'
+                'destination = "evidrun.infrastructure.database"\n'
+                'rule = "PY-CONTRACTS-LAYERS"\n'
+                'reason = "covered by issue 999"\n'
+                'owner = "core"\n'
+                "expires = 2099-01-01\n"
+            ),
+        },
+        message="exception",
+    )
+
+    document = report_of(tmp_path)
+
+    assert document["forbidden_edges"] == []
+    assert document["forbidden_external_edges"] == []
+    states: dict[str, int] = document["dependency_states"]  # type: ignore[assignment]
+    assert states["forbidden"] == 0
+
+
+def test_a_top_level_module_classifies_the_same_by_path_and_by_module(
+    tmp_path: Path,
+) -> None:
+    """`settings.py` is a module of the root slice, not a slice named `evidrun.settings`.
+
+    Internal edges are keyed by module and external edges by path, so a node that
+    classified differently in the two vocabularies split one file across two slices.
+    """
+    commit_tracked(
+        tmp_path,
+        {
+            "src/evidrun/settings.py": "import platformdirs\n",
+            "src/evidrun/contracts/base.py": "from evidrun import settings\n",
+        },
+        message="top level module",
+    )
+
+    document = report_of(tmp_path)
+
+    assert document["external_dependencies"] == [
+        {
+            "slice": "evidrun.<root>",
+            "package": "platformdirs",
+            "runtime": "python",
+            "edges": 1,
+        }
+    ]
+    crossings: list[dict[str, object]] = document["slice_crossings"]  # type: ignore[assignment]
+    assert [(row["source"], row["destination"]) for row in crossings] == [
+        ("evidrun.contracts", "evidrun.<root>")
+    ]
+
+
+def test_a_new_edge_is_not_labelled_suspicious(tmp_path: Path) -> None:
+    """Drift is an axis of its own: a new edge no rule forbids is not a suspicion."""
+    base = commit_tracked(
+        tmp_path,
+        {"src/evidrun/shared/types.py": "value = 1\n"},
+        message="baseline",
+    )
+    commit_tracked(
+        tmp_path,
+        {"src/evidrun/runs/alpha.py": "from evidrun.shared import types\n"},
+        message="new edge",
+    )
+
+    document = report_of(tmp_path, base_ref=base)
+    new_edges = findings_with(document, "dependency.new_edge")
+
+    assert [finding["kind"] for finding in new_edges] == ["drift"]
+    assert all("state" not in finding for finding in new_edges)
+    assert document["dependency_states"]["suspicious"] == 0  # type: ignore[index]
+
+
+def test_an_edge_against_the_documented_direction_is_suspicious(tmp_path: Path) -> None:
+    """`contracts` importing `evidence` runs against the documented flow.
+
+    No rule forbids it, so it must land in `suspicious` rather than `allowed`, and the
+    crossing row must carry the verdict for the renderer to read.
+    """
+    commit_tracked(
+        tmp_path,
+        {
+            "src/evidrun/contracts/base.py": "from evidrun.evidence import archive\n",
+            "src/evidrun/evidence/archive.py": "value = 1\n",
+        },
+        message="against direction",
+    )
+
+    document = report_of(tmp_path)
+
+    crossings: list[dict[str, object]] = document["slice_crossings"]  # type: ignore[assignment]
+    assert crossings == [
+        {
+            "source": "evidrun.contracts",
+            "destination": "evidrun.evidence",
+            "edges": 1,
+            "against_conceptual_direction": True,
+        }
+    ]
+    assert document["dependency_states"]["suspicious"] == 1  # type: ignore[index]
+    assert findings_with(document, "dependency.slice_crossing") != []
+
+
+def test_an_unranked_slice_never_makes_an_edge_suspicious_by_direction(
+    tmp_path: Path,
+) -> None:
+    """`LAYER_RANK` covers only the documented flow, and the report must not guess.
+
+    `infrastructure` is drawn as a side branch, so no direction is claimed for it: the
+    edge is `allowed` because nothing documents an order to break, which is the
+    behaviour `docs/governance/dependency-report.md` has to state plainly.
+    """
+    commit_tracked(
+        tmp_path,
+        {
+            "src/evidrun/infrastructure/store.py": "from evidrun.security import logging\n",
+            "src/evidrun/security/logging.py": "value = 1\n",
+        },
+        message="unranked",
+    )
+
+    document = report_of(tmp_path)
+
+    crossings: list[dict[str, object]] = document["slice_crossings"]  # type: ignore[assignment]
+    assert [row["against_conceptual_direction"] for row in crossings] == [False]
+    assert document["dependency_states"]["allowed"] == 1  # type: ignore[index]
+    assert document["dependency_states"]["suspicious"] == 0  # type: ignore[index]
+
+
+def test_the_human_report_lists_every_measured_axis(tmp_path: Path) -> None:
+    """The spec asks for fan-in/fan-out and re-export hubs in the human report.
+
+    Printing them only above a candidate threshold would hide the distribution the
+    thresholds are supposed to be chosen from.
+    """
+    commit_tracked(
+        tmp_path,
+        {
+            "src/evidrun/wide/__init__.py": "from evidrun.wide.impl import only\n",
+            "src/evidrun/wide/impl.py": "only = 1\n",
+            "src/evidrun/consumer.py": "from evidrun.wide import only\n",
+        },
+        message="axes",
+    )
+
+    text = run_reporter(tmp_path, output_format="text").stdout
+
+    assert "Fan-in/fan-out by module" in text
+    assert "Re-export surface by package" in text
+    assert "  evidrun.wide reexports=1" in text
+    assert "Imports between slices" in text
+    document = report_of(tmp_path)
+    assert document["reexport_surface"] == [{"module": "evidrun.wide", "reexports": 1}]
+
+
+
 def test_a_new_edge_is_named_without_restating_the_unchanged_baseline(tmp_path: Path) -> None:
     base = commit_tracked(
         tmp_path,

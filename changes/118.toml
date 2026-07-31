@@ -1,0 +1,142 @@
+schema_version = "1"
+change_id = "GH-118"
+issue = 118
+title = "Corrigir defeitos verificados do relatório de dependências"
+classification = "behavior-compatible"
+base_ref = "origin/main"
+branch_pattern = "fix/issue-118-dependency-report-defects"
+expected_outcome = "Os três estados particionam as arestas internas e somam `internal_edge_count` mesmo quando uma regra proíbe destino externo; o relatório repete o veredito do gate com exceções aplicadas; path e módulo do mesmo arquivo classificam na mesma fatia; nenhum finding carrega estado que não foi decidido para ele."
+confirmed_facts = [
+  "A revisão pós-merge de #51 encontrou nove achados; dois não sobreviveram à verificação por execução e não entram nesta entrega.",
+  "A quebra da partição era latente, não ativa: hoje a soma fecha (936+0+3=939) porque o gate tem zero violações. Com fixture onde `contracts` importa `fastapi`, a soma dava 2 contra `internal_edge_count` 1.",
+  "`slice_of` divergia só para módulo direto sob `src/evidrun/`: `src/evidrun/settings.py` dava `evidrun.<root>` e `evidrun.settings` dava `evidrun.settings`. Verificado 0 divergências nos 182 arquivos Python após a correção.",
+  "`Finding.state` não tinha produtor: nenhum dos oito callsites passava `state=`, então `dependency.new_edge` saía `state=suspicious` com `kind=drift`.",
+  "`write_json` e `slices_by_package` tinham 0 referências fora da própria definição e do export.",
+]
+stop_conditions = [
+  "Corrigir os achados que o relatório expõe: o ciclo em `evidrun.contracts` e `authority/router.py -> fastapi` são o sinal que a ferramenta existe para mostrar, e decisão de outra entrega.",
+  "Promover qualquer threshold candidato a bloqueante: continua fora de escopo, como em #51.",
+  "Ampliar `LAYER_RANK` para as fatias sem rank: exigiria primeiro documentar a ordem em `codebase-layout.md`, que é decisão de arquitetura, não de relatório.",
+]
+
+[impact]
+capability = "changed"
+persisted_contract = "none"
+normative = "changed"
+notes = [
+  "O JSON ganha `forbidden_external_edges` e `reexport_surface`, e `findings[].state` deixa de existir. O schema não é contrato persistido: o documento é artifact de CI recomputado a cada execução, nunca lido de volta.",
+  "`docs/governance/dependency-report.md` corrige uma afirmação que o próprio código negava e passa a declarar o que `allowed` significa para fatia sem rank. `docs/governance/import-directions.md` passa a descrever onde as arestas são construídas hoje.",
+  "`LAYER_RANK` perde `authority` e `evaluations`: nenhuma das duas aparece no fluxo linear documentado, e mantê-las fazia o relatório afirmar direção sem fonte. Efeito medido: 38 crossings, 0 contra direção, e o predicado continua disparando (verificado com `contracts -> evidence`).",
+  "`partition_edges` migrou de `report.py` para `graph_metrics.py`: reusá-la em `baseline.py` a partir de `report` criaria ciclo, porque `report` já importa `EdgeDrift` de `baseline`.",
+  "`slice_of` deixou de ser função livre sobre `str` e virou método de `SliceIndex`, que carrega quais nomes pontuados são pacotes. `evidrun.settings` e `evidrun.contracts` são indistinguíveis como string; só o grafo sabe a diferença.",
+]
+
+[scope]
+expected = [
+  "scripts/dependency_report/**",
+  "scripts/check_dependency_report.py",
+  "tests/unit/test_dependency_report.py",
+  "docs/governance/dependency-report.md",
+  "docs/governance/import-directions.md",
+  "changes/118.toml",
+]
+forbidden = [
+  "docs/adr/**",
+  "src/evidrun/**",
+  "import-directions.toml",
+  "scripts/check_import_directions.py",
+  "scripts/import_graph.py",
+]
+preexisting = []
+
+[[scope.generated]]
+patterns = ["docs/_generated/**"]
+source_patterns = ["docs/**/*.md"]
+
+[preserve]
+interfaces = [
+  "`check_dependency_report.py` mantém `--root`, `--format`, `--base-ref`, `--json-out` e os exit codes 0/2.",
+  "O gate de direção não muda: `check_import_directions.py` e `import_graph.py` ficam intactos, e estão em `[scope].forbidden`.",
+  "Os seis eixos de #51 continuam presentes, agora todos no relatório humano.",
+]
+errors = [
+  "Nenhum `FindingCode` muda de nome.",
+  "Nenhum achado passa a bloquear: exit 0 continua sendo o único caminho de sucesso, e não existe exit 1.",
+]
+invariants = [
+  "Os três estados particionam as arestas internas e somam `internal_edge_count`, inclusive quando uma regra proíbe destino externo.",
+  "O relatório repete o veredito do gate, exceções incluídas; não existe segunda noção de proibido.",
+  "Path e módulo do mesmo arquivo classificam na mesma fatia.",
+  "A direção conceitual é decidida uma vez, na montagem, e carregada na linha de crossing; nenhum consumidor a rederiva.",
+  "Mesmo checkout produz documento byte-idêntico com ordenação total.",
+]
+
+[verification]
+focused = [
+  "uv run pytest tests/unit/test_dependency_report.py tests/unit/test_import_directions.py",
+]
+full_gates = [
+  "uv run pytest",
+  "uv run ruff check .",
+  "uv run python scripts/check_code_budget.py",
+  "uv run pyright",
+  "pnpm typecheck:web",
+  "pnpm typecheck:desktop",
+  "pnpm test",
+  "pnpm build",
+  "uv run python scripts/validate_docs.py",
+]
+
+[[questions]]
+text = "Contar `forbidden` sobre arestas internas, ou a doc parar de afirmar que os três somam?"
+affects_semantics = true
+status = "resolved"
+resolution = "Particionar. Três estados que não somam não são partição, e a doc normativa afirmava a identidade. Aresta proibida que sai do grafo passa a `forbidden_external_edges`, ao lado dos três estados, então nada é perdido do relato."
+
+[[questions]]
+text = "Derivar `Finding.state` do code, ou remover o campo?"
+affects_semantics = true
+status = "resolved"
+resolution = "Remover. `DependencyState` particiona arestas; finding é observação sobre forma. Conflar os dois foi o que rotulou `dependency.new_edge` como suspeita. `kind` já é o eixo honesto e é derivado do code."
+
+[[questions]]
+text = "Esta entrega é refactor e precisa de oráculo de equivalência?"
+affects_semantics = true
+status = "resolved"
+resolution = "Não é refactor: o comportamento observável muda de propósito, porque o comportamento anterior contradizia a doc normativa. É `behavior-compatible` no sentido de manter interfaces e exit codes; as 15 asserções preexistentes de `test_dependency_report.py` passaram sem edição, e 7 novas defendem as correções."
+
+[merge_gate]
+review = "proportional"
+ci_commit = "0000000"
+
+[merge_gate.spec]
+conclusion = "passed"
+evidence = [
+  "test:tests/unit/test_dependency_report.py::test_a_forbidden_edge_leaving_the_graph_stays_out_of_the_partition",
+  "test:tests/unit/test_dependency_report.py::test_an_exception_the_gate_honours_is_not_reported_as_forbidden",
+  "test:tests/unit/test_dependency_report.py::test_a_top_level_module_classifies_the_same_by_path_and_by_module",
+  "test:tests/unit/test_dependency_report.py::test_a_new_edge_is_not_labelled_suspicious",
+  "log:smoke-particao-fecha-com-aresta-externa.txt",
+]
+
+[merge_gate.standards]
+conclusion = "passed"
+evidence = [
+  "diff:scripts/dependency_report/slices.py",
+  "diff:scripts/dependency_report/graph_metrics.py",
+  "diff:docs/governance/dependency-report.md",
+  "log:check_code_budget-0-violacoes.txt",
+]
+
+[merge_gate.verification]
+conclusion = "passed"
+evidence = [
+  "test:tests/unit/test_dependency_report.py",
+  "test:tests/unit/test_import_directions.py",
+  "log:sonda-5-mutacoes-todas-capturadas.txt",
+  "log:slice-of-0-divergencias-182-arquivos.txt",
+]
+
+[merge_gate.ci]
+conclusion = "passed"
+evidence = ["run:actions/PENDING"]

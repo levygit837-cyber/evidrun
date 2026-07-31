@@ -16,6 +16,7 @@ supersedes: []
 superseded_by: null
 implementation_refs:
   - scripts/check_import_directions.py
+  - scripts/import_graph.py
   - scripts/import_directions_typescript.py
   - import-directions.toml
   - .github/workflows/ci.yml
@@ -25,9 +26,10 @@ verification_refs:
 
 # Gate de direção de imports
 
-`scripts/check_import_directions.py` constrói arestas determinísticas somente a partir de arquivos
-versionados retornados por `git ls-files`. O comando padrão produz diagnóstico textual e falha com
-exit code `1` quando encontra violação:
+`scripts/import_graph.py` constrói as arestas determinísticas, somente a partir de arquivos
+versionados retornados por `git ls-files`. `scripts/check_import_directions.py` consome esse grafo e
+aplica a política de direção; ele produz diagnóstico textual e falha com exit code `1` quando
+encontra violação:
 
 ```bash
 uv run python scripts/check_import_directions.py
@@ -60,6 +62,10 @@ violações novas. Uma exceção futura precisa corresponder exatamente a `sourc
 `rule`, além de declarar `reason`, `owner` e `expires`. Exceção vencida, duplicada, incompleta ou que
 não corresponda mais a uma violação faz o comando falhar com erro de configuração. Exceções ativas
 aparecem na saída textual.
+
+O mesmo grafo alimenta o
+[relatório de dependências e ciclos](dependency-report.md), que é warning-only e não bloqueia merge.
+O relatório repete o veredito deste gate, exceções incluídas; ele não decide o que é proibido.
 
 ## Limites do que o gate prova
 
