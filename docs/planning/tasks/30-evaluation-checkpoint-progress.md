@@ -7,8 +7,8 @@ authority: planning
 volatility: snapshot
 owner: evidence
 created_at: 2026-07-23
-updated_at: 2026-07-25
-observed_at: 2026-07-25
+updated_at: 2026-07-31
+observed_at: 2026-07-31
 review_due: 2026-08-13
 applies_to: evaluation-runtime
 sources:
@@ -38,7 +38,7 @@ verification_refs:
 
 # WS-30 — Evaluation, checkpoints e progress
 
-`workstream_state: queued`
+`workstream_state: blocked`
 
 ## Contexto abstrato
 

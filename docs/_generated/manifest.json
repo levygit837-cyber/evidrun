@@ -934,7 +934,7 @@
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "laboratory",
-      "updated_at": "2026-07-27",
+      "updated_at": "2026-07-31",
       "review_due": "2026-08-23"
     },
     {
@@ -970,7 +970,7 @@
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "evidence",
-      "updated_at": "2026-07-27",
+      "updated_at": "2026-07-31",
       "review_due": "2026-08-06"
     },
     {
@@ -982,7 +982,7 @@
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "evidence",
-      "updated_at": "2026-07-25",
+      "updated_at": "2026-07-31",
       "review_due": "2026-08-13"
     },
     {
@@ -1006,7 +1006,7 @@
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "laboratory",
-      "updated_at": "2026-07-27",
+      "updated_at": "2026-07-31",
       "review_due": "2026-08-23"
     },
     {

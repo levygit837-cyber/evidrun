@@ -7,8 +7,8 @@ authority: planning
 volatility: snapshot
 owner: evidence
 created_at: 2026-07-23
-updated_at: 2026-07-27
-observed_at: 2026-07-27
+updated_at: 2026-07-31
+observed_at: 2026-07-31
 review_due: 2026-08-06
 applies_to: artifact-runtime
 sources:
@@ -24,7 +24,7 @@ verification_refs: []
 
 # WS-20 — Artifact access e capture
 
-`workstream_state: queued`
+`workstream_state: blocked`
 
 ## Resultado pratico
 
