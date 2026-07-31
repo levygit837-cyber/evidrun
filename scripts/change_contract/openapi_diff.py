@@ -107,7 +107,105 @@ def _compare_operations(
                     "O operationId publico mudou.",
                 )
             )
+        _compare_parameters(old_operation, new_operation, operation_pointer, changes)
+        _compare_request_body(old_operation, new_operation, operation_pointer, changes)
         _compare_response_codes(old_operation, new_operation, operation_pointer, changes)
+
+
+def _compare_parameters(
+    before: JsonObject,
+    after: JsonObject,
+    pointer: str,
+    changes: list[ContractChange],
+) -> None:
+    old_parameters = _parameters(before.get("parameters"), _join(pointer, "parameters"))
+    new_parameters = _parameters(after.get("parameters"), _join(pointer, "parameters"))
+    for key in sorted(old_parameters.keys() - new_parameters.keys()):
+        changes.append(
+            ContractChange(
+                "parameter-removed",
+                Compatibility.BREAKING,
+                _join(pointer, "parameters", f"{key[0]}:{key[1]}"),
+                f"O parametro OpenAPI {key[0]}:{key[1]} foi removido.",
+            )
+        )
+    for key in sorted(new_parameters.keys() - old_parameters.keys()):
+        parameter = new_parameters[key]
+        required = parameter.get("required") is True
+        changes.append(
+            ContractChange(
+                "required-parameter-added" if required else "optional-parameter-added",
+                Compatibility.BREAKING if required else Compatibility.ADDITIVE,
+                _join(pointer, "parameters", f"{key[0]}:{key[1]}"),
+                f"O parametro OpenAPI {key[0]}:{key[1]} foi adicionado.",
+            )
+        )
+    for key in sorted(old_parameters.keys() & new_parameters.keys()):
+        old = old_parameters[key]
+        new = new_parameters[key]
+        location = _join(pointer, "parameters", f"{key[0]}:{key[1]}")
+        if old.get("required") != new.get("required"):
+            changes.append(
+                ContractChange(
+                    "parameter-required-changed",
+                    (
+                        Compatibility.BREAKING
+                        if new.get("required") is True
+                        else Compatibility.ADDITIVE
+                    ),
+                    _join(location, "required"),
+                    f"A obrigatoriedade do parametro {key[0]}:{key[1]} mudou.",
+                )
+            )
+        _compare_optional_schema(old.get("schema"), new.get("schema"), location, changes)
+
+
+def _compare_request_body(
+    before: JsonObject,
+    after: JsonObject,
+    pointer: str,
+    changes: list[ContractChange],
+) -> None:
+    old_value = before.get("requestBody")
+    new_value = after.get("requestBody")
+    location = _join(pointer, "requestBody")
+    if old_value is None and new_value is None:
+        return
+    if old_value is None:
+        new = _object(new_value, f"{location} candidate")
+        required = new.get("required") is True
+        changes.append(
+            ContractChange(
+                "required-request-body-added" if required else "optional-request-body-added",
+                Compatibility.BREAKING if required else Compatibility.ADDITIVE,
+                location,
+                "Um request body foi adicionado.",
+            )
+        )
+        return
+    if new_value is None:
+        changes.append(
+            ContractChange(
+                "request-body-removed",
+                Compatibility.BREAKING,
+                location,
+                "O request body foi removido.",
+            )
+        )
+        return
+    old = _object(old_value, f"{location} baseline")
+    new = _object(new_value, f"{location} candidate")
+    _compare_reference(old, new, location, changes)
+    if old.get("required") != new.get("required"):
+        changes.append(
+            ContractChange(
+                "request-body-required-changed",
+                (Compatibility.BREAKING if new.get("required") is True else Compatibility.ADDITIVE),
+                _join(location, "required"),
+                "A obrigatoriedade do request body mudou.",
+            )
+        )
+    _compare_content(old, new, location, changes)
 
 
 def _compare_response_codes(
@@ -134,6 +232,87 @@ def _compare_response_codes(
                 Compatibility.ADDITIVE,
                 _join(pointer, "responses", status),
                 f"A resposta OpenAPI {status!r} foi adicionada.",
+            )
+        )
+    for status in sorted(old_responses.keys() & new_responses.keys()):
+        old = _object(old_responses[status], f"response {status} baseline")
+        new = _object(new_responses[status], f"response {status} candidate")
+        _compare_reference(old, new, _join(pointer, "responses", status), changes)
+        _compare_content(old, new, _join(pointer, "responses", status), changes)
+
+
+def _compare_content(
+    before: JsonObject,
+    after: JsonObject,
+    pointer: str,
+    changes: list[ContractChange],
+) -> None:
+    old_content = _object_or_empty(before.get("content"), _join(pointer, "content"))
+    new_content = _object_or_empty(after.get("content"), _join(pointer, "content"))
+    for media_type in sorted(old_content.keys() - new_content.keys()):
+        changes.append(
+            ContractChange(
+                "media-type-removed",
+                Compatibility.BREAKING,
+                _join(pointer, "content", media_type),
+                f"O media type {media_type!r} foi removido.",
+            )
+        )
+    for media_type in sorted(new_content.keys() - old_content.keys()):
+        changes.append(
+            ContractChange(
+                "media-type-added",
+                Compatibility.ADDITIVE,
+                _join(pointer, "content", media_type),
+                f"O media type {media_type!r} foi adicionado.",
+            )
+        )
+    for media_type in sorted(old_content.keys() & new_content.keys()):
+        old = _object(old_content[media_type], f"content {media_type} baseline")
+        new = _object(new_content[media_type], f"content {media_type} candidate")
+        _compare_optional_schema(
+            old.get("schema"),
+            new.get("schema"),
+            _join(pointer, "content", media_type),
+            changes,
+        )
+
+
+def _compare_optional_schema(
+    before: object,
+    after: object,
+    pointer: str,
+    changes: list[ContractChange],
+) -> None:
+    location = _join(pointer, "schema")
+    if before is None and after is None:
+        return
+    if before is None or after is None:
+        changes.append(
+            ContractChange(
+                "schema-added" if before is None else "schema-removed",
+                Compatibility.BREAKING,
+                location,
+                "O schema inline foi adicionado ou removido.",
+            )
+        )
+        return
+    changes.extend(compare_schema_fragment(before, after, pointer=location))
+
+
+def _compare_reference(
+    before: JsonObject,
+    after: JsonObject,
+    pointer: str,
+    changes: list[ContractChange],
+) -> None:
+    if before.get("$ref") != after.get("$ref"):
+        changes.append(
+            ContractChange(
+                "reference-changed",
+                Compatibility.BREAKING,
+                _join(pointer, "$ref"),
+                "A referencia OpenAPI mudou.",
             )
         )
 
@@ -193,6 +372,26 @@ def _object_or_empty(value: object, label: str) -> JsonObject:
 def _schema_map(value: object, label: str) -> dict[str, JsonObject]:
     table = _object_or_empty(value, label)
     return {name: _object(schema, f"{label}/{name}") for name, schema in table.items()}
+
+
+def _parameters(value: object, label: str) -> dict[tuple[str, str], JsonObject]:
+    if value is None:
+        return {}
+    if not isinstance(value, list):
+        raise SchemaDiffError(f"{label} deve ser uma lista")
+    parameters: dict[tuple[str, str], JsonObject] = {}
+    for index, raw in enumerate(cast(list[object], value)):
+        parameter = _object(raw, f"{label}/{index}")
+        reference = parameter.get("$ref")
+        if isinstance(reference, str):
+            parameters[("$ref", reference)] = parameter
+            continue
+        name = parameter.get("name")
+        location = parameter.get("in")
+        if not isinstance(name, str) or not isinstance(location, str):
+            raise SchemaDiffError(f"{label}/{index} exige name e in textuais")
+        parameters[(location, name)] = parameter
+    return parameters
 
 
 def _join(pointer: str, *tokens: str) -> str:

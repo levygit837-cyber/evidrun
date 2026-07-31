@@ -103,7 +103,7 @@ def test_descriptions_examples_and_property_order_do_not_change_contract() -> No
     assert report.highest_compatibility is Compatibility.COMPATIBLE
 
 
-def test_enum_narrowing_is_breaking_and_widening_is_additive() -> None:
+def test_enum_narrowing_and_widening_fail_closed_as_breaking() -> None:
     baseline = {"type": "string", "enum": ["queued", "running"]}
     narrowed = {"type": "string", "enum": ["queued"]}
     widened = {"type": "string", "enum": ["queued", "running", "failed"]}
@@ -114,7 +114,7 @@ def test_enum_narrowing_is_breaking_and_widening_is_additive() -> None:
     assert narrow_report.changes[0].kind == "enum-values-removed"
     assert narrow_report.changes[0].compatibility is Compatibility.BREAKING
     assert wide_report.changes[0].kind == "enum-values-added"
-    assert wide_report.changes[0].compatibility is Compatibility.ADDITIVE
+    assert wide_report.changes[0].compatibility is Compatibility.BREAKING
 
 
 def openapi(
@@ -195,6 +195,49 @@ def test_openapi_compares_component_schemas_and_ignores_message_wording() -> Non
     report = compare_openapi(baseline, breaking, path="openapi.json")
     assert [(item.kind, item.pointer) for item in report.changes] == [
         ("type-changed", "/components/schemas/Failure/properties/code/type")
+    ]
+
+
+def test_openapi_required_parameter_and_inline_response_schema_are_breaking() -> None:
+    baseline = openapi(
+        {
+            "/runs": {
+                "get": {
+                    "operationId": "listRuns",
+                    "parameters": [],
+                    "responses": {
+                        "200": {"content": {"application/json": {"schema": {"type": "string"}}}}
+                    },
+                }
+            }
+        }
+    )
+    candidate = openapi(
+        {
+            "/runs": {
+                "get": {
+                    "operationId": "listRuns",
+                    "parameters": [
+                        {
+                            "name": "project",
+                            "in": "query",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        }
+                    ],
+                    "responses": {
+                        "200": {"content": {"application/json": {"schema": {"type": "integer"}}}}
+                    },
+                }
+            }
+        }
+    )
+
+    report = compare_openapi(baseline, candidate, path="openapi.json")
+
+    assert [(item.kind, item.compatibility) for item in report.changes] == [
+        ("required-parameter-added", Compatibility.BREAKING),
+        ("type-changed", Compatibility.BREAKING),
     ]
 
 

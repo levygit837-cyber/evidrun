@@ -22,6 +22,10 @@ class Compatibility(StrEnum):
 class ContractSurface(StrEnum):
     JSON_SCHEMA = "json-schema"
     OPENAPI = "openapi"
+    PERSISTED_MODEL = "persisted-model"
+    EVENT = "event"
+    CLI = "cli"
+    EXPORT = "export"
 
 
 @dataclass(frozen=True)
@@ -118,9 +122,9 @@ def _compare_type(
     if old_types == new_types:
         return
     if old_types is not None and new_types is not None and old_types < new_types:
-        compatibility = Compatibility.ADDITIVE
+        compatibility = Compatibility.BREAKING
         kind = "types-added"
-        message = "O schema passou a aceitar tipos adicionais."
+        message = "O schema passou a aceitar ou produzir tipos adicionais."
     else:
         compatibility = Compatibility.BREAKING
         kind = "type-changed"
@@ -140,7 +144,7 @@ def _compare_enum(
         return
     location = _join(pointer, "enum")
     if old_values is None or new_values is None:
-        compatibility = Compatibility.ADDITIVE if new_values is None else Compatibility.BREAKING
+        compatibility = Compatibility.BREAKING
         kind = "enum-removed" if new_values is None else "enum-added"
         message = (
             "A restricao enum foi removida."
@@ -164,7 +168,7 @@ def _compare_enum(
         changes.append(
             ContractChange(
                 "enum-values-added",
-                Compatibility.ADDITIVE,
+                Compatibility.BREAKING,
                 location,
                 f"O enum passou a aceitar {len(added)} valor(es).",
             )
@@ -258,7 +262,7 @@ def _compare_named_schemas(
         changes.append(
             ContractChange(
                 "schema-added",
-                Compatibility.ADDITIVE,
+                Compatibility.BREAKING,
                 _join(pointer, name),
                 f"O schema nomeado {name!r} foi adicionado.",
             )
@@ -313,10 +317,8 @@ def _compare_constraints(
 ) -> None:
     increasing_is_stricter = ("minimum", "exclusiveMinimum", "minLength", "minItems")
     decreasing_is_stricter = ("maximum", "exclusiveMaximum", "maxLength", "maxItems")
-    for keyword in increasing_is_stricter:
-        _compare_ordered_constraint(before, after, pointer, keyword, True, changes)
-    for keyword in decreasing_is_stricter:
-        _compare_ordered_constraint(before, after, pointer, keyword, False, changes)
+    for keyword in (*increasing_is_stricter, *decreasing_is_stricter):
+        _compare_ordered_constraint(before, after, pointer, keyword, changes)
 
 
 def _compare_ordered_constraint(
@@ -324,7 +326,6 @@ def _compare_ordered_constraint(
     after: JsonObject,
     pointer: str,
     keyword: str,
-    increasing_is_stricter: bool,
     changes: list[ContractChange],
 ) -> None:
     old = before.get(keyword)
@@ -332,19 +333,14 @@ def _compare_ordered_constraint(
     if old == new:
         return
     location = _join(pointer, keyword)
-    if new is None:
-        compatibility = Compatibility.ADDITIVE
-    elif old is None:
-        compatibility = Compatibility.BREAKING
-    elif isinstance(old, int | float) and isinstance(new, int | float):
-        became_stricter = new > old if increasing_is_stricter else new < old
-        compatibility = Compatibility.BREAKING if became_stricter else Compatibility.ADDITIVE
-    else:
+    if old is not None and new is not None and not (
+        isinstance(old, int | float) and isinstance(new, int | float)
+    ):
         raise SchemaDiffError(f"{location} deve usar restricoes numericas comparaveis")
     changes.append(
         ContractChange(
             "constraint-changed",
-            compatibility,
+            Compatibility.BREAKING,
             location,
             f"A restricao {keyword!r} mudou.",
         )

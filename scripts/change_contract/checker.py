@@ -9,6 +9,7 @@ from typing import Any
 
 from secret_scan import Policy, SourceLine, load_policy, scan_lines
 
+from .classification_policy import classification_diagnostics
 from .diagnostics import Diagnostic, Severity
 from .git import (
     AddedLine,
@@ -20,6 +21,8 @@ from .git import (
 )
 from .merge_gate import CiCoverage, merge_gate_diagnostics
 from .model import ChangeContract
+from .repository_diff import RepositoryDiffError, detect_repository_contract_diffs
+from .schema_diff import ContractDiffReport
 from .vocabulary import ImpactLevel, QuestionStatus
 
 NORMATIVE_PATTERNS = (
@@ -49,6 +52,7 @@ class CheckReport:
     delivery_paths: tuple[str, ...]
     excluded_preexisting: tuple[str, ...]
     untracked: tuple[str, ...]
+    contract_diffs: tuple[ContractDiffReport, ...]
     diagnostics: tuple[Diagnostic, ...]
 
     @property
@@ -76,6 +80,7 @@ class CheckReport:
             "delivery_paths": list(self.delivery_paths),
             "excluded_preexisting": list(self.excluded_preexisting),
             "untracked_not_delivery": list(self.untracked),
+            "contract_diffs": [item.as_dict() for item in self.contract_diffs],
             "summary": {
                 "blockers": len(self.blockers),
                 "warnings": len(self.warnings),
@@ -125,6 +130,10 @@ def check_contract(contract: ChangeContract, snapshot: GitSnapshot) -> CheckRepo
     _check_generated_sources(contract, tuple(sorted(delivery)), diagnostics)
     _check_untracked(snapshot, diagnostics)
     _check_secrets(snapshot.added_lines, diagnostics, snapshot.root)
+    contract_diffs = _contract_diffs(snapshot, diagnostics)
+    diagnostics.extend(
+        classification_diagnostics(contract, contract_diffs, tuple(sorted(delivery)))
+    )
     diagnostics.extend(
         merge_gate_diagnostics(
             contract.merge_gate,
@@ -150,6 +159,7 @@ def check_contract(contract: ChangeContract, snapshot: GitSnapshot) -> CheckRepo
         delivery_paths=tuple(sorted(delivery)),
         excluded_preexisting=tuple(sorted(excluded)),
         untracked=snapshot.untracked,
+        contract_diffs=contract_diffs,
         diagnostics=ordered,
     )
 
@@ -362,6 +372,24 @@ def _secret_policy(root: Path | None) -> Policy:
         return Policy()
     path = root / "secret-scan.toml"
     return load_policy(path) if path.is_file() else Policy()
+
+
+def _contract_diffs(
+    snapshot: GitSnapshot, diagnostics: list[Diagnostic]
+) -> tuple[ContractDiffReport, ...]:
+    try:
+        return detect_repository_contract_diffs(snapshot)
+    except RepositoryDiffError as error:
+        diagnostics.append(
+            Diagnostic(
+                code="compatibility.diff_unavailable",
+                severity=Severity.BLOCKER,
+                message=f"Nao foi possivel comparar superficie contratual: {error}",
+                paths=(error.path,),
+                remediation="Corrija o documento ou parser; comparacao incerta falha fechado.",
+            )
+        )
+        return ()
 
 
 def _ci_coverage(
