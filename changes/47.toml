@@ -90,7 +90,7 @@ resolution = "Não. Ela é parte de uma entrega classificada como feature e as 2
 
 [merge_gate]
 review = "proportional"
-ci_commit = "40bd7e669dce507f88e61e3d287b603f95d5039d"
+ci_commit = "91ba030c5970c928024e1ebf81b96d6c3b7123af"
 
 [merge_gate.spec]
 conclusion = "passed"
@@ -119,6 +119,6 @@ evidence = [
 [merge_gate.ci]
 conclusion = "passed"
 evidence = [
-  "run:local/40bd7e669dce507f88e61e3d287b603f95d5039d",
-  "log:pytest-517-passed-1-skipped.txt",
+  "run:local/91ba030c5970c928024e1ebf81b96d6c3b7123af",
+  "log:pytest-525-passed-1-skipped.txt",
 ]
