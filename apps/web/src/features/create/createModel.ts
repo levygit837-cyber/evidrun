@@ -1,7 +1,27 @@
+import { RefusalError } from "../../api/client";
+import type { TriageErrorCode } from "../../generated/contracts";
+
 export type Step = 1 | 2 | 3 | 4;
 export type AdmissionState = "admitted" | "rejected" | "failed" | "unavailable" | "stale";
 export type DownstreamState = "empty" | "fresh" | "stale";
 export type EvaluationDisclosure = "none" | "pre_run";
+
+/**
+ * The Admission state each named refusal maps to.
+ *
+ * Partial on purpose: only codes the Create corridor can actually surface are listed, and an
+ * unlisted code is handled as `failed` rather than silently gaining a state.
+ */
+export const ADMISSION_STATE_BY_CODE: Partial<Record<TriageErrorCode, AdmissionState>> = {
+  "admit.rejected": "rejected",
+  "admit.run_spec_not_found": "failed",
+  "admit.inventory_not_persistible": "unavailable",
+  "register.storage_unavailable": "unavailable",
+  "decide.human_authority_unavailable": "unavailable",
+  "compile.dependency_not_accepted": "rejected",
+  "compile.revision_not_found": "failed",
+  "enqueue.admission_not_admitted": "rejected",
+};
 
 export interface StudyItem {
   id: string;
@@ -57,13 +77,12 @@ export function resultLink(runId: string): string {
 }
 
 /**
- * Maps a bootstrap rejection onto the Admission state the interface distinguishes. The backend
- * reports the reason inside the message, so matching is done on substrings in both languages.
+ * Map a refusal onto the Admission state the interface distinguishes.
+ *
+ * The code decides; the message is only text for the human. A code this console does not know
+ * falls into `failed`, the declared safe state — never into an optimistic one by omission.
  */
 export function classifyFailure(error: unknown): AdmissionState {
-  const message = error instanceof Error ? error.message.toLowerCase() : "";
-  if (message.includes("rejected") || message.includes("rejeitad")) return "rejected";
-  if (message.includes("unavailable") || message.includes("indispon")) return "unavailable";
-  if (message.includes("stale")) return "stale";
-  return "failed";
+  const code = error instanceof RefusalError ? error.triage?.code : undefined;
+  return code ? (ADMISSION_STATE_BY_CODE[code] ?? "failed") : "failed";
 }

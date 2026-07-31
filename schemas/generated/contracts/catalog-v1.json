@@ -6374,6 +6374,140 @@
       "title": "ToolResultPayload",
       "type": "object"
     },
+    "TriageError": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/TriageErrorCode"
+        },
+        "denied_policies": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Denied Policies",
+          "type": "array"
+        },
+        "field_path": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Field Path",
+          "type": "array"
+        },
+        "issues": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/AdmissionIssue"
+          },
+          "title": "Issues",
+          "type": "array"
+        },
+        "message": {
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "missing_requirements": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Missing Requirements",
+          "type": "array"
+        },
+        "phase": {
+          "$ref": "#/$defs/TriagePhase"
+        },
+        "remediation": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Remediation"
+        },
+        "unresolved_required_capabilities": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/CapabilityDescriptorRef"
+          },
+          "title": "Unresolved Required Capabilities",
+          "type": "array"
+        }
+      },
+      "required": [
+        "phase",
+        "code",
+        "message"
+      ],
+      "title": "TriageError",
+      "type": "object"
+    },
+    "TriageErrorCode": {
+      "enum": [
+        "parse.document_not_object",
+        "parse.contract_type_missing",
+        "parse.contract_type_unknown",
+        "parse.field_undeclared",
+        "parse.revision_invalid",
+        "parse.identifier_empty",
+        "parse.payload_type_invalid",
+        "parse.schema_invalid",
+        "register.project_not_found",
+        "register.revision_not_monotonic",
+        "register.immutability_conflict",
+        "register.initial_status_invalid",
+        "register.storage_unavailable",
+        "decide.human_authority_unavailable",
+        "decide.revision_not_found",
+        "decide.decision_conflict",
+        "decide.repository_fixture_forbidden",
+        "compile.revision_not_found",
+        "compile.revision_not_study",
+        "compile.dependency_not_accepted",
+        "compile.digest_mismatch",
+        "compile.controlled_slots_mismatch",
+        "compile.confounder_missing",
+        "admit.run_spec_not_found",
+        "admit.rejected",
+        "admit.inventory_not_persistible",
+        "enqueue.run_spec_not_found",
+        "enqueue.admission_not_found",
+        "enqueue.admission_not_admitted",
+        "enqueue.admission_run_spec_mismatch",
+        "enqueue.digest_mismatch",
+        "enqueue.idempotency_key_empty",
+        "enqueue.idempotency_conflict",
+        "enqueue.retry_source_succeeded",
+        "enqueue.retry_admission_not_newer",
+        "enqueue.retry_admission_reused",
+        "enqueue.retry_legacy_run"
+      ],
+      "title": "TriageErrorCode",
+      "type": "string"
+    },
+    "TriagePhase": {
+      "enum": [
+        "parse",
+        "register",
+        "decide",
+        "compile",
+        "admit",
+        "enqueue"
+      ],
+      "title": "TriagePhase",
+      "type": "string"
+    },
     "VariantOverrides": {
       "additionalProperties": false,
       "properties": {
@@ -6933,6 +7067,9 @@
     },
     {
       "$ref": "#/$defs/RunTerminalPayload"
+    },
+    {
+      "$ref": "#/$defs/TriageError"
     }
   ]
 }
