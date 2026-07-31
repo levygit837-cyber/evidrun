@@ -18,7 +18,6 @@ from .report import (
     SCHEMA_VERSION,
     DependencyReport,
 )
-from .slices import crosses_conceptual_direction
 from .vocabulary import DependencyState
 
 
@@ -47,21 +46,29 @@ def json_document(report: DependencyReport) -> str:
             }
             for node in report.fan.nodes()
         ],
+        "reexport_surface": [
+            {"module": module, "reexports": count}
+            for module, count in report.reexport_surface
+        ],
         "slice_crossings": [
             {
                 "source": source_slice,
                 "destination": destination_slice,
                 "edges": count,
-                "against_conceptual_direction": crosses_conceptual_direction(
-                    source_slice, destination_slice
-                ),
+                "against_conceptual_direction": against_direction,
             }
-            for source_slice, destination_slice, count in report.slice_crossings
+            for source_slice, destination_slice, count, against_direction in (
+                report.slice_crossings
+            )
         ],
         "external_dependencies": [usage.as_dict() for usage in report.externals],
         "forbidden_edges": [
             {"source": source, "destination": destination}
-            for source, destination in report.forbidden_edges
+            for source, destination in report.forbidden_internal_edges()
+        ],
+        "forbidden_external_edges": [
+            {"source": source, "destination": destination}
+            for source, destination in report.forbidden_external_edges()
         ],
         "drift": report.drift.as_dict(),
         "findings": [finding.as_dict() for finding in report.findings],
@@ -85,6 +92,9 @@ def text_document(report: DependencyReport) -> str:
         "",
     ]
     lines.extend(_findings_section(report))
+    lines.extend(_fan_section(report))
+    lines.extend(_reexport_section(report))
+    lines.extend(_crossings_section(report))
     lines.extend(_externals_section(report))
     lines.extend(_drift_section(report))
     return "\n".join(lines) + "\n"
@@ -96,10 +106,51 @@ def _findings_section(report: DependencyReport) -> list[str]:
     lines = [f"Findings ({len(report.findings)}):"]
     for finding in report.findings:
         subjects = " -> ".join(finding.subjects)
-        lines.append(f"  {finding.state.value.upper()} {finding.code.value}: {subjects}")
+        lines.append(f"  {finding.kind.value.upper()} {finding.code.value}: {subjects}")
         lines.append(f"    {finding.detail}")
     lines.append("")
     return lines
+
+
+def _fan_section(report: DependencyReport) -> list[str]:
+    """Every measured node, not only the ones over a candidate threshold.
+
+    The spec asks for fan-in/fan-out per module in the human report; printing only
+    threshold crossings would hide the distribution the thresholds are meant to be
+    chosen from.
+    """
+    nodes = report.fan.nodes()
+    if not nodes:
+        return []
+    lines = [f"Fan-in/fan-out by module ({len(nodes)}):"]
+    for node in nodes:
+        inbound = report.fan.fan_in.get(node, 0)
+        outbound = report.fan.fan_out.get(node, 0)
+        lines.append(f"  {node} fan_in={inbound} fan_out={outbound}")
+    lines.append("")
+    return lines
+
+
+def _reexport_section(report: DependencyReport) -> list[str]:
+    if not report.reexport_surface:
+        return []
+    lines = [f"Re-export surface by package ({len(report.reexport_surface)}):"]
+    for module, count in report.reexport_surface:
+        lines.append(f"  {module} reexports={count}")
+    lines.append("")
+    return lines
+
+
+def _crossings_section(report: DependencyReport) -> list[str]:
+    if not report.slice_crossings:
+        return []
+    lines = [f"Imports between slices ({len(report.slice_crossings)}):"]
+    for source, destination, count, against in report.slice_crossings:
+        marker = " AGAINST-DIRECTION" if against else ""
+        lines.append(f"  {source} -> {destination} edges={count}{marker}")
+    lines.append("")
+    return lines
+
 
 
 def _externals_section(report: DependencyReport) -> list[str]:

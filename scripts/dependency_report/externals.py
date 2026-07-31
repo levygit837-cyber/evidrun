@@ -8,10 +8,9 @@ from __future__ import annotations
 
 import sys
 from collections import defaultdict
-from collections.abc import Mapping
 from dataclasses import dataclass
 
-from .slices import slice_of
+from .slices import SliceIndex
 
 STDLIB_MODULES = frozenset(sys.stdlib_module_names) | {"__future__"}
 NODE_BUILTIN_PREFIX = "node:"
@@ -61,6 +60,7 @@ def runtime_of(source_path: str) -> str:
 
 def external_usage(
     external_edges: tuple[tuple[str, str], ...],
+    slices: SliceIndex,
 ) -> tuple[ExternalUsage, ...]:
     """Group `(source_path, destination)` pairs into per-slice package usage."""
     counts: defaultdict[tuple[str, str, str], int] = defaultdict(int)
@@ -68,7 +68,7 @@ def external_usage(
         package = package_of(destination)
         if package is None:
             continue
-        counts[(slice_of(source_path), package, runtime_of(source_path))] += 1
+        counts[(slices.slice_of(source_path), package, runtime_of(source_path))] += 1
     return tuple(
         sorted(
             ExternalUsage(
@@ -99,12 +99,3 @@ def unresolved_specifiers(
         )
     )
 
-
-def slices_by_package(
-    usage: tuple[ExternalUsage, ...],
-) -> Mapping[str, tuple[str, ...]]:
-    """Which slices import each package, for the human summary."""
-    grouped: defaultdict[str, set[str]] = defaultdict(set)
-    for item in usage:
-        grouped[item.package].add(item.slice_name)
-    return {package: tuple(sorted(slices)) for package, slices in sorted(grouped.items())}

@@ -14,6 +14,7 @@ from pathlib import Path
 
 from import_graph import RevisionSource, build_graph
 
+from .graph_metrics import partition_edges
 from .vocabulary import ReportError
 
 
@@ -72,11 +73,10 @@ def edge_drift(
         base_graph = build_graph(root, RevisionSource(root, merge_base))
     except (subprocess.CalledProcessError, OSError, SyntaxError, ValueError) as exc:
         raise ReportError(f"cannot read the graph at {merge_base}: {exc}") from exc
-    base_edges = {
-        (edge.source_module, edge.destination)
-        for edge in base_graph.edges
-        if edge.destination in base_graph.internal_destinations()
-    }
+    # Both sides of the diff must use one definition of "internal edge": deriving the
+    # base side inline would let the two drift apart silently.
+    base_internal, _, _ = partition_edges(base_graph)
+    base_edges = set(base_internal)
     return EdgeDrift(
         base_ref=base_ref,
         merge_base=merge_base,

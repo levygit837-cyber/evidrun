@@ -42,16 +42,43 @@ grafo. Não existe segundo grafo nem segunda definição de aresta.
 
 ## Três estados de dependência
 
-Cada aresta interna cai em exatamente um estado, e os três somam `internal_edge_count`:
+Cada aresta **interna** cai em exatamente um estado, e os três somam
+`internal_edge_count`:
 
 - **permitida**: nenhuma regra a proíbe e nenhuma heurística a marca;
-- **proibida**: `scripts/check_import_directions.py` a nomeia. O relatório não tem opinião própria
-  sobre o que é proibido; ele repete o veredito do gate;
+- **proibida**: `scripts/check_import_directions.py` a nomeia, já com as exceções de
+  `import-directions.toml` aplicadas. O relatório não tem opinião própria sobre o que é proibido;
+  ele repete o veredito do gate, inclusive quando uma exceção o absolve;
 - **apenas suspeita**: nenhuma regra a proíbe, mas ambos os extremos estão em um ciclo, ou a aresta
   corre contra a direção conceitual documentada em
   [Layout da codebase](../architecture/codebase-layout.md).
 
 Proibida vence suspeita: o veredito do gate não é suavizado em dica.
+
+Uma regra pode proibir aresta cujo destino está fora do grafo — `PY-CONTRACTS-EXTERNALS` nomeia
+`fastapi`, `TS-RENDERER-NATIVE` nomeia `node:*`. Essas arestas não participam da partição, porque
+não são internas; elas aparecem em `forbidden_external_edges`, ao lado dos três estados. Sem essa
+separação a soma dos três excederia o total interno e deixaria de ser identidade verificável.
+
+`allowed` significa "nenhuma regra proíbe e nenhuma direção documentada é rompida". Não significa
+revisada nem aprovada: para par de fatias sem rank em `LAYER_RANK`, não há ordem documentada a
+romper, então a aresta é permitida por ausência de critério, não por julgamento.
+
+### Fatias com direção documentada
+
+`LAYER_RANK` cobre apenas as fatias que aparecem no fluxo linear de
+[Layout da codebase](../architecture/codebase-layout.md): `shared`, `contracts`, `evidence`, `runs`
+e `entrypoints`.
+
+`authority`, `evaluations`, `security`, `providers`, `experiments`, `contexts`, `subject_runners`,
+`infrastructure` e `evidrun.<root>` ficam fora de propósito. O diagrama não declara ordem para elas,
+e atribuir rank faria o relatório afirmar direção que nenhum documento sustenta. `infrastructure`
+aparece lá como ramo lateral (`\-> infrastructure adapters <-/`), não como passo do fluxo; sua única
+restrição ordenada é a regra bloqueante `PY-INFRASTRUCTURE-RUNS`, que o gate de direção já detém.
+
+Consequência que o leitor precisa conhecer: aresta que toca fatia sem rank nunca é suspeita por
+direção. Ampliar a cobertura exige primeiro documentar a ordem em
+[Layout da codebase](../architecture/codebase-layout.md), não editar `LAYER_RANK`.
 
 ## Eixos medidos
 
@@ -83,10 +110,19 @@ arestas normais. A dependência existe no código-fonte, é resolvida por type c
 refactor, então esconder essa aresta tornaria o grafo otimista. Hoje nenhum módulo de
 `src/evidrun/` usa `TYPE_CHECKING`; a decisão vale para quando passar a usar.
 
-**Imports lazy e dinâmicos.** `importlib.import_module`, `__import__`, `require(variable)` e
-`import(variable)` não produzem aresta. O scanner lê AST e statements estáticos; um alvo montado em
-runtime não é decidível sem executar o módulo. O relatório não afirma ausência dessas arestas, e
-revisão de código continua responsável por elas.
+**Imports lazy e dinâmicos.** O que decide não é ser lazy, é o especificador ser literal ou montado.
+
+`importlib.import_module`, `__import__`, `require(variable)` e `import(variable)` não produzem
+aresta: o alvo não é decidível sem executar o módulo. O relatório não afirma ausência dessas
+arestas, e revisão de código continua responsável por elas.
+
+`import("./literal")` dentro de `lazy()` também não produz aresta, mas por outro motivo: o scanner
+casa `import`/`export ... from "..."`, e essa forma não tem `from`. É lacuna conhecida do scanner,
+não decisão sobre lazy. `apps/web/src/app/router.tsx` carrega três páginas assim, e essas arestas
+não aparecem no grafo mesmo com os alvos versionados.
+
+`import type { Y } from 'x'` tem `from` e produz aresta, mesmo sendo apagado em runtime, conforme a
+regra de imports de tipo acima.
 
 **Código gerado.** Arquivos gerados versionados, como `apps/web/src/generated/contracts.ts`, são nós
 do grafo: quem os importa tem dependência real. Eles não são excluídos da medição, mas um achado
