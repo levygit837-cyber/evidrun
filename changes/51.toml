@@ -98,7 +98,7 @@ resolution = "Não. `docs/architecture/codebase-layout.md` desenha `infrastructu
 
 [merge_gate]
 review = "proportional"
-ci_commit = "0000000"
+ci_commit = "0feafa97131a11b5226ed97ab051e6082bf4dee4"
 
 [merge_gate.spec]
 conclusion = "passed"
