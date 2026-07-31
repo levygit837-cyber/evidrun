@@ -65,6 +65,18 @@ preexisting = []
 patterns = ["docs/_generated/manifest.json", "docs/_generated/claims.json"]
 source_patterns = ["docs/**"]
 
+[[scope.expansions]]
+patterns = [
+  "pyproject.toml",
+  "src/evidrun/evidence/bundle.py",
+  "src/evidrun/infrastructure/providers/openai_responses.py",
+  "src/evidrun/runs/worker.py",
+  "tests/integration/test_register_errors.py",
+  "tests/integration/test_runtime_queue.py",
+  "tests/unit/test_provider.py",
+]
+rationale = "Os boundaries reais de provider, worker e export e seus testes de integração precisam emitir e verificar a policy central, e o scanner precisa entrar no gate de tipos."
+
 [preserve]
 interfaces = [
   "Códigos e categorias de erros observáveis existentes.",

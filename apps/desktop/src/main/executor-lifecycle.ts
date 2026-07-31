@@ -5,6 +5,7 @@ import readline from "node:readline";
 import { app } from "electron";
 import type { ExecutorState } from "../shared/desktop-contract.js";
 import { parseExecutorReadiness } from "./executor-handshake.js";
+import { emitSecureLog } from "./secure-logging.js";
 import { sidecarPath } from "./sidecar-path.js";
 
 /**
@@ -19,16 +20,21 @@ import { sidecarPath } from "./sidecar-path.js";
  * by every other process on the machine. Killing this process is safe by construction:
  * ADR 0014 has an expired lease produce a new attempt on the same Run, never a new Run.
  */
-/** Replace the data dir with a placeholder so diagnostics stay useful without the path. */
-export function redactDataDir(line: string, dataDir: string): string {
-  return dataDir ? line.split(dataDir).join("<data-dir>") : line;
-}
-
 /** Whether the OS process is still running, regardless of signals already sent. */
 function isRunning(child: ChildProcessWithoutNullStreams): boolean {
   // `child.killed` only reports that a signal was delivered, so a process that ignores or
   // is slow to handle SIGTERM still reads as `killed`. Exit is the pair going non-null.
   return child.exitCode === null && child.signalCode === null;
+}
+
+function safeStopFailureMessage(error: unknown): string {
+  const known = new Set([
+    "Não foi possível encerrar o executor com SIGKILL",
+    "Executor não confirmou saída após SIGKILL",
+  ]);
+  return error instanceof Error && known.has(error.message)
+    ? error.message
+    : "Falha ao encerrar executor de Runs";
 }
 
 export class ExecutorLifecycle extends EventEmitter {
@@ -118,7 +124,12 @@ export class ExecutorLifecycle extends EventEmitter {
       this.emitState({ status: "stopped" });
     } catch (error) {
       if (child && isRunning(child)) this.child = child;
-      const message = error instanceof Error ? error.message : String(error);
+      const message = safeStopFailureMessage(error);
+      emitSecureLog("desktop.sidecar.stop_failed", {
+        errorCode: "desktop.worker_stop_failed",
+        error,
+        fields: { process: "worker" },
+      });
       this.emitState({ status: "failed", message });
       throw error;
     } finally {
@@ -183,15 +194,21 @@ export class ExecutorLifecycle extends EventEmitter {
       });
 
       child.stderr.on("data", (chunk: Buffer) => {
-        // A traceback from the worker quotes the paths it failed on, and the data dir is
-        // one of them. Keeping it out of argv would be pointless if the log printed it.
-        const line = redactDataDir(chunk.toString("utf8").trim(), dataDir);
-        if (line) console.error(`[evidrun-worker] ${line}`);
+        if (chunk.length === 0) return;
+        emitSecureLog("desktop.sidecar.stderr", {
+          errorCode: "desktop.worker_stderr",
+          fields: { process: "worker" },
+        });
       });
       child.once("error", (error) => {
         clearTimeout(timeout);
         this.child = null;
-        this.emitState({ status: "failed", message: error.message });
+        emitSecureLog("desktop.sidecar.failed", {
+          errorCode: "desktop.worker_process_error",
+          error,
+          fields: { process: "worker" },
+        });
+        this.emitState({ status: "failed", message: "Falha ao iniciar executor de Runs" });
         reject(error);
       });
       child.once("exit", (code, signal) => {

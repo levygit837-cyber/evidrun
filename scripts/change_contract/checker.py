@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import fnmatch
-import re
 from dataclasses import dataclass
 from enum import StrEnum
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from typing import Any
+
+from secret_scan import Policy, SourceLine, load_policy, scan_lines
 
 from .git import AddedLine, ChangeSource, GitChange, GitSnapshot
 from .model import ChangeContract, ImpactLevel, QuestionStatus
@@ -24,15 +25,6 @@ PERSISTED_CONTRACT_PATTERNS = (
     "schemas/**",
     "src/evidrun/contracts/**",
 )
-SECRET_PATTERNS = (
-    re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
-    re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
-    re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"),
-    re.compile(r"\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b"),
-)
-SAFE_SECRET_MARKERS = ("example", "fake", "dummy", "test-only", "redacted")
-
-
 class Severity(StrEnum):
     BLOCKER = "blocker"
     WARNING = "warning"
@@ -144,7 +136,7 @@ def check_contract(contract: ChangeContract, snapshot: GitSnapshot) -> CheckRepo
             )
     _check_generated_sources(contract, tuple(sorted(delivery)), diagnostics)
     _check_untracked(snapshot, diagnostics)
-    _check_secrets(snapshot.added_lines, diagnostics)
+    _check_secrets(snapshot.added_lines, diagnostics, snapshot.root)
     ordered = tuple(
         sorted(
             _deduplicate(diagnostics),
@@ -180,28 +172,34 @@ def matches(path: str, patterns: tuple[str, ...]) -> bool:
     return False
 
 
-def secret_diagnostics(lines: tuple[AddedLine, ...]) -> tuple[Diagnostic, ...]:
+def secret_diagnostics(
+    lines: tuple[AddedLine, ...], *, root: Path | None = None
+) -> tuple[Diagnostic, ...]:
     """Return high-confidence findings without returning matched secret material."""
 
-    diagnostics: list[Diagnostic] = []
-    for line in lines:
-        lowered = line.content.lower()
-        if any(marker in lowered for marker in SAFE_SECRET_MARKERS):
-            continue
-        if any(pattern.search(line.content) for pattern in SECRET_PATTERNS):
-            diagnostics.append(
-                Diagnostic(
-                    code="security.secret_detected",
-                    severity=Severity.BLOCKER,
-                    message=f"Possivel segredo de alta confianca em {line.path}:{line.line}.",
-                    paths=(line.path,),
-                    remediation=(
-                        "Remova e rotacione a credencial; nao adicione o valor "
-                        "a allowlists."
-                    ),
-                )
+    policy = _secret_policy(root)
+    findings = scan_lines(
+        (
+            SourceLine(path=line.path, line=line.line, content=line.content)
+            for line in lines
+        ),
+        policy,
+    )
+    return tuple(
+        Diagnostic(
+            code="security.secret_detected",
+            severity=Severity.BLOCKER,
+            message=(
+                "Possivel segredo de alta confianca: "
+                f"rule={finding.rule} location={finding.location()}."
+            ),
+            paths=(finding.path,),
+            remediation=(
+                "Remova e rotacione a credencial; nao adicione o valor a allowlists."
             )
-    return tuple(diagnostics)
+        )
+        for finding in findings
+    )
 
 
 def _check_questions(contract: ChangeContract, diagnostics: list[Diagnostic]) -> None:
@@ -357,8 +355,17 @@ def _check_untracked(snapshot: GitSnapshot, diagnostics: list[Diagnostic]) -> No
         )
 
 
-def _check_secrets(lines: tuple[AddedLine, ...], diagnostics: list[Diagnostic]) -> None:
-    diagnostics.extend(secret_diagnostics(lines))
+def _check_secrets(
+    lines: tuple[AddedLine, ...], diagnostics: list[Diagnostic], root: Path
+) -> None:
+    diagnostics.extend(secret_diagnostics(lines, root=root))
+
+
+def _secret_policy(root: Path | None) -> Policy:
+    if root is None:
+        return Policy()
+    path = root / "secret-scan.toml"
+    return load_policy(path) if path.is_file() else Policy()
 
 
 def _relative_contract_path(contract: ChangeContract, snapshot: GitSnapshot) -> str:

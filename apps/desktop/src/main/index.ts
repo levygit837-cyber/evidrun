@@ -15,6 +15,7 @@ import { BackendLifecycle } from "./backend-lifecycle.js";
 import { ExecutorLifecycle } from "./executor-lifecycle.js";
 import { isApprovedExternalUrl, isTrustedRendererUrl } from "./external-links.js";
 import { lockDownPermissions } from "./permissions.js";
+import { emitSecureLog } from "./secure-logging.js";
 import { ShutdownCoordinator } from "./shutdown-coordinator.js";
 import { createMainWindow } from "./windows.js";
 import { BridgeError, bridgeErrorCodes, channels } from "../shared/desktop-contract.js";
@@ -27,7 +28,11 @@ const shutdown = new ShutdownCoordinator({
   stopExecutor: () => executor.stop(),
   stopBackend: () => backend.stop(),
   quit: () => app.quit(),
-  report: (error) => console.error("[evidrun]", error instanceof Error ? error.message : error),
+  report: (error) => emitSecureLog("desktop.shutdown.failed", {
+    errorCode: "desktop.shutdown_failed",
+    error,
+    fields: { process: "main" },
+  }),
 });
 let mainWindow: BrowserWindow | null = null;
 
@@ -58,7 +63,11 @@ async function startExecutor(): Promise<void> {
   try {
     await executor.start(dataDir());
   } catch (error) {
-    console.error("[evidrun-worker]", error instanceof Error ? error.message : error);
+    emitSecureLog("desktop.sidecar.start_failed", {
+      errorCode: "desktop.worker_start_failed",
+      error,
+      fields: { process: "worker" },
+    });
   }
 }
 

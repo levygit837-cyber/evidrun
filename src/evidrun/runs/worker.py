@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from contextlib import suppress
 
 from sqlalchemy.exc import OperationalError
 
 from evidrun.infrastructure.database import LeaseLost, Repository
 from evidrun.runs.coordinator import RunExecutionCoordinator
+from evidrun.security import emit_secure_log
+
+logger = logging.getLogger(__name__)
 
 
 class DurableRunWorker:
@@ -56,13 +60,31 @@ class DurableRunWorker:
                     await execution
                 if isinstance(heartbeat_error, LeaseLost):
                     return True
+                emit_secure_log(
+                    logger,
+                    logging.ERROR,
+                    "worker.attempt.heartbeat_failed",
+                    correlation_id=job.job_id,
+                    error_code="worker.heartbeat_failed",
+                    error=heartbeat_error,
+                    fields={"worker_id": attempt.worker_id},
+                )
                 raise RuntimeError(
                     "worker heartbeat failed; attempt was abandoned for lease expiry"
                 ) from heartbeat_error
             await execution
         except LeaseLost:
             return True
-        except OperationalError:
+        except OperationalError as exc:
+            emit_secure_log(
+                logger,
+                logging.ERROR,
+                "worker.attempt.storage_error",
+                correlation_id=job.job_id,
+                error_code="worker.transient_storage_error",
+                error=exc,
+                fields={"worker_id": attempt.worker_id},
+            )
             try:
                 self.repository.lease.release_lease(
                     job_id=job.job_id,
@@ -81,6 +103,15 @@ class DurableRunWorker:
         except RuntimeError as exc:
             if str(exc).startswith("worker heartbeat failed"):
                 raise
+            emit_secure_log(
+                logger,
+                logging.ERROR,
+                "worker.attempt.runtime_consistency_error",
+                correlation_id=job.job_id,
+                error_code="worker.runtime_consistency_error",
+                error=exc,
+                fields={"worker_id": attempt.worker_id},
+            )
             with suppress(LeaseLost):
                 self.coordinator.reject_attempt(
                     job,
@@ -88,7 +119,16 @@ class DurableRunWorker:
                     reason_code="runtime_consistency_error",
                 )
             return True
-        except Exception:
+        except Exception as exc:
+            emit_secure_log(
+                logger,
+                logging.ERROR,
+                "worker.attempt.runtime_consistency_error",
+                correlation_id=job.job_id,
+                error_code="worker.runtime_consistency_error",
+                error=exc,
+                fields={"worker_id": attempt.worker_id},
+            )
             with suppress(LeaseLost):
                 self.coordinator.reject_attempt(
                     job,

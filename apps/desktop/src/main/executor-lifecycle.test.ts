@@ -61,7 +61,7 @@ const READY_LINE = JSON.stringify({
   worker_id: "host:4321:worker_01",
 });
 
-const { ExecutorLifecycle, redactDataDir } = await import("./executor-lifecycle.js");
+const { ExecutorLifecycle } = await import("./executor-lifecycle.js");
 
 describe("executor lifecycle", () => {
   let lifecycle: InstanceType<typeof ExecutorLifecycle>;
@@ -73,6 +73,7 @@ describe("executor lifecycle", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
   async function startReady(): Promise<FakeChild> {
@@ -170,10 +171,25 @@ describe("executor lifecycle", () => {
     expect(spawned[0]!.exitCode).toBe(0);
   });
 
-  it("keeps the data dir out of the log when the worker tracebacks", () => {
-    const traceback = "FileNotFoundError: '/Users/someone/Library/evidrun/evidrun.db'";
-    expect(redactDataDir(traceback, "/Users/someone/Library/evidrun")).not.toContain("someone");
-    expect(redactDataDir(traceback, "/Users/someone/Library/evidrun")).toContain("<data-dir>");
+  it("does not forward worker stderr or the data dir into desktop logs", async () => {
+    const report = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const secret = "fixture-secret-must-never-be-logged";
+    const dataDir = "/Users/someone/Library/evidrun";
+    const starting = lifecycle.start(dataDir);
+    const child = spawned[0]!;
+
+    child.stderr.emit(
+      "data",
+      Buffer.from(`Authorization: Bearer ${secret} at ${dataDir}/evidrun.db`),
+    );
+    child.ready();
+    await starting;
+
+    const serialized = String(report.mock.calls[0]?.[0]);
+    expect(serialized).toContain('"event_code":"desktop.sidecar.stderr"');
+    expect(serialized).toContain('"process":"worker"');
+    expect(serialized).not.toContain(secret);
+    expect(serialized).not.toContain("someone");
   });
 
   it("does not accumulate processes across repeated restarts", async () => {

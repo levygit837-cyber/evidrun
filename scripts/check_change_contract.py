@@ -20,6 +20,7 @@ from change_contract import (
     load_contract,
     secret_diagnostics,
 )
+from secret_scan import PolicyError
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -58,7 +59,7 @@ def main(argv: list[str] | None = None) -> int:
                 return 1
             return 0
         return _discover(root, args.base_ref or "origin/main", args.format, args.strict_warnings)
-    except (ContractError, GitError) as error:
+    except (ContractError, GitError, PolicyError) as error:
         details = list(error.errors) if isinstance(error, ContractError) else [str(error)]
         return _configuration_error(args.format, *details)
 
@@ -77,7 +78,9 @@ def _discover(root: Path, base_ref: str, output_format: str, strict: bool) -> in
             + ", ".join(candidates),
         )
     if not candidates:
-        diagnostics: list[Diagnostic] = list(secret_diagnostics(snapshot.added_lines))
+        diagnostics: list[Diagnostic] = list(
+            secret_diagnostics(snapshot.added_lines, root=root)
+        )
         delivery = tuple(path for path in snapshot.changed_paths if not path.startswith("changes/"))
         if delivery:
             diagnostics.append(

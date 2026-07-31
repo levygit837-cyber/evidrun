@@ -395,6 +395,10 @@ def test_cli_json_uses_exit_codes_for_warning_blocker_and_configuration(
     assert check_change_contract.main(
         ["--root", str(repository), "--contract", "changes/bad.toml"]
     ) == 2
+    write(repository, "secret-scan.toml", 'schema_version = "unknown"\n')
+    assert check_change_contract.main(
+        ["--root", str(repository), "--contract", str(contract_path)]
+    ) == 2
 
 
 def test_cli_discovers_the_single_contract_in_delivery(repository: Path) -> None:

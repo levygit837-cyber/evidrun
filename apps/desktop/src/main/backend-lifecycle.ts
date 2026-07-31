@@ -6,6 +6,7 @@ import readline from "node:readline";
 import { app } from "electron";
 import type { BackendConnection, BackendState } from "../shared/desktop-contract.js";
 import { parseReadiness } from "./desktop-handshake.js";
+import { emitSecureLog } from "./secure-logging.js";
 import { sidecarPath } from "./sidecar-path.js";
 
 export class BackendLifecycle extends EventEmitter {
@@ -118,13 +119,23 @@ export class BackendLifecycle extends EventEmitter {
       });
 
       child.stderr.on("data", (chunk: Buffer) => {
-        const line = chunk.toString("utf8").trim();
-        if (line) console.error(`[evidrun-backend] ${line}`);
+        if (chunk.length === 0) return;
+        emitSecureLog("desktop.sidecar.stderr", {
+          correlationId: instanceId,
+          errorCode: "desktop.backend_stderr",
+          fields: { process: "backend" },
+        });
       });
       child.once("error", (error) => {
         clearTimeout(timeout);
         this.connection = null;
-        this.emitState({ status: "failed", message: error.message });
+        emitSecureLog("desktop.sidecar.failed", {
+          correlationId: instanceId,
+          errorCode: "desktop.backend_process_error",
+          error,
+          fields: { process: "backend" },
+        });
+        this.emitState({ status: "failed", message: "Falha ao iniciar backend local" });
         reject(error);
       });
       child.once("exit", (code, signal) => {

@@ -113,6 +113,7 @@ def test_function_calls_response_id_and_usage_are_normalized() -> None:
 @pytest.mark.asyncio
 async def test_provider_error_exposes_only_sanitized_code(
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     monkeypatch.setenv("EVIDRUN_PROVIDER_API_KEY", "test-secret")
 
@@ -137,3 +138,13 @@ async def test_provider_error_exposes_only_sanitized_code(
             await provider.invoke({"input": "hello"})
     assert captured.value.code == "http_400_invalid_value_tool_choice"
     assert "credential" not in str(captured.value)
+    logs = "\n".join(
+        record.getMessage()
+        for record in caplog.records
+        if record.name == "evidrun.infrastructure.providers.openai_responses"
+    )
+    assert "provider.http_error" in logs
+    assert "http_400_invalid_value_tool_choice" in logs
+    assert "cliproxyapi-local" in logs
+    assert "must-not-be-propagated" not in logs
+    assert "test-secret" not in logs
