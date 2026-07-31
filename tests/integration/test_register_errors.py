@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -156,20 +155,20 @@ def _assert_safe_error(serialized: str, *case_values: str) -> None:
         assert marker.casefold() not in folded
 
 
+def _registry_logs(caplog: pytest.LogCaptureFixture) -> str:
+    return "\n".join(
+        record.getMessage()
+        for record in caplog.records
+        if record.name == registry_module.logger.name
+    )
+
+
 @pytest.mark.parametrize("case", REGISTER_ERROR_CASES, ids=lambda case: case.name)
 def test_register_error_matrix_is_shared_by_api_and_cli(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
     case: RegisterErrorCase,
 ) -> None:
-    logged_exceptions: list[BaseException | None] = []
-
-    def capture_infrastructure_exception(*_: object, **__: object) -> None:
-        logged_exceptions.append(sys.exception())
-
-    monkeypatch.setattr(
-        registry_module.logger, "exception", capture_infrastructure_exception
-    )
     data_dir = tmp_path / "data"
     document = _prepare_case(data_dir, case)
     document_path = tmp_path / "goal.yaml"
@@ -199,8 +198,10 @@ def test_register_error_matrix_is_shared_by_api_and_cli(
     _assert_safe_error(response.text, project_id)
     _assert_safe_error(cli_result.stdout, project_id)
     if not case.project_exists:
-        assert logged_exceptions
-        assert all(isinstance(exc, IntegrityError) for exc in logged_exceptions)
+        logs = _registry_logs(caplog)
+        _assert_safe_error(logs, project_id)
+        assert "contract.revision.registration_failed" in logs
+        assert "IntegrityError" in logs
 
 
 def test_identical_revision_is_idempotent_across_api_and_cli(tmp_path: Path) -> None:
@@ -232,7 +233,7 @@ def test_identical_revision_is_idempotent_across_api_and_cli(tmp_path: Path) -> 
 
 
 def test_unclassified_integrity_error_is_logged_and_translated_safely(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     database = Database(tmp_path / "evidrun.db")
     database.create_all()
@@ -240,11 +241,6 @@ def test_unclassified_integrity_error_is_logged_and_translated_safely(
     workspace = repository.catalog.create_workspace("Register workspace")
     project = repository.catalog.create_project(workspace.id, "Register project")
     revision = GoalRevision.model_validate(_goal_document(project_id=project.id))
-    logged_exceptions: list[BaseException | None] = []
-
-    def capture_infrastructure_exception(*_: object, **__: object) -> None:
-        logged_exceptions.append(sys.exception())
-
     def reject_revision_insert(
         _connection: object,
         _cursor: object,
@@ -261,9 +257,6 @@ def test_unclassified_integrity_error_is_logged_and_translated_safely(
             RuntimeError("sqlite secret driver failure"),
         )
 
-    monkeypatch.setattr(
-        registry_module.logger, "exception", capture_infrastructure_exception
-    )
     event.listen(database.raw_engine, "before_cursor_execute", reject_revision_insert)
     try:
         with pytest.raises(RegisterStorageUnavailable) as raised:
@@ -273,8 +266,10 @@ def test_unclassified_integrity_error_is_logged_and_translated_safely(
         database.dispose()
 
     _assert_safe_error(str(raised.value), project.id)
-    assert len(logged_exceptions) == 1
-    assert isinstance(logged_exceptions[0], IntegrityError)
+    logs = _registry_logs(caplog)
+    _assert_safe_error(logs, project.id)
+    assert "contract.revision.registration_failed" in logs
+    assert "IntegrityError" in logs
 
 
 def test_validate_preserves_its_status_enum_and_rejects_unknown_status(
@@ -296,7 +291,7 @@ def test_validate_preserves_its_status_enum_and_rejects_unknown_status(
 
 
 def test_operational_storage_error_is_logged_and_translated_safely(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     database = Database(tmp_path / "evidrun.db")
     database.create_all()
@@ -304,11 +299,6 @@ def test_operational_storage_error_is_logged_and_translated_safely(
     workspace = repository.catalog.create_workspace("Register workspace")
     project = repository.catalog.create_project(workspace.id, "Register project")
     revision = GoalRevision.model_validate(_goal_document(project_id=project.id))
-    logged_exceptions: list[BaseException | None] = []
-
-    def capture_infrastructure_exception(*_: object, **__: object) -> None:
-        logged_exceptions.append(sys.exception())
-
     def reject_transaction(
         _connection: object,
         _cursor: object,
@@ -325,9 +315,6 @@ def test_operational_storage_error_is_logged_and_translated_safely(
             RuntimeError("sqlite secret operational failure"),
         )
 
-    monkeypatch.setattr(
-        registry_module.logger, "exception", capture_infrastructure_exception
-    )
     event.listen(database.raw_engine, "before_cursor_execute", reject_transaction)
     try:
         with pytest.raises(RegisterStorageUnavailable) as raised:
@@ -337,8 +324,10 @@ def test_operational_storage_error_is_logged_and_translated_safely(
         database.dispose()
 
     _assert_safe_error(str(raised.value), project.id)
-    assert len(logged_exceptions) == 1
-    assert isinstance(logged_exceptions[0], OperationalError)
+    logs = _registry_logs(caplog)
+    _assert_safe_error(logs, project.id)
+    assert "contract.revision.storage_unavailable" in logs
+    assert "OperationalError" in logs
 
 
 def test_storage_unavailable_is_sanitized_by_api_and_cli(

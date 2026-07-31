@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 from collections.abc import Mapping
 from typing import Any, cast
@@ -9,6 +10,10 @@ from pydantic import BaseModel, ConfigDict, TypeAdapter
 
 from evidrun.infrastructure.providers.credentials import ProviderCredentialStore
 from evidrun.providers import ProviderProfile
+from evidrun.security import emit_secure_log
+from evidrun.shared.types import new_id
+
+logger = logging.getLogger(__name__)
 
 
 class ProviderRequestError(RuntimeError):
@@ -111,6 +116,7 @@ class OpenAIResponsesProvider:
     async def _request(
         self, method: str, path: str, *, json: Mapping[str, Any] | None = None
     ) -> Mapping[str, Any]:
+        correlation_id = new_id("provider_request")
         api_key = self.credentials.require(self.profile)
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
         owns_client = self.client is None
@@ -142,7 +148,7 @@ class OpenAIResponsesProvider:
                             if provider_code is not None
                             else parameter
                         )
-                raise ProviderRequestError(
+                error = ProviderRequestError(
                     f"{self.profile.id} returned HTTP {response.status_code}",
                     code=(
                         f"http_{response.status_code}_{provider_code}"
@@ -150,19 +156,52 @@ class OpenAIResponsesProvider:
                         else f"http_{response.status_code}"
                     ),
                 )
+                emit_secure_log(
+                    logger,
+                    logging.ERROR,
+                    "provider.http_error",
+                    correlation_id=correlation_id,
+                    error_code=error.code,
+                    error=error,
+                    fields={
+                        "provider_id": self.profile.id,
+                        "status_code": response.status_code,
+                    },
+                )
+                raise error
             try:
                 payload = _json_object.validate_python(response.json())
             except ValueError:
-                raise ProviderRequestError(
+                error = ProviderRequestError(
                     "Provider returned a non-object JSON response",
                     code="invalid_response_shape",
-                ) from None
+                )
+                emit_secure_log(
+                    logger,
+                    logging.ERROR,
+                    "provider.invalid_response",
+                    correlation_id=correlation_id,
+                    error_code=error.code,
+                    error=error,
+                    fields={"provider_id": self.profile.id},
+                )
+                raise error from None
             return payload
         except httpx.HTTPError as exc:
-            raise ProviderRequestError(
+            error = ProviderRequestError(
                 f"Could not reach {self.profile.id}",
                 code="transport_error",
-            ) from exc
+            )
+            emit_secure_log(
+                logger,
+                logging.ERROR,
+                "provider.transport_error",
+                correlation_id=correlation_id,
+                error_code=error.code,
+                error=exc,
+                fields={"provider_id": self.profile.id},
+            )
+            raise error from exc
         finally:
             if owns_client:
                 await client.aclose()

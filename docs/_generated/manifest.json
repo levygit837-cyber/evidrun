@@ -782,6 +782,18 @@
       "review_due": null
     },
     {
+      "id": "operations-security-incident-response",
+      "path": "docs/operations/security-incident-response.md",
+      "type": "operations",
+      "title": "Resposta a incidente de credencial",
+      "status": "implemented",
+      "authority": "normative",
+      "volatility": "current",
+      "owner": "security",
+      "updated_at": "2026-07-31",
+      "review_due": null
+    },
+    {
       "id": "planning-index",
       "path": "docs/planning/README.md",
       "type": "planning",
@@ -1223,6 +1235,18 @@
       "volatility": "current",
       "owner": "desktop",
       "updated_at": "2026-07-22",
+      "review_due": null
+    },
+    {
+      "id": "security-logging-redaction",
+      "path": "docs/security/logging-and-redaction.md",
+      "type": "security",
+      "title": "Logging estruturado e redaction",
+      "status": "implemented",
+      "authority": "normative",
+      "volatility": "timeless",
+      "owner": "security",
+      "updated_at": "2026-07-31",
       "review_due": null
     },
     {

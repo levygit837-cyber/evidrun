@@ -1,0 +1,133 @@
+schema_version = "1"
+change_id = "GH-52"
+issue = 52
+title = "Detecção de secrets, redaction e logging seguro"
+classification = "feature"
+base_ref = "origin/main"
+branch_pattern = "feat/issue-52-*"
+expected_outcome = "Secrets evidentes bloqueiam pre-merge e toda emissão operacional usa campos permitidos e redaction centralizada sem perder códigos ou correlation IDs."
+confirmed_facts = [
+  "O threat model já identifica segredo em log, trace ou bundle como ameaça prioritária.",
+  "O runtime ativo rejeita inputs sensitive e restricted antes da materialização.",
+  "O único logging Python explícito usa logger.exception no registry e pode incluir texto bruto de exceção.",
+  "O desktop encaminha stderr bruto do backend e redige apenas o data_dir do worker.",
+  "A #50 adicionou detecção mínima somente sobre linhas do diff; a #52 deve substituí-la por scanner offline revisável.",
+]
+stop_conditions = [
+  "A solução exigir persistir o valor encontrado para explicar um finding.",
+  "A política precisar materializar prompt, envelope sensitive/restricted ou ambiente completo para debug.",
+  "Uma mudança atribuir autoridade humana com base em actor, username ou campo de log.",
+  "A implementação exigir alterar decisão aceita em ADR existente em vez de criar sucessor.",
+]
+
+[impact]
+capability = "additive"
+persisted_contract = "none"
+normative = "additive"
+notes = [
+  "A capability é um guardrail de desenvolvimento e observabilidade; não amplia o runtime do Subject Agent.",
+  "A política normativa documenta allowlist e redaction sem alterar contratos persistidos ou authority humana.",
+]
+
+[scope]
+expected = [
+  ".github/workflows/ci.yml",
+  "changes/52.toml",
+  "docs/_generated/claims.json",
+  "docs/_generated/manifest.json",
+  "docs/operations/security-incident-response.md",
+  "docs/security/logging-and-redaction.md",
+  "scripts/check_change_contract.py",
+  "scripts/check_secrets.py",
+  "scripts/change_contract/**",
+  "scripts/hooks/pre-push",
+  "scripts/secret_scan/**",
+  "secret-scan.toml",
+  "src/evidrun/security/**",
+  "src/evidrun/infrastructure/database/registry.py",
+  "apps/desktop/src/main/**",
+  "tests/security/**",
+  "tests/unit/test_change_contract.py",
+]
+forbidden = [
+  "AGENTS.md",
+  "CONTEXT.md",
+  "alembic/**",
+  "docs/adr/**",
+  "docs/contracts/**",
+  "schemas/**",
+  "src/evidrun/contracts/**",
+  "src/evidrun/infrastructure/database/models.py",
+]
+preexisting = []
+
+[[scope.generated]]
+patterns = ["docs/_generated/manifest.json", "docs/_generated/claims.json"]
+source_patterns = ["docs/**"]
+
+[[scope.expansions]]
+patterns = [
+  "pyproject.toml",
+  "src/evidrun/evidence/bundle.py",
+  "src/evidrun/infrastructure/providers/openai_responses.py",
+  "src/evidrun/runs/worker.py",
+  "tests/integration/test_register_errors.py",
+  "tests/integration/test_runtime_queue.py",
+  "tests/unit/test_provider.py",
+]
+rationale = "Os boundaries reais de provider, worker e export e seus testes de integração precisam emitir e verificar a policy central, e o scanner precisa entrar no gate de tipos."
+
+[preserve]
+interfaces = [
+  "Códigos e categorias de erros observáveis existentes.",
+  "Formato dos handshakes e estados publicados pelo desktop.",
+  "Conteúdo e checksums dos Evidence Bundles quando nenhum segredo é detectado.",
+]
+errors = [
+  "Falhas continuam úteis por código estável, error type e correlation ID, nunca pelo payload bruto.",
+  "Scanner usa diagnóstico com regra e posição, sem incluir o valor encontrado.",
+]
+invariants = [
+  "API keys permanecem apenas no Keychain ou em ambiente efêmero e nunca entram em logs.",
+  "Authorization, cookies, ambiente completo, prompts e envelopes classificados não são campos permitidos.",
+  "Sensitive e restricted continuam rejeitados pelo runtime ativo e não são materializados para debug.",
+  "Actor declarado nunca é tratado como prova de autoridade humana.",
+  "Scanner e redaction funcionam offline sobre fixtures determinísticas.",
+]
+
+[verification]
+focused = [
+  "uv run pytest tests/security tests/unit/test_change_contract.py",
+  "pnpm test:desktop",
+  "uv run python scripts/check_secrets.py",
+  "uv run python scripts/check_change_contract.py --contract changes/52.toml",
+]
+full_gates = [
+  "uv run pytest",
+  "uv run ruff check .",
+  "uv run python scripts/check_code_budget.py",
+  "uv run pyright",
+  "pnpm typecheck:web",
+  "pnpm typecheck:desktop",
+  "pnpm test",
+  "pnpm build",
+  "uv run python scripts/validate_docs.py",
+]
+
+[[questions]]
+text = "O scanner deve analisar somente o diff ou todos os arquivos rastreados?"
+affects_semantics = true
+status = "resolved"
+resolution = "CI e pre-push analisam todos os arquivos rastreados; o checker da mudança reutiliza o mesmo detector sobre linhas adicionadas."
+
+[[questions]]
+text = "Como manter logs úteis sem serializar exceções potencialmente sensíveis?"
+affects_semantics = true
+status = "resolved"
+resolution = "A interface aceita código estável, correlation ID e campos allowlisted; exceções contribuem apenas error type e código seguro, nunca repr, args ou traceback bruto."
+
+[[questions]]
+text = "Python e Electron devem compartilhar a mesma implementação de redaction?"
+affects_semantics = true
+status = "resolved"
+resolution = "Não atravessam runtimes. Compartilham o contrato normativo e fixtures equivalentes; cada runtime expõe uma interface pequena no seu seam de emissão."

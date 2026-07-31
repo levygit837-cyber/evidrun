@@ -1,7 +1,8 @@
 import path from "node:path";
 import { BrowserWindow } from "electron";
+import { emitSecureLog } from "./secure-logging.js";
 
-export function createMainWindow(preloadPath: string): BrowserWindow {
+export function createMainWindow(preloadPath: string, correlationId: string): BrowserWindow {
   const window = new BrowserWindow({
     width: 1440,
     height: 940,
@@ -25,10 +26,12 @@ export function createMainWindow(preloadPath: string): BrowserWindow {
   window.webContents.once("did-finish-load", () => {
     if (!window.isVisible()) window.show();
   });
-  window.webContents.on("did-fail-load", (_event, errorCode, errorDescription, validatedUrl) => {
-    console.error(
-      `[evidrun-renderer] Failed to load ${validatedUrl}: ${errorCode} ${errorDescription}`,
-    );
+  window.webContents.on("did-fail-load", (_event, errorCode) => {
+    emitSecureLog("desktop.renderer.load_failed", {
+      correlationId,
+      errorCode: "desktop.renderer_load_failed",
+      fields: { process: "renderer", status_code: errorCode },
+    });
   });
   return window;
 }

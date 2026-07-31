@@ -62,6 +62,12 @@ known-third-party = ["alembic", "sqlalchemy"]
 [tool.pyright]
 pythonVersion = "3.14"
 typeCheckingMode = "strict"
-include = ["src", "scripts/change_contract", "scripts/check_change_contract.py"]
+include = [
+  "src",
+  "scripts/change_contract",
+  "scripts/secret_scan",
+  "scripts/check_change_contract.py",
+  "scripts/check_secrets.py",
+]
 exclude = [".venv"]
 reportUnusedFunction = false

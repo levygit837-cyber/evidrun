@@ -512,8 +512,9 @@ def test_runner_exception_is_sanitized_and_adapter_mismatch_is_rejected(
 
 
 def test_artifact_removed_after_admission_fails_closed_and_rejects_job(
-    tmp_path: Path,
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
+    caplog.set_level("INFO")
     fixture = _runtime_fixture(tmp_path)
     kernel = build_runtime_kernel(fixture.repository, fixture.settings.artifacts_dir)
     spec = fixture.repository.read_model.get_run_spec(fixture.spec_id)
@@ -526,23 +527,24 @@ def test_artifact_removed_after_admission_fails_closed_and_rejects_job(
         idempotency_key="artifact-disappeared",
     )
     worker = DurableRunWorker(
-        fixture.repository,
-        kernel.coordinator,
-        worker_id="artifact-failure-worker",
+        fixture.repository, kernel.coordinator, worker_id="artifact-failure-worker"
     )
     assert asyncio.run(worker.process_once(job_id=job.job_id)) is True
     assert fixture.repository.read_model.get_run(run_id).status == "failed"
     execution = fixture.repository.lease.get_run_execution(run_id)
     assert execution is not None
-    assert execution[0].status == "rejected"
-    assert execution[1][0].status == "rejected"
+    assert (execution[0].status, execution[1][0].status) == ("rejected", "rejected")
+    assert all(
+        value in caplog.text for value in ("worker.attempt.runtime_consistency_error", job.job_id)
+    )
     assert "Runtime execution could not be completed safely" in str(
         fixture.repository.read_model.get_run_events(run_id)[-1]
     )
-    failed_bundle = tmp_path / "preparation-failure-v3.zip"
-    bundle_service = EvidenceBundleService(fixture.repository)
-    bundle_service.export_run_v4(run_id, failed_bundle)
-    verification = bundle_service.verify(failed_bundle)
+    failed_bundle = tmp_path / "fixture-secret-must-never-be-logged.evidrun.zip"
+    EvidenceBundleService(fixture.repository).export_run_v4(run_id, failed_bundle)
+    assert all(value in caplog.text for value in ("bundle.export.completed", run_id))
+    assert "fixture-secret-must-never-be-logged" not in caplog.text
+    verification = EvidenceBundleService(fixture.repository).verify(failed_bundle)
     assert verification["valid"] is True, json.dumps(verification, indent=2)
     assert verification["records"]["__subject_envelope_absence__"] is True
     fixture.database.dispose()
