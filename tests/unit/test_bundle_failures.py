@@ -152,6 +152,25 @@ def test_the_refusal_exception_stays_catchable_as_value_error() -> None:
     assert captured.value.failure.category is BundleVerificationCategory.INTEGRITY
 
 
+def test_a_refusal_projects_the_same_shape_a_completed_verification_returns() -> None:
+    refused = BundleVerificationRefused(
+        BundleVerificationFailure(BundleVerificationCode.CHECKSUMS_ABSENT)
+    )
+
+    # A border prints this instead of a generic message, so a caller reads `valid` and
+    # `failures` identically whether verification completed or refused outright.
+    assert refused.document() == {
+        "valid": False,
+        "failures": [
+            {
+                "code": "bundle.checksums_absent",
+                "category": "integrity",
+                "subject": None,
+            }
+        ],
+    }
+
+
 def test_adding_a_code_without_a_category_fails_the_table_check(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

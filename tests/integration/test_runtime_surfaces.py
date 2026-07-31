@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import zipfile
 from datetime import timedelta
 from pathlib import Path
 
@@ -134,6 +135,28 @@ def test_run_cli_enqueue_inspect_export_and_verify(tmp_path: Path) -> None:
     verified = runner.invoke(cli_app, ["bundle", "verify", str(target)])
     assert verified.exit_code == 0, verified.output
     assert json.loads(verified.stdout)["valid"] is True
+
+    # A bundle that cannot be verified at all used to reach the generic handler and print
+    # "Falha inesperada" with no JSON, so a caller could not classify it. It is an invalid
+    # bundle, not a defect: same shape, same exit code, named cause.
+    unverifiable = tmp_path / "cli-run-no-checksums.evidrun.zip"
+    with zipfile.ZipFile(target) as archive:
+        members = {
+            name: archive.read(name)
+            for name in archive.namelist()
+            if name != "checksums.json"
+        }
+    with zipfile.ZipFile(unverifiable, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for name, content in members.items():
+            archive.writestr(name, content)
+    refused = runner.invoke(cli_app, ["bundle", "verify", str(unverifiable)])
+    assert refused.exit_code == 1, refused.output
+    assert "Falha inesperada" not in refused.output
+    assert "Traceback" not in refused.output
+    refusal = json.loads(refused.stdout)
+    assert refusal["valid"] is False
+    assert [item["code"] for item in refusal["failures"]] == ["bundle.checksums_absent"]
+    assert refusal["failures"][0]["category"] == "integrity"
 
 
 def test_api_and_cli_agree_on_enqueue_refusals_by_stable_code(tmp_path: Path) -> None:

@@ -1,0 +1,76 @@
+schema_version = "1"
+change_id = "GH-109"
+issue = 109
+title = "bundle verify projeta a recusa nomeada em vez de falha genérica"
+classification = "behavior-compatible"
+base_ref = "origin/main"
+branch_pattern = "fix/issue-109-cli-bundle-refusal"
+expected_outcome = "`bundle verify` num bundle sem `checksums.json` imprime JSON com `valid: false` e `failures[0].code == \"bundle.checksums_absent\"`, sem `Falha inesperada` nem traceback, mantendo exit code 1."
+confirmed_facts = [
+  "Descoberto por smoke test da CLI real depois de #46 aterrissar: a saída era `Falha inesperada: bundle.checksums_absent` sem JSON algum.",
+  "`verify()` levanta `BundleVerificationRefused` quando `checksums.json` está ausente; o comando não tratava a exceção e ela chegava ao handler genérico de `main()`.",
+  "`bundle verify` é a única borda pública que consome `verify()`, verificado em src/evidrun, apps/desktop/src e apps/web/src.",
+]
+stop_conditions = [
+  "Exigir exit code próprio para recusa total: seria mudança observável numa superfície existente e precisa de decisão antes.",
+]
+
+[impact]
+capability = "none"
+persisted_contract = "additive"
+normative = "additive"
+notes = [
+  "Exit code permanece 1: um bundle que não pode ser verificado já era um bundle inválido, então nenhum caller que checa status muda.",
+  "`document()` é método novo em `BundleVerificationRefused`; nada existente é alterado.",
+  "`docs/contracts/observable-errors.md` ganha uma subseção; o catálogo já existia e nenhuma tabela muda.",
+]
+
+[scope]
+expected = [
+  "src/evidrun/entrypoints/cli/commands/runs.py",
+  "src/evidrun/evidence/verify/failures.py",
+  "tests/integration/test_runtime_surfaces.py",
+  "tests/unit/test_bundle_failures.py",
+  "docs/contracts/observable-errors.md",
+]
+forbidden = ["docs/adr/**"]
+preexisting = []
+
+[[scope.generated]]
+patterns = ["docs/_generated/**"]
+source_patterns = ["docs/**/*.md"]
+
+[preserve]
+interfaces = [
+  "`verify()` mantém a assinatura e todas as chaves do retorno.",
+  "`bundle verify` mantém exit 0 para bundle válido e exit 1 para inválido.",
+]
+errors = [
+  "Nenhum código, categoria, status HTTP ou exit code existente muda.",
+  "`BundleVerificationRefused` continua derivando de `ValueError`.",
+]
+invariants = [
+  "Verificação de bundle continua exigindo os três eixos; projetar a recusa não afrouxa nenhum deles.",
+]
+
+[verification]
+focused = [
+  "uv run pytest tests/integration/test_runtime_surfaces.py tests/unit/test_bundle_failures.py",
+]
+full_gates = [
+  "uv run pytest",
+  "uv run ruff check .",
+  "uv run python scripts/check_code_budget.py",
+  "uv run pyright",
+  "pnpm typecheck:web",
+  "pnpm typecheck:desktop",
+  "pnpm test",
+  "pnpm build",
+  "uv run python scripts/validate_docs.py",
+]
+
+[[questions]]
+text = "O teste novo realmente defende a correção ou passa de qualquer forma?"
+affects_semantics = true
+status = "resolved"
+resolution = "Defende. Restaurar o corpo pré-correção do comando derruba `test_run_cli_enqueue_inspect_export_and_verify`; restaurar a correção volta a 5 passed."

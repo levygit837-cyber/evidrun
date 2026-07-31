@@ -11,6 +11,7 @@ from evidrun.contracts.admission import admission_rejection_error
 from evidrun.contracts.triage import CLI_EXIT_BY_CODE, TriageRejected
 from evidrun.entrypoints.cli.shared import components, console
 from evidrun.evidence.bundle import EvidenceBundleService
+from evidrun.evidence.verify.failures import BundleVerificationRefused
 from evidrun.infrastructure.database import Database, Repository
 from evidrun.infrastructure.database.ledger.transitions import RETRYABLE_RUN_STATUSES
 from evidrun.infrastructure.database.queue.enqueue_errors import (
@@ -194,8 +195,15 @@ def verify_bundle(path: Path) -> None:
     # observable `--help` surface.
     settings = Settings.load(Path("/tmp/evidrun-bundle-verify"))
     database = Database(settings.database_path)
-    result = EvidenceBundleService(Repository(database)).verify(path)
-    database.dispose()
+    try:
+        result = EvidenceBundleService(Repository(database)).verify(path)
+    except BundleVerificationRefused as exc:
+        # A bundle that cannot be verified at all is still an invalid bundle, not an
+        # unexpected defect: print the named refusal in the same shape and keep exit 1.
+        console.print_json(data=exc.document())
+        raise typer.Exit(1) from exc
+    finally:
+        database.dispose()
     console.print_json(data=result)
     if not result["valid"]:
         raise typer.Exit(1)
