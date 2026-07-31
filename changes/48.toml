@@ -76,3 +76,39 @@ full_gates = [
   "pnpm build",
   "uv run python scripts/validate_docs.py",
 ]
+
+[merge_gate]
+review = "proportional"
+ci_commit = "381bfa8f5a520ef94f3e90807b4d4b3637ebb9c0"
+
+[merge_gate.spec]
+conclusion = "passed"
+evidence = [
+  "test:tests/unit/test_resource_budget.py::test_crl_fixture_and_bundle_use_the_real_runtime",
+  "test:tests/unit/test_resource_budget.py::test_noisy_timing_is_inconclusive_instead_of_a_regression",
+  "test:tests/unit/test_resource_budget.py::test_raised_blocking_limit_requires_a_reviewable_adjustment",
+  "log:resource-python-13-ok.txt",
+  "log:resource-build-6-ok.txt",
+]
+
+[merge_gate.standards]
+conclusion = "passed"
+evidence = [
+  "diff:scripts/resource_budget/policy.py",
+  "diff:docs/governance/resource-budgets.md",
+  "diff:resource-budget.toml",
+  "log:check-code-budget-0-violations.txt",
+]
+
+[merge_gate.verification]
+conclusion = "passed"
+evidence = [
+  "test:602-passed-1-live-skipped",
+  "test:pnpm-135-passed",
+  "test:tests/unit/test_resource_budget.py",
+  "log:build-output-byte-identical-two-runs.txt",
+]
+
+[merge_gate.ci]
+conclusion = "passed"
+evidence = ["run:local/full-gates@381bfa8f5a520ef94f3e90807b4d4b3637ebb9c0"]
