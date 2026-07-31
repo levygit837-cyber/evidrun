@@ -1,0 +1,78 @@
+schema_version = "1"
+change_id = "GH-48"
+issue = 48
+title = "Medir budgets de performance e recursos antes de bloquear"
+classification = "feature"
+base_ref = "origin/main"
+branch_pattern = "agent/issue-48-resource-budgets"
+expected_outcome = "Cenários reais e reproduzíveis medem duração, pico RSS, tamanhos e contagens; ruído e indisponibilidade são explícitos, enquanto somente limites determinísticos acordados bloqueiam."
+confirmed_facts = [
+  "O CRL-CTX-002 executa offline pelo Runtime Kernel e produz duas Runs, uma Comparison e dezoito eventos neste baseline.",
+  "Runs novas possuem Execution Trust e usam Evidence Bundle v4; o v3 rejeita corretamente Runs com trust e não pode ser fabricado como caminho novo apenas para satisfazer um benchmark antigo.",
+  "O build atual produz três raízes determinísticas: apps/web/dist, apps/desktop/dist/main e apps/desktop/dist/preload.",
+]
+stop_conditions = [
+  "Transformar duração ou memória em gate bloqueante nesta entrega; a Issue exige observação e warnings antes de qualquer promoção.",
+  "Incluir .venv, node_modules, caches de teste ou caches de bundler nos tamanhos gerados.",
+  "Criar Run legada sem Execution Trust fora do adapter canônico apenas para produzir um Bundle v3.",
+]
+
+[impact]
+capability = "additive"
+persisted_contract = "none"
+normative = "additive"
+notes = [
+  "A capability é tooling de desenvolvimento e CI; contratos, schemas e runtime de produção não mudam.",
+  "O documento normativo novo declara exatamente quais medições bloqueiam e quais apenas informam.",
+]
+
+[scope]
+expected = [
+  ".github/workflows/ci.yml",
+  "changes/48.toml",
+  "docs/governance/resource-budgets.md",
+  "docs/operations/local-development.md",
+  "resource-budget.toml",
+  "scripts/check_resource_budgets.py",
+  "scripts/resource_budget/**",
+  "tests/unit/test_resource_budget.py",
+]
+forbidden = ["docs/adr/**", "docs/contracts/**", "src/evidrun/**", "apps/**", "benchmarks/**"]
+preexisting = []
+
+[[scope.generated]]
+patterns = ["docs/_generated/**"]
+source_patterns = ["docs/**/*.md"]
+
+[preserve]
+interfaces = [
+  "Runtime Kernel, CLI, API, Evidence Bundle e build continuam com suas interfaces atuais.",
+  "CRL-CTX-002 permanece offline, determinístico e sem provider externo.",
+]
+errors = [
+  "Exit 0 cobre medições OK, regressões warning-only e ruído inconclusivo; exit 1 é violação determinística; exit 2 é configuração ou medição obrigatória indisponível.",
+]
+invariants = [
+  "Tempo e memória nunca bloqueiam nesta entrega.",
+  "Caches não entram em output gerado e são classificados separadamente.",
+  "Aumentar limite já excedido exige limit_adjustments revisável contra o merge-base.",
+  "O mesmo checkout, fora das métricas ruidosas declaradas, produz contagens e inventários ordenados idênticos.",
+]
+
+[verification]
+focused = [
+  "uv run pytest tests/unit/test_resource_budget.py",
+  "uv run python scripts/check_resource_budgets.py --profile python --base-ref origin/main",
+  "pnpm build && uv run python scripts/check_resource_budgets.py --profile build --base-ref origin/main",
+]
+full_gates = [
+  "uv run pytest",
+  "uv run ruff check .",
+  "uv run python scripts/check_code_budget.py",
+  "uv run pyright",
+  "pnpm typecheck:web",
+  "pnpm typecheck:desktop",
+  "pnpm test",
+  "pnpm build",
+  "uv run python scripts/validate_docs.py",
+]

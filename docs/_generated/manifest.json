@@ -734,6 +734,18 @@
       "review_due": null
     },
     {
+      "id": "governance-resource-budgets",
+      "path": "docs/governance/resource-budgets.md",
+      "type": "governance",
+      "title": "Budgets de performance e recursos",
+      "status": "implemented",
+      "authority": "normative",
+      "volatility": "current",
+      "owner": "core",
+      "updated_at": "2026-07-31",
+      "review_due": null
+    },
+    {
       "id": "docs-index",
       "path": "docs/index.md",
       "type": "architecture",
