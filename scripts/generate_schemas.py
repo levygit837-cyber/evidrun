@@ -38,6 +38,7 @@ from evidrun.contracts import (
     SubjectEnvelopeRecord,
     WorkspaceTemplateRevision,
 )
+from evidrun.contracts.triage import TriageError
 from evidrun.entrypoints.api.app import create_app
 from evidrun.experiments import ExperimentManifest
 
@@ -75,6 +76,7 @@ CONTRACT_MODELS = {
     "run-execution-job-v1": RunExecutionJob,
     "run-execution-attempt-v1": RunExecutionAttempt,
     "subject-envelope-record-v1": SubjectEnvelopeRecord,
+    "triage-error-v1": TriageError,
 }
 
 ContractCatalog = (
@@ -108,6 +110,7 @@ ContractCatalog = (
     | RunExecutionAttempt
     | SubjectEnvelopeRecord
     | RunEventPayload
+    | TriageError
 )
 
 

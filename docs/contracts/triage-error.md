@@ -14,6 +14,7 @@ sources:
   - github:issue/63
   - github:issue/64
   - github:issue/65
+  - github:issue/66
 supersedes: []
 superseded_by: null
 implementation_refs:
@@ -32,7 +33,9 @@ implementation_refs:
   - src/evidrun/entrypoints/api/routers/runs.py
   - src/evidrun/entrypoints/cli/commands/provider.py
   - src/evidrun/entrypoints/cli/app.py
-  - src/evidrun/entrypoints/cli/commands/contracts.py
+  - scripts/generate_schemas.py
+  - apps/web/src/api/client.ts
+  - apps/web/src/features/create/createModel.ts
   - src/evidrun/contracts/admission/rejection.py
   - src/evidrun/entrypoints/api/routers/contracts.py
   - src/evidrun/entrypoints/cli/commands/runs.py
@@ -49,6 +52,8 @@ verification_refs:
   - tests/unit/test_contract_invariants.py
   - tests/unit/test_admission_rejection.py
   - tests/integration/test_admission_rejection_surfaces.py
+  - apps/web/src/features/create/classifyFailure.test.ts
+  - schemas/generated/contracts/triage-error-v1.json
 ---
 
 # Erros estáveis das fases de triagem
@@ -209,6 +214,23 @@ outro achado no record; consumidores não precisam interpretar a mensagem livre 
 Essa projeção não altera decisão, status de workspace ou interação, capabilities resolvidas, achados
 persistidos nem o digest do `AdmissionRecord`. Texto humano permanece livre; consumidores decidem
 apenas por código e campos estruturados.
+
+## Consumo pelo console
+
+A forma do erro é declarada no backend e gerada para o frontend: `TriageError`, `TriageErrorCode` e
+`TriagePhase` entram no catálogo de `schemas/generated/contracts/` e em
+`apps/web/src/generated/contracts.ts`. Uma mudança de forma sem regeneração falha em
+`pnpm check:contracts`.
+
+O estado exibido na tela Create deriva do código da recusa, nunca de texto. `ADMISSION_STATE_BY_CODE`
+é a tabela parcial que mapeia os códigos que o corredor de autoria consegue mostrar; um código
+desconhecido cai em `failed`, o estado seguro declarado, e nunca em um estado otimista por omissão.
+
+`RefusalError` carrega o `TriageError` junto da frase renderizada. Antes desta fatia o cliente
+embrulhava a recusa em um `Error` só com mensagem, e o console redescobria a causa procurando
+substrings em dois idiomas — traduzir uma mensagem quebrava a classificação sem nada falhar.
+
+Mensagem permanece livre e traduzível. Nenhuma decisão de interface depende dela.
 
 ## Fronteira com criação de Workspace/Project
 

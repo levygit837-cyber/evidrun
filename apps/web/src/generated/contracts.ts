@@ -48,7 +48,8 @@ export type CatalogV1 =
   | ProgressObserverStartedPayload
   | ProgressArtifactCreatedPayload
   | ProgressObserverFailedPayload
-  | RunTerminalPayload;
+  | RunTerminalPayload
+  | TriageError;
 export type ContractType = "study";
 export type LogicalId = string;
 export type BaselineVariant = string;
@@ -739,6 +740,52 @@ export type StopReason =
 export type Status7 =
   "completed" | "failed" | "cancelled" | "budget_exhausted" | "guardrail_stopped";
 export type TerminalCause = string;
+export type TriageErrorCode =
+  | "parse.document_not_object"
+  | "parse.contract_type_missing"
+  | "parse.contract_type_unknown"
+  | "parse.field_undeclared"
+  | "parse.revision_invalid"
+  | "parse.identifier_empty"
+  | "parse.payload_type_invalid"
+  | "parse.schema_invalid"
+  | "register.project_not_found"
+  | "register.revision_not_monotonic"
+  | "register.immutability_conflict"
+  | "register.initial_status_invalid"
+  | "register.storage_unavailable"
+  | "decide.human_authority_unavailable"
+  | "decide.revision_not_found"
+  | "decide.decision_conflict"
+  | "decide.repository_fixture_forbidden"
+  | "compile.revision_not_found"
+  | "compile.revision_not_study"
+  | "compile.dependency_not_accepted"
+  | "compile.digest_mismatch"
+  | "compile.controlled_slots_mismatch"
+  | "compile.confounder_missing"
+  | "admit.run_spec_not_found"
+  | "admit.rejected"
+  | "admit.inventory_not_persistible"
+  | "enqueue.run_spec_not_found"
+  | "enqueue.admission_not_found"
+  | "enqueue.admission_not_admitted"
+  | "enqueue.admission_run_spec_mismatch"
+  | "enqueue.digest_mismatch"
+  | "enqueue.idempotency_key_empty"
+  | "enqueue.idempotency_conflict"
+  | "enqueue.retry_source_succeeded"
+  | "enqueue.retry_admission_not_newer"
+  | "enqueue.retry_admission_reused"
+  | "enqueue.retry_legacy_run";
+export type DeniedPolicies2 = string[];
+export type FieldPath = string[];
+export type Issues1 = AdmissionIssue[];
+export type Message = string;
+export type MissingRequirements2 = string[];
+export type TriagePhase = "parse" | "register" | "decide" | "compile" | "admit" | "enqueue";
+export type Remediation = string | null;
+export type UnresolvedRequiredCapabilities = CapabilityDescriptorRef[];
 
 export interface StudyRevision {
   contract_type?: ContractType;
@@ -1790,4 +1837,15 @@ export interface BoundedExplorationTerminalResult {
   learning_summary_ref?: ArtifactRef | null;
   stop_condition_kind: StopConditionKind;
   stop_reason: StopReason;
+}
+export interface TriageError {
+  code: TriageErrorCode;
+  denied_policies?: DeniedPolicies2;
+  field_path?: FieldPath;
+  issues?: Issues1;
+  message: Message;
+  missing_requirements?: MissingRequirements2;
+  phase: TriagePhase;
+  remediation?: Remediation;
+  unresolved_required_capabilities?: UnresolvedRequiredCapabilities;
 }

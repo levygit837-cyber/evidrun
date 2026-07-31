@@ -10,6 +10,7 @@ import type {
   RunEvent,
 } from "../types";
 import type { RunEventStream, RunStreamState } from "../data/contracts";
+import type { TriageError } from "../generated/contracts";
 
 let cachedConnection: BackendConnection | null = null;
 let pendingConnection: Promise<BackendConnection> | null = null;
@@ -20,6 +21,42 @@ export class ApiError extends Error {
     public readonly detail: string,
   ) {
     super(`API ${status}: ${detail}`);
+  }
+}
+
+/**
+ * A refusal that keeps its code reachable after the client turns it into an `Error`.
+ *
+ * Rendering the reason into a sentence and discarding the code forced the console to guess
+ * the cause back out of message text. The code travels with the message instead.
+ */
+export class RefusalError extends Error {
+  constructor(
+    message: string,
+    public readonly triage: TriageError | null,
+    public readonly status: number,
+  ) {
+    super(message);
+  }
+}
+
+/** Read a `TriageError` out of a response body, or return null when there is none. */
+export function triageErrorOf(detail: string): TriageError | null {
+  try {
+    const body: unknown = JSON.parse(detail);
+    if (!body || typeof body !== "object") return null;
+    const candidate = "detail" in body ? (body as { detail: unknown }).detail : body;
+    const nested =
+      candidate && typeof candidate === "object" && "error" in candidate
+        ? (candidate as { error: unknown }).error
+        : candidate;
+    if (!nested || typeof nested !== "object") return null;
+    const typed = nested as Partial<TriageError>;
+    return typeof typed.code === "string" && typeof typed.phase === "string"
+      ? (nested as TriageError)
+      : null;
+  } catch {
+    return null;
   }
 }
 
@@ -95,8 +132,8 @@ export const api = {
    * Resolve inventory and capabilities for a RunSpec.
    *
    * A rejection answers 4xx with the decision in the body, so `apiFetch` throws before the caller
-   * can inspect `decision`. The reason is unwrapped here, because the raw serialized body is not
-   * something to put in front of a user.
+   * can inspect `decision`. The reason is unwrapped into a sentence for the user, and the named
+   * refusal travels alongside it so the console classifies by code instead of by message text.
    */
   admitRunSpec: async (runSpecId: string) => {
     try {
@@ -105,7 +142,8 @@ export const api = {
         { method: "POST" },
       );
     } catch (error) {
-      throw error instanceof ApiError ? new Error(admissionRefusal(error)) : error;
+      if (!(error instanceof ApiError)) throw error;
+      throw new RefusalError(admissionRefusal(error), triageErrorOf(error.detail), error.status);
     }
   },
   /**
