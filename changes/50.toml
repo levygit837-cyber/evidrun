@@ -1,0 +1,103 @@
+schema_version = "1"
+change_id = "GH-50"
+issue = 50
+title = "Contrato de mudança e gate determinístico de escopo"
+classification = "feature"
+base_ref = "origin/main"
+branch_pattern = "feat/issue-50-*"
+expected_outcome = "Agentes planejam e verificam mudanças diversas por um contrato orientativo, com bloqueios somente para riscos declarados."
+confirmed_facts = [
+  "O template de workstream orienta escopo, mas nenhum gate compara o plano com o diff real.",
+  "O repositório já possui gates deterministas em scripts/ e testes que usam repositórios Git temporários.",
+  "Expansão justificável deve permanecer warning-only por padrão durante exploração.",
+]
+stop_conditions = [
+  "Uma mudança normativa aceita exigir reescrever ADR em vez de criar sucessor.",
+  "O checker precisar atribuir autoria de arquivos untracked ou de mudanças preexistentes sem declaração.",
+  "O gate precisar inspecionar ou imprimir o valor de uma credencial.",
+]
+
+[impact]
+capability = "additive"
+persisted_contract = "none"
+normative = "additive"
+notes = [
+  "A capability adicionada é tooling de desenvolvimento; não promove capability do runtime Evidrun.",
+  "O novo documento de governança formaliza o contrato sem alterar ADR aceito.",
+]
+
+[scope]
+expected = [
+  ".github/workflows/ci.yml",
+  "changes/50.toml",
+  "docs/index.md",
+  "docs/governance/change-contract.md",
+  "docs/templates/agent-workstream.md",
+  "docs/templates/change-contract.toml",
+  "scripts/check_change_contract.py",
+  "scripts/change_contract/**",
+  "tests/unit/test_change_contract.py",
+]
+forbidden = [
+  "AGENTS.md",
+  "CONTEXT.md",
+  "alembic/**",
+  "apps/**",
+  "docs/adr/**",
+  "docs/contracts/**",
+  "schemas/**",
+  "src/evidrun/**",
+]
+preexisting = []
+
+[[scope.expansions]]
+patterns = ["pyproject.toml"]
+rationale = "O checker Python precisa entrar no gate strict do Pyright para validar o próprio contrato."
+
+[[scope.generated]]
+patterns = ["docs/_generated/manifest.json", "docs/_generated/claims.json"]
+source_patterns = ["docs/**"]
+
+[preserve]
+interfaces = [
+  "Comandos e payloads públicos do Evidrun.",
+  "Gates existentes e seus exit codes.",
+]
+errors = [
+  "Falhas de configuração usam exit 2; blockers usam exit 1; warnings locais usam exit 0 por padrão.",
+]
+invariants = [
+  "Mudanças locais preexistentes não entram na entrega declarada, mas continuam sob proteções.",
+  "Arquivos untracked são observados, mas nunca contados como entrega.",
+  "Diagnóstico de segredo nunca inclui o valor encontrado.",
+  "Refactor exige oráculo de caracterização ou equivalência e zero impacto semântico declarado.",
+]
+
+[verification]
+focused = [
+  "uv run pytest tests/unit/test_change_contract.py",
+  "uv run python scripts/check_change_contract.py --contract changes/50.toml",
+]
+full_gates = [
+  "uv run pytest",
+  "uv run ruff check .",
+  "uv run python scripts/check_code_budget.py",
+  "uv run pyright",
+  "pnpm typecheck:web",
+  "pnpm typecheck:desktop",
+  "pnpm test",
+  "pnpm build",
+  "uv run python scripts/validate_docs.py",
+]
+
+[[questions]]
+text = "Path esperado descoberto durante implementação deve bloquear imediatamente?"
+affects_semantics = true
+status = "resolved"
+resolution = "Não durante exploração. Gera warning; o merge usa strict-warnings e exige emenda."
+
+[[questions]]
+text = "O contrato deve tentar atribuir arquivos untracked ao agente?"
+affects_semantics = true
+status = "resolved"
+resolution = "Não. Untracked aparece separado e não conta como entrega."

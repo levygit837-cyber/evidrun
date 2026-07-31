@@ -1,6 +1,6 @@
 {
   "schema_version": "1",
-  "document_count": 107,
+  "document_count": 108,
   "repository_tree": [
     ".env.example",
     ".github/workflows",
@@ -18,6 +18,7 @@
     "benchmarks/experiments",
     "benchmarks/fixtures",
     "benchmarks/scenarios",
+    "changes/50.toml",
     "code-budget.toml",
     "docs/_generated",
     "docs/adr",
@@ -42,6 +43,8 @@
     "pyproject.toml",
     "schemas/generated",
     "scripts/build_desktop_binaries.py",
+    "scripts/change_contract",
+    "scripts/check_change_contract.py",
     "scripts/check_code_budget.py",
     "scripts/check_import_directions.py",
     "scripts/code_budget",

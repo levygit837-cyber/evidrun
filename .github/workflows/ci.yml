@@ -10,11 +10,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.14"
       - run: uv sync --extra dev
       - run: uv run ruff check .
+      - run: uv run python scripts/check_change_contract.py --discover --base-ref origin/main --strict-warnings
       - run: uv run python scripts/check_import_directions.py
       - run: uv run python scripts/check_code_budget.py
       - run: uv run pyright
