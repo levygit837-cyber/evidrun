@@ -38,6 +38,16 @@ invariants = ["Invariante normativa aplicável a esta mudança."]
 focused = ["uv run pytest tests/unit/test_affected.py"]
 full_gates = ["uv run pytest", "uv run ruff check ."]
 
+# Obrigatório somente para classification="breaking". Cada comando de
+# previous_artifact_tests também precisa constar em verification.focused.
+# [breaking]
+# justification = "Por que a incompatibilidade é necessária."
+# strategy = "expand-contract" # expand-contract|migration
+# versioning = "Versões antigas aceitas durante a janela e condição de remoção."
+# adr_successors = ["docs/adr/NNNN-successor.md"] # obrigatório se normative != none
+# previous_artifact_tests = ["uv run pytest tests/compat/test_previous_bundle.py"]
+# previous_artifact_fixtures = ["tests/fixtures/previous-bundle.zip"]
+
 # As quatro camadas do merge gate. CI verde prova que os checks rodaram; ela não prova
 # resultado, padrões nem suficiência da verificação. Cada camada conclui separadamente e
 # aponta a própria evidência na forma `<kind>:<referência>`, com kind em

@@ -51,6 +51,22 @@ O schema v1 suporta `refactor`, `behavior-compatible`, `feature`, `breaking`, `d
 - interfaces, erros e invariantes preservados;
 - testes focais e gates completos.
 
+As classificações também limitam o que o diff pode conter:
+
+- `refactor` exige equivalência e não admite mudança contratual detectada;
+- `behavior-compatible` e `feature` admitem adições, mas não remoção ou quebra;
+- `docs-only` limita a entrega a documentação e ao próprio contrato de mudança;
+- `generated` limita a entrega aos patterns declarados em `scope.generated`;
+- `breaking` admite incompatibilidade somente com `[breaking]` completo.
+
+Uma mudança `breaking` declara justificativa, estratégia `expand-contract` ou `migration`, política
+de versionamento e testes de leitura de artefatos anteriores. Esses testes precisam constar também
+em `verification.focused`, apontar explicitamente para um arquivo existente sob `tests/` e
+referenciar pelo path cada `breaking.previous_artifact_fixtures` versionada sob `tests/`. Quando
+documentação normativa muda, `breaking.adr_successors` aponta ADRs
+sucessores existentes em `docs/adr/`; um ADR aceito nunca é reescrito para esconder a decisão
+anterior.
+
 `refactor` também exige `[oracle]` de `characterization` ou `equivalence`, com comando, evidência e
 as preservações estruturadas `capability`, `persisted-contract` e `fail-closed`. O comando do
 oráculo precisa constar nos testes focais. Um refactor não pode declarar adição/remoção de
@@ -59,6 +75,28 @@ de esconder escopo.
 
 Pergunta aberta com `affects_semantics=true` é blocker de planejamento. Pergunta sem efeito semântico
 pode permanecer aberta e visível durante exploração.
+
+## Diff semântico de contratos
+
+O checker materializa a versão no merge-base e a versão candidata de superfícies reconhecidas. O
+relatório JSON expõe `contract_diffs`, com família, path, JSON Pointer, tipo da mudança e impacto
+`additive` ou `breaking`. São reconhecidos:
+
+- JSON Schema e OpenAPI, incluindo properties, required, tipos, enums, constraints, paths,
+  operações, parâmetros, request bodies, responses e component schemas;
+- modelos SQLAlchemy e operações `upgrade` de migrations;
+- payloads de eventos em `src/evidrun/contracts/**/events.py`;
+- comandos e grupos Typer;
+- exports Python declarados por `__all__` ou imports públicos.
+
+Descrição, help, exemplos e corpos de função não formam contrato nessas projeções. Alterar uma
+mensagem sem alterar a declaração não produz falso breaking. Campo opcional novo é aditivo; campo
+obrigatório, remoção, rename observado como remove+add, narrowing ou troca de tipo são breaking.
+
+Parser inválido ou superfície que não pode ser materializada gera
+`compatibility.diff_unavailable`: incerteza não vira compatibilidade por default. Um diff breaking
+com classificação diferente de `breaking`, ou com impacto persistido/capability incompatível,
+falha fechado e informa os paths afetados.
 
 ## Merge gate em quatro camadas
 
@@ -161,11 +199,11 @@ emenda explícita antes do handoff.
 
 ## O que o gate prova e não prova
 
-O gate prova identidade do merge-base, cobertura de paths, proibições explícitas, declaração de
-impacto por famílias sensíveis, disciplina do oráculo e ausência de alguns formatos de segredo de
-alta confiança nas linhas adicionadas. A autoridade normativa de documentos alterados é lida do
-frontmatter atual ou da versão no merge-base. O diagnóstico de segredo nunca inclui o valor
-encontrado.
+O gate prova identidade do merge-base, cobertura de paths, proibições explícitas, classificação
+compatível com as superfícies semânticas reconhecidas, declaração de impacto por famílias sensíveis,
+disciplina do oráculo e ausência de alguns formatos de segredo de alta confiança nas linhas
+adicionadas. A autoridade normativa de documentos alterados é lida do frontmatter atual ou da
+versão no merge-base. O diagnóstico de segredo nunca inclui o valor encontrado.
 
 Sobre o merge gate, ele prova estrutura e disciplina de citação: as quatro camadas presentes, nenhuma
 conclusão `passed` vazia, nenhuma das três primeiras camadas citando a execução de CI, profundidade de
@@ -176,7 +214,8 @@ que não exercita o ramo relevante ou uma review superficial. O gate impede a su
 — tratar CI verde como prova das outras três camadas — e força cada conclusão a nomear algo
 inspecionável. Julgar a qualidade daquilo que foi apontado continua sendo trabalho humano.
 
-Ele também não prova que toda mudança semântica foi percebida, que um teste é suficiente ou que um
-novo comportamento não constitui capability. O scanner de secrets completo e a política de redaction
-pertencem à issue dedicada; este gate implementa somente a defesa mínima exigida para não aprovar
-segredo evidente.
+Ele também não prova semântica escondida em corpos de função, SQL arbitrário, hooks dinâmicos ou
+superfícies ainda não reconhecidas, nem que um teste é suficiente. Nessas áreas a revisão continua
+obrigatória; o detector nunca anuncia cobertura universal. O scanner de secrets completo e a
+política de redaction pertencem à issue dedicada; este gate implementa somente a defesa mínima
+exigida para não aprovar segredo evidente.

@@ -1,0 +1,145 @@
+schema_version = "1"
+change_id = "GH-53"
+issue = 53
+title = "Classificacao verificavel e deteccao de breaking changes"
+classification = "feature"
+base_ref = "origin/main"
+branch_pattern = "feat/issue-53-*"
+expected_outcome = "O checker confronta a classificacao declarada com diffs legiveis de superficies contratuais e falha fechado diante de incompatibilidades."
+confirmed_facts = [
+  "A issue 50 tornou canonicas as classificacoes refactor, behavior-compatible, feature, breaking, docs-only e generated.",
+  "O checker atual protege familias de paths, mas ainda nao compara a semantica anterior e posterior de schemas ou OpenAPI.",
+  "A issue 47 fornece o merge gate em quatro camadas no PR 114; esta branch esta empilhada sobre o HEAD verificado desse PR.",
+]
+stop_conditions = [
+  "A issue 47 mudar a interface do merge gate depois da integracao; nesse caso a branch deve ser rebaseada sem copiar uma segunda implementacao.",
+  "Uma heuristica nao conseguir distinguir incompatibilidade de mudanca puramente descritiva de forma deterministica.",
+  "A politica exigir reescrever ADR aceito em vez de criar sucessor.",
+]
+
+[impact]
+capability = "additive"
+persisted_contract = "none"
+normative = "additive"
+notes = [
+  "A capability adicionada e tooling de desenvolvimento para comparar documentos contratuais; nenhum contrato persistido do runtime e alterado.",
+  "A governanca documenta requisitos adicionais sem reverter ADR ou decisao aceita.",
+]
+
+[scope]
+expected = [
+  "changes/53.toml",
+  "docs/governance/change-contract.md",
+  "docs/templates/change-contract.toml",
+  "scripts/change_contract/__init__.py",
+  "scripts/change_contract/breaking.py",
+  "scripts/change_contract/checker.py",
+  "scripts/change_contract/classification_policy.py",
+  "scripts/change_contract/model.py",
+  "scripts/change_contract/openapi_diff.py",
+  "scripts/change_contract/python_diff.py",
+  "scripts/change_contract/repository_diff.py",
+  "scripts/change_contract/schema_diff.py",
+  "tests/unit/test_change_classification.py",
+  "tests/unit/test_change_contract.py",
+  "tests/unit/test_change_contract_python_diff.py",
+  "tests/unit/test_change_contract_schema_diff.py",
+]
+forbidden = [
+  ".github/**",
+  "AGENTS.md",
+  "CONTEXT.md",
+  "alembic/**",
+  "apps/**",
+  "docs/adr/**",
+  "docs/contracts/**",
+  "schemas/**",
+  "scripts/change_contract/git.py",
+  "src/evidrun/**",
+]
+preexisting = []
+
+[[scope.expansions]]
+patterns = ["scripts/change_contract/migration_diff.py"]
+rationale = "A review final separou a projecao Alembic para cobrir batch operations e manter python_diff.py dentro do budget estrutural."
+
+[[scope.generated]]
+patterns = ["docs/_generated/manifest.json", "docs/_generated/claims.json"]
+source_patterns = ["docs/**/*.md"]
+
+[preserve]
+interfaces = [
+  "CLI e payload JSON atuais de scripts/check_change_contract.py.",
+  "Interfaces publicas e schemas gerados do runtime Evidrun.",
+]
+errors = [
+  "Falhas de configuracao usam exit 2; blockers usam exit 1; warnings locais usam exit 0 por default.",
+]
+invariants = [
+  "Mudanca apenas descritiva nao e marcada breaking.",
+  "Campo opcional aditivo e distinguido de remocao, rename e mudanca de tipo.",
+  "Deteccao incerta nao e promovida silenciosamente a compatibilidade.",
+  "O detector e deterministico e nao depende de rede.",
+]
+
+[verification]
+focused = [
+  "uv run pytest tests/unit/test_change_classification.py tests/unit/test_change_contract_python_diff.py tests/unit/test_change_contract_schema_diff.py tests/unit/test_change_contract.py tests/unit/test_merge_gate.py",
+  "uv run ruff check scripts/change_contract tests/unit/test_change_classification.py tests/unit/test_change_contract_python_diff.py tests/unit/test_change_contract_schema_diff.py tests/unit/test_change_contract.py",
+  "uv run pyright",
+]
+full_gates = [
+  "uv run pytest",
+  "uv run ruff check .",
+  "uv run python scripts/check_code_budget.py",
+  "uv run pyright",
+  "pnpm typecheck:web",
+  "pnpm typecheck:desktop",
+  "pnpm test",
+  "pnpm build",
+  "uv run python scripts/validate_docs.py",
+]
+
+[merge_gate]
+review = "proportional"
+ci_commit = "025927403debc76652576cc8b9e8c4dbfaaff9e0"
+
+[merge_gate.spec]
+conclusion = "passed"
+evidence = [
+  "test:tests/unit/test_change_classification.py::test_feature_with_removed_schema_fails_closed_and_reports_the_diff",
+  "test:tests/unit/test_change_contract_python_diff.py",
+  "test:tests/unit/test_change_contract_schema_diff.py",
+]
+
+[merge_gate.standards]
+conclusion = "passed"
+evidence = [
+  "diff:docs/governance/change-contract.md",
+  "diff:scripts/change_contract/classification_policy.py",
+  "diff:scripts/change_contract/repository_diff.py",
+]
+
+[merge_gate.verification]
+conclusion = "passed"
+evidence = [
+  "test:528-passed-1-live-skipped",
+  "test:pnpm-test-131-passed",
+  "test:tests/unit/test_change_classification.py::test_repository_routes_event_model_cli_and_export_surfaces",
+]
+
+[merge_gate.ci]
+conclusion = "passed"
+evidence = ["run:local/full-gates@025927403debc76652576cc8b9e8c4dbfaaff9e0"]
+
+[[questions]]
+text = "Como integrar a evidencia de compatibilidade ao schema final do merge gate da issue 47?"
+affects_semantics = false
+status = "resolved"
+resolution = "A branch foi empilhada sobre o PR 114 e adiciona contract_diffs ao report sem misturar a evidencia de CI com Spec, Standards ou Verification."
+
+[[questions]]
+text = "Qual direcao de compatibilidade deve governar enums e required quando uma mesma schema serve como input e output?"
+affects_semantics = true
+status = "resolved"
+resolution = "O detector inicial falha fechado como breaking quando a mudanca reduz aceitacao ou garantias; policy direcional futura deve ser explicita por superficie."

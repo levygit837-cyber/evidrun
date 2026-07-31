@@ -1,5 +1,6 @@
 """Change-contract checker with a small interface over Git and policy details."""
 
+from .breaking import BreakingPlan, MigrationStrategy
 from .checker import CheckReport, check_contract, secret_diagnostics
 from .diagnostics import Diagnostic, Severity
 from .git import ChangeSource, GitError, GitSnapshot, inspect_repository
@@ -19,6 +20,7 @@ from .vocabulary import ChangeClassification, ContractError, ImpactLevel
 
 __all__ = [
     "MERGE_LAYER_ORDER",
+    "BreakingPlan",
     "ChangeClassification",
     "ChangeContract",
     "ChangeSource",
@@ -33,6 +35,7 @@ __all__ = [
     "LayerConclusion",
     "MergeGate",
     "MergeLayer",
+    "MigrationStrategy",
     "ReviewDepth",
     "Severity",
     "check_contract",

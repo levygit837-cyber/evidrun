@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
+from .breaking import BreakingPlan, parse_breaking_plan
 from .merge_gate import MergeGate, parse_merge_gate
 from .parsing import (
     Table,
@@ -104,6 +105,7 @@ class ChangeContract:
     verification: Verification
     questions: tuple[Question, ...]
     oracle: RefactorOracle | None
+    breaking_plan: BreakingPlan | None
     merge_gate: MergeGate | None
 
 
@@ -139,6 +141,13 @@ def _parse_contract(path: Path, raw: Table, errors: list[str]) -> ChangeContract
     verification = _parse_verification(raw.get("verification"), errors)
     questions = _parse_questions(raw.get("questions", []), errors)
     oracle = _parse_oracle(raw.get("oracle"), errors)
+    breaking_plan = parse_breaking_plan(
+        raw.get("breaking"),
+        classification=classification,
+        impact=impact,
+        focused_tests=verification.focused if verification is not None else (),
+        errors=errors,
+    )
     merge_gate = parse_merge_gate(raw.get("merge_gate"), errors)
     if classification is ChangeClassification.REFACTOR:
         if oracle is None:
@@ -189,6 +198,7 @@ def _parse_contract(path: Path, raw: Table, errors: list[str]) -> ChangeContract
         verification=verification,
         questions=questions,
         oracle=oracle,
+        breaking_plan=breaking_plan,
         merge_gate=merge_gate,
     )
 

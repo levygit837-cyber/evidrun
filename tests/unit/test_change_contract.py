@@ -114,7 +114,6 @@ def load_fixture(root: Path, body: str) -> object:
     [
         "behavior-compatible",
         "feature",
-        "breaking",
         "docs-only",
         "generated",
     ],
