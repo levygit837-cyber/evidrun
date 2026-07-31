@@ -65,9 +65,19 @@ typeCheckingMode = "strict"
 include = [
   "src",
   "scripts/change_contract",
+  "scripts/dependency_report",
   "scripts/secret_scan",
   "scripts/check_change_contract.py",
+  "scripts/check_dependency_report.py",
+  "scripts/check_import_directions.py",
   "scripts/check_secrets.py",
+  "scripts/import_graph.py",
+  "scripts/import_directions_typescript.py",
 ]
 exclude = [".venv"]
+# `src` must stay listed: naming `extraPaths` replaces Pyright's automatic `./src`
+# detection, and dropping it resolves `evidrun` from site-packages instead.
+# `scripts` is a flat directory of siblings run as `python scripts/<name>.py`, so the
+# graph modules import each other by bare name rather than through a package.
+extraPaths = ["src", "scripts"]
 reportUnusedFunction = false

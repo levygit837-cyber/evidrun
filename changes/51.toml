@@ -1,0 +1,132 @@
+schema_version = "1"
+change_id = "GH-51"
+issue = 51
+title = "Gerar relatório warning-only de dependências e ciclos"
+classification = "feature"
+base_ref = "origin/main"
+branch_pattern = "feat/issue-51-dependency-report"
+expected_outcome = "Um comando reutiliza o grafo do gate de imports e reporta ciclos, fan-in/fan-out, imports entre fatias, hubs de re-export, dependências externas por fatia e arestas novas contra o merge-base, em texto e JSON ordenados, sempre com exit 0."
+confirmed_facts = [
+  "`scripts/check_import_directions.py` estava em 371 das 500 linhas do orçamento e já continha a construção do grafo misturada à política de direção; o relatório não cabia nele.",
+  "O grafo existente já produz sinal real neste checkout: 1 ciclo de módulo (`evidrun.contracts.compiler` ↔ `execution_trust` ↔ `runtime.records`), 1 ciclo entre fatias (`desktop/main` ↔ `desktop/shared`) e 3 especificadores relativos que não resolvem para nó versionado.",
+  "`import-directions.toml` tem lista de exceções vazia, então o baseline de arestas proibidas é zero e os três estados começam sem nenhuma aresta proibida.",
+]
+stop_conditions = [
+  "Promover `FAN_IN_CANDIDATE`, `FAN_OUT_CANDIDATE` ou `REEXPORT_HUB_CANDIDATE` a bloqueante nesta fase: a issue exige informar antes de bloquear, e os valores só se justificam depois de observar este baseline.",
+  "Corrigir os achados que o relatório encontrou: `evidrun.authority/router.py` importa FastAPI e o ciclo em `evidrun.contracts` é real, mas ambos são decisão de outra entrega.",
+]
+
+[impact]
+capability = "additive"
+persisted_contract = "none"
+normative = "additive"
+notes = [
+  "`docs/governance/dependency-report.md` é documento novo; nenhuma decisão anterior é revertida e nenhum ADR é reescrito.",
+  "A extração de `scripts/import_graph.py` é reorganização interna: `check_import_directions.py` mantém exit codes 0/1/2, o shape do JSON e todas as regras. As 16 asserções preexistentes de `test_import_directions.py` passaram sem edição e o JSON do checkout completo é byte-idêntico ao anterior.",
+  "`pyproject.toml` ganha `extraPaths` no pyright. `src` permanece listado de propósito: nomear `extraPaths` substitui a detecção automática de `./src` e omiti-lo resolve `evidrun` do site-packages, o que produziu 679 erros falsos de `reportMissingTypeStubs` antes da correção.",
+]
+
+[scope]
+expected = [
+  "scripts/import_graph.py",
+  "scripts/dependency_report/**",
+  "scripts/check_dependency_report.py",
+  "scripts/check_import_directions.py",
+  "tests/unit/test_dependency_report.py",
+  "docs/governance/dependency-report.md",
+  ".github/workflows/ci.yml",
+  "pyproject.toml",
+  "changes/51.toml",
+]
+forbidden = ["docs/adr/**", "src/evidrun/**", "import-directions.toml"]
+preexisting = []
+
+[[scope.generated]]
+patterns = ["docs/_generated/**"]
+source_patterns = ["docs/**/*.md"]
+
+[preserve]
+interfaces = [
+  "`check_import_directions.py` mantém `--root`, `--format`, exit codes 0/1/2 e o shape do JSON com `schema_version`, `scanned_files` e `violations`.",
+  "As seis regras bloqueantes de direção continuam com os mesmos nomes e severidade.",
+  "O contrato de exceções de `import-directions.toml` não muda.",
+]
+errors = [
+  "Nenhum código de diagnóstico existente muda de nome ou severidade.",
+  "O relatório novo não introduz exit code 1: achado nunca falha o comando.",
+]
+invariants = [
+  "O relatório reutiliza o grafo do gate; não existe segunda definição de aresta nem segunda noção de proibido.",
+  "Os três estados particionam as arestas internas e somam `internal_edge_count`.",
+  "Mesmo checkout produz documento byte-idêntico, e a ordenação é total por `(code, subjects)`.",
+  "Merge-base irresolvível se declara não computado em vez de reportar diff vazio.",
+]
+
+[verification]
+focused = [
+  "uv run pytest tests/unit/test_dependency_report.py tests/unit/test_import_directions.py",
+]
+full_gates = [
+  "uv run pytest",
+  "uv run ruff check .",
+  "uv run python scripts/check_code_budget.py",
+  "uv run pyright",
+  "pnpm typecheck:web",
+  "pnpm typecheck:desktop",
+  "pnpm test",
+  "pnpm build",
+  "uv run python scripts/validate_docs.py",
+]
+
+[[questions]]
+text = "A extração do grafo para fora do checker precisa de oráculo de refactor?"
+affects_semantics = false
+status = "resolved"
+resolution = "Não. Ela é parte de uma entrega classificada como feature, as 16 asserções preexistentes passaram sem edição e o JSON do checkout completo é byte-idêntico antes e depois, o que prova equivalência das bordas."
+
+[[questions]]
+text = "Qual medida representa um hub de re-export: quantas vezes o hub é atravessado ou quantos nomes ele encaminha?"
+affects_semantics = true
+status = "resolved"
+resolution = "A superfície encaminhada. Contar cadeias resolvidas mede tráfego e escondia todos os hubs (máximo 6, abaixo do candidato 15); contar nomes que um `__init__` liga de outro módulo interno expõe `evidrun.contracts` com 92 e `evidrun.authority` com 17, que é o blast radius real."
+
+[[questions]]
+text = "`infrastructure` entra no rank de direção conceitual?"
+affects_semantics = true
+status = "resolved"
+resolution = "Não. `docs/architecture/codebase-layout.md` desenha `infrastructure` como ramo lateral do fluxo, não como passo dele; declarar rank inventaria direção não documentada. Sua única restrição ordenada é a regra bloqueante `PY-INFRASTRUCTURE-RUNS`, que o gate já detém."
+
+[merge_gate]
+review = "proportional"
+ci_commit = "0000000"
+
+[merge_gate.spec]
+conclusion = "passed"
+evidence = [
+  "test:tests/unit/test_dependency_report.py::test_a_forbidden_edge_is_separated_from_allowed_and_suspicious",
+  "test:tests/unit/test_dependency_report.py::test_no_finding_makes_the_report_exit_non_zero",
+  "test:tests/unit/test_dependency_report.py::test_a_new_edge_leaves_the_unrelated_baseline_lines_untouched",
+  "log:smoke-relatorio-13-achados-exit-0.txt",
+]
+
+[merge_gate.standards]
+conclusion = "passed"
+evidence = [
+  "diff:scripts/import_graph.py",
+  "diff:scripts/dependency_report",
+  "diff:docs/governance/dependency-report.md",
+  "log:check_code_budget-0-violacoes.txt",
+]
+
+[merge_gate.verification]
+conclusion = "passed"
+evidence = [
+  "test:tests/unit/test_dependency_report.py",
+  "test:tests/unit/test_import_directions.py",
+  "log:sonda-9-mutacoes-todas-capturadas.txt",
+  "log:json-import-directions-byte-identico.txt",
+]
+
+[merge_gate.ci]
+conclusion = "passed"
+evidence = ["run:actions/PENDING"]
