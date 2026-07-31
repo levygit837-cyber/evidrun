@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+import shutil
 import sys
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -202,6 +205,8 @@ warning_ratio = 2.0
 
 
 def test_application_build_runs_real_pnpm_three_times(tmp_path: Path) -> None:
+    if shutil.which("pnpm") is None:
+        pytest.skip("pnpm is unavailable; the Node CI job runs this real workload")
     (tmp_path / "package.json").write_text(
         json.dumps({"scripts": {"build": "node build.mjs"}}), encoding="utf-8"
     )
