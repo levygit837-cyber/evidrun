@@ -3,7 +3,7 @@ change_id = "GH-53"
 issue = 53
 title = "Classificacao verificavel e deteccao de breaking changes"
 classification = "feature"
-base_ref = "origin/feat/merge-gate-four-layers"
+base_ref = "origin/main"
 branch_pattern = "feat/issue-53-*"
 expected_outcome = "O checker confronta a classificacao declarada com diffs legiveis de superficies contratuais e falha fechado diante de incompatibilidades."
 confirmed_facts = [
@@ -98,7 +98,7 @@ full_gates = [
 
 [merge_gate]
 review = "proportional"
-ci_commit = "dfc893e0080f6b74c79bc367ae04877881f140b6"
+ci_commit = "d4074f84df91f87e5bb1aff09e791b4ada357b05"
 
 [merge_gate.spec]
 conclusion = "passed"
@@ -126,7 +126,7 @@ evidence = [
 
 [merge_gate.ci]
 conclusion = "passed"
-evidence = ["run:local/full-gates@dfc893e0080f6b74c79bc367ae04877881f140b6"]
+evidence = ["run:local/full-gates@d4074f84df91f87e5bb1aff09e791b4ada357b05"]
 
 [[questions]]
 text = "Como integrar a evidencia de compatibilidade ao schema final do merge gate da issue 47?"
