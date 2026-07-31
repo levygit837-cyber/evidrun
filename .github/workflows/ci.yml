@@ -29,6 +29,14 @@ jobs:
         with:
           name: dependency-report
           path: dependency-report.json
+      # Duration and peak RSS are warning-only. Stable record counts still fail
+      # when the canonical offline scenario no longer has the agreed shape.
+      - run: uv run python scripts/check_resource_budgets.py --profile python --base-ref origin/main --json-out python-resource-report.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: python-resource-report
+          path: python-resource-report.json
       - run: uv run python scripts/check_code_budget.py
       - run: uv run pyright
       - run: uv run pytest
@@ -40,6 +48,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
         with:
           version: 9.15.0
@@ -59,6 +69,14 @@ jobs:
         with:
           python-version: "3.14"
       - run: uv sync --extra dev
+      # This profile repeats the real build three times for warning-only timing/RSS,
+      # then inventories its four output roots. Stable counts/bytes are blocking.
+      - run: uv run python scripts/check_resource_budgets.py --profile build --base-ref origin/main --json-out build-resource-report.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-resource-report
+          path: build-resource-report.json
       - run: pnpm test:handshake
       # Guards blocker B2: fails if a Run enqueued with no terminal involved never reaches
       # a terminal state, which is what happens when nothing supervises the executor.

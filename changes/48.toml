@@ -1,0 +1,119 @@
+schema_version = "1"
+change_id = "GH-48"
+issue = 48
+title = "Medir budgets de performance e recursos antes de bloquear"
+classification = "feature"
+base_ref = "origin/main"
+branch_pattern = "agent/issue-48-resource-budgets"
+expected_outcome = "Cenários reais e reproduzíveis medem duração, pico RSS, tamanhos e contagens; ruído e indisponibilidade são explícitos, enquanto somente limites determinísticos acordados bloqueiam."
+confirmed_facts = [
+  "O CRL-CTX-002 executa offline pelo Runtime Kernel e produz duas Runs, uma Comparison, dezoito eventos e seis artifacts neste baseline (run:local/resource-calibration@0d683a6).",
+  "Runs novas possuem Execution Trust e usam Evidence Bundle v4; o v3 rejeita corretamente Runs com trust e não pode ser fabricado como caminho novo apenas para satisfazer um benchmark antigo.",
+  "O build atual produz quatro raízes determinísticas: apps/web/dist, apps/desktop/dist/main, apps/desktop/dist/preload e apps/desktop/dist/shared (run:local/resource-calibration@0d683a6).",
+]
+stop_conditions = [
+  "Transformar duração ou memória em gate bloqueante nesta entrega; a Issue exige observação e warnings antes de qualquer promoção.",
+  "Incluir .venv, node_modules, caches de teste ou caches de bundler nos tamanhos gerados.",
+  "Criar Run legada sem Execution Trust fora do adapter canônico apenas para produzir um Bundle v3.",
+]
+
+[impact]
+capability = "additive"
+persisted_contract = "none"
+normative = "additive"
+notes = [
+  "A capability é tooling de desenvolvimento e CI; contratos, schemas e runtime de produção não mudam.",
+  "O documento normativo novo declara exatamente quais medições bloqueiam e quais apenas informam.",
+]
+
+[scope]
+expected = [
+  ".github/workflows/ci.yml",
+  "changes/48.toml",
+  "docs/governance/resource-budgets.md",
+  "docs/operations/local-development.md",
+  "pyproject.toml",
+  "resource-budget.toml",
+  "scripts/check_resource_budgets.py",
+  "scripts/resource_budget/**",
+  "tests/support/resource_budget_cli.py",
+  "tests/unit/test_resource_budget.py",
+  "tests/unit/test_resource_budget_policy.py",
+]
+forbidden = ["docs/adr/**", "docs/contracts/**", "src/evidrun/**", "apps/**", "benchmarks/**"]
+preexisting = []
+
+[[scope.generated]]
+patterns = ["docs/_generated/**"]
+source_patterns = ["docs/**/*.md"]
+
+[preserve]
+interfaces = [
+  "Runtime Kernel, CLI, API, Evidence Bundle e build continuam com suas interfaces atuais.",
+  "CRL-CTX-002 permanece offline, determinístico e sem provider externo.",
+]
+errors = [
+  "Exit 0 cobre medições OK, regressões warning-only e ruído inconclusivo; exit 1 é violação determinística; exit 2 é configuração ou medição obrigatória indisponível.",
+]
+invariants = [
+  "Tempo e memória nunca bloqueiam nesta entrega.",
+  "Caches não entram em output gerado e são classificados separadamente.",
+  "Remover proteção, alterar baseline ou relaxar limite exige um adjustment exato e revisável contra o merge-base.",
+  "O mesmo checkout, fora das métricas ruidosas declaradas, produz contagens e inventários ordenados idênticos.",
+]
+
+[verification]
+focused = [
+  "uv run pytest tests/unit/test_resource_budget.py tests/unit/test_resource_budget_policy.py",
+  "uv run python scripts/check_resource_budgets.py --profile python --base-ref origin/main",
+  "pnpm build && uv run python scripts/check_resource_budgets.py --profile build --base-ref origin/main",
+]
+full_gates = [
+  "uv run pytest",
+  "uv run ruff check .",
+  "uv run python scripts/check_code_budget.py",
+  "uv run pyright",
+  "pnpm typecheck:web",
+  "pnpm typecheck:desktop",
+  "pnpm test",
+  "pnpm build",
+  "uv run python scripts/validate_docs.py",
+]
+
+[merge_gate]
+review = "proportional"
+ci_commit = "0d683a62178e1a550e4b655a6961a768f3fae8e4"
+
+[merge_gate.spec]
+conclusion = "passed"
+evidence = [
+  "test:tests/unit/test_resource_budget.py::test_crl_fixture_and_bundle_use_the_real_runtime",
+  "test:tests/unit/test_resource_budget.py::test_noisy_repeated_measurement_is_inconclusive_instead_of_a_regression",
+  "test:tests/unit/test_resource_budget_policy.py::test_raised_blocking_limit_requires_a_reviewable_adjustment",
+  "review:code-review/spec@PR117",
+  "log:resource-python-16-ok.txt",
+  "log:resource-build-10-ok.txt",
+]
+
+[merge_gate.standards]
+conclusion = "passed"
+evidence = [
+  "diff:scripts/resource_budget/policy.py",
+  "diff:docs/governance/resource-budgets.md",
+  "diff:resource-budget.toml",
+  "review:code-review/standards@PR117",
+  "log:check-code-budget-0-violations.txt",
+]
+
+[merge_gate.verification]
+conclusion = "passed"
+evidence = [
+  "test:616-passed-1-live-skipped",
+  "test:pnpm-135-passed",
+  "test:tests/unit/test_resource_budget.py",
+  "log:build-output-byte-identical-two-runs.txt",
+]
+
+[merge_gate.ci]
+conclusion = "passed"
+evidence = ["run:local/full-gates@0d683a62178e1a550e4b655a6961a768f3fae8e4"]

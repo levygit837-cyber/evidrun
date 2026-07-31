@@ -67,10 +67,12 @@ include = [
   "scripts/change_contract",
   "scripts/dependency_report",
   "scripts/secret_scan",
+  "scripts/resource_budget",
   "scripts/check_change_contract.py",
   "scripts/check_dependency_report.py",
   "scripts/check_import_directions.py",
   "scripts/check_secrets.py",
+  "scripts/check_resource_budgets.py",
   "scripts/import_graph.py",
   "scripts/import_directions_typescript.py",
 ]
