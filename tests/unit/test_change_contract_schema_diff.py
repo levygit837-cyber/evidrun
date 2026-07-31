@@ -241,6 +241,60 @@ def test_openapi_required_parameter_and_inline_response_schema_are_breaking() ->
     ]
 
 
+def test_openapi_path_level_required_parameter_is_breaking() -> None:
+    operation = {"get": {"operationId": "listRuns", "responses": {"200": {}}}}
+    baseline = openapi({"/runs": operation})
+    candidate = openapi(
+        {
+            "/runs": {
+                **operation,
+                "parameters": [
+                    {
+                        "name": "tenant",
+                        "in": "header",
+                        "required": True,
+                        "schema": {"type": "string"},
+                    }
+                ],
+            }
+        }
+    )
+
+    report = compare_openapi(baseline, candidate, path="openapi.json")
+
+    assert [(item.kind, item.compatibility, item.pointer) for item in report.changes] == [
+        (
+            "required-parameter-added",
+            Compatibility.BREAKING,
+            "/paths/~1runs/parameters/header:tenant",
+        )
+    ]
+
+
+def test_optional_property_with_new_definition_remains_additive() -> None:
+    baseline = object_schema({"id": {"type": "string"}}, required=("id",))
+    candidate = {
+        **object_schema(
+            {
+                "id": {"type": "string"},
+                "meta": {"$ref": "#/$defs/Meta"},
+            },
+            required=("id",),
+        ),
+        "$defs": {
+            "Meta": object_schema({"label": {"type": "string"}}),
+        },
+    }
+
+    report = compare_json_schema(baseline, candidate, path="schema.json")
+
+    assert report.highest_compatibility is Compatibility.ADDITIVE
+    assert [(item.kind, item.compatibility) for item in report.changes] == [
+        ("optional-property-added", Compatibility.ADDITIVE),
+        ("schema-added", Compatibility.ADDITIVE),
+    ]
+
+
 @pytest.mark.parametrize("baseline,candidate", [([], {}), ({}, []), ({"type": "object"}, [])])
 def test_invalid_document_roots_fail_closed(baseline: object, candidate: object) -> None:
     with pytest.raises(SchemaDiffError, match="objeto JSON"):

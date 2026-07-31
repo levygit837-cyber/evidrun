@@ -27,6 +27,7 @@ def classification_diagnostics(
     contract: ChangeContract,
     reports: tuple[ContractDiffReport, ...],
     delivery_paths: tuple[str, ...],
+    contract_path: str,
 ) -> tuple[Diagnostic, ...]:
     """Explain detected changes and fail closed on contradictory declarations."""
 
@@ -67,13 +68,15 @@ def classification_diagnostics(
                 "Use classification=breaking e registre [breaking] com migracao e compatibilidade.",
             )
         )
-    diagnostics.extend(_class_requirements(contract, delivery_paths))
+    diagnostics.extend(_class_requirements(contract, delivery_paths, contract_path))
     diagnostics.extend(_impact_requirements(contract, breaking_reports))
     return tuple(diagnostics)
 
 
 def _class_requirements(
-    contract: ChangeContract, delivery_paths: tuple[str, ...]
+    contract: ChangeContract,
+    delivery_paths: tuple[str, ...],
+    contract_path: str,
 ) -> tuple[Diagnostic, ...]:
     diagnostics: list[Diagnostic] = []
     impacts = (
@@ -107,7 +110,11 @@ def _class_requirements(
         unexpected = tuple(
             path
             for path in delivery_paths
-            if not (path.startswith("docs/") or path.startswith("changes/") or path.endswith(".md"))
+            if not (
+                path.startswith("docs/")
+                or path == contract_path
+                or path.endswith(".md")
+            )
         )
         if unexpected:
             diagnostics.append(

@@ -282,6 +282,8 @@ def _export_declarations(tree: ast.Module) -> tuple[_Declaration, ...]:
 def _explicit_all(tree: ast.Module) -> tuple[str, ...] | None:
     for node in tree.body:
         value = _all_value(node)
+        if value is not None and not isinstance(value, ast.List | ast.Tuple):
+            raise SchemaDiffError("__all__ deve ser uma lista ou tupla literal")
         if isinstance(value, ast.List | ast.Tuple):
             names = tuple(
                 item.value
@@ -380,6 +382,16 @@ def _function_signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
 
 def _field_is_optional(node: ast.AnnAssign) -> bool:
     if node.value is not None:
+        if isinstance(node.value, ast.Call) and _call_named(node.value, "Field"):
+            keywords = {
+                item.arg: item.value for item in node.value.keywords if item.arg is not None
+            }
+            default = node.value.args[0] if node.value.args else keywords.get("default")
+            if "default_factory" in keywords:
+                return True
+            return default is not None and not (
+                isinstance(default, ast.Constant) and default.value is Ellipsis
+            )
         if isinstance(node.value, ast.Call) and _call_named(node.value, "mapped_column"):
             keywords = {
                 item.arg: item.value for item in node.value.keywords if item.arg is not None

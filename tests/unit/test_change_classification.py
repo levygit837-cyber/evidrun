@@ -17,7 +17,7 @@ from change_contract import (  # noqa: E402
     load_contract,
 )
 from change_contract.repository_diff import detect_repository_contract_diffs  # noqa: E402
-from change_contract.schema_diff import ContractSurface  # noqa: E402
+from change_contract.schema_diff import Compatibility, ContractSurface  # noqa: E402
 
 
 def git(root: Path, *args: str) -> str:
@@ -66,6 +66,12 @@ def repository(tmp_path: Path) -> Path:
         "src/evidrun/infrastructure/database/models.py",
         "class RunRow(Base):\n    id: Mapped[str] = mapped_column(nullable=False)\n",
     )
+    write(tmp_path, "tests/compat/test_old_bundle.py", "def test_old_bundle():\n    pass\n")
+    write(
+        tmp_path,
+        "src/evidrun/public.py",
+        'from .contracts import EventPayload\n__all__ = ["EventPayload"]\n',
+    )
     commit_all(tmp_path, "baseline")
     git(tmp_path, "switch", "-qc", "feat/issue-53-fixture")
     return tmp_path
@@ -77,6 +83,7 @@ def contract_text(
     persisted: str,
     normative: str = "none",
     breaking: str = "",
+    focused_test: str = "uv run pytest tests/compat/test_old_bundle.py",
 ) -> str:
     return f'''
 schema_version = "1"
@@ -107,20 +114,24 @@ errors = []
 invariants = ["Falha fechada."]
 
 [verification]
-focused = ["uv run pytest tests/compat/test_old_bundle.py"]
+focused = ["{focused_test}"]
 full_gates = ["uv run pytest"]
 {breaking}
 '''
 
 
-def breaking_text(*, successors: str = "[]") -> str:
+def breaking_text(
+    *,
+    successors: str = "[]",
+    previous_test: str = "uv run pytest tests/compat/test_old_bundle.py",
+) -> str:
     return f"""
 [breaking]
 justification = "Remocao necessaria e explicitamente aprovada."
 strategy = "expand-contract"
 versioning = "Bundle v5 preserva leitura de v4 durante a migracao."
 adr_successors = {successors}
-previous_artifact_tests = ["uv run pytest tests/compat/test_old_bundle.py"]
+previous_artifact_tests = ["{previous_test}"]
 """
 
 
@@ -231,6 +242,55 @@ def test_declared_breaking_schema_with_plan_is_consistent(repository: Path) -> N
     assert "impact.persisted_breaking_mismatch" not in codes
 
 
+def test_breaking_evidence_must_exist_in_candidate(repository: Path) -> None:
+    missing_test = "uv run pytest tests/compat/test_missing_bundle.py"
+    write(
+        repository,
+        "changes/53.toml",
+        contract_text(
+            classification="breaking",
+            persisted="breaking",
+            normative="breaking",
+            focused_test=missing_test,
+            breaking=breaking_text(
+                successors='["docs/adr/0099-missing.md"]',
+                previous_test=missing_test,
+            ),
+        ),
+    )
+    git(repository, "add", "changes/53.toml")
+
+    report = check_contract(
+        load_contract(repository / "changes/53.toml"),
+        inspect_repository(repository, "main"),
+    )
+
+    assert {
+        "breaking.adr_successor_missing",
+        "breaking.previous_artifact_test_missing",
+    }.issubset({item.code for item in report.blockers})
+
+
+def test_docs_only_cannot_modify_another_change_contract(repository: Path) -> None:
+    write(
+        repository,
+        "changes/53.toml",
+        contract_text(classification="docs-only", persisted="none"),
+    )
+    write(repository, "changes/52.toml", "# historical contract\n")
+    git(repository, "add", "changes")
+
+    report = check_contract(
+        load_contract(repository / "changes/53.toml"),
+        inspect_repository(repository, "main"),
+    )
+
+    blocker = next(
+        item for item in report.blockers if item.code == "classification.docs_only_code"
+    )
+    assert blocker.paths == ("changes/52.toml",)
+
+
 def test_repository_routes_event_model_cli_and_export_surfaces(repository: Path) -> None:
     write(
         repository,
@@ -262,3 +322,29 @@ def test_repository_routes_event_model_cli_and_export_surfaces(repository: Path)
         ContractSurface.EXPORT,
         ContractSurface.PERSISTED_MODEL,
     }
+
+
+def test_repository_routes_explicit_exports_outside_init_modules(repository: Path) -> None:
+    write(
+        repository,
+        "src/evidrun/public.py",
+        'from .contracts import OtherPayload\n__all__ = ["OtherPayload"]\n',
+    )
+    git(repository, "add", "src/evidrun/public.py")
+
+    reports = detect_repository_contract_diffs(inspect_repository(repository, "main"))
+
+    export = next(report for report in reports if report.path == "src/evidrun/public.py")
+    assert export.surface is ContractSurface.EXPORT
+    assert [(item.kind, item.pointer) for item in export.changes] == [
+        ("export-removed", "/symbols/EventPayload"),
+        ("export-added", "/symbols/OtherPayload"),
+    ]
+
+    write(repository, "src/evidrun/public.py", "from .contracts import OtherPayload\n")
+    git(repository, "add", "src/evidrun/public.py")
+    transition = detect_repository_contract_diffs(inspect_repository(repository, "main"))
+    export = next(report for report in transition if report.path == "src/evidrun/public.py")
+    assert [(item.kind, item.compatibility) for item in export.changes] == [
+        ("explicit-exports-changed", Compatibility.BREAKING)
+    ]

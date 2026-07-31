@@ -262,7 +262,7 @@ def _compare_named_schemas(
         changes.append(
             ContractChange(
                 "schema-added",
-                Compatibility.BREAKING,
+                Compatibility.ADDITIVE,
                 _join(pointer, name),
                 f"O schema nomeado {name!r} foi adicionado.",
             )

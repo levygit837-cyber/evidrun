@@ -60,10 +60,14 @@ def _compare_paths(
             )
         )
     for path in sorted(old_paths.keys() & new_paths.keys()):
+        old_path = _object(old_paths[path], f"OpenAPI path {path} baseline")
+        new_path = _object(new_paths[path], f"OpenAPI path {path} candidate")
+        path_pointer = _join("/paths", path)
+        _compare_parameters(old_path, new_path, path_pointer, changes)
         _compare_operations(
-            _object(old_paths[path], f"OpenAPI path {path} baseline"),
-            _object(new_paths[path], f"OpenAPI path {path} candidate"),
-            _join("/paths", path),
+            old_path,
+            new_path,
+            path_pointer,
             changes,
         )
 

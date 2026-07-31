@@ -3,6 +3,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT / "scripts") not in sys.path:
     sys.path.insert(0, str(ROOT / "scripts"))
@@ -11,7 +13,11 @@ from change_contract.python_diff import (  # noqa: E402
     compare_migration_surface,
     compare_python_surface,
 )
-from change_contract.schema_diff import Compatibility, ContractSurface  # noqa: E402
+from change_contract.schema_diff import (  # noqa: E402
+    Compatibility,
+    ContractSurface,
+    SchemaDiffError,
+)
 
 
 def test_event_description_and_message_body_are_not_contract_changes() -> None:
@@ -60,6 +66,28 @@ class EventPayload(BaseModel):
         ("required-field-added", Compatibility.BREAKING, "/symbols/EventPayload.correlation_id"),
         ("field-added", Compatibility.ADDITIVE, "/symbols/EventPayload.note"),
         ("field-changed", Compatibility.BREAKING, "/symbols/EventPayload.event_id"),
+    ]
+
+
+def test_pydantic_field_constraints_do_not_make_a_required_field_optional() -> None:
+    baseline = "class EventPayload(BaseModel):\n    event_id: str\n"
+    candidate = (
+        "class EventPayload(BaseModel):\n"
+        "    event_id: str\n"
+        "    count: int = Field(ge=0)\n"
+        "    note: str = Field(default=\"\", max_length=20)\n"
+    )
+
+    report = compare_python_surface(
+        baseline,
+        candidate,
+        path="src/evidrun/contracts/runtime/events.py",
+        surface=ContractSurface.EVENT,
+    )
+
+    assert [(item.kind, item.compatibility) for item in report.changes] == [
+        ("required-field-added", Compatibility.BREAKING),
+        ("field-added", Compatibility.ADDITIVE),
     ]
 
 
@@ -150,6 +178,16 @@ def test_explicit_exports_are_compared_without_import_order_noise() -> None:
         ("export-removed", "/symbols/B"),
         ("export-added", "/symbols/C"),
     ]
+
+
+def test_dynamic_explicit_exports_fail_closed() -> None:
+    with pytest.raises(SchemaDiffError, match="lista ou tupla literal"):
+        compare_python_surface(
+            "NAMES = [\"A\"]\n__all__ = NAMES\n",
+            "NAMES = [\"B\"]\n__all__ = NAMES\n",
+            path="src/evidrun/public.py",
+            surface=ContractSurface.EXPORT,
+        )
 
 
 def test_migration_reads_upgrade_and_distinguishes_add_from_drop() -> None:

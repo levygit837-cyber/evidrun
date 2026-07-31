@@ -50,6 +50,31 @@ def _detect_change(
     new_text = _worktree_text(snapshot.root, change.path) if candidate_path.is_file() else None
     old_surface = _surface(old_path, old_text) if old_text is not None else None
     new_surface = _surface(change.path, new_text) if new_text is not None else None
+    if (
+        old_text is not None
+        and new_text is not None
+        and _declares_exports(old_path, old_text)
+        != _declares_exports(change.path, new_text)
+    ):
+        return ContractDiffReport(
+            change.path,
+            ContractSurface.EXPORT,
+            (
+                ContractChange(
+                    "explicit-exports-changed",
+                    Compatibility.BREAKING,
+                    "/__all__",
+                    "A declaracao explicita de exports __all__ foi adicionada ou removida.",
+                ),
+            ),
+        )
+    if (
+        old_text is not None
+        and new_text is not None
+        and _declares_exports(old_path, old_text)
+        and _declares_exports(change.path, new_text)
+    ):
+        old_surface = new_surface = ContractSurface.EXPORT
     if old_path.startswith("alembic/") or change.path.startswith("alembic/"):
         try:
             return compare_migration_surface(
@@ -135,9 +160,16 @@ def _surface(path: str, text: str | None) -> ContractSurface | None:
         return ContractSurface.EVENT
     if path.startswith("src/evidrun/entrypoints/cli/") and pure.suffix == ".py":
         return ContractSurface.CLI
-    if path.startswith("src/evidrun/") and pure.name == "__init__.py":
+    if path.startswith("src/evidrun/") and (
+        pure.name == "__init__.py" or (text is not None and "__all__" in text)
+    ):
         return ContractSurface.EXPORT
     return None
+
+
+def _declares_exports(path: str, text: str) -> bool:
+    pure = PurePosixPath(path)
+    return path.startswith("src/evidrun/") and pure.suffix == ".py" and "__all__" in text
 
 
 def _baseline_text(snapshot: GitSnapshot, path: str) -> str | None:

@@ -61,8 +61,10 @@ As classificações também limitam o que o diff pode conter:
 
 Uma mudança `breaking` declara justificativa, estratégia `expand-contract` ou `migration`, política
 de versionamento e testes de leitura de artefatos anteriores. Esses testes precisam constar também
-em `verification.focused`. Quando documentação normativa muda, `breaking.adr_successors` aponta os
-ADRs sucessores em `docs/adr/`; um ADR aceito nunca é reescrito para esconder a decisão anterior.
+em `verification.focused`, apontar explicitamente para um target existente sob `tests/` e exercitar
+as fixtures anteriores. Quando documentação normativa muda, `breaking.adr_successors` aponta ADRs
+sucessores existentes em `docs/adr/`; um ADR aceito nunca é reescrito para esconder a decisão
+anterior.
 
 `refactor` também exige `[oracle]` de `characterization` ou `equivalence`, com comando, evidência e
 as preservações estruturadas `capability`, `persisted-contract` e `fail-closed`. O comando do

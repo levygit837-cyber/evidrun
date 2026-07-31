@@ -9,6 +9,7 @@ from typing import Any
 
 from secret_scan import Policy, SourceLine, load_policy, scan_lines
 
+from .breaking import evidence_diagnostics
 from .classification_policy import classification_diagnostics
 from .diagnostics import Diagnostic, Severity
 from .git import (
@@ -128,11 +129,17 @@ def check_contract(contract: ChangeContract, snapshot: GitSnapshot) -> CheckRepo
                 )
             )
     _check_generated_sources(contract, tuple(sorted(delivery)), diagnostics)
+    diagnostics.extend(evidence_diagnostics(contract.breaking_plan, snapshot.root))
     _check_untracked(snapshot, diagnostics)
     _check_secrets(snapshot.added_lines, diagnostics, snapshot.root)
     contract_diffs = _contract_diffs(snapshot, diagnostics)
     diagnostics.extend(
-        classification_diagnostics(contract, contract_diffs, tuple(sorted(delivery)))
+        classification_diagnostics(
+            contract,
+            contract_diffs,
+            tuple(sorted(delivery)),
+            contract_path,
+        )
     )
     diagnostics.extend(
         merge_gate_diagnostics(
