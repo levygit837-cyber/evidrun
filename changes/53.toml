@@ -59,6 +59,10 @@ forbidden = [
 ]
 preexisting = []
 
+[[scope.expansions]]
+patterns = ["scripts/change_contract/migration_diff.py"]
+rationale = "A review final separou a projecao Alembic para cobrir batch operations e manter python_diff.py dentro do budget estrutural."
+
 [[scope.generated]]
 patterns = ["docs/_generated/manifest.json", "docs/_generated/claims.json"]
 source_patterns = ["docs/**/*.md"]
@@ -98,7 +102,7 @@ full_gates = [
 
 [merge_gate]
 review = "proportional"
-ci_commit = "52e60e147558ce9a0266562542453a4d1e06925c"
+ci_commit = "025927403debc76652576cc8b9e8c4dbfaaff9e0"
 
 [merge_gate.spec]
 conclusion = "passed"
@@ -126,7 +130,7 @@ evidence = [
 
 [merge_gate.ci]
 conclusion = "passed"
-evidence = ["run:local/full-gates@52e60e147558ce9a0266562542453a4d1e06925c"]
+evidence = ["run:local/full-gates@025927403debc76652576cc8b9e8c4dbfaaff9e0"]
 
 [[questions]]
 text = "Como integrar a evidencia de compatibilidade ao schema final do merge gate da issue 47?"
