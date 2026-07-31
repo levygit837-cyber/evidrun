@@ -76,6 +76,20 @@ então `failures` e `valid` não podem discordar sobre haver recusa.
 Um arquivo adicionado **com** checksum correto passa integridade e é recusado pela allowlist exata,
 portanto seu código é `bundle.record_invalid` e nunca `bundle.checksum_mismatch`.
 
+### Recusa total versus verificação completa
+
+`bundle.checksums_absent` é diferente dos outros seis: sem `checksums.json` nada pode ser
+verificado, então `verify()` levanta `BundleVerificationRefused` em vez de devolver mapas vazios.
+
+`BundleVerificationRefused.document()` projeta a recusa na **mesma forma** que uma verificação
+completa devolve (`valid: false` mais `failures`). Um consumidor lê `valid` e `failures`
+identicamente nos dois casos, sem precisar distinguir se a verificação rodou até o fim.
+
+`bundle verify` na CLI imprime esse documento e mantém exit code 1: um bundle que não pode ser
+verificado é um bundle inválido, não um defeito inesperado. Antes essa recusa caía no handler
+genérico e imprimia `Falha inesperada` sem JSON algum, o que deixava a borda sem nada estável para
+classificar. Regressão coberta em `tests/integration/test_runtime_surfaces.py`.
+
 ## Desktop bridge
 
 O Main lança através de uma fronteira IPC e o renderer recebe apenas a mensagem serializada. Por

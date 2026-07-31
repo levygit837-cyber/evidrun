@@ -98,6 +98,16 @@ class BundleVerificationRefused(ValueError):
         super().__init__(failure.code.value)
         self.failure = failure
 
+    def document(self) -> dict[str, object]:
+        """Project the refusal in the same shape a completed `verify()` returns.
+
+        A border prints this instead of a generic message, so a consumer parses `valid`
+        and `failures` identically whether verification ran to completion or refused
+        outright.
+        """
+
+        return {"valid": False, "failures": [self.failure.document()]}
+
 
 CATEGORY_BY_CODE: Mapping[BundleVerificationCode, BundleVerificationCategory] = (
     MappingProxyType(
