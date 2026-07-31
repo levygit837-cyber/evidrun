@@ -1,0 +1,107 @@
+schema_version = "1"
+change_id = "GH-90"
+issue = 90
+title = "Consulta de credencial limitada, com resultado explícito"
+classification = "behavior-compatible"
+base_ref = "origin/main"
+branch_pattern = "fix/bounded-credential-lookup"
+expected_outcome = "doctor e demo concluem num binário não assinado, relatando credencial available, absent ou unavailable em vez de pendurar."
+confirmed_facts = [
+  "keyring.get_password é uma chamada FFI que não levanta nem retorna quando o Keychain espera autorização; try/except não protege.",
+  "O guard existente em runs/composition.py capturava Exception e por isso não cobria o hang observado.",
+  "As rotas de provider chamavam get() e source() na mesma resposta, sondando o backend do OS duas vezes.",
+  "serve --desktop-handshake não é afetado porque o caminho de readiness não consulta credencial.",
+]
+stop_conditions = [
+  "A correção exigir consultar, imprimir ou persistir o valor de uma credencial.",
+  "Uma thread abandonada dentro do backend impedir o processo de sair, reproduzindo o mesmo hang no shutdown.",
+  "Admissão passar a tratar credencial indisponível como disponível.",
+]
+
+[impact]
+capability = "none"
+persisted_contract = "none"
+normative = "additive"
+notes = [
+  "Nenhuma capability nova: a consulta que já existia passa a ter limite de tempo e resultado nomeado.",
+  "As respostas de provider e doctor ganham credential_availability de forma aditiva; credential_available permanece.",
+  "O documento operacional de release registra por que assinar não substitui o limite de tempo.",
+]
+
+[scope]
+expected = [
+  "changes/90.toml",
+  "docs/operations/desktop-build-and-release.md",
+  "src/evidrun/entrypoints/api/routers/platform.py",
+  "src/evidrun/entrypoints/cli/app.py",
+  "src/evidrun/entrypoints/cli/commands/provider.py",
+  "src/evidrun/infrastructure/providers/__init__.py",
+  "src/evidrun/infrastructure/providers/credentials.py",
+  "src/evidrun/runs/composition.py",
+  "tests/unit/test_credential_lookup.py",
+]
+forbidden = [
+  "AGENTS.md",
+  "CONTEXT.md",
+  "alembic/**",
+  "docs/adr/**",
+  "docs/contracts/**",
+  "src/evidrun/contracts/**",
+]
+preexisting = []
+
+[[scope.generated]]
+patterns = ["docs/_generated/manifest.json", "docs/_generated/claims.json"]
+source_patterns = ["docs/**"]
+
+[preserve]
+interfaces = [
+  "ProviderCredentialStore.get, require, set e source continuam com a mesma assinatura.",
+  "EVIDRUN_PROVIDER_API_KEY continua tendo precedência sobre o backend do OS.",
+  "credential_available permanece nas respostas de provider e doctor.",
+]
+errors = [
+  "MissingProviderCredentialError continua sendo a falha de credencial ausente em require.",
+  "doctor continua terminando com exit 1 quando um check reprova.",
+]
+invariants = [
+  "Nenhuma saída expõe segredo, conta consultada ou mensagem do backend.",
+  "Absence só é afirmada quando o backend efetivamente respondeu.",
+  "Admissão continua falhando fechado quando a credencial não está disponível.",
+  "Nenhum comando pendura indefinidamente por causa do backend de credencial.",
+]
+
+[verification]
+focused = [
+  "uv run pytest tests/unit/test_credential_lookup.py tests/unit/test_provider.py",
+]
+full_gates = [
+  "uv run pytest",
+  "uv run ruff check .",
+  "uv run python scripts/check_code_budget.py",
+  "uv run pyright",
+  "uv run python scripts/check_import_directions.py",
+  "pnpm typecheck:web",
+  "pnpm typecheck:desktop",
+  "pnpm test",
+  "pnpm build",
+  "uv run python scripts/validate_docs.py",
+]
+
+[[questions]]
+text = "Assinar e notarizar os binários elimina o bloqueio por completo?"
+affects_semantics = true
+status = "resolved"
+resolution = "Remove esta causa, porque o solicitante deixa de ser desconhecido, mas não substitui o limite: um backend pode estar lento, travado ou ausente por outros motivos. As duas medidas são complementares e o limite permanece."
+
+[[questions]]
+text = "Um ThreadPoolExecutor resolve a espera limitada?"
+affects_semantics = true
+status = "resolved"
+resolution = "Não. O executor registra um hook atexit que faz join nas workers, então uma worker presa no FFI mantém o interpretador vivo na saída e reproduz o hang no shutdown. Foi observado durante a correção; usa-se threading.Thread(daemon=True)."
+
+[[questions]]
+text = "Uma consulta que expirou deve ser repetida na chamada seguinte?"
+affects_semantics = false
+status = "resolved"
+resolution = "Não enquanto a sonda anterior estiver em voo: ela é reusada, para que N chamadas não empilhem N threads bloqueadas no backend."
