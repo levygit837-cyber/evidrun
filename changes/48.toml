@@ -7,9 +7,9 @@ base_ref = "origin/main"
 branch_pattern = "agent/issue-48-resource-budgets"
 expected_outcome = "Cenários reais e reproduzíveis medem duração, pico RSS, tamanhos e contagens; ruído e indisponibilidade são explícitos, enquanto somente limites determinísticos acordados bloqueiam."
 confirmed_facts = [
-  "O CRL-CTX-002 executa offline pelo Runtime Kernel e produz duas Runs, uma Comparison, dezoito eventos e seis artifacts neste baseline (run:local/resource-calibration@46fe2c6).",
+  "O CRL-CTX-002 executa offline pelo Runtime Kernel e produz duas Runs, uma Comparison, dezoito eventos e seis artifacts neste baseline (run:local/resource-calibration@f9d30f5).",
   "Runs novas possuem Execution Trust e usam Evidence Bundle v4; o v3 rejeita corretamente Runs com trust e não pode ser fabricado como caminho novo apenas para satisfazer um benchmark antigo.",
-  "O build atual produz quatro raízes determinísticas: apps/web/dist, apps/desktop/dist/main, apps/desktop/dist/preload e apps/desktop/dist/shared (run:local/resource-calibration@46fe2c6).",
+  "O build atual produz quatro raízes determinísticas: apps/web/dist, apps/desktop/dist/main, apps/desktop/dist/preload e apps/desktop/dist/shared (run:local/resource-calibration@f9d30f5).",
 ]
 stop_conditions = [
   "Transformar duração ou memória em gate bloqueante nesta entrega; a Issue exige observação e warnings antes de qualquer promoção.",
@@ -82,7 +82,7 @@ full_gates = [
 
 [merge_gate]
 review = "proportional"
-ci_commit = "46fe2c6ecf29519bc5df35228f1cc5493e1172a6"
+ci_commit = "f9d30f5144dceb4fa6a74ae7d84cdda39685db37"
 
 [merge_gate.spec]
 conclusion = "passed"
@@ -91,7 +91,7 @@ evidence = [
   "test:tests/unit/test_resource_budget.py::test_noisy_repeated_measurement_is_inconclusive_instead_of_a_regression",
   "test:tests/unit/test_resource_budget_policy.py::test_raised_blocking_limit_requires_a_reviewable_adjustment",
   "review:code-review/spec@PR117",
-  "log:resource-python-15-ok-1-inconclusive.txt",
+  "log:resource-python-16-ok.txt",
   "log:resource-build-10-ok.txt",
 ]
 
@@ -116,4 +116,4 @@ evidence = [
 
 [merge_gate.ci]
 conclusion = "passed"
-evidence = ["run:local/full-gates@46fe2c6ecf29519bc5df35228f1cc5493e1172a6"]
+evidence = ["run:local/full-gates@f9d30f5144dceb4fa6a74ae7d84cdda39685db37"]
