@@ -1,35 +1,19 @@
 from __future__ import annotations
 
 import argparse
-import ast
 import json
 import subprocess
 import sys
 import tomllib
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, cast
 
-from import_directions_typescript import (
-    TYPESCRIPT_SOURCE_SUFFIXES,
-    resolve_typescript_path,
-    typescript_imports,
-)
+from import_graph import ImportEdge, WorktreeSource, build_graph
 
-SCANNED_ROOTS = ("src/evidrun", "apps/desktop/src", "apps/web/src")
 CONTRACTS_FORBIDDEN_EXTERNALS = ("fastapi", "sqlalchemy", "openai", "electron", "react")
 NATIVE_BINDING_PACKAGES = {"bindings", "ffi-napi", "node-gyp-build", "ref-napi"}
-
-
-@dataclass(frozen=True, order=True)
-class ImportEdge:
-    source_path: str
-    source_module: str
-    destination: str
-    chain: tuple[str, ...]
-    imported_symbol: str | None = field(default=None, compare=False)
-    bound_name: str | None = field(default=None, compare=False)
 
 
 @dataclass(frozen=True, order=True)
@@ -69,7 +53,7 @@ def load_exceptions(root: Path) -> tuple[ImportException, ...]:
         raise ValueError("import-directions.toml exceptions must be an array")
     exceptions: list[ImportException] = []
     required = {"source", "destination", "rule", "reason", "owner", "expires"}
-    for index, raw in enumerate(raw_exceptions, start=1):
+    for index, raw in enumerate(cast(list[object], raw_exceptions), start=1):
         if not isinstance(raw, dict):
             raise ValueError(f"exception {index} must be a table")
         document = cast(dict[str, Any], raw)
@@ -113,145 +97,6 @@ def load_exceptions(root: Path) -> tuple[ImportException, ...]:
     if len(keys) != len(set(keys)):
         raise ValueError("import-directions.toml has duplicate exceptions")
     return tuple(exceptions)
-
-
-def tracked_source_files(root: Path) -> tuple[Path, ...]:
-    result = subprocess.run(
-        ["git", "-C", str(root), "ls-files", "-z", "--", *SCANNED_ROOTS],
-        check=True,
-        capture_output=True,
-    )
-    relative_paths = sorted(
-        path.decode("utf-8")
-        for path in result.stdout.split(b"\0")
-        if path
-        and Path(path.decode("utf-8")).suffix in {".py", *TYPESCRIPT_SOURCE_SUFFIXES}
-    )
-    return tuple(root / relative for relative in relative_paths)
-
-
-def python_module(path: Path, root: Path) -> str:
-    relative = path.relative_to(root).with_suffix("")
-    parts = relative.parts
-    module_parts = parts[1:] if parts[:2] == ("src", "evidrun") else parts
-    if module_parts[-1] == "__init__":
-        module_parts = module_parts[:-1]
-    return ".".join(module_parts)
-
-
-def python_edges(path: Path, root: Path, modules: frozenset[str]) -> tuple[ImportEdge, ...]:
-    source_module = python_module(path, root)
-    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-    edges: list[ImportEdge] = []
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                edges.append(
-                    ImportEdge(
-                        source_path=str(path.relative_to(root)),
-                        source_module=source_module,
-                        destination=alias.name,
-                        chain=(source_module, alias.name),
-                        bound_name=alias.asname or alias.name.split(".")[0],
-                    )
-                )
-        elif isinstance(node, ast.ImportFrom):
-            if node.level:
-                package = (
-                    source_module
-                    if path.name == "__init__.py"
-                    else source_module.rsplit(".", 1)[0]
-                )
-                package_parts = package.split(".")
-                keep = len(package_parts) - node.level + 1
-                base = ".".join(package_parts[:keep])
-                destination = ".".join(part for part in (base, node.module) if part)
-            else:
-                destination = node.module or ""
-            for alias in node.names:
-                candidate = f"{destination}.{alias.name}" if destination else alias.name
-                resolved = candidate if candidate in modules else destination
-                if not resolved:
-                    continue
-                edges.append(
-                    ImportEdge(
-                        source_path=str(path.relative_to(root)),
-                        source_module=source_module,
-                        destination=resolved,
-                        chain=(source_module, resolved),
-                        imported_symbol=None if resolved == candidate else alias.name,
-                        bound_name=alias.asname or alias.name,
-                    )
-                )
-    return tuple(edges)
-
-
-def typescript_edges(path: Path, root: Path, tracked: set[str]) -> tuple[ImportEdge, ...]:
-    source_path = str(path.relative_to(root))
-    destinations = typescript_imports(path.read_text(encoding="utf-8"))
-    edges: list[ImportEdge] = []
-    for destination in destinations:
-        resolved = resolve_typescript_path(destination, path, root, tracked)
-        edges.append(
-            ImportEdge(
-                source_path=source_path,
-                source_module=source_path,
-                destination=resolved,
-                chain=(source_path, resolved),
-            )
-        )
-    return tuple(edges)
-
-
-def resolve_reexports(
-    edge: ImportEdge,
-    reexports: dict[tuple[str, str | None], tuple[str, str | None]],
-) -> ImportEdge:
-    destination = edge.destination
-    symbol = edge.imported_symbol
-    chain = list(edge.chain)
-    visited: set[tuple[str, str | None]] = set()
-    while True:
-        key = (destination, symbol)
-        preserve_symbol = False
-        if key not in reexports and symbol != "*" and (destination, "*") in reexports:
-            key = (destination, "*")
-            preserve_symbol = True
-        if key not in reexports:
-            break
-        if key in visited:
-            break
-        visited.add(key)
-        destination, reexported_symbol = reexports[key]
-        if not preserve_symbol:
-            symbol = reexported_symbol
-        chain.append(destination)
-    return ImportEdge(
-        source_path=edge.source_path,
-        source_module=edge.source_module,
-        destination=destination,
-        chain=tuple(chain),
-        imported_symbol=symbol,
-        bound_name=edge.bound_name,
-    )
-
-
-def scan_edges(root: Path, files: tuple[Path, ...]) -> tuple[ImportEdge, ...]:
-    modules = frozenset(python_module(path, root) for path in files if path.suffix == ".py")
-    tracked = {str(path.relative_to(root)) for path in files}
-    edges: list[ImportEdge] = []
-    for path in files:
-        if path.suffix == ".py":
-            edges.extend(python_edges(path, root, modules))
-        else:
-            edges.extend(typescript_edges(path, root, tracked))
-    reexports = {
-        (edge.source_module, edge.bound_name): (edge.destination, edge.imported_symbol)
-        for edge in edges
-        if edge.source_path.endswith("/__init__.py") and edge.bound_name is not None
-    }
-    resolved_edges = [resolve_reexports(edge, reexports) for edge in edges]
-    return tuple(sorted(resolved_edges))
 
 
 def is_namespace(value: str, namespace: str) -> bool:
@@ -304,11 +149,11 @@ def evaluate(edges: tuple[ImportEdge, ...]) -> tuple[Violation, ...]:
     return tuple(sorted(violations))
 
 
-def json_report(files: tuple[Path, ...], violations: tuple[Violation, ...]) -> str:
+def json_report(scanned_files: int, violations: tuple[Violation, ...]) -> str:
     return json.dumps(
         {
             "schema_version": "1",
-            "scanned_files": len(files),
+            "scanned_files": scanned_files,
             "violations": [
                 {**asdict(violation), "chain": list(violation.chain)}
                 for violation in violations
@@ -327,8 +172,8 @@ def main() -> int:
     root = args.root.resolve()
     try:
         exceptions = load_exceptions(root)
-        files = tracked_source_files(root)
-        observed = evaluate(scan_edges(root, files))
+        graph = build_graph(root, WorktreeSource(root))
+        observed = evaluate(graph.edges)
     except (OSError, subprocess.CalledProcessError, tomllib.TOMLDecodeError, ValueError) as exc:
         print(f"CONFIG ERROR: {exc}", file=sys.stderr)
         return 2
@@ -346,7 +191,7 @@ def main() -> int:
         if not any(exception.matches(violation) for exception in exceptions)
     )
     if args.format == "json":
-        print(json_report(files, violations))
+        print(json_report(len(graph.paths), violations))
     else:
         for exception in matched_exceptions:
             print(
@@ -361,7 +206,7 @@ def main() -> int:
                 file=sys.stderr,
             )
         print(
-            f"Import directions: {len(files)} files, {len(violations)} violations, "
+            f"Import directions: {len(graph.paths)} files, {len(violations)} violations, "
             f"{len(exceptions)} exceptions"
         )
     return 1 if violations else 0

@@ -698,6 +698,18 @@
       "review_due": null
     },
     {
+      "id": "governance-dependency-report",
+      "path": "docs/governance/dependency-report.md",
+      "type": "governance",
+      "title": "Relatório de dependências e ciclos",
+      "status": "implemented",
+      "authority": "normative",
+      "volatility": "current",
+      "owner": "core",
+      "updated_at": "2026-07-31",
+      "review_due": null
+    },
+    {
       "id": "governance-documentation",
       "path": "docs/governance/documentation.md",
       "type": "governance",
