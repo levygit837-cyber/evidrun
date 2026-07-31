@@ -32,6 +32,7 @@ implementation_refs:
   - src/evidrun/evidence/export/run_v4.py
   - src/evidrun/evidence/verify/v4.py
   - src/evidrun/runs/review.py
+  - src/evidrun/entrypoints/review_html.py
   - apps/web/src/features/observability/executionTrust.ts
 verification_refs:
   - tests/unit/test_execution_trust.py

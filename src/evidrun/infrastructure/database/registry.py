@@ -268,7 +268,11 @@ class ContractRegistryStore:
                 if previous.decision != decision.decision:
                     if not (previous.decision == "accepted" and decision.decision == "superseded"):
                         raise ValueError("contract revision already has a conflicting decision")
-                else:
+                elif not (
+                    previous.actor_type == "repository_fixture"
+                    and decision.authority.kind == "verified_human"
+                    and decision.decision == "accepted"
+                ):
                     return previous
             row = ContractDecisionRow(
                 id=new_id("cdec"),

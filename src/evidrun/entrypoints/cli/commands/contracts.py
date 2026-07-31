@@ -11,13 +11,13 @@ import yaml
 from evidrun.contracts import parse_revision, semantic_model_dump
 from evidrun.contracts.triage import CLI_EXIT_BY_CODE
 from evidrun.entrypoints.cli.shared import components, console
+from evidrun.entrypoints.review_html import render_review_package_html
 from evidrun.experiments import ExperimentManifest
 from evidrun.infrastructure.database.register_errors import (
     RegisterRejected,
     RegisterStorageUnavailable,
 )
 from evidrun.runs import EvidrunService
-from evidrun.runs.review import render_review_package_html
 
 experiment_app = typer.Typer(help="Validar e aceitar manifests de experimento.")
 contract_app = typer.Typer(help="Validar, registrar e decidir contracts revisionados.")

@@ -15,6 +15,31 @@ def check_execution_trust_policy(
 ) -> AdmissionFindings:
     """Validate the binding and add the narrow non-human policy when applicable."""
 
+    found = check_execution_trust_invariants(spec, trust)
+    if trust.kind == "verified_revision_set":
+        return found
+    if spec.workspace.network_policy.mode != "provider_only":
+        return found
+    profile_id = spec.agent_inventory.provider_profile_id
+    if profile_id is None or profile_id not in envelope.providers:
+        runtime = FindingsBuilder()
+        runtime.require("provider_only:resolved_provider")
+        runtime.reject(
+            "provider",
+            profile_id or "missing",
+            "provider_only requires a provider backed by the active runtime",
+            code="unavailable",
+        )
+        return found.merge(runtime.freeze())
+    return found
+
+
+def check_execution_trust_invariants(
+    spec: RunSpec,
+    trust: ExecutionTrustRecord,
+) -> AdmissionFindings:
+    """Project refusals determined only by the immutable RunSpec and trust record."""
+
     if trust.run_spec_digest != spec.digest or trust.study_ref != spec.study_ref:
         raise ValueError("execution trust does not bind the exact RunSpec and Study")
 
@@ -54,14 +79,4 @@ def check_execution_trust_policy(
             "unverified execution permits only disabled or provider_only network",
             code="denied",
         )
-    if network == "provider_only":
-        profile_id = spec.agent_inventory.provider_profile_id
-        if profile_id is None or profile_id not in envelope.providers:
-            found.require("provider_only:resolved_provider")
-            found.reject(
-                "provider",
-                profile_id or "missing",
-                "provider_only requires a provider backed by the active runtime",
-                code="unavailable",
-            )
     return found.freeze()

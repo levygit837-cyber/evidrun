@@ -33,9 +33,7 @@ class EvidrunService:
         self.runner = self.runtime.catalog.subject.runner
         self.admission_service = self.runtime.coordinator.admission_service
         self.execution_preparation = ExecutionPreparationService(repository)
-        self.review_packages = ReviewPackageService(
-            repository, self.admission_service
-        )
+        self.review_packages = ReviewPackageService(repository)
 
     def bootstrap_demo(self, benchmark_root: Path) -> dict[str, Any]:
         manifest_path = benchmark_root / "experiments" / "crl-ctx-002-demo.yaml"

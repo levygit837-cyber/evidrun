@@ -15,7 +15,7 @@ from evidrun.contracts import (
     validate_execution_trust_lineage,
 )
 from evidrun.evidence import archive as ar
-from evidrun.evidence.presentation import TRUST_LABELS
+from evidrun.evidence.presentation import render_run_trust_summary_html
 from evidrun.evidence.verify.v3 import verify_v3_records, verify_v3_structure
 
 
@@ -173,15 +173,8 @@ def _summary_valid(
         document = archive.read("summary.html").decode("utf-8")
     except (KeyError, UnicodeDecodeError):
         return False
-    label, explanation = TRUST_LABELS[trust.kind]
-    return all(
-        value in document
-        for value in (
-            run_id,
-            trust.trust_id,
-            trust.digest,
-            label,
-            explanation,
-            isolation,
-        )
+    return document == render_run_trust_summary_html(
+        run_id=run_id,
+        trust=trust,
+        isolation=isolation,
     )

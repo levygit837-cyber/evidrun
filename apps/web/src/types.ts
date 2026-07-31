@@ -39,18 +39,22 @@ export interface Run {
   runner: string;
   output: string | null;
   context_hash: string | null;
-  execution_trust: {
-    status: "recorded" | "not_recorded";
-    trust_id?: string;
-    digest?: string;
-    kind?: "unverified_revision_set" | "verified_revision_set";
-  };
+  execution_trust: ExecutionTrust;
   isolation: string;
   created_at: string;
   completed_at: string | null;
   grade: Grade | null;
   context_snapshot: ContextSnapshot | null;
 }
+
+export type ExecutionTrust =
+  | { status: "not_recorded" }
+  | {
+      status: "recorded";
+      trust_id: string;
+      digest: string;
+      kind: "unverified_revision_set" | "verified_revision_set";
+    };
 
 export interface RunEvent {
   event_id: string;

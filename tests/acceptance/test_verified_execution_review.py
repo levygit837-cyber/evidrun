@@ -6,6 +6,7 @@ import json
 import zipfile
 from pathlib import Path
 
+import yaml
 from fastapi.testclient import TestClient
 from typer.testing import CliRunner
 
@@ -19,10 +20,20 @@ from evidrun.contracts.authoring.inventory import (
     AgentInventoryRevision,
     CapabilityRequirement,
 )
+from evidrun.contracts.authoring.protocol import (
+    AlwaysTrigger,
+    InteractionEdge,
+    InteractionNode,
+    InteractionProtocolRevision,
+    InteractionProtocolSpec,
+)
 from evidrun.contracts.authoring.scenario import ScenarioRevision
+from evidrun.contracts.legacy import ExperimentManifestV1Adapter
 from evidrun.entrypoints.api.app import create_app
 from evidrun.entrypoints.cli.app import app as cli_app
+from evidrun.entrypoints.review_html import render_review_package_html
 from evidrun.evidence.bundle import EvidenceBundleService
+from evidrun.experiments import ExperimentManifest
 from evidrun.infrastructure.artifacts.store import ArtifactStore
 from evidrun.infrastructure.database import Database, Repository
 from evidrun.runs import DurableRunWorker, EvidrunService
@@ -33,6 +44,8 @@ from tests.support.human_attestation import (
     accepted_decision,
 )
 from tests.support.runtime_study import build_runtime_study
+
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def _archive_files(path: Path) -> dict[str, bytes]:
@@ -203,6 +216,64 @@ def test_verified_promotion_creates_new_trust_admission_and_run(tmp_path: Path) 
     )
     _write_resealed(false_sandbox, sandbox_files)
     assert bundles.verify(false_sandbox)["valid"] is False
+
+    appended_sandbox = tmp_path / "verified-appended-sandbox-claim.zip"
+    appended_files = _archive_files(bundle_path)
+    appended_files["summary.html"] = appended_files["summary.html"].replace(
+        b"</body>", b"<strong>sandboxed</strong></body>"
+    )
+    _write_resealed(appended_sandbox, appended_files)
+    assert bundles.verify(appended_sandbox)["valid"] is False
+    database.dispose()
+
+
+def test_human_decisions_promote_a_nonhuman_repository_fixture(tmp_path: Path) -> None:
+    database, repository = _repository(tmp_path)
+    workspace = repository.catalog.create_workspace("Fixture promotion workspace")
+    project = repository.catalog.create_project(workspace.id, "Fixture promotion project")
+    manifest = ExperimentManifest.model_validate(
+        yaml.safe_load(
+            (ROOT / "benchmarks/experiments/crl-ctx-002-demo.yaml").read_text()
+        )
+    )
+    fixture_path = ROOT / "benchmarks/scenarios/crl-ctx-002/fixtures/long.log"
+    fixture_ref = ArtifactStore(tmp_path / "fixture-artifacts").put_ref(
+        fixture_path.read_bytes(),
+        project_id=project.id,
+        media_type="text/plain",
+        classification=Classification.INTERNAL,
+    )
+    package = ExperimentManifestV1Adapter().convert(
+        manifest,
+        project_id=project.id,
+        fixture_ref=fixture_ref,
+    )
+    repository.registry.import_legacy_contract_package(package)
+    study_row = next(
+        row
+        for row in repository.read_model.list_contract_revisions(project.id)
+        if row["contract_type"] == "study"
+    )
+    service = EvidrunService(repository)
+    before = service.execution_preparation.prepare(str(study_row["id"]))
+    assert {
+        item.execution_trust.kind for item in before.run_specs
+    } == {"unverified_revision_set"}
+
+    for revision in package.revisions:
+        stored = repository.registry.decide_contract_revision(
+            accepted_decision(revision)
+        )
+        assert stored.actor_type == "verified_human"
+    after = service.execution_preparation.prepare(str(study_row["id"]))
+    assert {
+        item.execution_trust.kind for item in after.run_specs
+    } == {"verified_revision_set"}
+    assert {
+        item.execution_trust.trust_id for item in before.run_specs
+    }.isdisjoint(
+        {item.execution_trust.trust_id for item in after.run_specs}
+    )
     database.dispose()
 
 
@@ -221,6 +292,11 @@ def test_review_package_diff_uses_only_persisted_complete_targets(tmp_path: Path
     )
     original_evaluation = next(
         revision for revision in revisions if isinstance(revision, EvaluationPlanRevision)
+    )
+    original_protocol = next(
+        revision
+        for revision in revisions
+        if isinstance(revision, InteractionProtocolRevision)
     )
     goal_v2 = original_goal.model_copy(
         update={
@@ -270,10 +346,38 @@ def test_review_package_diff_uses_only_persisted_complete_targets(tmp_path: Path
             ),
         }
     )
+    classified_node_ref = source.model_copy(
+        update={"classification": Classification.SENSITIVE}
+    )
+    protocol_v2 = original_protocol.model_copy(
+        update={
+            "revision": 2,
+            "payload": InteractionProtocolSpec(
+                mode="graph",
+                max_turns=1,
+                nodes=(
+                    InteractionNode(
+                        id="reviewed-prompt",
+                        kind="prompt",
+                        content_ref=classified_node_ref,
+                    ),
+                    InteractionNode(id="terminal", kind="terminal"),
+                ),
+                edges=(
+                    InteractionEdge(
+                        source="reviewed-prompt",
+                        target="terminal",
+                        trigger=AlwaysTrigger(),
+                    ),
+                ),
+            ),
+        }
+    )
     blueprint_v2 = study.payload.run_blueprint.model_copy(
         update={
             "agent_inventory_ref": agent_v2.ref,
             "evaluation_plan_ref": evaluation_v2.ref,
+            "interaction_protocol_ref": protocol_v2.ref,
         }
     )
     study_v2 = study.model_copy(
@@ -290,7 +394,13 @@ def test_review_package_diff_uses_only_persisted_complete_targets(tmp_path: Path
             ),
         }
     )
-    for revision in (goal_v2, added_scenario, agent_v2, evaluation_v2):
+    for revision in (
+        goal_v2,
+        added_scenario,
+        agent_v2,
+        evaluation_v2,
+        protocol_v2,
+    ):
         repository.registry.save_contract_revision(revision, status="draft")
     study_v2_row = repository.registry.save_contract_revision(study_v2, status="draft")
     second = service.execution_preparation.prepare(study_v2_row.id)
@@ -306,6 +416,7 @@ def test_review_package_diff_uses_only_persisted_complete_targets(tmp_path: Path
         original_goal.logical_id,
         original_agent.logical_id,
         original_evaluation.logical_id,
+        original_protocol.logical_id,
         study.logical_id,
     }.issubset(
         {item.logical_id for item in package.diff.revision_refs_changed}
@@ -325,19 +436,41 @@ def test_review_package_diff_uses_only_persisted_complete_targets(tmp_path: Path
         for change in package.diff.semantic_changes
     )
     assert any(
+        change.endswith(".interaction_protocol")
+        for change in package.diff.semantic_changes
+    )
+    assert any(
         change.endswith(".limitations") for change in package.diff.semantic_changes
     )
     projected = package.run_specs[0]
     assert projected.subject_disclosure.mode == "pre_run"
     assert projected.capability_requirements == (capability,)
     assert projected.requested_permissions == ("read:subject_artifacts",)
-    assert projected.classifications == (Classification.INTERNAL,)
+    assert projected.classifications == (
+        Classification.INTERNAL,
+        Classification.SENSITIVE,
+    )
     assert projected.network.mode == "disabled"
     assert projected.external_effects.mode == "denied"
     assert projected.hidden_input_refs == (source,)
     assert projected.limitations
     assert projected.isolation == "in_process"
     assert projected.known_admission_refusals
+    printable = render_review_package_html(package)
+    for expected_text in (
+        "Closure exata",
+        "Capabilities",
+        "Permissions",
+        "Classifications",
+        "EvaluationPlan",
+        "Hidden-input refs",
+        "Limitações",
+        "Recusas de admissão conhecidas",
+        capability.capability_ref.name,
+        "read:subject_artifacts",
+        source.digest,
+    ):
+        assert expected_text in printable
 
     study_v3 = study_v2.model_copy(
         update={

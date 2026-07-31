@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse
 
 from evidrun.contracts import semantic_model_dump
 from evidrun.entrypoints.api.context import ApiContext
-from evidrun.runs.review import render_review_package_html
+from evidrun.entrypoints.review_html import render_review_package_html
 
 
 def create_review_router(

@@ -24,6 +24,7 @@ implementation_refs:
   - src/evidrun/infrastructure/database/catalog.py
   - src/evidrun/infrastructure/database/queue/enqueue.py
   - src/evidrun/runs/review.py
+  - src/evidrun/entrypoints/review_html.py
   - src/evidrun/entrypoints/api/routers/reviews.py
   - apps/web/src/features/observability/executionTrust.ts
 verification_refs:
@@ -267,5 +268,7 @@ Não existe kind `sandbox`, e `in_process` nunca recebe selo de sandbox seguro.
   restart posterior revalida documentos, digests e bindings sem exigir nova cerimônia por Run;
 - ReviewPackage JSON não possui `review_package_digest`; diff aceita somente outro ReviewTarget
   persistido do mesmo Project, e a projeção HTML identifica o target sem se declarar autoridade;
+- recusas conhecidas no package são derivadas somente de seus inputs imutáveis; incompatibilidades
+  dependentes do catálogo ativo continuam pertencendo ao AdmissionRecord criado separadamente;
 - lista e detalhe de Runs mostram trust e isolamento em campos textuais separados;
 - `repository_fixture` continua pelo import dedicado e explicitamente não humano.

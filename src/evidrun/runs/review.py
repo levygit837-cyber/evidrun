@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from html import escape
-
 from evidrun.contracts import (
     ContractRef,
     ExecutionTrustRecord,
@@ -16,7 +14,19 @@ from evidrun.contracts import (
     RunSpec,
     semantic_model_dump,
 )
-from evidrun.contracts.admission.service import AdmissionService
+from evidrun.contracts.admission.checks.execution_trust import (
+    check_execution_trust_invariants,
+)
+from evidrun.contracts.admission.checks.unsupported import (
+    check_checkpoint_coordinator,
+    check_evaluation_pipeline,
+    check_goal_mode,
+    check_human_adjudication,
+    check_progress_observer,
+    check_stop_conditions,
+    check_subject_disclosure,
+)
+from evidrun.contracts.admission.issues import AdmissionFindings
 from evidrun.infrastructure.database import Repository
 from evidrun.infrastructure.database.trust import ExecutionReviewMaterial
 from evidrun.shared.types import Classification, canonical_json
@@ -31,10 +41,8 @@ class ReviewPackageService:
     def __init__(
         self,
         repository: Repository,
-        admission_service: AdmissionService,
     ) -> None:
         self._repository = repository
-        self._admission_service = admission_service
 
     def build(
         self,
@@ -70,7 +78,7 @@ class ReviewPackageService:
             for revision in material.revisions
         )
         run_specs = tuple(
-            _project_run_spec(spec, trust, self._admission_service)
+            _project_run_spec(spec, trust)
             for spec, trust in zip(
                 material.run_specs, material.trust_records, strict=True
             )
@@ -140,7 +148,6 @@ class ReviewPackageService:
 def _project_run_spec(
     spec: RunSpec,
     trust: ExecutionTrustRecord,
-    admission_service: AdmissionService,
 ) -> ReviewRunSpec:
     permissions = tuple(
         sorted(
@@ -159,10 +166,11 @@ def _project_run_spec(
                 *spec.evaluation_plan.limitations,
                 "ReviewPackage is a projection, not human authority",
                 "The isolation label does not claim an operating-system sandbox",
+                "Runtime-dependent admission is evaluated separately from this package",
             )
         )
     )
-    admission = admission_service.admit(spec, trust)
+    findings = _known_admission_findings(spec, trust)
     return ReviewRunSpec(
         run_spec_digest=spec.digest,
         run_spec=spec,
@@ -176,18 +184,31 @@ def _project_run_spec(
         hidden_input_refs=spec.evaluation_plan.disclosure.hidden_input_refs,
         limitations=limitations,
         isolation=spec.workspace.runtime_kind,
-        known_admission_refusals=(
-            admission.issues if admission.decision == "rejected" else ()
-        ),
-        missing_requirements=(
-            admission.missing_requirements
-            if admission.decision == "rejected"
-            else ()
-        ),
-        denied_policies=(
-            admission.denied_policies if admission.decision == "rejected" else ()
-        ),
+        known_admission_refusals=findings.issues,
+        missing_requirements=findings.missing,
+        denied_policies=findings.denied_policies,
     )
+
+
+def _known_admission_findings(
+    spec: RunSpec,
+    trust: ExecutionTrustRecord,
+) -> AdmissionFindings:
+    """Return only refusals reproducible from immutable package inputs."""
+
+    findings = AdmissionFindings()
+    for part in (
+        check_execution_trust_invariants(spec, trust),
+        check_progress_observer(spec),
+        check_checkpoint_coordinator(spec),
+        check_goal_mode(spec),
+        check_evaluation_pipeline(spec),
+        check_human_adjudication(spec),
+        check_subject_disclosure(spec).findings,
+        check_stop_conditions(spec),
+    ):
+        findings = findings.merge(part)
+    return findings
 
 
 def _classifications(spec: RunSpec) -> set[Classification]:
@@ -200,6 +221,11 @@ def _classifications(spec: RunSpec) -> set[Classification]:
         for artifact in requirement.instruction_refs
     )
     refs.extend(spec.interaction_protocol.initial_message_refs)
+    refs.extend(
+        node.content_ref
+        for node in spec.interaction_protocol.nodes
+        if node.content_ref is not None
+    )
     refs.extend(
         artifact
         for extension in spec.extensions
@@ -259,40 +285,3 @@ def _semantic_changes(
             ):
                 changes.append(f"run_specs[{_slot_label(slot)}].{field}")
     return tuple(changes)
-
-
-def render_review_package_html(package: ReviewPackage) -> str:
-    """Printable projection; never introduces a review_package_digest."""
-
-    rows = "".join(
-        "<tr>"
-        f"<td>{escape(item.run_spec.variant_id)}</td>"
-        f"<td>{item.run_spec.repetition_index}</td>"
-        f"<td><code>{escape(item.run_spec_digest)}</code></td>"
-        f"<td>{escape(item.subject_disclosure.mode)}</td>"
-        f"<td>{escape(item.network.mode)}</td>"
-        f"<td>{escape(item.external_effects.mode)}</td>"
-        f"<td>{escape(item.isolation)}</td>"
-        "</tr>"
-        for item in package.run_specs
-    )
-    return (
-        "<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'>"
-        "<title>ReviewPackage</title><style>"
-        "@page{margin:22mm 14mm}body{font:14px sans-serif;color:#17202a}"
-        "header,footer{position:fixed;left:0;right:0;font-size:10px}"
-        "header{top:-16mm}footer{bottom:-16mm}table{border-collapse:collapse;width:100%}"
-        "th,td{border:1px solid #bbb;padding:6px;text-align:left}code{word-break:break-all}"
-        "</style></head><body>"
-        f"<header>ReviewTarget {escape(package.review_target_digest)} · "
-        f"Project {escape(package.review_target.project_id)}</header>"
-        f"<footer>ReviewTarget {escape(package.review_target_digest)} · "
-        "Projeção de revisão, não autoridade humana</footer>"
-        "<h1>ReviewPackage</h1><p><strong>Identidade:</strong> ReviewTarget "
-        f"<code>{escape(package.review_target_digest)}</code></p>"
-        "<p>Este documento não possui <code>review_package_digest</code> e não constitui "
-        "confirmação humana.</p><h2>RunSpecs</h2><table><thead><tr>"
-        "<th>Variant</th><th>Repetição</th><th>Digest</th><th>Disclosure</th>"
-        "<th>Network</th><th>Efeitos</th><th>Isolamento</th></tr></thead>"
-        f"<tbody>{rows}</tbody></table></body></html>"
-    )

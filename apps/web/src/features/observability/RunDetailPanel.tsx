@@ -50,7 +50,11 @@ function GeneralFacts({
         <Fact label="Run">{run.id}</Fact>
         <Fact label="Status"><StatusMark status={run.status} /></Fact>
         <Fact label="Trust">{trust.label} — {trust.explanation}</Fact>
-        <Fact label="Trust ID">{run.execution_trust.trust_id ?? "Não registrado"}</Fact>
+        <Fact label="Trust ID">
+          {run.execution_trust.status === "recorded"
+            ? run.execution_trust.trust_id
+            : "Não registrado"}
+        </Fact>
         <Fact label="Isolamento">{isolationText(run.isolation)}</Fact>
         {outcome.goalState ? (
           <Fact label="Resultado">{goalStateLabels[outcome.goalState]}</Fact>
