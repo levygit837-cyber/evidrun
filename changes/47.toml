@@ -4,7 +4,7 @@ issue = 47
 title = "Formalizar o merge gate em quatro camadas dentro do contrato de mudança"
 classification = "feature"
 base_ref = "origin/main"
-branch_pattern = "feat/issue-47-merge-gate-layers"
+branch_pattern = "feat/merge-gate-four-layers"
 expected_outcome = "Um contrato declara Spec, Standards, Verification e CI separadamente; `passed` sem evidência bloqueia, citar a execução de CI nas três primeiras camadas bloqueia, e uma execução que não cobre mais a entrega bloqueia."
 confirmed_facts = [
   "`changes/<issue>.toml` já existia e o CI já roda `check_change_contract.py --discover --strict-warnings`.",

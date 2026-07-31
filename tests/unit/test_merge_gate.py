@@ -202,6 +202,67 @@ def test_evidence_must_declare_its_kind() -> None:
     assert any("kind desconhecido 'vibes'" in item for item in unknown)
 
 
+@pytest.mark.parametrize("reference", ["PENDING", "pending", "TBD", "todo", "n/a", "-", "?"])
+def test_a_placeholder_reference_is_not_evidence(reference: str) -> None:
+    gate, errors = parse(
+        gate_table(spec=f'conclusion = "passed"\nevidence = ["diff:{reference}"]')
+    )
+
+    # A blocker rather than a parse error: the contract still loads, so the reader sees
+    # every other finding instead of one invalid-config message hiding the rest.
+    assert errors == []
+    assert gate is not None
+    diagnostics = merge_gate_diagnostics(
+        gate,
+        classification=ChangeClassification.FEATURE,
+        impact=impact(),
+        coverage=CiCoverage(resolved=True),
+    )
+
+    # Otherwise `run:PENDING` satisfies "passed needs evidence" while naming nothing,
+    # which is an empty conclusion in disguise and defeats the whole gate.
+    assert "merge_gate.evidence_placeholder" in {item.code for item in diagnostics}
+
+
+def test_a_placeholder_in_the_ci_layer_is_refused_too() -> None:
+    gate, errors = parse(gate_table(ci='conclusion = "passed"\nevidence = ["run:PENDING"]'))
+
+    assert errors == []
+    assert gate is not None
+    diagnostics = merge_gate_diagnostics(
+        gate,
+        classification=ChangeClassification.FEATURE,
+        impact=impact(),
+        coverage=CiCoverage(resolved=True),
+    )
+
+    placeholder = [
+        item for item in diagnostics if item.code == "merge_gate.evidence_placeholder"
+    ]
+    assert placeholder, [item.code for item in diagnostics]
+    assert "ci" in placeholder[0].message
+
+
+def test_a_real_reference_that_merely_contains_a_placeholder_word_is_accepted() -> None:
+    gate, errors = parse(
+        gate_table(spec='conclusion = "passed"\nevidence = ["test:tests/test_pending_run.py"]')
+    )
+
+    # The rule matches the whole reference, not a substring: a real path may legitimately
+    # contain "pending".
+    assert errors == []
+    assert gate is not None
+    assert (
+        merge_gate_diagnostics(
+            gate,
+            classification=ChangeClassification.FEATURE,
+            impact=impact(),
+            coverage=CiCoverage(resolved=True),
+        )
+        == ()
+    )
+
+
 def test_the_ci_layer_must_point_at_a_run() -> None:
     _, errors = parse(gate_table(ci='conclusion = "passed"\nevidence = ["log:local.txt"]'))
 

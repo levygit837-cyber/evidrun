@@ -73,6 +73,13 @@ MERGE_LAYER_ORDER = ("spec", "standards", "verification", "ci")
 
 _EVIDENCE_LAYERS = ("spec", "standards", "verification")
 
+#: References that are evidence-shaped but name nothing. A layer citing one of these
+#: satisfies "passed needs evidence" while pointing at no artifact, which is a disguised
+#: empty conclusion. Matched case-insensitively.
+_PLACEHOLDER_REFERENCES = frozenset(
+    {"pending", "tbd", "todo", "n/a", "na", "none", "xxx", "?", "-", "fixme"}
+)
+
 
 @dataclass(frozen=True)
 class MergeLayer:
@@ -92,6 +99,24 @@ class MergeLayer:
             except ValueError:
                 continue
         return tuple(kinds)
+
+    def placeholder_references(self) -> tuple[str, ...]:
+        """Evidence entries whose reference names nothing, in order.
+
+        `run:PENDING` satisfies "passed needs evidence" while pointing at no artifact,
+        so it is an empty conclusion in disguise. Matched on the whole reference, not a
+        substring, because a real path may legitimately contain "pending".
+        """
+
+        found: list[str] = []
+        for item in self.evidence:
+            _, separator, reference = item.partition(":")
+            if not separator:
+                continue
+            stripped = reference.strip()
+            if stripped.casefold() in _PLACEHOLDER_REFERENCES:
+                found.append(stripped)
+        return tuple(found)
 
 
 @dataclass(frozen=True)
@@ -189,6 +214,7 @@ def _validate_evidence_kinds(
                 f"{prefix}evidence usa kind desconhecido '{head}'; "
                 f"use um de: {', '.join(sorted(declared))}"
             )
+
     if name == "ci" and evidence and EvidenceKind.RUN.value not in {
         item.partition(":")[0] for item in evidence
     }:
@@ -254,6 +280,22 @@ def _check_layers(gate: MergeGate, diagnostics: list[Diagnostic]) -> None:
                     remediation=(
                         "Substitua a entrada run: por diff, teste, log ou review "
                         "especifico desta camada."
+                    ),
+                )
+            )
+        placeholders = layer.placeholder_references()
+        if layer.conclusion is LayerConclusion.PASSED and placeholders:
+            diagnostics.append(
+                Diagnostic(
+                    code="merge_gate.evidence_placeholder",
+                    severity=Severity.BLOCKER,
+                    message=(
+                        f"A camada {layer.name} aponta evidencia placeholder "
+                        f"({', '.join(placeholders)}), que nao nomeia artefato algum."
+                    ),
+                    remediation=(
+                        "Aponte a referencia real ou conclua not-applicable com "
+                        "justificativa."
                     ),
                 )
             )

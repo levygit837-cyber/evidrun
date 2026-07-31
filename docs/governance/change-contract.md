@@ -82,6 +82,11 @@ nunca pode ser `not-applicable`, porque a suíte sempre roda.
 Evidência tem a forma `<kind>:<referência>`, com kind em `diff`, `test`, `log`, `review` ou `run`.
 `not-applicable` exige `justification` e dispensa evidência: é conclusão honesta quando justificada.
 
+Referência placeholder (`PENDING`, `TBD`, `todo`, `n/a`, `-`, `?` e similares) é blocker
+`merge_gate.evidence_placeholder`. Sem essa regra, `run:PENDING` satisfaz "passed exige evidência"
+sem nomear artefato algum: uma conclusão vazia disfarçada. A comparação é sobre a referência inteira,
+não substring, então um path real como `tests/test_pending_run.py` continua válido.
+
 ### Profundidade de revisão
 
 `review` declara `orthogonal` (revisão independente de quem não escreveu a mudança) ou
