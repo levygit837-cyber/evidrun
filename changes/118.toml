@@ -107,7 +107,7 @@ resolution = "Não é refactor: o comportamento observável muda de propósito, 
 
 [merge_gate]
 review = "proportional"
-ci_commit = "0000000"
+ci_commit = "607ec5fe31029eefce1d4eed2c41913731c6857f"
 
 [merge_gate.spec]
 conclusion = "passed"
