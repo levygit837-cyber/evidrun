@@ -34,6 +34,11 @@ SHARED_PATHS=...
 FORBIDDEN_PATHS=...
 ```
 
+Materialize esta identidade como `changes/<issue>.toml` usando o
+[template de contrato de mudança](change-contract.toml). `PRIMARY_PATHS` vira `scope.expected`,
+`FORBIDDEN_PATHS` vira `scope.forbidden`, e descoberta legítima entra em `scope.expansions` com
+rationale. Paths esperados orientam e geram warning; proibições explícitas continuam bloqueantes.
+
 ## Resultado pratico
 
 Descreva em linguagem de produto o que um usuario ou outro componente consegue fazer no final.

@@ -149,9 +149,10 @@ Obrigatórios, 3 documentos e até 6.000 palavras:
 2. [Mapa temporal de capabilities](planning/mvp-capability-map.md)
 3. o único task document ou roadmap em escopo
 
-Opcional: issue/PR correspondente no tracker. Planning organiza intenção e dependências, mas é
-proibido como prova de comportamento atual; valide qualquer claim de entrega no código, Git, testes
-e records canônicos.
+Opcional: issue/PR correspondente no tracker e o
+[contrato de mudança](governance/change-contract.md) quando a implementação usar o gate de escopo.
+Planning organiza intenção e dependências, mas é proibido como prova de comportamento atual; valide
+qualquer claim de entrega no código, Git, testes e records canônicos.
 
 ## Orçamento warning-only
 

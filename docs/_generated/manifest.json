@@ -662,6 +662,18 @@
       "review_due": null
     },
     {
+      "id": "governance-change-contract",
+      "path": "docs/governance/change-contract.md",
+      "type": "governance",
+      "title": "Contrato de mudança e gate de escopo",
+      "status": "implemented",
+      "authority": "normative",
+      "volatility": "current",
+      "owner": "core",
+      "updated_at": "2026-07-31",
+      "review_due": null
+    },
+    {
       "id": "governance-delivery-status",
       "path": "docs/governance/delivery-status.md",
       "type": "governance",

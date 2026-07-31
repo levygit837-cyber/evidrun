@@ -1,0 +1,52 @@
+schema_version = "1"
+change_id = "GH-NNN"
+issue = 1
+title = "Resultado curto da mudança"
+classification = "feature" # refactor|behavior-compatible|feature|breaking|docs-only|generated
+base_ref = "origin/main"
+branch_pattern = "feat/issue-*"
+expected_outcome = "O resultado observável que encerra a entrega."
+confirmed_facts = ["Fato confirmado no checkout atual."]
+stop_conditions = ["Pergunta ou risco que exige parar e escalar."]
+
+[impact]
+capability = "none"          # none|additive|changed|removed|breaking
+persisted_contract = "none" # none|additive|changed|removed|breaking
+normative = "none"          # none|additive|changed|removed|breaking
+notes = []
+
+[scope]
+expected = ["src/owned/**", "tests/owned/**"]
+forbidden = ["docs/adr/**"]
+preexisting = [] # mudanças do usuário observadas antes da task; são preservadas e excluídas
+
+# Expansão descoberta depois do plano: orienta revisão sem limitar a exploração do agente.
+[[scope.expansions]]
+patterns = ["docs/operation-affected.md"]
+rationale = "O comportamento implementado exige atualizar a instrução operacional existente."
+
+[[scope.generated]]
+patterns = ["schemas/generated/**"]
+source_patterns = ["src/evidrun/contracts/**", "scripts/generate_schemas.py"]
+
+[preserve]
+interfaces = ["Interface pública que deve permanecer compatível."]
+errors = ["Código/status/exit code que não pode mudar."]
+invariants = ["Invariante normativa aplicável a esta mudança."]
+
+[verification]
+focused = ["uv run pytest tests/unit/test_affected.py"]
+full_gates = ["uv run pytest", "uv run ruff check ."]
+
+[[questions]]
+text = "Pergunta encontrada durante discovery."
+affects_semantics = false
+status = "open"
+
+# Obrigatório apenas quando classification="refactor". Nesse caso, inclua também o command abaixo
+# em verification.focused.
+# [oracle]
+# kind = "equivalence" # characterization|equivalence
+# command = "uv run pytest tests/characterization/test_before_after.py"
+# evidence = ["tests/characterization/test_before_after.py"]
+# preserves = ["capability", "persisted-contract", "fail-closed"]
