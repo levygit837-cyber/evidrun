@@ -590,6 +590,18 @@
       "review_due": null
     },
     {
+      "id": "contract-observable-errors",
+      "path": "docs/contracts/observable-errors.md",
+      "type": "contract",
+      "title": "Catálogo de erros observáveis por costura",
+      "status": "implemented",
+      "authority": "normative",
+      "volatility": "current",
+      "owner": "core",
+      "updated_at": "2026-07-31",
+      "review_due": null
+    },
+    {
       "id": "contract-provider-profile-v1",
       "path": "docs/contracts/provider-profile.md",
       "type": "contract",

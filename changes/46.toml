@@ -1,0 +1,82 @@
+schema_version = "1"
+change_id = "GH-46"
+issue = 46
+title = "Contratualizar os erros observáveis das costuras sem representação estável"
+classification = "feature"
+base_ref = "origin/main"
+branch_pattern = "feat/issue-46-observable-error-contracts"
+expected_outcome = "O verificador de bundle e a desktop bridge nomeiam suas recusas por código estável, com categoria e testes de contrato, e um catálogo documenta cada costura e como adicionar um erro novo."
+confirmed_facts = [
+  "Triagem já possui TriageError com matriz por fase; Workspace/Project já possui ScopeError.",
+  "O verificador de bundle tinha 55 `return False` internos e devolvia só mapas de boolean: um bundle inválido não dizia por quê.",
+  "A desktop bridge lançava quatro `new Error` com texto livre; o renderer recebe apenas a mensagem serializada por IPC.",
+]
+stop_conditions = [
+  "Uma costura exigir mudança de status HTTP ou exit code já observável: isso é breaking e precisa de decisão antes.",
+]
+
+[impact]
+capability = "additive"
+persisted_contract = "additive"
+normative = "additive"
+notes = [
+  "`verify()` ganha a chave `failures`; `valid`, `checksums`, `event_chains` e `records` permanecem idênticos, então consumidores existentes não mudam.",
+  "`BundleVerificationRefused` deriva de `ValueError`, preservando os callers que já capturavam.",
+  "`BridgeError` deriva de `Error` e prefixa o código na mensagem, então o renderer passa a ter algo estável para ler sem que nenhum canal IPC mude.",
+  "`docs/contracts/observable-errors.md` é um contrato novo: ele cataloga costuras existentes e não altera schema, migration nem forma de nenhum dado persistido. Nenhuma fixture anterior muda e nenhuma migration é exigida.",
+]
+
+[scope]
+expected = [
+  "src/evidrun/evidence/verify/**",
+  "apps/desktop/src/shared/**",
+  "apps/desktop/src/main/desktop-handshake.ts",
+  "apps/desktop/src/main/executor-handshake.ts",
+  "apps/desktop/src/main/index.ts",
+  "tests/unit/test_bundle_failures.py",
+  "tests/integration/test_runtime_kernel.py",
+  "docs/contracts/observable-errors.md",
+]
+forbidden = ["docs/adr/**"]
+preexisting = []
+
+[[scope.generated]]
+patterns = ["docs/_generated/**"]
+source_patterns = ["docs/**/*.md"]
+
+[preserve]
+interfaces = [
+  "`verify()` mantém `valid`, `checksums`, `event_chains`, `records` e `audit_complete` com os mesmos nomes e semântica.",
+  "Os canais em `channels` da desktop bridge permanecem inalterados.",
+]
+errors = [
+  "Nenhum código de TriageError ou ScopeError muda; nenhum status HTTP ou exit code existente muda.",
+  "Uma bridge sem código conhecido continua sendo um Error comum, não um BridgeError sintético.",
+]
+invariants = [
+  "Bundle auditável não é automaticamente portátil nem replayable: nomear recusas não promete restore nem replay.",
+  "O verificador do Bundle v2 continua validando lifecycle, contratos, IDs, records e allowlist completa; checksum isolado não basta.",
+]
+
+[verification]
+focused = [
+  "uv run pytest tests/unit/test_bundle_failures.py tests/integration/test_runtime_kernel.py",
+  "pnpm test:desktop",
+]
+full_gates = [
+  "uv run pytest",
+  "uv run ruff check .",
+  "uv run python scripts/check_code_budget.py",
+  "uv run pyright",
+  "pnpm typecheck:web",
+  "pnpm typecheck:desktop",
+  "pnpm test",
+  "pnpm build",
+  "uv run python scripts/validate_docs.py",
+]
+
+[[questions]]
+text = "Renomear um código estável deve derrubar os testes de contrato antes da aceitação?"
+affects_semantics = true
+status = "resolved"
+resolution = "Sim. Provado por sonda: renomear `bundle.record_invalid` derruba 3 testes, incluindo o de bundle real adulterado; restaurar volta a 13 passed."

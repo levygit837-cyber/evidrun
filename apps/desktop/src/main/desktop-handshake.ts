@@ -1,3 +1,5 @@
+import { BridgeError, bridgeErrorCodes } from "../shared/desktop-contract.js";
+
 export interface ReadinessMessage {
   protocol: "evidrun-desktop-v1";
   port: number;
@@ -19,7 +21,10 @@ export function parseReadiness(line: string): ReadinessMessage {
     typeof value.pid !== "number" ||
     typeof value.health_nonce !== "string"
   ) {
-    throw new Error("Backend returned an invalid desktop handshake");
+    throw new BridgeError(
+      bridgeErrorCodes.invalidBackendHandshake,
+      "Backend returned an invalid desktop handshake",
+    );
   }
   return value as ReadinessMessage;
 }
