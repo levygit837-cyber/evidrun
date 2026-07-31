@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import json
-import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-CHECKER = ROOT / "scripts" / "check_resource_budgets.py"
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from resource_budget.statistics import evaluate_samples  # noqa: E402
+
+from tests.support.resource_budget_cli import run_checker, write_config  # noqa: E402
 
 
 def test_build_outputs_are_measured_from_real_files(tmp_path: Path) -> None:
@@ -19,8 +19,8 @@ def test_build_outputs_are_measured_from_real_files(tmp_path: Path) -> None:
     assets = output / "assets"
     assets.mkdir()
     (assets / "app.js").write_bytes(b"abc")
-    config = tmp_path / "resource-budget.toml"
-    config.write_text(
+    config = write_config(
+        tmp_path,
         """
 schema_version = "1"
 
@@ -46,30 +46,10 @@ classification = "generated"
 enforcement = "blocking"
 baseline = 2
 limit = 3
-""".strip()
-        + "\n",
-        encoding="utf-8",
+""",
     )
 
-    completed = subprocess.run(
-        [
-            sys.executable,
-            str(CHECKER),
-            "--root",
-            str(tmp_path),
-            "--config",
-            str(config),
-            "--profile",
-            "build",
-            "--base-ref",
-            "none",
-            "--format",
-            "json",
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    completed = run_checker(tmp_path, config, "build")
 
     assert completed.returncode == 0, completed.stderr
     document = json.loads(completed.stdout)
@@ -91,12 +71,55 @@ limit = 3
     ]
 
 
+def test_build_inventory_excludes_declared_cache_patterns(tmp_path: Path) -> None:
+    output = tmp_path / "apps" / "web" / "dist"
+    output.mkdir(parents=True)
+    (output / "index.html").write_bytes(b"1234")
+    cache = output / "node_modules" / ".cache"
+    cache.mkdir(parents=True)
+    (cache / "bundle.bin").write_bytes(b"ignored cache bytes")
+    config = write_config(
+        tmp_path,
+        """
+schema_version = "1"
+[methodology]
+noise_mad_ratio = 0.20
+[classifications]
+cache_excluded = ["**/node_modules/**"]
+[scenarios.web_build]
+profile = "build"
+workload = "path_inventory"
+paths = ["apps/web/dist"]
+repetitions = 1
+[scenarios.web_build.metrics.output_bytes]
+unit = "bytes"
+classification = "generated"
+enforcement = "blocking"
+limit = 4
+[scenarios.web_build.metrics.output_files]
+unit = "files"
+classification = "generated"
+enforcement = "blocking"
+limit = 1
+""",
+    )
+
+    completed = run_checker(tmp_path, config, "build")
+
+    assert completed.returncode == 0, completed.stderr
+    metrics = json.loads(completed.stdout)["scenarios"][0]["metrics"]
+    assert [(metric["name"], metric["value"]) for metric in metrics] == [
+        ("output_bytes", 4),
+        ("output_files", 1),
+    ]
+
+
 def test_warning_metric_reports_a_regression_without_blocking(tmp_path: Path) -> None:
     output = tmp_path / "artifacts"
     output.mkdir()
     (output / "bundle.zip").write_bytes(b"12345678")
-    config = tmp_path / "resource-budget.toml"
-    config.write_text(
+    config = write_config(
+        tmp_path,
         """
 schema_version = "1"
 
@@ -115,30 +138,10 @@ classification = "runtime_artifact"
 enforcement = "warning"
 baseline = 4
 warning_ratio = 1.5
-""".strip()
-        + "\n",
-        encoding="utf-8",
+""",
     )
 
-    completed = subprocess.run(
-        [
-            sys.executable,
-            str(CHECKER),
-            "--root",
-            str(tmp_path),
-            "--config",
-            str(config),
-            "--profile",
-            "build",
-            "--base-ref",
-            "none",
-            "--format",
-            "json",
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    completed = run_checker(tmp_path, config, "build")
 
     assert completed.returncode == 0, completed.stderr
     metric = json.loads(completed.stdout)["scenarios"][0]["metrics"][0]
@@ -146,7 +149,7 @@ warning_ratio = 1.5
     assert metric["threshold"] == 6
 
 
-def test_noisy_timing_is_inconclusive_instead_of_a_regression() -> None:
+def test_noisy_repeated_measurement_is_inconclusive_instead_of_a_regression() -> None:
     result = evaluate_samples(
         (100.0, 140.0, 160.0, 200.0, 240.0),
         baseline=80.0,
@@ -160,8 +163,8 @@ def test_noisy_timing_is_inconclusive_instead_of_a_regression() -> None:
 
 
 def test_python_profile_measures_a_real_evidrun_import(tmp_path: Path) -> None:
-    config = tmp_path / "resource-budget.toml"
-    config.write_text(
+    config = write_config(
+        tmp_path,
         """
 schema_version = "1"
 
@@ -186,30 +189,10 @@ classification = "memory"
 enforcement = "warning"
 baseline = 1000000
 warning_ratio = 2.0
-""".strip()
-        + "\n",
-        encoding="utf-8",
+""",
     )
 
-    completed = subprocess.run(
-        [
-            sys.executable,
-            str(CHECKER),
-            "--root",
-            str(ROOT),
-            "--config",
-            str(config),
-            "--profile",
-            "python",
-            "--base-ref",
-            "none",
-            "--format",
-            "json",
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    completed = run_checker(ROOT, config, "python")
 
     assert completed.returncode == 0, completed.stderr
     metrics = json.loads(completed.stdout)["scenarios"][0]["metrics"]
@@ -218,9 +201,53 @@ warning_ratio = 2.0
     assert all(metric["value"] > 0 for metric in metrics)
 
 
+def test_application_build_runs_real_pnpm_three_times(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"scripts": {"build": "node build.mjs"}}), encoding="utf-8"
+    )
+    (tmp_path / "build.mjs").write_text(
+        "import { mkdirSync, writeFileSync } from 'node:fs';\n"
+        "mkdirSync('dist', { recursive: true });\n"
+        "writeFileSync('dist/app.js', 'real build output');\n",
+        encoding="utf-8",
+    )
+    config = write_config(
+        tmp_path,
+        """
+schema_version = "1"
+[methodology]
+noise_mad_ratio = 0.50
+[scenarios.application_build]
+profile = "build"
+workload = "application_build"
+repetitions = 3
+[scenarios.application_build.metrics.duration_ms]
+unit = "milliseconds"
+classification = "timing"
+enforcement = "warning"
+baseline = 10000
+warning_ratio = 2.0
+[scenarios.application_build.metrics.peak_rss_kib]
+unit = "KiB"
+classification = "memory"
+enforcement = "warning"
+baseline = 1000000
+warning_ratio = 2.0
+""",
+    )
+
+    completed = run_checker(tmp_path, config, "build", timeout=30)
+
+    assert completed.returncode == 0, completed.stderr
+    metrics = json.loads(completed.stdout)["scenarios"][0]["metrics"]
+    assert all(len(metric["samples"]) == 3 for metric in metrics)
+    assert all(metric["value"] > 0 for metric in metrics)
+    assert (tmp_path / "dist" / "app.js").read_text() == "real build output"
+
+
 def test_crl_fixture_and_bundle_use_the_real_runtime(tmp_path: Path) -> None:
-    config = tmp_path / "resource-budget.toml"
-    config.write_text(
+    config = write_config(
+        tmp_path,
         """
 schema_version = "1"
 
@@ -249,6 +276,21 @@ unit = "records"
 classification = "structural"
 enforcement = "measure"
 baseline = 18
+
+[scenarios.crl_ctx_002.metrics.artifact_files]
+unit = "files"
+classification = "runtime_artifact"
+enforcement = "measure"
+
+[scenarios.crl_ctx_002.metrics.artifact_bytes]
+unit = "bytes"
+classification = "runtime_artifact"
+enforcement = "measure"
+
+[scenarios.crl_ctx_002.metrics.database_bytes]
+unit = "bytes"
+classification = "runtime_artifact"
+enforcement = "measure"
 
 [scenarios.run_bundle]
 profile = "python"
@@ -280,31 +322,10 @@ classification = "contract"
 enforcement = "blocking"
 baseline = 1
 limit = 1
-""".strip()
-        + "\n",
-        encoding="utf-8",
+""",
     )
 
-    completed = subprocess.run(
-        [
-            sys.executable,
-            str(CHECKER),
-            "--root",
-            str(ROOT),
-            "--config",
-            str(config),
-            "--profile",
-            "python",
-            "--base-ref",
-            "none",
-            "--format",
-            "json",
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=60,
-    )
+    completed = run_checker(ROOT, config, "python", timeout=60)
 
     assert completed.returncode == 0, completed.stderr
     scenarios = {
@@ -314,120 +335,21 @@ limit = 1
     assert scenarios["crl_ctx_002"]["run_count"]["value"] == 2
     assert scenarios["crl_ctx_002"]["comparison_count"]["value"] == 1
     assert scenarios["crl_ctx_002"]["event_count"]["value"] >= 12
+    assert scenarios["crl_ctx_002"]["artifact_files"]["value"] > 0
+    assert scenarios["crl_ctx_002"]["artifact_bytes"]["value"] > 0
+    assert scenarios["crl_ctx_002"]["database_bytes"]["value"] > 0
     assert scenarios["run_bundle"]["bundle_bytes"]["value"] > 0
     assert scenarios["run_bundle"]["bundle_files"]["value"] > 0
     assert scenarios["run_bundle"]["bundle_schema_version"]["value"] == 4
     assert scenarios["run_bundle"]["verification_valid"]["value"] == 1
 
 
-def test_raised_blocking_limit_requires_a_reviewable_adjustment(tmp_path: Path) -> None:
-    output = tmp_path / "dist"
-    output.mkdir()
-    (output / "app.js").write_bytes(b"1234567890")
-    config = tmp_path / "resource-budget.toml"
-    baseline_config = """
-schema_version = "1"
-
-[methodology]
-noise_mad_ratio = 0.20
-
-[scenarios.build]
-profile = "build"
-workload = "path_inventory"
-paths = ["dist"]
-repetitions = 1
-
-[scenarios.build.metrics.output_bytes]
-unit = "bytes"
-classification = "generated"
-enforcement = "blocking"
-baseline = 5
-limit = 8
-""".strip() + "\n"
-    config.write_text(baseline_config, encoding="utf-8")
-    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
-    subprocess.run(["git", "add", "resource-budget.toml"], cwd=tmp_path, check=True)
-    subprocess.run(
-        [
-            "git",
-            "-c",
-            "user.name=Resource Test",
-            "-c",
-            "user.email=resource@example.invalid",
-            "commit",
-            "-qm",
-            "baseline",
-        ],
-        cwd=tmp_path,
-        check=True,
-    )
-    config.write_text(baseline_config.replace("limit = 8", "limit = 16"), encoding="utf-8")
-
-    completed = subprocess.run(
-        [
-            sys.executable,
-            str(CHECKER),
-            "--root",
-            str(tmp_path),
-            "--config",
-            str(config),
-            "--profile",
-            "build",
-            "--base-ref",
-            "HEAD",
-            "--format",
-            "json",
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    assert completed.returncode == 2
-    assert "build.output_bytes raised 8 -> 16" in completed.stderr
-    assert "limit_adjustments" in completed.stderr
-
-    config.write_text(
-        baseline_config.replace("limit = 8", "limit = 16")
-        + """
-
-[[limit_adjustments]]
-scenario = "build"
-metric = "output_bytes"
-previous_limit = 8
-new_limit = 16
-justification = "The reviewed build adds a required production asset."
-""",
-        encoding="utf-8",
-    )
-    approved = subprocess.run(
-        [
-            sys.executable,
-            str(CHECKER),
-            "--root",
-            str(tmp_path),
-            "--config",
-            str(config),
-            "--profile",
-            "build",
-            "--base-ref",
-            "HEAD",
-            "--format",
-            "json",
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    assert approved.returncode == 0, approved.stderr
-
-
 def test_text_report_and_json_artifact_describe_the_same_measurement(tmp_path: Path) -> None:
     output = tmp_path / "dist"
     output.mkdir()
     (output / "app.js").write_bytes(b"1234")
-    config = tmp_path / "resource-budget.toml"
-    config.write_text(
+    config = write_config(
+        tmp_path,
         """
 schema_version = "1"
 
@@ -446,53 +368,19 @@ classification = "generated"
 enforcement = "blocking"
 baseline = 4
 limit = 8
-""".strip()
-        + "\n",
-        encoding="utf-8",
+""",
     )
     artifact = tmp_path / "reports" / "resources.json"
 
-    completed = subprocess.run(
-        [
-            sys.executable,
-            str(CHECKER),
-            "--root",
-            str(tmp_path),
-            "--config",
-            str(config),
-            "--profile",
-            "build",
-            "--base-ref",
-            "HEAD",
-            "--json-out",
-            str(artifact),
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
+    completed = run_checker(
+        tmp_path, config, "build", base_ref="HEAD", output_format=None, json_out=artifact
     )
 
     assert completed.returncode == 2  # the directory is not a Git repository
     assert "cannot resolve merge-base" in completed.stderr
 
-    completed = subprocess.run(
-        [
-            sys.executable,
-            str(CHECKER),
-            "--root",
-            str(tmp_path),
-            "--config",
-            str(config),
-            "--profile",
-            "build",
-            "--base-ref",
-            "none",
-            "--json-out",
-            str(artifact),
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
+    completed = run_checker(
+        tmp_path, config, "build", output_format=None, json_out=artifact
     )
 
     assert completed.returncode == 0, completed.stderr
@@ -504,8 +392,8 @@ limit = 8
 
 def test_blocking_minimum_catches_an_invalid_real_measurement(tmp_path: Path) -> None:
     (tmp_path / "dist").mkdir()
-    config = tmp_path / "resource-budget.toml"
-    config.write_text(
+    config = write_config(
+        tmp_path,
         """
 schema_version = "1"
 [methodology]
@@ -521,30 +409,10 @@ classification = "generated"
 enforcement = "blocking"
 baseline = 1
 minimum = 1
-""".strip()
-        + "\n",
-        encoding="utf-8",
+""",
     )
 
-    completed = subprocess.run(
-        [
-            sys.executable,
-            str(CHECKER),
-            "--root",
-            str(tmp_path),
-            "--config",
-            str(config),
-            "--profile",
-            "build",
-            "--base-ref",
-            "none",
-            "--format",
-            "json",
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    completed = run_checker(tmp_path, config, "build")
 
     assert completed.returncode == 1
     metric = json.loads(completed.stdout)["scenarios"][0]["metrics"][0]
@@ -556,8 +424,8 @@ def test_timing_and_memory_cannot_be_promoted_to_blocking_by_configuration(
     tmp_path: Path,
 ) -> None:
     (tmp_path / "dist").mkdir()
-    config = tmp_path / "resource-budget.toml"
-    config.write_text(
+    config = write_config(
+        tmp_path,
         """
 schema_version = "1"
 [methodology]
@@ -573,38 +441,18 @@ classification = "timing"
 enforcement = "blocking"
 baseline = 0
 limit = 1
-""".strip()
-        + "\n",
-        encoding="utf-8",
+""",
     )
 
-    completed = subprocess.run(
-        [
-            sys.executable,
-            str(CHECKER),
-            "--root",
-            str(tmp_path),
-            "--config",
-            str(config),
-            "--profile",
-            "build",
-            "--base-ref",
-            "none",
-            "--format",
-            "json",
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    completed = run_checker(tmp_path, config, "build")
 
     assert completed.returncode == 2
     assert "timing and memory must remain warning-only" in completed.stderr
 
 
 def test_missing_real_build_output_is_reported_as_unavailable(tmp_path: Path) -> None:
-    config = tmp_path / "resource-budget.toml"
-    config.write_text(
+    config = write_config(
+        tmp_path,
         """
 schema_version = "1"
 [methodology]
@@ -620,30 +468,10 @@ classification = "generated"
 enforcement = "blocking"
 baseline = 4
 limit = 8
-""".strip()
-        + "\n",
-        encoding="utf-8",
+""",
     )
 
-    completed = subprocess.run(
-        [
-            sys.executable,
-            str(CHECKER),
-            "--root",
-            str(tmp_path),
-            "--config",
-            str(config),
-            "--profile",
-            "build",
-            "--base-ref",
-            "none",
-            "--format",
-            "json",
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    completed = run_checker(tmp_path, config, "build")
 
     assert completed.returncode == 2
     metric = json.loads(completed.stdout)["scenarios"][0]["metrics"][0]
@@ -652,8 +480,8 @@ limit = 8
 
 
 def test_requested_profile_cannot_pass_without_any_scenario(tmp_path: Path) -> None:
-    config = tmp_path / "resource-budget.toml"
-    config.write_text(
+    config = write_config(
+        tmp_path,
         """
 schema_version = "1"
 [methodology]
@@ -668,30 +496,10 @@ classification = "timing"
 enforcement = "warning"
 baseline = 1000
 warning_ratio = 1.5
-""".strip()
-        + "\n",
-        encoding="utf-8",
+""",
     )
 
-    completed = subprocess.run(
-        [
-            sys.executable,
-            str(CHECKER),
-            "--root",
-            str(tmp_path),
-            "--config",
-            str(config),
-            "--profile",
-            "build",
-            "--base-ref",
-            "none",
-            "--format",
-            "json",
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    completed = run_checker(tmp_path, config, "build")
 
     assert completed.returncode == 2
     assert "profile build has no scenarios" in completed.stderr

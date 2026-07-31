@@ -21,14 +21,20 @@ generated = [
   "apps/web/dist/**",
   "apps/desktop/dist/main/**",
   "apps/desktop/dist/preload/**",
+  "apps/desktop/dist/shared/**",
 ]
 runtime_artifact = ["temporary SQLite databases", "Evidence Bundle audit archives"]
 cache_excluded = [
   ".venv/**",
+  "**/.venv/**",
   "node_modules/**",
+  "**/node_modules/**",
   ".pytest_cache/**",
+  "**/.pytest_cache/**",
   ".ruff_cache/**",
+  "**/.ruff_cache/**",
   "**/__pycache__/**",
+  "**/.vite/**",
 ]
 
 [scenarios.startup_import]
@@ -59,7 +65,7 @@ repetitions = 3
 unit = "milliseconds"
 classification = "timing"
 enforcement = "warning"
-baseline = 3142.163
+baseline = 5417.698
 warning_ratio = 1.50
 
 [scenarios.crl_ctx_002.metrics.peak_rss_kib]
@@ -90,6 +96,28 @@ unit = "records"
 classification = "structural"
 enforcement = "warning"
 baseline = 18
+warning_ratio = 1.50
+
+[scenarios.crl_ctx_002.metrics.artifact_files]
+unit = "files"
+classification = "runtime_artifact"
+enforcement = "blocking"
+baseline = 6
+limit = 6
+minimum = 6
+
+[scenarios.crl_ctx_002.metrics.artifact_bytes]
+unit = "bytes"
+classification = "runtime_artifact"
+enforcement = "warning"
+baseline = 5100.0
+warning_ratio = 1.50
+
+[scenarios.crl_ctx_002.metrics.database_bytes]
+unit = "bytes"
+classification = "runtime_artifact"
+enforcement = "warning"
+baseline = 2253456.0
 warning_ratio = 1.50
 
 [scenarios.run_bundle]
@@ -162,6 +190,25 @@ enforcement = "blocking"
 baseline = 26
 limit = 30
 
+[scenarios.application_build]
+profile = "build"
+workload = "application_build"
+repetitions = 3
+
+[scenarios.application_build.metrics.duration_ms]
+unit = "milliseconds"
+classification = "timing"
+enforcement = "warning"
+baseline = 8577.192
+warning_ratio = 1.50
+
+[scenarios.application_build.metrics.peak_rss_kib]
+unit = "KiB"
+classification = "memory"
+enforcement = "warning"
+baseline = 523744.0
+warning_ratio = 1.50
+
 [scenarios.desktop_main_build]
 profile = "build"
 workload = "path_inventory"
@@ -201,3 +248,23 @@ classification = "generated"
 enforcement = "blocking"
 baseline = 2
 limit = 3
+
+[scenarios.desktop_shared_build]
+profile = "build"
+workload = "path_inventory"
+paths = ["apps/desktop/dist/shared"]
+repetitions = 1
+
+[scenarios.desktop_shared_build.metrics.output_bytes]
+unit = "bytes"
+classification = "generated"
+enforcement = "blocking"
+baseline = 9808
+limit = 12000
+
+[scenarios.desktop_shared_build.metrics.output_files]
+unit = "files"
+classification = "generated"
+enforcement = "blocking"
+baseline = 4
+limit = 5

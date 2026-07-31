@@ -6,9 +6,19 @@ from typing import Any, cast
 
 WORKLOAD_METRICS = {
     "path_inventory": frozenset({"output_bytes", "output_files"}),
+    "application_build": frozenset({"duration_ms", "peak_rss_kib"}),
     "startup_import": frozenset({"duration_ms", "peak_rss_kib"}),
     "crl_ctx_002": frozenset(
-        {"duration_ms", "peak_rss_kib", "run_count", "comparison_count", "event_count"}
+        {
+            "duration_ms",
+            "peak_rss_kib",
+            "run_count",
+            "comparison_count",
+            "event_count",
+            "artifact_files",
+            "artifact_bytes",
+            "database_bytes",
+        }
     ),
     "run_bundle_export_verify": frozenset(
         {
@@ -33,6 +43,14 @@ def validate_policy(config: dict[str, Any]) -> None:
     noise_ratio = config.get("methodology", {}).get("noise_mad_ratio")
     if not isinstance(noise_ratio, (int, float)) or not 0 <= noise_ratio <= 1:
         raise ValueError("methodology.noise_mad_ratio must be between 0 and 1")
+    classifications = config.get("classifications", {})
+    if not isinstance(classifications, dict):
+        raise ValueError("classifications must be a table")
+    cache_excluded = classifications.get("cache_excluded", [])
+    if not isinstance(cache_excluded, list) or not all(
+        isinstance(pattern, str) and pattern.strip() for pattern in cache_excluded
+    ):
+        raise ValueError("classifications.cache_excluded must be a list of glob patterns")
     raw_scenarios = config.get("scenarios")
     if not isinstance(raw_scenarios, dict) or not raw_scenarios:
         raise ValueError("at least one scenario is required")

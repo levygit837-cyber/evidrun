@@ -1,4 +1,4 @@
-"""Robust statistics for noisy duration and memory observations."""
+"""Robust statistics for any repeated warning-only observation."""
 
 from __future__ import annotations
 

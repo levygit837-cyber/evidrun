@@ -63,12 +63,12 @@ decide violação e aviso, `baseline` regrava o ratchet. `scripts/check_code_bud
 
 ```bash
 uv run python scripts/check_resource_budgets.py --profile python
-pnpm build
 uv run python scripts/check_resource_budgets.py --profile build
 ```
 
 Os budgets vivem em `resource-budget.toml`. O perfil `python` executa o benchmark offline e o
 Runtime Kernel reais; o perfil `build` mede os outputs que `pnpm build` acabou de produzir. Duração
-e memória são warning-only. Consulte
+e memória são warning-only. O próprio perfil de build executa o build real três vezes antes de
+inventariar web, desktop main, preload e shared. Consulte
 [`docs/governance/resource-budgets.md`](../governance/resource-budgets.md) antes de alterar baseline,
 limites ou classificação de caches.

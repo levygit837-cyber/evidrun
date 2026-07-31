@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import subprocess
 import sys
@@ -11,20 +12,30 @@ from pathlib import Path
 from statistics import median
 from typing import Any
 
-from resource_budget.baseline import validate_limit_adjustments
+from resource_budget.baseline import validate_baseline_changes
 from resource_budget.environment import measurement_environment
 from resource_budget.policy import validate_policy
 from resource_budget.render import json_document, text_document
 from resource_budget.statistics import evaluate_samples
 
 
-def _path_inventory(root: Path, paths: list[str]) -> dict[str, int] | None:
+def _path_inventory(
+    root: Path, paths: list[str], excluded_patterns: list[str]
+) -> dict[str, int] | None:
     files: list[Path] = []
     for relative in paths:
         target = root / relative
         if not target.exists():
             return None
-        files.extend(path for path in target.rglob("*") if path.is_file())
+        files.extend(
+            path
+            for path in target.rglob("*")
+            if path.is_file()
+            and not any(
+                fnmatch.fnmatch(path.relative_to(root).as_posix(), pattern)
+                for pattern in excluded_patterns
+            )
+        )
     return {
         "output_bytes": sum(path.stat().st_size for path in files),
         "output_files": len(files),
@@ -56,7 +67,7 @@ def _evaluate_metric(
         baseline = policy.get("baseline")
         warning_ratio = policy.get("warning_ratio")
         if baseline is not None and warning_ratio is not None:
-            if policy["classification"] in {"timing", "memory"}:
+            if len(samples) >= 3:
                 evaluation = evaluate_samples(
                     tuple(samples),
                     baseline=float(baseline),
@@ -120,7 +131,11 @@ def _document(root: Path, config: dict[str, Any], profile: str) -> dict[str, Any
             continue
         workload = scenario["workload"]
         if workload == "path_inventory":
-            inventory = _path_inventory(root, scenario["paths"])
+            inventory = _path_inventory(
+                root,
+                scenario["paths"],
+                list(config.get("classifications", {}).get("cache_excluded", [])),
+            )
             measured = (
                 None
                 if inventory is None
@@ -197,7 +212,7 @@ def main(argv: list[str] | None = None) -> int:
         validate_policy(config)
         document = _document(root, config, args.profile)
         if args.base_ref != "none":
-            validate_limit_adjustments(root, config_path, config, document, args.base_ref)
+            validate_baseline_changes(root, config_path, config, document, args.base_ref)
     except (OSError, KeyError, TypeError, ValueError, tomllib.TOMLDecodeError) as exc:
         print(f"CONFIG ERROR: {exc}", file=sys.stderr)
         return 2
