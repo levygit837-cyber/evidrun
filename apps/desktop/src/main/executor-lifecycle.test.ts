@@ -18,12 +18,12 @@ class FakeChild extends EventEmitter {
   exitCode: number | null = null;
   signalCode: string | null = null;
   signals: string[] = [];
+  refuseSigkill = false;
 
   kill(signal: string): boolean {
     this.signals.push(signal);
     this.killed = true;
-    if (signal === "SIGKILL") this.exit(null, "SIGKILL");
-    return true;
+    return signal !== "SIGKILL" || !this.refuseSigkill;
   }
 
   exit(code: number | null, signal: string | null = null): void {
@@ -105,16 +105,50 @@ describe("executor lifecycle", () => {
     expect(lifecycle.state.status).toBe("stopped");
   });
 
-  it("escalates to SIGKILL when the executor will not leave", async () => {
+  it("waits for exit after escalating to SIGKILL", async () => {
     vi.useFakeTimers();
     const starting = lifecycle.start("/data");
     const child = spawned[0]!;
     child.ready();
     await starting;
-    const stopping = lifecycle.stop();
+    let stopped = false;
+    const stopping = lifecycle.stop().then(() => {
+      stopped = true;
+    });
     await vi.advanceTimersByTimeAsync(8_000);
-    await stopping;
     expect(child.signals).toEqual(["SIGTERM", "SIGKILL"]);
+    expect(stopped).toBe(false);
+    expect(lifecycle.state).toEqual({ status: "ready" });
+    child.exit(null, "SIGKILL");
+    await stopping;
+    expect(lifecycle.state.status).toBe("stopped");
+  });
+
+  it("rejects restart when SIGKILL cannot be delivered", async () => {
+    vi.useFakeTimers();
+    const child = await startReady();
+    child.refuseSigkill = true;
+    const restarting = lifecycle.restart("/data");
+    const rejection = expect(restarting).rejects.toThrow("SIGKILL");
+    await vi.advanceTimersByTimeAsync(8_000);
+    await rejection;
+    expect(spawned).toHaveLength(1);
+    expect(lifecycle.state.status).toBe("failed");
+    expect(await lifecycle.start("/data")).toEqual(lifecycle.state);
+    expect(spawned).toHaveLength(1);
+  });
+
+  it("rejects shutdown when SIGKILL is delivered but exit never arrives", async () => {
+    vi.useFakeTimers();
+    const child = await startReady();
+    const stopping = lifecycle.stop();
+    const rejection = expect(stopping).rejects.toThrow("SIGKILL");
+    await vi.advanceTimersByTimeAsync(16_000);
+    await rejection;
+    expect(child.signals).toEqual(["SIGTERM", "SIGKILL"]);
+    expect(lifecycle.state.status).toBe("failed");
+    expect(await lifecycle.start("/data")).toEqual(lifecycle.state);
+    expect(spawned).toHaveLength(1);
   });
 
   it("treats a crash as failed and a requested stop as stopped", async () => {
@@ -165,6 +199,27 @@ describe("executor lifecycle", () => {
     await expect(settled).resolves.toContain("handshake");
     expect(child.signals).toContain("SIGTERM");
     expect(lifecycle.state.status).toBe("failed");
+  });
+
+  it("preserves a shutdown failure after the readiness timeout", async () => {
+    vi.useFakeTimers();
+    const starting = lifecycle.start("/data").catch((error: Error) => error.message);
+    const child = spawned[0]!;
+    child.refuseSigkill = true;
+    await vi.advanceTimersByTimeAsync(38_000);
+    await expect(starting).resolves.toContain("SIGKILL");
+    expect(lifecycle.state.message).toContain("SIGKILL");
+  });
+
+  it("preserves a shutdown failure after an invalid handshake", async () => {
+    vi.useFakeTimers();
+    const starting = lifecycle.start("/data").catch((error: Error) => error.message);
+    const child = spawned[0]!;
+    child.refuseSigkill = true;
+    child.stdout.emit("bad-line");
+    await vi.advanceTimersByTimeAsync(8_000);
+    await expect(starting).resolves.toContain("SIGKILL");
+    expect(lifecycle.state.message).toContain("SIGKILL");
   });
 
   it("starts a fresh executor after a failure instead of returning the failure", async () => {

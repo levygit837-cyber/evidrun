@@ -15,6 +15,7 @@ import { BackendLifecycle } from "./backend-lifecycle.js";
 import { ExecutorLifecycle } from "./executor-lifecycle.js";
 import { isApprovedExternalUrl, isTrustedRendererUrl } from "./external-links.js";
 import { lockDownPermissions } from "./permissions.js";
+import { ShutdownCoordinator } from "./shutdown-coordinator.js";
 import { createMainWindow } from "./windows.js";
 import { channels } from "../shared/desktop-contract.js";
 
@@ -22,6 +23,12 @@ const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const devServerUrl = process.env.EVIDRUN_DEV_SERVER_URL;
 const backend = new BackendLifecycle();
 const executor = new ExecutorLifecycle();
+const shutdown = new ShutdownCoordinator({
+  stopExecutor: () => executor.stop(),
+  stopBackend: () => backend.stop(),
+  quit: () => app.quit(),
+  report: (error) => console.error("[evidrun]", error instanceof Error ? error.message : error),
+});
 let mainWindow: BrowserWindow | null = null;
 
 /** The data boundary both planes share; the handshake already resolves it this way. */
@@ -167,11 +174,7 @@ async function createApplicationWindow(): Promise<void> {
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on("second-instance", () => {
-    if (!mainWindow || mainWindow.isDestroyed()) return;
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.focus();
-  });
+  app.on("second-instance", () => shutdown.handleSecondInstance(mainWindow));
 }
 
 app.whenReady().then(async () => {
@@ -194,33 +197,14 @@ app.whenReady().then(async () => {
   });
 });
 
-let shuttingDown = false;
-
 /**
- * Stop the executor before the backend, and wait for both.
+ * Stop the executor before the backend.
  *
- * Order matters: the executor needs a reachable database to release the lease it holds,
- * so tearing the backend down first would leave an in-flight Run waiting out its lease
- * instead of being picked up promptly by the next attempt. Quitting without waiting would
- * do the same and could orphan the process.
+ * Order matters: the executor needs a reachable database to release the lease it holds.
+ * If its process cannot be confirmed dead, shutdown fails closed: the backend and app
+ * remain alive so a later quit request can retry without orphaning the executor.
  */
-app.on("before-quit", (event) => {
-  if (shuttingDown) return;
-  event.preventDefault();
-  shuttingDown = true;
-  void (async () => {
-    // `finally`, because deferring the quit means any throw in teardown would otherwise
-    // leave the app alive with no window and no way out.
-    try {
-      await executor.stop();
-      await backend.stop();
-    } catch (error) {
-      console.error("[evidrun]", error instanceof Error ? error.message : error);
-    } finally {
-      app.quit();
-    }
-  })();
-});
+app.on("before-quit", (event) => shutdown.handleBeforeQuit(event));
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
