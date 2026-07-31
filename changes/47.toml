@@ -90,7 +90,7 @@ resolution = "Não. Ela é parte de uma entrega classificada como feature e as 2
 
 [merge_gate]
 review = "proportional"
-ci_commit = "37c5cf80c8dd2a3b5be7b9e14ee8f58fa6564919"
+ci_commit = "40bd7e669dce507f88e61e3d287b603f95d5039d"
 
 [merge_gate.spec]
 conclusion = "passed"
