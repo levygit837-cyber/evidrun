@@ -117,6 +117,66 @@ def test_enum_narrowing_and_widening_fail_closed_as_breaking() -> None:
     assert wide_report.changes[0].compatibility is Compatibility.BREAKING
 
 
+@pytest.mark.parametrize(
+    ("keyword", "baseline", "candidate"),
+    [
+        ("minProperties", 0, 1),
+        ("maxProperties", 3, 2),
+        ("multipleOf", 2, 4),
+        ("uniqueItems", False, True),
+    ],
+)
+def test_json_schema_constraints_fail_closed(
+    keyword: str,
+    baseline: object,
+    candidate: object,
+) -> None:
+    report = compare_json_schema(
+        {"type": "object", keyword: baseline},
+        {"type": "object", keyword: candidate},
+        path="schema.json",
+    )
+
+    assert [(item.compatibility, item.pointer) for item in report.changes] == [
+        (Compatibility.BREAKING, f"/{keyword}")
+    ]
+
+
+@pytest.mark.parametrize(
+    "keyword",
+    ["patternProperties", "if", "then", "else"],
+)
+def test_json_schema_structural_constraints_fail_closed(keyword: str) -> None:
+    baseline = {"type": "object", keyword: {"type": "string"}}
+    candidate = {"type": "object", keyword: {"type": "integer"}}
+
+    report = compare_json_schema(baseline, candidate, path="schema.json")
+
+    assert [(item.compatibility, item.pointer) for item in report.changes] == [
+        (Compatibility.BREAKING, f"/{keyword}")
+    ]
+
+
+def test_required_without_properties_and_const_null_are_contractual() -> None:
+    required = compare_json_schema(
+        {"type": "object"},
+        {"type": "object", "required": ["tenant"]},
+        path="schema.json",
+    )
+    const_null = compare_json_schema(
+        {"type": ["string", "null"]},
+        {"type": ["string", "null"], "const": None},
+        path="schema.json",
+    )
+
+    assert [(item.kind, item.pointer) for item in required.changes] == [
+        ("required-name-added", "/required")
+    ]
+    assert [(item.kind, item.pointer) for item in const_null.changes] == [
+        ("const-changed", "/const")
+    ]
+
+
 def openapi(
     paths: dict[str, object], schemas: dict[str, object] | None = None
 ) -> dict[str, object]:

@@ -7,12 +7,9 @@ import subprocess
 from pathlib import Path, PurePosixPath
 
 from .git import GitChange, GitSnapshot
+from .migration_diff import compare_migration_surface
 from .openapi_diff import compare_openapi
-from .python_diff import (
-    compare_migration_surface,
-    compare_python_surface,
-    declares_explicit_exports,
-)
+from .python_diff import compare_python_surface, declares_explicit_exports
 from .schema_diff import (
     Compatibility,
     ContractChange,

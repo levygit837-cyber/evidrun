@@ -58,51 +58,6 @@ def compare_python_surface(
     return ContractDiffReport(path, surface, changes)
 
 
-def compare_migration_surface(
-    baseline: str,
-    candidate: str,
-    *,
-    path: str,
-) -> ContractDiffReport:
-    """Compare Alembic `upgrade` operations without treating `downgrade` as delivery."""
-
-    before = _migration_operations(baseline, path, "baseline")
-    after = _migration_operations(candidate, path, "candidate")
-    changes: list[ContractChange] = []
-    for signature in sorted(before.keys() - after.keys()):
-        operation = before[signature]
-        changes.append(
-            ContractChange(
-                "migration-operation-removed",
-                Compatibility.BREAKING,
-                f"/upgrade/{operation}",
-                f"A operacao de migration {operation!r} foi removida.",
-            )
-        )
-    additive_operations = {
-        "add_column",
-        "create_check_constraint",
-        "create_foreign_key",
-        "create_index",
-        "create_table",
-        "create_unique_constraint",
-    }
-    for signature in sorted(after.keys() - before.keys()):
-        operation = after[signature]
-        compatibility = (
-            Compatibility.ADDITIVE if operation in additive_operations else Compatibility.BREAKING
-        )
-        changes.append(
-            ContractChange(
-                "migration-operation-added",
-                compatibility,
-                f"/upgrade/{operation}",
-                f"A operacao de migration {operation!r} foi adicionada.",
-            )
-        )
-    return ContractDiffReport(path, ContractSurface.PERSISTED_MODEL, tuple(changes))
-
-
 def declares_explicit_exports(source: str, *, path: str) -> bool:
     """Return whether a Python module assigns __all__ at module scope."""
 
@@ -110,7 +65,7 @@ def declares_explicit_exports(source: str, *, path: str) -> bool:
         tree = ast.parse(source, filename=path)
     except SyntaxError as error:
         raise SchemaDiffError(f"{path} nao e Python valido: {error.msg}") from error
-    return any(_all_value(node) is not None for node in tree.body)
+    return any(_touches_all(node) for node in tree.body)
 
 
 def _snapshot(
@@ -131,33 +86,6 @@ def _snapshot(
     else:
         declarations.extend(_model_declarations(tree, surface))
     return {item.key: item for item in declarations}
-
-
-def _migration_operations(source: str, path: str, side: str) -> dict[str, str]:
-    try:
-        tree = ast.parse(source, filename=path)
-    except SyntaxError as error:
-        raise SchemaDiffError(f"{path} {side} nao e Python valido: {error.msg}") from error
-    operations: dict[str, str] = {}
-    upgrade = next(
-        (
-            node
-            for node in tree.body
-            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and node.name == "upgrade"
-        ),
-        None,
-    )
-    if upgrade is None:
-        return operations
-    for node in ast.walk(upgrade):
-        if (
-            isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Attribute)
-            and isinstance(node.func.value, ast.Name)
-            and node.func.value.id == "op"
-        ):
-            operations[_fingerprint(node)] = node.func.attr
-    return operations
 
 
 def _model_declarations(tree: ast.Module, surface: ContractSurface) -> tuple[_Declaration, ...]:
@@ -247,10 +175,12 @@ def _command_name(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str | None:
             continue
         if target.attr == "callback":
             return "<callback>"
-        if call is not None and call.args:
-            explicit = call.args[0]
-            if isinstance(explicit, ast.Constant) and isinstance(explicit.value, str):
-                return explicit.value
+        if call is not None:
+            explicit = call.args[0] if call.args else _keyword_value(call, "name")
+            if explicit is not None:
+                if isinstance(explicit, ast.Constant) and isinstance(explicit.value, str):
+                    return explicit.value
+                raise SchemaDiffError("nome de comando Typer deve ser texto literal")
         return node.name.replace("_", "-")
     return None
 
@@ -290,20 +220,22 @@ def _export_declarations(tree: ast.Module) -> tuple[_Declaration, ...]:
 
 
 def _explicit_all(tree: ast.Module) -> tuple[str, ...] | None:
-    for node in tree.body:
-        value = _all_value(node)
-        if value is not None and not isinstance(value, ast.List | ast.Tuple):
-            raise SchemaDiffError("__all__ deve ser uma lista ou tupla literal")
-        if isinstance(value, ast.List | ast.Tuple):
-            names = tuple(
-                item.value
-                for item in value.elts
-                if isinstance(item, ast.Constant) and isinstance(item.value, str)
-            )
-            if len(names) != len(value.elts):
-                raise SchemaDiffError("__all__ deve conter apenas nomes literais")
-            return names
-    return None
+    assignments = tuple(node for node in tree.body if _touches_all(node))
+    if not assignments:
+        return None
+    if len(assignments) != 1:
+        raise SchemaDiffError("__all__ deve ter uma unica atribuicao literal")
+    value = _all_value(assignments[0])
+    if not isinstance(value, ast.List | ast.Tuple):
+        raise SchemaDiffError("__all__ deve ser uma lista ou tupla literal")
+    names = tuple(
+        item.value
+        for item in value.elts
+        if isinstance(item, ast.Constant) and isinstance(item.value, str)
+    )
+    if len(names) != len(value.elts):
+        raise SchemaDiffError("__all__ deve conter apenas nomes literais")
+    return names
 
 
 def _all_value(node: ast.stmt) -> ast.expr | None:
@@ -318,6 +250,37 @@ def _all_value(node: ast.stmt) -> ast.expr | None:
     ):
         return node.value
     return None
+
+
+def _touches_all(node: ast.stmt) -> bool:
+    if isinstance(node, ast.Assign):
+        return any(_is_all_target(target) for target in node.targets)
+    if isinstance(node, ast.AnnAssign | ast.AugAssign):
+        return _is_all_target(node.target)
+    if isinstance(node, ast.Delete):
+        return any(_is_all_target(target) for target in node.targets)
+    if (
+        isinstance(node, ast.Expr)
+        and isinstance(node.value, ast.Call)
+        and isinstance(node.value.func, ast.Attribute)
+    ):
+        return _is_all_target(node.value.func.value)
+    return False
+
+
+def _is_all_target(node: ast.expr) -> bool:
+    if isinstance(node, ast.Name):
+        return node.id == "__all__"
+    if isinstance(node, ast.Subscript):
+        return _is_all_target(node.value)
+    return False
+
+
+def _keyword_value(call: ast.Call, name: str) -> ast.expr | None:
+    return next(
+        (keyword.value for keyword in call.keywords if keyword.arg == name),
+        None,
+    )
 
 
 def _compare_declarations(

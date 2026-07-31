@@ -8,6 +8,13 @@ from typing import Any, cast
 
 type JsonObject = dict[str, object]
 
+_EXACT_KEYWORDS = (
+    "$ref", "const", "pattern", "format", "multipleOf", "uniqueItems",
+    "contains", "patternProperties", "if", "then", "else", "additionalItems",
+    "unevaluatedItems", "dependentRequired", "dependentSchemas", "propertyNames",
+    "unevaluatedProperties", "prefixItems", "oneOf", "anyOf", "allOf", "not",
+)
+
 
 class SchemaDiffError(ValueError):
     """A contract document cannot be compared safely."""
@@ -229,6 +236,24 @@ def _compare_properties(
                 )
             )
         _compare_schema(old_properties[name], new_properties[name], property_pointer, changes)
+    for name in sorted((new_required - old_required) - new_properties.keys()):
+        changes.append(
+            ContractChange(
+                "required-name-added",
+                Compatibility.BREAKING,
+                _join(pointer, "required"),
+                f"O nome {name!r} passou a ser obrigatorio sem schema local.",
+            )
+        )
+    for name in sorted((old_required - new_required) - old_properties.keys()):
+        changes.append(
+            ContractChange(
+                "required-name-removed",
+                Compatibility.BREAKING,
+                _join(pointer, "required"),
+                f"O nome {name!r} deixou de ser garantido como obrigatorio.",
+            )
+        )
 
 
 def _compare_definitions(
@@ -315,8 +340,22 @@ def _compare_constraints(
     pointer: str,
     changes: list[ContractChange],
 ) -> None:
-    increasing_is_stricter = ("minimum", "exclusiveMinimum", "minLength", "minItems")
-    decreasing_is_stricter = ("maximum", "exclusiveMaximum", "maxLength", "maxItems")
+    increasing_is_stricter = (
+        "minimum",
+        "exclusiveMinimum",
+        "minLength",
+        "minItems",
+        "minProperties",
+        "minContains",
+    )
+    decreasing_is_stricter = (
+        "maximum",
+        "exclusiveMaximum",
+        "maxLength",
+        "maxItems",
+        "maxProperties",
+        "maxContains",
+    )
     for keyword in (*increasing_is_stricter, *decreasing_is_stricter):
         _compare_ordered_constraint(before, after, pointer, keyword, changes)
 
@@ -353,8 +392,10 @@ def _compare_exact_keywords(
     pointer: str,
     changes: list[ContractChange],
 ) -> None:
-    for keyword in ("$ref", "const", "pattern", "format", "oneOf", "anyOf", "allOf", "not"):
-        if before.get(keyword) == after.get(keyword):
+    for keyword in _EXACT_KEYWORDS:
+        old_present = keyword in before
+        new_present = keyword in after
+        if old_present == new_present and before.get(keyword) == after.get(keyword):
             continue
         changes.append(
             ContractChange(
