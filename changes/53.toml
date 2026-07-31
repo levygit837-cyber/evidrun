@@ -98,7 +98,7 @@ full_gates = [
 
 [merge_gate]
 review = "proportional"
-ci_commit = "688f65ed2de417a46091833bee266f1a00ceb437"
+ci_commit = "dfc893e0080f6b74c79bc367ae04877881f140b6"
 
 [merge_gate.spec]
 conclusion = "passed"
@@ -126,7 +126,7 @@ evidence = [
 
 [merge_gate.ci]
 conclusion = "passed"
-evidence = ["run:local/full-gates@688f65ed2de417a46091833bee266f1a00ceb437"]
+evidence = ["run:local/full-gates@dfc893e0080f6b74c79bc367ae04877881f140b6"]
 
 [[questions]]
 text = "Como integrar a evidencia de compatibilidade ao schema final do merge gate da issue 47?"
