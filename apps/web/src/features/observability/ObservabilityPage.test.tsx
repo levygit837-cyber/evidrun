@@ -279,7 +279,7 @@ describe("Observability layout and trace", () => {
     await screen.findByText("sha256:subject-envelope");
     fireEvent.click(screen.getByRole("tab", { name: "Evidence" }));
     await waitFor(() => expect(screen.getByText(/references_only/)).toBeInTheDocument());
-    expect(screen.getByText("Run events")).toBeInTheDocument();
+    expect(screen.getByText("Run Events")).toBeInTheDocument();
     expect(screen.getByText("Referência preservada; conteúdo indisponível")).toBeInTheDocument();
     expect(screen.getByText("sha256:result")).toBeInTheDocument();
     expect(screen.getByText("application/json")).toBeInTheDocument();

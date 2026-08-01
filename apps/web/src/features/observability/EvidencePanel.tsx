@@ -50,7 +50,7 @@ export function EvidencePanel({
     <div className="obs-evidence">
       <div className="obs-context-note">
         <Box aria-hidden="true" size={15} />
-        <span>Bundle v3 usa references_only. portable=false e replayable=false.</span>
+        <span>Evidence Bundle v3 usa references_only. portable=false e replayable=false.</span>
       </div>
       <div className="obs-bundle-actions">
         <button
@@ -60,7 +60,7 @@ export function EvidencePanel({
           type="button"
         >
           {exportBundle.isPending ? <LoaderCircle className="obs-spin" size={14} /> : <Download size={14} />}
-          Exportar Bundle v3
+          Export Evidence Bundle v3
         </button>
         {!terminal ? <span>Disponível após estado terminal.</span> : null}
         {exportedPath ? (
@@ -76,7 +76,7 @@ export function EvidencePanel({
         ) : null}
       </div>
       {exportBundle.isError ? (
-        <div className="obs-inline-error" role="alert">Falha ao exportar o Bundle v3.</div>
+        <div className="obs-inline-error" role="alert">Falha ao exportar o Evidence Bundle v3.</div>
       ) : null}
       {exportedPath ? <code className="obs-export-path">{exportedPath}</code> : null}
       {revealError ? <div className="obs-inline-error" role="alert">{revealError}</div> : null}
@@ -89,7 +89,7 @@ export function EvidencePanel({
           <div className="obs-evidence-groups">
             {(["event", "evaluation", "checkpoint"] as const).map((origin) => groupedRefs[origin].length ? (
               <section key={origin}>
-                <h3>{origin === "event" ? "Run events" : origin === "evaluation" ? "Evaluation records" : "Checkpoint records"}</h3>
+                <h3>{origin === "event" ? "Run Events" : origin === "evaluation" ? "Recorded Evaluations" : "Checkpoint Records"}</h3>
                 <ul>
                   {groupedRefs[origin].map((item, index) => (
                     <li key={`${item.sourceId}:${item.ref}:${index}`}>

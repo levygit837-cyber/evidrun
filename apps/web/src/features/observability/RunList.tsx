@@ -16,7 +16,7 @@ export function RunList({
     <div className="obs-run-list" role="group" aria-label="Lista de Runs">
       <div className="obs-list-head" aria-hidden="true">
         <span>Run</span>
-        <span>Study revision / variant</span>
+        <span>Study Version / Variant</span>
         <span>Runner</span>
         <span>Status</span>
         <span>Trust / isolamento</span>

@@ -266,6 +266,18 @@
       "review_due": null
     },
     {
+      "id": "adr-0023",
+      "path": "docs/adr/0023-natural-product-language-over-stable-contracts.md",
+      "type": "adr",
+      "title": "Linguagem de produto natural sobre contratos estáveis",
+      "status": "accepted",
+      "authority": "normative",
+      "volatility": "timeless",
+      "owner": "product",
+      "updated_at": "2026-07-31",
+      "review_due": null
+    },
+    {
       "id": "agents-domain-docs",
       "path": "docs/agents/domain.md",
       "type": "guide",
@@ -1090,7 +1102,7 @@
       "authority": "normative",
       "volatility": "timeless",
       "owner": "product",
-      "updated_at": "2026-07-28",
+      "updated_at": "2026-07-31",
       "review_due": null
     },
     {
@@ -1128,6 +1140,18 @@
       "owner": "product",
       "updated_at": "2026-07-23",
       "review_due": "2026-10-22"
+    },
+    {
+      "id": "product-pipeline-language",
+      "path": "docs/product/pipeline-language.md",
+      "type": "contract",
+      "title": "Linguagem do pipeline de Study até Evidence",
+      "status": "implemented",
+      "authority": "normative",
+      "volatility": "current",
+      "owner": "product",
+      "updated_at": "2026-07-31",
+      "review_due": null
     },
     {
       "id": "product-run-anomaly-and-user-recourse-concept",

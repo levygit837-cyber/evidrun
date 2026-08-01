@@ -7,22 +7,28 @@ authority: normative
 volatility: timeless
 owner: product
 created_at: 2026-07-22
-updated_at: 2026-07-28
+updated_at: 2026-07-31
 applies_to: domain
 sources:
   - docs/adr/0018-lab-agent-copilot-scope.md
   - docs/adr/0020-workspace-project-run-environment-boundaries.md
   - docs/adr/0021-hierarchical-lab-agent-scope.md
   - docs/adr/0022-explicit-execution-trust-without-per-run-authentication.md
+  - docs/adr/0023-natural-product-language-over-stable-contracts.md
   - docs/contracts/execution-trust-v1.md
 supersedes: []
 superseded_by: null
 implementation_refs:
+  - apps/web/src/productLanguage.ts
   - src/evidrun
 verification_refs: []
 ---
 
 # Glossário
+
+Na linguagem de produto, o nome natural em inglês aparece primeiro. O identificador técnico entre
+parênteses permanece estável para contratos, API, CLI, eventos, banco e bundles. O mapa completo do
+funil e sua compatibilidade estão em [Linguagem do pipeline](pipeline-language.md).
 
 - **Workspace:** fronteira durável do Control Plane para isolamento de dados, regras locais e futura
   sincronização. Contém Projects, mas nunca é materializado para uma Run.
@@ -30,23 +36,29 @@ verification_refs: []
   memória, proveniência e Runs relacionadas; não é diretório nem instância de agente.
 - **Study:** raiz de autoria para uma pergunta, hipótese, avaliação, diagnóstico ou exploração; pode
   compilar uma Run ou uma matriz de Runs.
-- **StudyIntent:** propósito e perguntas do laboratório; não é instrução automática do Subject.
-- **Goal:** objetivo e limites entregues ao Subject; permanece separado da avaliação.
-- **Scenario:** inputs, condições observáveis, limitações e provenance versionados para uma Run.
+- **Study Purpose (`StudyIntent`):** propósito e perguntas do laboratório; não é instrução
+  automática do agente avaliado.
+- **Agent Task (`Goal`):** objetivo e limites entregues ao agente avaliado; permanece separado
+  da avaliação.
+- **Scenario:** inputs, condições observáveis, limitações e provenance versionados para
+  uma execução.
 - **Experiment Manifest v1:** contrato legado compatível, importável para um Study.
-- **Variant:** override tipado sobre um blueprint; variants pré-Run são irmãs.
-- **RunSpec:** configuração atômica, imutável e compilada de scenario, variant e repetição.
+- **Variant:** override tipado sobre um blueprint; variações pré-Run são irmãs.
+- **Execution Plan (`RunSpec`):** configuração atômica, imutável e compilada de cenário, variação
+  e repetição.
 - **Run Environment:** ambiente efêmero, admitido e materializado para uma única Run a partir de
   configuração versionada. O schema v1 ainda chama essa configuração de
   `WorkspaceTemplateRevision`; o conceito de produto não é um Workspace nem sinônimo de sandbox.
-- **AdmissionRecord:** decisão pré-fila com inventário, Run Environment e capabilities efetivamente
-  resolvidos.
-- **Run:** tentativa ligada a RunSpec e AdmissionRecord exatos.
-- **SubjectEnvelope:** visão mínima compilada para o Subject, sem dados do laboratório ou grader
-  oculto.
+- **Readiness Check (`AdmissionRecord`):** decisão técnica pré-fila com inventário, Run
+  Environment e capabilities efetivamente resolvidos; não é aprovação humana.
+- **Run:** tentativa ligada a um Execution Plan e um Readiness Check
+  exatos.
+- **Subject Context (`SubjectEnvelope`):** visão mínima compilada para o agente avaliado,
+  sem dados do laboratório ou grader oculto.
 - **Subject Evaluation Guidance:** disclosure público mínimo materializado antes da Run; não é o
   EvaluationPlan completo.
-- **Subject Agent:** sistema sob teste dentro de uma Run; recebe apenas o `SubjectEnvelope`.
+- **Subject Agent:** sistema sob teste dentro de uma Run; recebe apenas o
+  `SubjectEnvelope`.
 - **Lab Agent:** copiloto do control plane e superfície primária de trabalho do laboratório. Conduz
   formulação de hipótese, propõe drafts de qualquer contract de autoria, propõe métricas e graders,
   explica Runs e evidência, e opera as mesmas superfícies públicas que um humano. Não possui
@@ -79,9 +91,10 @@ verification_refs: []
 - **Progress Artifact:** resumo provisório, derivado e append-only ancorado a uma boundary; seus
   schemas existem, mas o observer/persistência runtime não. Não é inventário de arquivos nem segunda
   fonte de verdade.
-- **EvaluationPlan:** dimensões, stages, gates, disclosure, blinding e agregação opcional.
-- **EvaluationRecord:** resultado vetorial, ancorado e append-only produzido por grader, judge ou
-  humano.
+- **Evaluation Plan (`EvaluationPlan`):** dimensões, stages, gates, disclosure, blinding e
+  agregação opcional.
+- **Recorded Evaluation (`EvaluationRecord`):** resultado vetorial, ancorado e append-only produzido
+  por grader, judge ou humano.
 - **Human review:** avaliação humana primária declarada como stage do plano.
 - **Human adjudication:** decisão humana posterior sobre precedência entre records, sem sobrescrita.
 - **Human Attestation:** evidência tipada de verificação humana que cobre principal, ação e conteúdo
@@ -100,15 +113,15 @@ verification_refs: []
 - **Bounded exploration result:** resultado em dois eixos: disposition operacional e stop reason
   factual; nenhum deles é pass/fail ou score.
 - **Grader:** avaliador versionado que produz EvaluationRecord; Grade é projeção legada.
-- **Comparison:** leitura pareada de runs e seus trade-offs.
+- **Comparison:** leitura pareada de Runs e seus trade-offs.
 - **pass@k:** probabilidade de ao menos um acerto em k tentativas do mesmo RunSpec lógico; mede
   potencial. Exige repetições.
 - **pass^k:** probabilidade de acertar todas as k tentativas; mede confiabilidade. Divergem com k.
 - **Batch de execução:** lote de RunSpecs de um mesmo Study enfileirado numa operação, com progresso
   agregado e cancelamento. A matriz já é compilada por `StudyCompiler`; o lote é de execução.
-- **Evidence Bundle audit:** pacote verificável de records, refs e digests; não promete todos os
+- **Audit Evidence Bundle (`Evidence Bundle audit`):** pacote verificável de records, refs e digests; não promete todos os
   blobs nem replay.
-- **Evidence Bundle portable:** perfil futuro com blobs autorizados e manifest de completude para o
+- **Portable Evidence Bundle (`Evidence Bundle portable`):** perfil futuro com blobs autorizados e manifest de completude para o
   uso offline declarado.
 - **General chat:** sessão do Lab Agent escopada ao Workspace, sem Project ou foco. Pode navegar
   identidades de Projects, mas não recebe acesso implícito ao conteúdo de todos eles.

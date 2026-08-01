@@ -3,6 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import type { ObservabilityAdapter, RunStreamState } from "../../data/contracts";
 import type { ExecutorState, RunDetail } from "../../types";
+import { productTerms } from "../../productLanguage";
 import { EvaluationPanel } from "./EvaluationPanel";
 import { EvidencePanel } from "./EvidencePanel";
 import { Fact, StatusMark } from "./ObservabilityParts";
@@ -47,7 +48,7 @@ function GeneralFacts({
         <AnomalyNote adapter={adapter} onRetried={onRetried} run={run} />
       ) : null}
       <dl>
-        <Fact label="Run">{run.id}</Fact>
+        <Fact label={productTerms.run.label}>{run.id}</Fact>
         <Fact label="Status"><StatusMark status={run.status} /></Fact>
         <Fact label="Trust">{trust.label} — {trust.explanation}</Fact>
         <Fact label="Trust ID">
@@ -66,14 +67,14 @@ function GeneralFacts({
           </Fact>
         ) : null}
         {metrics.toolCalls !== null ? <Fact label="Tool calls">{metrics.toolCalls}</Fact> : null}
-        <Fact label="Study revision">{run.experiment_revision_id}</Fact>
+        <Fact label="Study Version">{run.experiment_revision_id}</Fact>
         <Fact label="Variant">{run.variant_id}</Fact>
-        <Fact label="RunSpec">{run.run_spec_id ?? "Sem record"}</Fact>
-        <Fact label="AdmissionRecord">{run.admission_id ?? "Sem record"}</Fact>
-        <Fact label="SubjectEnvelope digest">{run.subject_envelope_digest ?? "Não materializado"}</Fact>
+        <Fact label={productTerms.runSpec.label}>{run.run_spec_id ?? "Sem record"}</Fact>
+        <Fact label={productTerms.admission.label}>{run.admission_id ?? "Sem record"}</Fact>
+        <Fact label={`${productTerms.subjectEnvelope.label} digest`}>{run.subject_envelope_digest ?? "Não materializado"}</Fact>
         <Fact label="Runner">{run.runner}</Fact>
         <Fact label="Duração">{formatDuration(run)}</Fact>
-        <Fact label="Retry of">{run.record?.retry_of ?? "Não é retry"}</Fact>
+        <Fact label="Rerun of">{run.record?.retry_of ?? "Não é rerun"}</Fact>
         <Fact label="Job">{run.execution?.job.job_id ?? "Não informado"}</Fact>
         <Fact label="Attempts">
           {run.execution ? describeAttempts(attempts) : "Não informado"}
@@ -89,13 +90,13 @@ function ExecutionPanel({ run }: { run: RunDetail }) {
   return (
     <div className="obs-execution">
       <section>
-        <header>Run</header>
+        <header>{productTerms.run.label}</header>
         <dl>
           <Fact label="Run ID">{run.id}</Fact>
           <Fact label="Lifecycle">{run.status}</Fact>
-          <Fact label="Retry of">{run.record?.retry_of ?? "Não é retry"}</Fact>
-          <Fact label="RunSpec digest">{run.record?.run_spec_digest ?? "Sem record"}</Fact>
-          <Fact label="Admission digest">{run.record?.admission_digest ?? "Sem record"}</Fact>
+          <Fact label="Rerun of">{run.record?.retry_of ?? "Não é rerun"}</Fact>
+          <Fact label={`${productTerms.runSpec.label} digest`}>{run.record?.run_spec_digest ?? "Sem record"}</Fact>
+          <Fact label={`${productTerms.admission.label} digest`}>{run.record?.admission_digest ?? "Sem record"}</Fact>
         </dl>
       </section>
       <section>
@@ -177,25 +178,25 @@ function AnomalyNote({
               onClick={() => retry.mutate()}
               type="button"
             >
-              {retry.isPending ? "Refazendo…" : "Refazer esta Run"}
+              {retry.isPending ? "Refazendo…" : "Rerun"}
             </button>
             {/* Said plainly because the distinction is load-bearing: nothing here resumes the
                 original Run, and a resumed conversation is not what happens. */}
             <span className="obs-anomaly-hint">
-              Refazer executa o mesmo RunSpec do zero, como Run nova com proveniência declarada.
-              Esta Run permanece como está.
+              Rerun usa o mesmo Execution Plan do zero e cria uma Run nova com proveniência
+              declarada. Esta Run permanece como está.
             </span>
             {/* Its own `alert`, because the enclosing note is polite and a failed retry is not
                 something to leave to the next announcement. */}
             {retry.isError ? (
               <span className="obs-anomaly-error" role="alert">
-                {retry.error instanceof Error ? retry.error.message : "Falha ao refazer a Run."}
+                {retry.error instanceof Error ? retry.error.message : "Falha ao criar a nova Run."}
               </span>
             ) : null}
           </>
         ) : (
           <span className="obs-anomaly-hint">
-            Sem RunSpec canônico, refazer não está disponível para esta Run.
+            Sem Execution Plan canônico, rerun não está disponível para esta Run.
           </span>
         )}
       </div>

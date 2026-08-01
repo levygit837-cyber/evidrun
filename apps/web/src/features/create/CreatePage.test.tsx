@@ -33,8 +33,8 @@ function renderCreate(adapter: CreationAdapter) {
 }
 
 function advanceToAdmission() {
-  fireEvent.click(screen.getByRole("button", { name: /compilar preview demo/i }));
-  fireEvent.click(screen.getByRole("button", { name: /revisar admission/i }));
+  fireEvent.click(screen.getByRole("button", { name: /generate execution plans/i }));
+  fireEvent.click(screen.getByRole("button", { name: /check readiness/i }));
 }
 
 describe("CreatePage", () => {
@@ -44,60 +44,63 @@ describe("CreatePage", () => {
     };
     renderCreate(adapter);
 
-    expect(screen.getAllByText("Demo · integration_pending")).toHaveLength(4);
+    expect(screen.getByRole("heading", { name: "Study Design" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Execution Plans" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Readiness Check" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Runs" })).toBeInTheDocument();
 
-    const name = screen.getByRole("textbox", { name: /nome do study/i });
+    const name = screen.getByRole("textbox", { name: /study name/i });
     fireEvent.change(name, { target: { value: "Study preservado" } });
-    expect(screen.getByRole("button", { name: /runspecs bloqueado/i })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /admission bloqueado/i })).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: /compilar preview demo/i }));
+    expect(screen.getByRole("button", { name: /execution plans locked/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /readiness check locked/i })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: /generate execution plans/i }));
 
-    expect(screen.getByRole("button", { name: "RunSpecs" })).toHaveAttribute("aria-current", "step");
-    expect(screen.getByText(/preview demo · integration_pending/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Execution Plans" })).toHaveAttribute("aria-current", "step");
+    expect(screen.getByText(/local execution plans/i)).toBeInTheDocument();
     expect(screen.getByText(/não são enviados nem usados pelo bootstrap crl-ctx-002/i)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Study" }));
-    expect(screen.getByRole("button", { name: "Study" })).toHaveAttribute("aria-current", "step");
-    expect(screen.getByRole("textbox", { name: /nome do study/i })).toHaveValue("Study preservado");
-    fireEvent.click(screen.getByRole("button", { name: "RunSpecs" }));
+    fireEvent.click(screen.getByRole("button", { name: "Study Design" }));
+    expect(screen.getByRole("button", { name: "Study Design" })).toHaveAttribute("aria-current", "step");
+    expect(screen.getByRole("textbox", { name: /study name/i })).toHaveValue("Study preservado");
+    fireEvent.click(screen.getByRole("button", { name: "Execution Plans" }));
 
-    fireEvent.click(screen.getByRole("button", { name: /editar study/i }));
+    fireEvent.click(screen.getByRole("button", { name: /edit study design/i }));
 
-    expect(screen.getByRole("textbox", { name: /nome do study/i })).toHaveValue("Study preservado");
-    expect(screen.queryByText("Downstream stale")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "RunSpecs" })).toBeEnabled();
+    expect(screen.getByRole("textbox", { name: /study name/i })).toHaveValue("Study preservado");
+    expect(screen.queryByText("Downstream steps are outdated")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Execution Plans" })).toBeEnabled();
 
-    fireEvent.change(screen.getByRole("textbox", { name: /nome do study/i }), {
+    fireEvent.change(screen.getByRole("textbox", { name: /study name/i }), {
       target: { value: "Study realmente alterado" },
     });
-    expect(screen.getByText("Downstream stale")).toBeInTheDocument();
-    expect(screen.getAllByText("stale").length).toBeGreaterThanOrEqual(3);
-    expect(screen.getByRole("button", { name: /runspecs stale/i })).toBeDisabled();
+    expect(screen.getByText("Downstream steps are outdated")).toBeInTheDocument();
+    expect(screen.getAllByText("outdated").length).toBeGreaterThanOrEqual(3);
+    expect(screen.getByRole("button", { name: /execution plans outdated/i })).toBeDisabled();
   });
 
   it("adiciona, remove e preserva Scenarios, Variants e Evaluation modules no estado local", () => {
     renderCreate({ bootstrapCanonicalDemo: vi.fn().mockResolvedValue(bootstrapResult) });
 
-    fireEvent.click(screen.getByRole("button", { name: /adicionar scenario/i }));
+    fireEvent.click(screen.getByRole("button", { name: /add scenario/i }));
     fireEvent.change(screen.getByRole("textbox", { name: "Scenarios 2" }), {
       target: { value: "Scenario preservado" },
     });
 
     fireEvent.click(screen.getByText("Variants"));
-    fireEvent.click(screen.getByRole("button", { name: /adicionar variant/i }));
+    fireEvent.click(screen.getByRole("button", { name: /add variant/i }));
     fireEvent.change(screen.getByRole("textbox", { name: "Variants 3" }), {
       target: { value: "Variant preservada" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Remover Variants 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove Variants 1" }));
 
-    fireEvent.click(screen.getByText("Evaluation modules"));
-    fireEvent.click(screen.getByRole("button", { name: /adicionar evaluation module/i }));
-    fireEvent.change(screen.getByRole("textbox", { name: "Evaluation modules 2" }), {
+    fireEvent.click(screen.getByText("Evaluation criteria"));
+    fireEvent.click(screen.getByRole("button", { name: /add evaluation criterion/i }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Evaluation criteria 2" }), {
       target: { value: "Evaluation preservada" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /compilar preview demo/i }));
-    fireEvent.click(screen.getByRole("button", { name: "Study" }));
+    fireEvent.click(screen.getByRole("button", { name: /generate execution plans/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Study Design" }));
 
     expect(screen.getByDisplayValue("Scenario preservado")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Variant preservada")).toBeInTheDocument();
@@ -111,16 +114,16 @@ describe("CreatePage", () => {
     };
     renderCreate(adapter);
 
-    fireEvent.change(screen.getByRole("combobox", { name: /disclosure da avaliação/i }), {
+    fireEvent.change(screen.getByRole("combobox", { name: /evaluation disclosure/i }), {
       target: { value: "pre_run" },
     });
     advanceToAdmission();
 
-    expect(screen.getByText("Admission rejected")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /corrigir study/i })).toBeInTheDocument();
+    expect(screen.getByText("Run Blocked")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /fix study design/i })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText(/estados de admission distinguidos/i));
-    const key = screen.getByText(/estados de admission distinguidos/i).closest("details");
+    fireEvent.click(screen.getByText(/readiness check states/i));
+    const key = screen.getByText(/readiness check states/i).closest("details");
     expect(key).not.toBeNull();
     for (const state of ["admitted", "rejected", "failed", "unavailable", "stale"]) {
       expect(within(key as HTMLElement).getByText(state)).toBeInTheDocument();
@@ -136,8 +139,8 @@ describe("CreatePage", () => {
     renderCreate({ bootstrapCanonicalDemo });
     advanceToAdmission();
 
-    expect(screen.getByText(/o draft não será enviado/i)).toBeInTheDocument();
-    expect(screen.getByText(/repository_fixture não humana/i)).toBeInTheDocument();
+    expect(screen.getByText(/o rascunho não será enviado/i)).toBeInTheDocument();
+    expect(screen.getByText(/fixture não humana/i)).toBeInTheDocument();
     const execute = screen.getByRole("button", { name: /executar crl-ctx-002/i });
     fireEvent.click(execute);
     fireEvent.click(execute);
@@ -170,21 +173,21 @@ describe("CreatePage", () => {
     expect(candidate.closest("a")).toHaveAttribute("href", "#/observability?run=run-candidate-real");
     expect(screen.getByText(/comparison-real-1/)).toBeInTheDocument();
     expect(screen.getByText(/crl-ctx-002 concluída no backend/i)).toBeInTheDocument();
-    expect(screen.getByText(/o draft local não foi enviado/i)).toBeInTheDocument();
+    expect(screen.getByText(/o rascunho local não foi enviado/i)).toBeInTheDocument();
   });
 
   it("termina authority, autoria e Artifact ausentes como Integração pendente", async () => {
     renderCreate({ bootstrapCanonicalDemo: vi.fn().mockResolvedValue(bootstrapResult) });
     advanceToAdmission();
 
-    expect(screen.getByText("Autoria do Study")).toBeInTheDocument();
-    expect(screen.getByText("Authority humana")).toBeInTheDocument();
-    expect(screen.getByText("Acesso a Artifact")).toBeInTheDocument();
+    expect(screen.getByText("Study authorship")).toBeInTheDocument();
+    expect(screen.getByText("Human authority")).toBeInTheDocument();
+    expect(screen.getByText("Artifact access")).toBeInTheDocument();
     expect(screen.getAllByText("Integração pendente")).toHaveLength(3);
 
     fireEvent.click(screen.getByRole("button", { name: /executar crl-ctx-002/i }));
     await waitFor(() => expect(screen.getByText("run-candidate-real")).toBeInTheDocument());
     expect(screen.getByText("Integração pendente")).toBeInTheDocument();
-    expect(screen.getByText(/autoria humana, authority verificável e materialização de artifact/i)).toBeInTheDocument();
+    expect(screen.getByText(/autoria humana, autoridade verificável e materialização do artefato/i)).toBeInTheDocument();
   });
 });

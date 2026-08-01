@@ -161,14 +161,14 @@ describe("anomaly presentation", () => {
 describe("retry", () => {
   it("makes clear a retry is a new Run rather than a resumption", () => {
     renderPanel();
-    expect(screen.getByText(/executa o mesmo RunSpec do zero/)).toBeInTheDocument();
+    expect(screen.getByText(/usa o mesmo Execution Plan do zero/)).toBeInTheDocument();
     expect(screen.getByText(/Esta Run permanece como está/)).toBeInTheDocument();
   });
 
   it("follows the Run a retry created", async () => {
     const onRetried = vi.fn();
     renderPanel({ onRetried });
-    screen.getByRole("button", { name: "Refazer esta Run" }).click();
+    screen.getByRole("button", { name: "Rerun" }).click();
     await waitFor(() => expect(onRetried).toHaveBeenCalledWith("run:retry-001"));
   });
 
@@ -177,14 +177,14 @@ describe("retry", () => {
       throw new Error("A admissão recusou este RunSpec: rejected");
     });
     renderPanel({ panelAdapter: adapter(retryRun as never) });
-    screen.getByRole("button", { name: "Refazer esta Run" }).click();
+    screen.getByRole("button", { name: "Rerun" }).click();
     expect(await screen.findByText(/A admissão recusou/)).toBeInTheDocument();
   });
 
   it("offers no retry without a canonical RunSpec", () => {
     renderPanel({ data: detail({ run_spec_id: null }) });
-    expect(screen.queryByRole("button", { name: "Refazer esta Run" })).not.toBeInTheDocument();
-    expect(screen.getByText(/Sem RunSpec canônico/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Rerun" })).not.toBeInTheDocument();
+    expect(screen.getByText(/Sem Execution Plan canônico/)).toBeInTheDocument();
   });
 });
 
