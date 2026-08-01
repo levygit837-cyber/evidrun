@@ -420,6 +420,12 @@
   border-top: 1px solid var(--line);
 }
 
+.create-status-key > div > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .create-result-grid > a {
   min-width: 0;
   display: grid;

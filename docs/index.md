@@ -53,7 +53,8 @@ Obrigatórios, 3 documentos e até 4.000 palavras:
 2. [Glossário](product/glossary.md)
 3. [Charter](product/charter.md)
 
-Opcional: o ADR vigente do termo discutido. Proibidos como fonte de terminologia implementada:
+Opcional: a [linguagem do pipeline](product/pipeline-language.md) quando a tarefa tocar nomes de
+produto ou a narrativa entre autoria e evidência; ou o ADR vigente do termo discutido. Proibidos como fonte de terminologia implementada:
 research, incubação, planning e roadmap.
 
 Roteamento atual: Workspace/Project/Run Environment usa o

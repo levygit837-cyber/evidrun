@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ObservabilityAdapter } from "../../data/contracts";
 import type { ExecutorState, RunDetail, RunEvent } from "../../types";
@@ -112,6 +112,25 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+describe("evidence bundle version", () => {
+  it("shows Bundle v4 for a Run with recorded execution trust", () => {
+    renderPanel();
+    fireEvent.click(screen.getByRole("tab", { name: "Evidence" }));
+    expect(screen.getByText(/Audit Evidence Bundle v4 usa/)).toBeInTheDocument();
+  });
+
+  it("shows legacy Bundle v3 only when execution trust was not recorded", () => {
+    renderPanel({
+      data: detail({
+        contract_mode: "legacy_v1",
+        execution_trust: { status: "not_recorded" },
+      }),
+    });
+    fireEvent.click(screen.getByRole("tab", { name: "Evidence" }));
+    expect(screen.getByText(/Audit Evidence Bundle v3 usa/)).toBeInTheDocument();
+  });
+});
+
 describe("anomaly presentation", () => {
   it("shows trust and isolation as independent text", () => {
     renderPanel();
@@ -119,6 +138,14 @@ describe("anomaly presentation", () => {
     expect(screen.getByText("Isolamento: in_process")).toBeInTheDocument();
     expect(screen.getByText(/Não verificada — Sem confirmação humana/)).toBeInTheDocument();
     expect(screen.getByText("in_process")).toBeInTheDocument();
+  });
+
+  it("shows product and technical names together on the audit surface", () => {
+    renderPanel();
+    expect(screen.getByText("Study Version (StudyRevision)")).toBeInTheDocument();
+    expect(screen.getByText("Execution Plan (RunSpec)")).toBeInTheDocument();
+    expect(screen.getByText("Readiness Check (AdmissionRecord)")).toBeInTheDocument();
+    expect(screen.getByText("Subject Context (SubjectEnvelope) digest")).toBeInTheDocument();
   });
 
   it("names the anomaly and its cause", () => {
@@ -161,14 +188,14 @@ describe("anomaly presentation", () => {
 describe("retry", () => {
   it("makes clear a retry is a new Run rather than a resumption", () => {
     renderPanel();
-    expect(screen.getByText(/executa o mesmo RunSpec do zero/)).toBeInTheDocument();
+    expect(screen.getByText(/usa o mesmo Execution Plan do zero/)).toBeInTheDocument();
     expect(screen.getByText(/Esta Run permanece como está/)).toBeInTheDocument();
   });
 
   it("follows the Run a retry created", async () => {
     const onRetried = vi.fn();
     renderPanel({ onRetried });
-    screen.getByRole("button", { name: "Refazer esta Run" }).click();
+    screen.getByRole("button", { name: "Rerun" }).click();
     await waitFor(() => expect(onRetried).toHaveBeenCalledWith("run:retry-001"));
   });
 
@@ -177,14 +204,14 @@ describe("retry", () => {
       throw new Error("A admissão recusou este RunSpec: rejected");
     });
     renderPanel({ panelAdapter: adapter(retryRun as never) });
-    screen.getByRole("button", { name: "Refazer esta Run" }).click();
+    screen.getByRole("button", { name: "Rerun" }).click();
     expect(await screen.findByText(/A admissão recusou/)).toBeInTheDocument();
   });
 
   it("offers no retry without a canonical RunSpec", () => {
     renderPanel({ data: detail({ run_spec_id: null }) });
-    expect(screen.queryByRole("button", { name: "Refazer esta Run" })).not.toBeInTheDocument();
-    expect(screen.getByText(/Sem RunSpec canônico/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Rerun" })).not.toBeInTheDocument();
+    expect(screen.getByText(/Sem Execution Plan canônico/)).toBeInTheDocument();
   });
 });
 

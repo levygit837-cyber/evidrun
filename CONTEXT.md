@@ -4,6 +4,10 @@ Laboratório local e benchmark-first para transformar hipóteses sobre agentes e
 
 Este arquivo é a linguagem ubíqua do projeto. A fonte de verdade normativa completa é `docs/product/glossary.md` e os ADRs em `docs/adr/`; quando um termo aqui conflitar com um ADR aceito, o ADR prevalece.
 
+Nas superfícies voltadas a pessoas, o nome natural em inglês aparece primeiro e o identificador técnico fica
+entre parênteses quando necessário para auditoria ou suporte. Os identificadores v1 continuam
+estáveis em contratos, API, CLI, eventos, banco e bundles.
+
 ## Autoria e estrutura
 
 **Workspace**:
@@ -20,13 +24,13 @@ _Avoid_: folder, directory, per-project agent
 Raiz de autoria para uma pergunta, hipótese, avaliação, diagnóstico ou exploração; compila uma Run ou uma matriz de Runs.
 _Avoid_: experiment, test, trial
 
-**StudyIntent**:
+**Study Purpose (`StudyIntent`)**:
 Propósito e perguntas do laboratório. É a intenção de quem investiga, nunca instrução automática entregue ao Subject.
 _Avoid_: prompt, instruction
 
-**Goal**:
+**Agent Task (`Goal`)**:
 Objetivo e limites entregues ao Subject; permanece separado da avaliação e distinto do StudyIntent.
-_Avoid_: task, prompt, objective (isolado)
+_Avoid_: prompt, objective (isolado)
 
 **Scenario**:
 Inputs, condições observáveis, limitações e provenance versionados para uma Run.
@@ -36,7 +40,7 @@ _Avoid_: case, test case
 Override tipado sobre um blueprint; variants pré-Run são irmãs de uma mesma comparação.
 _Avoid_: version, branch
 
-**RunSpec**:
+**Execution Plan (`RunSpec`)**:
 Configuração atômica, imutável e compilada de scenario, variant e repetição. Uma Run existe apenas para um RunSpec exato.
 _Avoid_: config, settings
 
@@ -47,13 +51,13 @@ Ambiente efêmero, admitido e materializado para uma única Run a partir de conf
 Não é o Workspace do Control Plane e “sandbox” não deve ser usado como sinônimo.
 _Avoid_: Workspace, laboratory workspace, sandbox
 
-**AdmissionRecord**:
+**Readiness Check (`AdmissionRecord`)**:
 Decisão pré-fila que resolve inventário, Run Environment e capabilities efetivas. Nenhuma Run existe antes de uma admissão `admitted` para o RunSpec exato.
 _Avoid_: approval, validation
 
 **Run**:
 Tentativa ligada a um RunSpec e a um AdmissionRecord exatos.
-_Avoid_: test, execution, trial, job
+_Avoid_: test, trial, job
 
 **Subject Agent**:
 O sistema sob teste dentro de uma Run. Recebe apenas o SubjectEnvelope. Não confundir com
@@ -91,9 +95,9 @@ _Avoid_: dependencies, requirements
 **Resolved Agent Inventory**:
 Snapshot hasheado do que a admissão realmente resolveu. Inventário não prova uso.
 
-**SubjectEnvelope**:
+**Subject Context (`SubjectEnvelope`)**:
 Visão mínima compilada por allowlist fechada, entregue ao Subject. Sem StudyIntent, hipótese, plan completo, chats, hidden graders ou credenciais.
-_Avoid_: context, payload, prompt
+_Avoid_: contexto irrestrito, payload, prompt
 
 **Checkpoint**:
 Marco validado e ancorado no ledger. Não significa restore nem replay.
@@ -139,20 +143,20 @@ _Avoid_: permission, ACL
 Resumo provisório, derivado e append-only ancorado a uma boundary alcançada (checkpoint ou intervalo de turnos do Subject). Não é inventário de arquivos nem segunda fonte de verdade.
 _Avoid_: summary, report, memory dump
 
-**Evidence Bundle audit**:
+**Audit Evidence Bundle (`Evidence Bundle audit`)**:
 Pacote verificável de records, refs e digests. Não promete todos os blobs, restore nem replay.
 _Avoid_: export, archive, backup
 
-**Evidence Bundle portable**:
+**Portable Evidence Bundle (`Evidence Bundle portable`)**:
 Perfil futuro de bundle com blobs autorizados e manifest de completude para uso offline declarado.
 
 ## Avaliação e autoridade
 
-**EvaluationPlan**:
+**Evaluation Plan (`EvaluationPlan`)**:
 Dimensões, stages, gates, disclosure, blinding e agregação opcional de uma avaliação.
 _Avoid_: rubric, criteria
 
-**EvaluationRecord**:
+**Recorded Evaluation (`EvaluationRecord`)**:
 Resultado vetorial, ancorado e append-only produzido por grader, judge ou humano; correção cria novo record.
 _Avoid_: result, score, grade
 

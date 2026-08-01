@@ -36,7 +36,7 @@ export function CreatePage({ adapter = creationAdapter }: CreatePageProps) {
     if (activeStep === 1) {
       return (
         <Button variant="primary" type="submit" form="create-study-form">
-          Compilar preview Demo
+          Generate Execution Plans
           <ArrowRight aria-hidden="true" size={15} />
         </Button>
       );
@@ -50,7 +50,7 @@ export function CreatePage({ adapter = creationAdapter }: CreatePageProps) {
             setMaxReachedStep(3);
           }}
         >
-          Revisar Admission
+          Check Readiness
           <ArrowRight aria-hidden="true" size={15} />
         </Button>
       );
@@ -58,7 +58,7 @@ export function CreatePage({ adapter = creationAdapter }: CreatePageProps) {
     if (activeStep === 3 && admissionState === "rejected") {
       return (
         <Button variant="primary" onClick={editStudy}>
-          Corrigir Study
+          Fix Study Design
           <Pencil aria-hidden="true" size={14} />
         </Button>
       );
@@ -79,7 +79,7 @@ export function CreatePage({ adapter = creationAdapter }: CreatePageProps) {
     if (result) {
       return (
         <a className="ui-button ui-button-primary ui-button-medium create-primary-link" href={resultLink(result.baseline_run_id)}>
-          Abrir baseline na Observability
+          Open Baseline Run
           <ExternalLink aria-hidden="true" size={14} />
         </a>
       );
@@ -91,14 +91,14 @@ export function CreatePage({ adapter = creationAdapter }: CreatePageProps) {
     <section className="create-flow" aria-labelledby="create-title">
       <header className="create-heading">
         <div>
-          <span className="create-eyebrow">Create · Demo / integration_pending</span>
-          <h1 id="create-title">Study local e fixture canônica</h1>
-          <p>O draft local serve apenas como preview: ele não alimenta o bootstrap CRL-CTX-002.</p>
+          <span className="create-eyebrow">Study Builder · Local Demo</span>
+          <h1 id="create-title">From Study Design to Runs</h1>
+          <p>Defina o estudo, gere planos exatos e verifique se eles estão prontos para executar.</p>
         </div>
-        <span className="create-local-label">Draft local</span>
+        <span className="create-local-label">Local draft</span>
       </header>
 
-      <ol className="create-stepper" aria-label="Etapas de criação">
+      <ol className="create-stepper" aria-label="Study creation steps">
         {steps.map((step) => {
           const isActive = activeStep === step.id;
           const isPast = step.id < maxReachedStep && step.id !== activeStep;
@@ -116,7 +116,7 @@ export function CreatePage({ adapter = creationAdapter }: CreatePageProps) {
                   {isPast && !isStale ? <Check size={12} /> : step.id}
                 </span>
                 <span>{step.label}</span>
-                {isStale ? <small>stale</small> : isLocked ? <small>bloqueado</small> : null}
+                {isStale ? <small>outdated</small> : isLocked ? <small>locked</small> : null}
               </button>
             </li>
           );

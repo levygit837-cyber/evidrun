@@ -9,16 +9,11 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { api } from "../api/client";
+import { navigationAreas } from "../productLanguage";
 import { useBackendRuntime } from "./BackendRuntimeProvider";
 import { RuntimeAlert } from "./RuntimeAlert";
 import { planeTone } from "./runtimeStatus";
 import { Button, StatusIndicator } from "../ui/primitives";
-
-const routeNames: Record<string, string> = {
-  "/laboratory": "Laboratory",
-  "/create": "Create",
-  "/observability": "Observability",
-};
 
 const routeIcons: Record<string, LucideIcon> = {
   "/create": CirclePlus,
@@ -48,9 +43,11 @@ export function AppShell() {
   const controlTone = useMemo(() => planeTone(backendState.status), [backendState.status]);
   const executionTone = useMemo(() => planeTone(executor.status), [executor.status]);
   const RouteIcon = routeIcons[pathname] ?? Hexagon;
+  const routeName = navigationAreas[pathname as keyof typeof navigationAreas] ?? "Evidrun";
 
   return (
     <div className={`app-shell platform-${platform}`}>
+      <a className="app-skip-link" href="#main-content">Skip to Main Content</a>
       <aside className="app-sidebar" aria-label="Navegação principal">
         <div className="app-brand">
           <Hexagon aria-hidden="true" size={16} fill="currentColor" />
@@ -61,33 +58,33 @@ export function AppShell() {
         <nav className="sidebar-nav">
           <Link
             to="/create"
-            aria-label="Create"
-            title="Create"
-            data-tooltip="Create"
+            aria-label={navigationAreas["/create"]}
+            title={navigationAreas["/create"]}
+            data-tooltip={navigationAreas["/create"]}
             activeProps={{ className: "active" }}
           >
             <CirclePlus aria-hidden="true" size={16} />
-            <span>Create</span>
+            <span>{navigationAreas["/create"]}</span>
           </Link>
           <Link
             to="/laboratory"
-            aria-label="Laboratory"
-            title="Laboratory"
-            data-tooltip="Laboratory"
+            aria-label={navigationAreas["/laboratory"]}
+            title={navigationAreas["/laboratory"]}
+            data-tooltip={navigationAreas["/laboratory"]}
             activeProps={{ className: "active" }}
           >
             <FlaskConical aria-hidden="true" size={16} />
-            <span>Laboratory</span>
+            <span>{navigationAreas["/laboratory"]}</span>
           </Link>
           <Link
             to="/observability"
-            aria-label="Observability"
-            title="Observability"
-            data-tooltip="Observability"
+            aria-label={navigationAreas["/observability"]}
+            title={navigationAreas["/observability"]}
+            data-tooltip={navigationAreas["/observability"]}
             activeProps={{ className: "active" }}
           >
             <Activity aria-hidden="true" size={16} />
-            <span>Observability</span>
+            <span>{navigationAreas["/observability"]}</span>
           </Link>
         </nav>
 
@@ -148,7 +145,7 @@ export function AppShell() {
         <header className="app-topbar">
           <div className="topbar-context">
             <RouteIcon aria-hidden="true" size={15} />
-            <strong>{routeNames[pathname] ?? "Evidrun"}</strong>
+            <strong>{routeName}</strong>
           </div>
           <div className="topbar-runtime">
             <StatusIndicator shape="glyph" tone={controlTone} label={`Control ${backendState.status}`} />
@@ -157,7 +154,7 @@ export function AppShell() {
             <code>{provider.data?.model ?? "provider pendente"}</code>
           </div>
         </header>
-        <main className="app-workspace">
+        <main className="app-workspace" id="main-content">
           <RuntimeAlert />
           <Outlet />
         </main>

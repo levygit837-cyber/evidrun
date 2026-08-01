@@ -103,6 +103,22 @@ code,
   background: var(--surface);
 }
 
+.app-skip-link {
+  position: fixed;
+  z-index: 100;
+  top: 8px;
+  left: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  color: white;
+  background: var(--brand);
+  transform: translateY(-160%);
+}
+
+.app-skip-link:focus-visible {
+  transform: translateY(0);
+}
+
 .app-sidebar {
   position: relative;
   z-index: 20;

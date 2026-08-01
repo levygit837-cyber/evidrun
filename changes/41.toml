@@ -1,0 +1,131 @@
+schema_version = "1"
+change_id = "GH-41"
+issue = 41
+title = "Linguagem natural do estudo ate a evidencia"
+classification = "feature"
+base_ref = "origin/main"
+branch_pattern = "agent/issue-41-domain-language"
+expected_outcome = "A interface explica o funil com nomes naturais, distintos e em ingles, enquanto contratos, IDs e artefatos persistidos mantem seus identificadores tecnicos v1."
+confirmed_facts = [
+  "A UI atual mistura portugues com Study, RunSpecs, Admission, Runs, Laboratory e Observability no mesmo fluxo.",
+  "Study, RunSpec, AdmissionRecord e Run possuem fronteiras tecnicas distintas e normativas no ADR 0009 e no contrato study-run v1.",
+  "A Issue 41 exige inventario, diagrama, matriz de nomes, cenarios concretos, decisao de compatibilidade e somente entao implementacao.",
+  "A direcao de produto exige que os nomes exibidos permaneçam em ingles; a documentacao normativa continua em portugues.",
+]
+stop_conditions = [
+  "Uma mudanca de rotulo implicar alterar autoridade, lifecycle, disclosure ou a regra de que nenhuma Run existe antes de AdmissionRecord admitted.",
+  "A entrega exigir renomear campos, schemas, eventos, tabelas ou comandos publicos v1 sem estrategia expand-contract e fixtures de compatibilidade.",
+  "Um nome natural esconder a identidade tecnica necessaria para auditoria, suporte ou interoperabilidade.",
+]
+
+[impact]
+capability = "none"
+persisted_contract = "none"
+normative = "changed"
+notes = [
+  "A linguagem de produto passa a ser normativa, mas identificadores tecnicos e contratos persistidos permanecem compativeis.",
+  "A UI muda copy, navegacao e explicacoes; runtime, API e ledger nao mudam comportamento.",
+]
+
+[scope]
+expected = [
+  "CONTEXT.md",
+  "apps/web/src/api/client.ts",
+  "apps/web/src/app/AppShell.tsx",
+  "apps/web/src/data/contracts.ts",
+  "apps/web/src/features/create/**",
+  "apps/web/src/features/observability/**",
+  "apps/web/src/productLanguage.ts",
+  "apps/web/src/productLanguage.test.ts",
+  "apps/web/src/styles/index.css",
+  "changes/41.toml",
+  "docs/adr/0023-natural-product-language-over-stable-contracts.md",
+  "docs/index.md",
+  "docs/product/glossary.md",
+  "docs/product/pipeline-language.md",
+]
+forbidden = [
+  "alembic/**",
+  "apps/desktop/**",
+  "docs/contracts/**",
+  "schemas/**",
+  "src/evidrun/**",
+]
+preexisting = []
+
+[[scope.generated]]
+patterns = ["docs/_generated/**"]
+source_patterns = ["docs/**/*.md"]
+
+[preserve]
+interfaces = [
+  "Rotas /create, /laboratory e /observability e seus deep links permanecem estaveis.",
+  "Nomes de classes, campos, schemas, comandos CLI, endpoints, eventos e registros persistidos v1 permanecem estaveis.",
+]
+errors = [
+  "Codigos de triagem e estados machine-readable de admission, Run e evaluation nao mudam.",
+]
+invariants = [
+  "Admission e verificacao tecnica, nunca aprovacao humana.",
+  "Uma Run e uma tentativa factual ligada ao RunSpec e AdmissionRecord exatos; plano, prontidao e execucao continuam etapas distintas.",
+  "Lifecycle, qualidade e autoridade permanecem eixos separados.",
+  "Termo de produto nunca anuncia capability apenas representavel como executavel.",
+]
+
+[verification]
+focused = [
+  "pnpm exec vitest run --config apps/web/vitest.config.ts src/productLanguage.test.ts src/features/create/CreatePage.test.tsx src/features/observability/ObservabilityPage.test.tsx src/features/observability/RunDetailPanel.test.tsx",
+  "pnpm typecheck:web",
+  "uv run python scripts/validate_docs.py",
+  "uv run python scripts/check_change_contract.py --contract changes/41.toml",
+]
+full_gates = [
+  "uv run pytest",
+  "uv run ruff check .",
+  "uv run python scripts/check_code_budget.py",
+  "uv run pyright",
+  "pnpm typecheck:web",
+  "pnpm typecheck:desktop",
+  "pnpm test",
+  "pnpm build",
+  "uv run python scripts/validate_docs.py",
+]
+
+[[questions]]
+text = "A linguagem natural deve substituir os identificadores tecnicos persistidos?"
+affects_semantics = true
+status = "resolved"
+resolution = "Nao. A UI usa nomes de produto naturais em ingles e mantem o termo tecnico como referencia secundaria quando ele for necessario para auditoria ou suporte."
+
+[merge_gate]
+review = "proportional"
+ci_commit = "880825a92ccdbcd8c38f486ef61c8e9f90a38701"
+
+[merge_gate.spec]
+conclusion = "passed"
+evidence = [
+  "diff:docs/product/pipeline-language.md",
+  "test:apps/web/src/productLanguage.test.ts",
+  "review:code-review/spec@880825a92ccdbcd8c38f486ef61c8e9f90a38701",
+]
+
+[merge_gate.standards]
+conclusion = "passed"
+evidence = [
+  "diff:docs/adr/0023-natural-product-language-over-stable-contracts.md",
+  "diff:CONTEXT.md",
+  "review:code-review/standards@880825a92ccdbcd8c38f486ef61c8e9f90a38701",
+]
+
+[merge_gate.verification]
+conclusion = "passed"
+evidence = [
+  "test:apps/web/src/features/create/CreatePage.test.tsx",
+  "test:apps/web/src/features/observability/RunDetailPanel.test.tsx",
+  "test:616-passed-1-live-skipped",
+  "test:pnpm-143-passed",
+]
+
+[merge_gate.ci]
+conclusion = "passed"
+evidence = ["run:local/full-gates@880825a92ccdbcd8c38f486ef61c8e9f90a38701"]

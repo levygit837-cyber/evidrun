@@ -1,7 +1,8 @@
 import { RefusalError } from "../../api/client";
 import type { TriageErrorCode } from "../../generated/contracts";
+import { admissionStateLabels, studyPipelineSteps } from "../../productLanguage";
 
-export type Step = 1 | 2 | 3 | 4;
+export type Step = (typeof studyPipelineSteps)[number]["id"];
 export type AdmissionState = "admitted" | "rejected" | "failed" | "unavailable" | "stale";
 export type DownstreamState = "empty" | "fresh" | "stale";
 export type EvaluationDisclosure = "none" | "pre_run";
@@ -58,19 +59,15 @@ export const initialStudy: StudyDraft = {
 };
 
 export const admissionCopy: Record<AdmissionState, { label: string; tone: "success" | "danger" | "warning" | "neutral" }> = {
-  admitted: { label: "admitted", tone: "success" },
-  rejected: { label: "rejected", tone: "danger" },
-  failed: { label: "failed", tone: "danger" },
-  unavailable: { label: "unavailable", tone: "neutral" },
-  stale: { label: "stale", tone: "warning" },
+  admitted: { label: admissionStateLabels.admitted, tone: "success" },
+  rejected: { label: admissionStateLabels.rejected, tone: "danger" },
+  failed: { label: admissionStateLabels.failed, tone: "danger" },
+  unavailable: { label: admissionStateLabels.unavailable, tone: "neutral" },
+  stale: { label: admissionStateLabels.stale, tone: "warning" },
 };
 
-export const steps: Array<{ id: Step; label: string }> = [
-  { id: 1, label: "Study" },
-  { id: 2, label: "RunSpecs" },
-  { id: 3, label: "Admission" },
-  { id: 4, label: "Runs" },
-];
+export const steps: ReadonlyArray<{ id: Step; label: string; technicalName: string }> =
+  studyPipelineSteps;
 
 export function resultLink(runId: string): string {
   return `#/observability?run=${encodeURIComponent(runId)}`;

@@ -63,7 +63,7 @@ export function ObservabilityWorkspace({
       : "Conectado";
 
   return (
-    <section className="obs-root" aria-label="Observability">
+    <section className="obs-root" aria-label="Runs">
       <form className="obs-command-bar" onSubmit={(event) => event.preventDefault()}>
         <label className="obs-search-control">
           <Search aria-hidden="true" size={15} />

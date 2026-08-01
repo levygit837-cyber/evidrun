@@ -5,8 +5,8 @@ import { Fact, PageState } from "./ObservabilityParts";
 export function EvaluationPanel({ evaluations }: { evaluations: EvaluationRecordDto[] }) {
   if (!evaluations.length) {
     return (
-      <PageState icon={<FileWarning size={20} />} title="Sem EvaluationRecords" role="status">
-        Nenhum record canônico foi preservado para esta Run.
+      <PageState icon={<FileWarning size={20} />} title="No Recorded Evaluations" role="status">
+        Nenhum EvaluationRecord canônico foi preservado para esta Run.
       </PageState>
     );
   }

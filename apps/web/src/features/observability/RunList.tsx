@@ -1,3 +1,4 @@
+import { productTerms } from "../../productLanguage";
 import type { Run } from "../../types";
 import { StatusMark } from "./ObservabilityParts";
 import { formatDate, formatDuration, shortId } from "./observabilityModel";
@@ -16,7 +17,7 @@ export function RunList({
     <div className="obs-run-list" role="group" aria-label="Lista de Runs">
       <div className="obs-list-head" aria-hidden="true">
         <span>Run</span>
-        <span>Study revision / variant</span>
+        <span>{productTerms.studyVersion.label} / Variant</span>
         <span>Runner</span>
         <span>Status</span>
         <span>Trust / isolamento</span>

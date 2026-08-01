@@ -2,6 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 import { Box, Download, ExternalLink, FileWarning, LoaderCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { ObservabilityAdapter } from "../../data/contracts";
+import { productTerms } from "../../productLanguage";
 import { Fact, PageState } from "./ObservabilityParts";
 import {
   TERMINAL_RUN_STATUSES,
@@ -33,6 +34,9 @@ export function EvidencePanel({
     onSuccess: (result) => setExportedPath(result.path),
   });
   const terminal = TERMINAL_RUN_STATUSES.has(data.run.status);
+  const expectedBundleVersion = data.run.execution_trust.status === "recorded" ? "4" : "3";
+  const bundleVersion = exportBundle.data?.schema_version ?? expectedBundleVersion;
+  const bundleName = productTerms.evidenceBundle.label;
 
   useEffect(() => {
     setExportedPath(null);
@@ -50,7 +54,7 @@ export function EvidencePanel({
     <div className="obs-evidence">
       <div className="obs-context-note">
         <Box aria-hidden="true" size={15} />
-        <span>Bundle v3 usa references_only. portable=false e replayable=false.</span>
+        <span>{bundleName} v{bundleVersion} usa references_only. portable=false e replayable=false.</span>
       </div>
       <div className="obs-bundle-actions">
         <button
@@ -60,7 +64,7 @@ export function EvidencePanel({
           type="button"
         >
           {exportBundle.isPending ? <LoaderCircle className="obs-spin" size={14} /> : <Download size={14} />}
-          Exportar Bundle v3
+          Export {bundleName} v{bundleVersion}
         </button>
         {!terminal ? <span>Disponível após estado terminal.</span> : null}
         {exportedPath ? (
@@ -76,7 +80,7 @@ export function EvidencePanel({
         ) : null}
       </div>
       {exportBundle.isError ? (
-        <div className="obs-inline-error" role="alert">Falha ao exportar o Bundle v3.</div>
+        <div className="obs-inline-error" role="alert">Falha ao exportar o {bundleName} v{bundleVersion}.</div>
       ) : null}
       {exportedPath ? <code className="obs-export-path">{exportedPath}</code> : null}
       {revealError ? <div className="obs-inline-error" role="alert">{revealError}</div> : null}
@@ -89,7 +93,7 @@ export function EvidencePanel({
           <div className="obs-evidence-groups">
             {(["event", "evaluation", "checkpoint"] as const).map((origin) => groupedRefs[origin].length ? (
               <section key={origin}>
-                <h3>{origin === "event" ? "Run events" : origin === "evaluation" ? "Evaluation records" : "Checkpoint records"}</h3>
+                <h3>{origin === "event" ? "Run Events" : origin === "evaluation" ? "Recorded Evaluations" : "Checkpoint Records"}</h3>
                 <ul>
                   {groupedRefs[origin].map((item, index) => (
                     <li key={`${item.sourceId}:${item.ref}:${index}`}>

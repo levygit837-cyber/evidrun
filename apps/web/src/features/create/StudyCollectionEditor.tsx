@@ -43,13 +43,15 @@ export function StudyCollectionEditor({
             <div className="create-collection-row" key={item.id}>
               <Input
                 aria-label={`${title} ${index + 1}`}
+                autoComplete="off"
+                name={`${collection}-${index + 1}`}
                 value={item.name}
                 onChange={(event) => onChange(collection, item.id, event.target.value)}
               />
               <Button
                 variant="quiet"
                 size="small"
-                aria-label={`Remover ${title} ${index + 1}`}
+                aria-label={`Remove ${title} ${index + 1}`}
                 onClick={() => onRemove(collection, item.id)}
               >
                 <Trash2 aria-hidden="true" size={13} />
