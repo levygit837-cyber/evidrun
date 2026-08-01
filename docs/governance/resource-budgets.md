@@ -29,8 +29,8 @@ verification_refs:
 `scripts/check_resource_budgets.py` mede poucos cenários reais e registra o resultado em texto e
 JSON. A primeira política prefere sinal honesto a precisão falsa: duração e pico de memória nunca
 bloqueiam o merge; tamanhos, contagens e fatos contratuais bloqueiam somente quando a metodologia os
-classifica como determinísticos. Toda métrica warning repetida usa a mesma mediana/MAD, inclusive
-tamanho de artifact e banco.
+classifica como determinísticos. Métrica warning amostrada usa mediana com guarda de amplitude
+relativa; tamanho de artifact e de banco são lidos exatos e não passam por esse guarda.
 
 ```bash
 uv run python scripts/check_resource_budgets.py --profile python
@@ -55,17 +55,43 @@ budgets de output.
 
 A Issue #48 citava Bundle v3. Desde a introdução de Execution Trust, toda Run nova possui trust e
 usa Bundle v4; o contrato v3 rejeita corretamente essas Runs e permanece somente para Runs legadas
-sem trust. O cenário mede o dispatcher público e confirma versão 4 e verificação válida, em vez de
-fabricar uma Run legada que o runtime atual não pode admitir.
+sem trust. O cenário mede o dispatcher público `export_run`, que decide pela presença de trust
+registrado, e confirma versão 4 em vez de fabricar uma Run legada que o runtime atual não pode
+admitir.
+
+`verification_valid` é o resultado dos três eixos de `evidrun.evidence.verify`: checksums exatos,
+cadeias de evento e records. Checksum isolado não satisfaz a métrica. O bundle medido é auditável, e
+isso não é portabilidade nem replay: o próprio verificador reporta `portable` e `replayable` como
+falsos, e este documento não promete nenhum dos dois.
 
 ## Estatística e estados
 
-Toda métrica warning com pelo menos três amostras usa a mediana das repetições. O ruído é a mediana
-dos desvios absolutos dividida pela mediana (MAD relativa). Acima de
-`methodology.noise_mad_ratio`, o estado é `inconclusive`, não regressão. Uma amostra estável acima de
-`baseline * warning_ratio` é `regression`, mas continua exit 0. Warning determinístico com uma
-amostra compara diretamente seu valor. Se o sistema não produz uma métrica, o estado é
-`unavailable`; indisponibilidade de output exigido é erro de medição e usa exit 2.
+Toda métrica warning usa a mediana das repetições como valor reportado.
+
+A dispersão é a **amplitude relativa**: `(max - min)` dividido pela mediana. Acima de
+`methodology.noise_spread_ratio`, o estado é `inconclusive`, não regressão.
+
+A escolha é deliberada e substitui a MAD relativa usada antes. MAD não tem resolução nos tamanhos de
+amostra que este repositório configura: com três amostras os desvios da mediana são `[b-a, 0, c-b]`,
+cuja mediana é `min(b-a, c-b)`, então um par apertado fixa a MAD perto de zero por mais longe que
+esteja a terceira amostra. Medido no perfil real, `crl_ctx_002.duration_ms` reportava MAD relativa
+`0.0000` contra amplitude verdadeira de `0.0531`, e a amostra sintética `(100, 101, 1000)` marcava
+`0.0099` — um outlier de dez vezes chamado de estável. A amplitude relativa é pessimista de
+propósito: reage à pior amostra. Para sinal warning-only essa é a direção segura, porque a
+consequência de exagerar ruído é `inconclusive`, nunca build vermelho.
+
+O guarda de ruído só se aplica a grandeza amostrada, isto é, classificação `timing` ou `memory`.
+Contagem e bytes lidos do artefato pronto são exatos: chamá-los de inconclusivos esconderia fato que
+o checker de fato possui.
+
+Uma amostra estável acima de `baseline * warning_ratio` é `regression`, e continua exit 0.
+
+Quando a medição não existe, o estado é `unavailable` e o documento explica o motivo. Ferramenta
+ausente no runner — `pnpm` fora do PATH, por exemplo — é propriedade do ambiente, não política
+quebrada: ela produz `unavailable` com JSON emitido, e não aborta o comando. Métrica `unavailable`
+usa exit 2 apenas quando é bloqueante, porque aí o gate ficaria sem a proteção que declara ter;
+métrica warning-only indisponível é reportada e nada mais, coerente com tempo e memória nunca
+bloquearem.
 
 Um valor fora de `minimum`/`limit` bloqueante é `violation` e usa exit 1. Hoje isso protege somente:
 
@@ -81,16 +107,35 @@ representa o maior pico observado entre os filhos encerrados, não a soma simult
 
 ## Baseline e revisão de limites
 
-`resource-budget.toml` registra ambiente, metodologia, classificação e baseline. Não existe comando
-que atualiza esse arquivo automaticamente. O checker lê a política no merge-base e recusa remoção de
-cenário/métrica ou mudança silenciosa de workload, repetições, paths, classificação, enforcement,
-unidade, tolerância a ruído e exclusões de cache. Essas mudanças exigem um
-`[[policy_adjustments]]` exato e justificado. Alterar baseline ou razão de warning exige
-`[[baseline_adjustments]]`. Qualquer aumento, remoção ou redução de minimum que relaxe um limite
-anterior exige um
-`[[limit_adjustments]]` com cenário, métrica, limites anterior/novo, `bound` quando for `minimum`, e
-justificativa concreta. Assim o mesmo PR pode propor uma mudança deliberada, mas não pode esconder a
-regressão apenas movendo ou retirando a proteção.
+`resource-budget.toml` registra ambiente, metodologia, classificação e baseline. Os valores são
+escritos à mão a partir de calibração local, e não existe comando que atualize o arquivo
+automaticamente. Isso difere do precedente de `code-budget.toml`, cujo baseline é recomputado por
+`--update-baseline`: aqui uma medição depende de máquina e de build real, então recomputar em
+qualquer checkout gravaria o ambiente de quem rodou como se fosse política acordada. Mudar um valor
+exige o registro revisável descrito abaixo.
+
+O checker lê a política no merge-base e recusa remoção de cenário/métrica ou mudança silenciosa de
+workload, repetições, paths, classificação, enforcement, unidade, tolerância a ruído e exclusões de
+cache. Essas mudanças exigem um `[[policy_adjustments]]` exato e justificado. Alterar baseline ou
+razão de warning exige `[[baseline_adjustments]]`. Qualquer aumento, remoção ou redução de minimum
+que relaxe um limite anterior exige um `[[limit_adjustments]]` com cenário, métrica, limites
+anterior/novo, `bound` quando for `minimum`, e justificativa concreta.
+
+O registro precisa ser **novo nesta mudança**. Um registro que já existia no merge-base não autoriza
+nada: casar apenas contra o arquivo atual permitia que uma aprovação antiga de `8 -> 16` ficasse para
+trás depois de um aperto de volta para `8` e reautorizasse silenciosamente o próximo `8 -> 16`, de
+modo que uma única justificativa cobriria aquele afrouxamento para sempre.
+
+O lado do merge-base decide sozinho se um limite existia. Sair de `blocking` não retira o limite
+antigo sem registro próprio, senão uma mudança de enforcement aprovada carregaria junto um
+afrouxamento não registrado.
+
+Lado ausente é nomeado `absent` (não existia no merge-base) ou `removed` (deixou de existir), porque
+TOML não tem null: sem essa convenção o checker exigia registro cujo `previous` nenhum autor
+conseguia escrever, e adicionar campo de metodologia ficava inautorizável.
+
+Assim o mesmo PR pode propor uma mudança deliberada, mas não pode esconder a regressão apenas movendo
+ou retirando a proteção.
 
 Generated outputs, runtime artifacts e caches permanecem classes distintas. Os globs
 `classifications.cache_excluded` são aplicados ao inventário; limpar ou aquecer cache não pode fazer

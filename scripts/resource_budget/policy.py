@@ -40,9 +40,9 @@ ENFORCEMENTS = frozenset({"measure", "warning", "blocking"})
 def validate_policy(config: dict[str, Any]) -> None:
     if config.get("schema_version") != "1":
         raise ValueError("resource budget schema_version must be '1'")
-    noise_ratio = config.get("methodology", {}).get("noise_mad_ratio")
+    noise_ratio = config.get("methodology", {}).get("noise_spread_ratio")
     if not isinstance(noise_ratio, (int, float)) or not 0 <= noise_ratio <= 1:
-        raise ValueError("methodology.noise_mad_ratio must be between 0 and 1")
+        raise ValueError("methodology.noise_spread_ratio must be between 0 and 1")
     raw_classifications = cast(object, config.get("classifications", {}))
     if not isinstance(raw_classifications, dict):
         raise ValueError("classifications must be a table")
