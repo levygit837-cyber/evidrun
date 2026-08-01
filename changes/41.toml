@@ -94,3 +94,34 @@ text = "A linguagem natural deve substituir os identificadores tecnicos persisti
 affects_semantics = true
 status = "resolved"
 resolution = "Nao. A UI usa nomes de produto naturais em ingles e mantem o termo tecnico como referencia secundaria quando ele for necessario para auditoria ou suporte."
+
+[merge_gate]
+review = "proportional"
+ci_commit = "3eb967ac58e27231fb99074f1df1cac191414d4d"
+
+[merge_gate.spec]
+conclusion = "passed"
+evidence = [
+  "diff:docs/product/pipeline-language.md",
+  "test:apps/web/src/productLanguage.test.ts",
+]
+
+[merge_gate.standards]
+conclusion = "passed"
+evidence = [
+  "diff:docs/adr/0023-natural-product-language-over-stable-contracts.md",
+  "diff:CONTEXT.md",
+]
+
+[merge_gate.verification]
+conclusion = "passed"
+evidence = [
+  "test:apps/web/src/features/create/CreatePage.test.tsx",
+  "test:apps/web/src/features/observability/RunDetailPanel.test.tsx",
+  "test:616-passed-1-live-skipped",
+  "test:pnpm-139-passed",
+]
+
+[merge_gate.ci]
+conclusion = "passed"
+evidence = ["run:local/full-gates@3eb967ac58e27231fb99074f1df1cac191414d4d"]
