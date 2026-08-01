@@ -171,7 +171,7 @@ export const api = {
   runCheckpoints: (runId: string) =>
     apiFetch<CheckpointRecordDto[]>(`/api/v1/runs/${encodeURIComponent(runId)}/checkpoints`),
   exportRunBundle: (runId: string) =>
-    apiFetch<{ path: string; run_id: string; schema_version: "3" }>(
+    apiFetch<{ path: string; run_id: string; schema_version: "3" | "4" }>(
       `/api/v1/runs/${encodeURIComponent(runId)}/evidence-bundles`,
       { method: "POST" },
     ),

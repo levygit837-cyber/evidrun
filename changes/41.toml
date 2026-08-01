@@ -30,7 +30,9 @@ notes = [
 [scope]
 expected = [
   "CONTEXT.md",
+  "apps/web/src/api/client.ts",
   "apps/web/src/app/AppShell.tsx",
+  "apps/web/src/data/contracts.ts",
   "apps/web/src/features/create/**",
   "apps/web/src/features/observability/**",
   "apps/web/src/productLanguage.ts",

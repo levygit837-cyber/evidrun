@@ -54,7 +54,11 @@ export interface ObservabilityAdapter {
   getEvaluations(runId: string): Promise<EvaluationRecordDto[]>;
   getCheckpoints(runId: string): Promise<CheckpointRecordDto[]>;
   getProvider(): Promise<ProviderProfile>;
-  exportRunBundle(runId: string): Promise<{ path: string; run_id: string; schema_version: "3" }>;
+  exportRunBundle(runId: string): Promise<{
+    path: string;
+    run_id: string;
+    schema_version: "3" | "4";
+  }>;
   /**
    * Run the same RunSpec again, as a new Run with `retry_of` declared.
    *

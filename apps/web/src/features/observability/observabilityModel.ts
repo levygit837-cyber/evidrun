@@ -5,7 +5,7 @@ import type {
   RunDetail,
   RunEvent,
 } from "../../types";
-import { runStatusLabels } from "../../productLanguage";
+import { runStatusLabel } from "../../productLanguage";
 
 export const ACTIVE_RUN_STATUSES = new Set(["queued", "preparing", "running", "evaluating"]);
 export const ATTENTION_RUN_STATUSES = new Set([
@@ -297,7 +297,7 @@ export interface DetailData {
   checkpoints: CheckpointRecordDto[];
 }
 
-export const statusLabels = runStatusLabels;
+export const statusLabel = runStatusLabel;
 
 export function statusTone(status: string): string {
   if (status === "completed") return "success";

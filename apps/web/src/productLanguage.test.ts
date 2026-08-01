@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   admissionStateLabels,
+  auditTerm,
   navigationAreas,
   productTerms,
-  runStatusLabels,
+  runStatusLabel,
   studyPipelineSteps,
 } from "./productLanguage";
 
@@ -38,8 +39,16 @@ describe("product language", () => {
       "unavailable",
       "stale",
     ]);
-    expect(runStatusLabels.running).toBe("Running");
-    expect(runStatusLabels.completed).toBe("Completed");
+    expect(runStatusLabel("running")).toBe("Running");
+    expect(runStatusLabel("completed")).toBe("Completed");
+    expect(runStatusLabel("future_status")).toBe("future_status");
+    expect(runStatusLabel("toString")).toBe("toString");
+  });
+
+  it("keeps technical identifiers visible on audit surfaces", () => {
+    expect(auditTerm(productTerms.runSpec)).toBe("Execution Plan (RunSpec)");
+    expect(auditTerm(productTerms.admission)).toBe("Readiness Check (AdmissionRecord)");
+    expect(auditTerm(productTerms.run)).toBe("Run");
   });
 
   it("keeps routes stable behind natural navigation names", () => {

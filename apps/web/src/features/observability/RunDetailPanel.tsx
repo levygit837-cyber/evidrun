@@ -2,8 +2,8 @@ import { AlertTriangle, ArrowLeft, CircleSlash, FileWarning, Radio, RefreshCw } 
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import type { ObservabilityAdapter, RunStreamState } from "../../data/contracts";
+import { auditTerm, productTerms } from "../../productLanguage";
 import type { ExecutorState, RunDetail } from "../../types";
-import { productTerms } from "../../productLanguage";
 import { EvaluationPanel } from "./EvaluationPanel";
 import { EvidencePanel } from "./EvidencePanel";
 import { Fact, StatusMark } from "./ObservabilityParts";
@@ -67,11 +67,11 @@ function GeneralFacts({
           </Fact>
         ) : null}
         {metrics.toolCalls !== null ? <Fact label="Tool calls">{metrics.toolCalls}</Fact> : null}
-        <Fact label="Study Version">{run.experiment_revision_id}</Fact>
+        <Fact label={auditTerm(productTerms.studyVersion)}>{run.experiment_revision_id}</Fact>
         <Fact label="Variant">{run.variant_id}</Fact>
-        <Fact label={productTerms.runSpec.label}>{run.run_spec_id ?? "Sem record"}</Fact>
-        <Fact label={productTerms.admission.label}>{run.admission_id ?? "Sem record"}</Fact>
-        <Fact label={`${productTerms.subjectEnvelope.label} digest`}>{run.subject_envelope_digest ?? "Não materializado"}</Fact>
+        <Fact label={auditTerm(productTerms.runSpec)}>{run.run_spec_id ?? "Sem record"}</Fact>
+        <Fact label={auditTerm(productTerms.admission)}>{run.admission_id ?? "Sem record"}</Fact>
+        <Fact label={`${auditTerm(productTerms.subjectEnvelope)} digest`}>{run.subject_envelope_digest ?? "Não materializado"}</Fact>
         <Fact label="Runner">{run.runner}</Fact>
         <Fact label="Duração">{formatDuration(run)}</Fact>
         <Fact label="Rerun of">{run.record?.retry_of ?? "Não é rerun"}</Fact>
@@ -95,8 +95,8 @@ function ExecutionPanel({ run }: { run: RunDetail }) {
           <Fact label="Run ID">{run.id}</Fact>
           <Fact label="Lifecycle">{run.status}</Fact>
           <Fact label="Rerun of">{run.record?.retry_of ?? "Não é rerun"}</Fact>
-          <Fact label={`${productTerms.runSpec.label} digest`}>{run.record?.run_spec_digest ?? "Sem record"}</Fact>
-          <Fact label={`${productTerms.admission.label} digest`}>{run.record?.admission_digest ?? "Sem record"}</Fact>
+          <Fact label={`${auditTerm(productTerms.runSpec)} digest`}>{run.record?.run_spec_digest ?? "Sem record"}</Fact>
+          <Fact label={`${auditTerm(productTerms.admission)} digest`}>{run.record?.admission_digest ?? "Sem record"}</Fact>
         </dl>
       </section>
       <section>

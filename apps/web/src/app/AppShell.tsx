@@ -15,10 +15,6 @@ import { RuntimeAlert } from "./RuntimeAlert";
 import { planeTone } from "./runtimeStatus";
 import { Button, StatusIndicator } from "../ui/primitives";
 
-const routeNames: Record<string, string> = {
-  ...navigationAreas,
-};
-
 const routeIcons: Record<string, LucideIcon> = {
   "/create": CirclePlus,
   "/laboratory": FlaskConical,
@@ -47,6 +43,7 @@ export function AppShell() {
   const controlTone = useMemo(() => planeTone(backendState.status), [backendState.status]);
   const executionTone = useMemo(() => planeTone(executor.status), [executor.status]);
   const RouteIcon = routeIcons[pathname] ?? Hexagon;
+  const routeName = navigationAreas[pathname as keyof typeof navigationAreas] ?? "Evidrun";
 
   return (
     <div className={`app-shell platform-${platform}`}>
@@ -148,7 +145,7 @@ export function AppShell() {
         <header className="app-topbar">
           <div className="topbar-context">
             <RouteIcon aria-hidden="true" size={15} />
-            <strong>{routeNames[pathname] ?? "Evidrun"}</strong>
+            <strong>{routeName}</strong>
           </div>
           <div className="topbar-runtime">
             <StatusIndicator shape="glyph" tone={controlTone} label={`Control ${backendState.status}`} />

@@ -142,7 +142,7 @@ function adapter(): ObservabilityAdapter {
     exportRunBundle: vi.fn(async (runId: string) => ({
       path: `/tmp/${runId}.evidrun.zip`,
       run_id: runId,
-      schema_version: "3" as const,
+      schema_version: "4" as const,
     })),
     retryRun: vi.fn(async () => ({ run_id: "run:retry-001" })),
     stream: {
@@ -279,6 +279,8 @@ describe("Observability layout and trace", () => {
     await screen.findByText("sha256:subject-envelope");
     fireEvent.click(screen.getByRole("tab", { name: "Evidence" }));
     await waitFor(() => expect(screen.getByText(/references_only/)).toBeInTheDocument());
+    expect(screen.getByText(/Audit Evidence Bundle v4 usa/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Export Audit Evidence Bundle v4" })).toBeDisabled();
     expect(screen.getByText("Run Events")).toBeInTheDocument();
     expect(screen.getByText("Referência preservada; conteúdo indisponível")).toBeInTheDocument();
     expect(screen.getByText("sha256:result")).toBeInTheDocument();

@@ -1,7 +1,6 @@
 export interface ProductTerm {
   label: string;
   technicalName: string;
-  meaning: string;
 }
 
 /**
@@ -14,76 +13,89 @@ export const productTerms = {
   study: {
     label: "Study",
     technicalName: "Study",
-    meaning: "A investigação que reúne propósito, desenho e execuções relacionadas.",
+  },
+  studyDesign: {
+    label: "Study Design",
+    technicalName: "Study",
+  },
+  studyVersion: {
+    label: "Study Version",
+    technicalName: "StudyRevision",
   },
   studyIntent: {
     label: "Study Purpose",
     technicalName: "StudyIntent",
-    meaning: "A pergunta, a hipótese e a decisão que a evidência poderá informar.",
   },
   goal: {
     label: "Agent Task",
-    technicalName: "Goal",
-    meaning: "O objetivo e os limites que chegam ao agente avaliado.",
+    technicalName: "GoalRevision",
   },
   scenario: {
     label: "Scenario",
-    technicalName: "Scenario",
-    meaning: "Os dados, as condições e as limitações de uma situação avaliada.",
+    technicalName: "ScenarioRevision",
   },
   variant: {
     label: "Variant",
-    technicalName: "Variant",
-    meaning: "Uma mudança controlada comparada com as demais variações do estudo.",
+    technicalName: "VariantSpec",
   },
   evaluationPlan: {
     label: "Evaluation Plan",
-    technicalName: "EvaluationPlan",
-    meaning: "Os critérios e as etapas usados para avaliar uma execução.",
+    technicalName: "EvaluationPlanRevision",
   },
   runSpec: {
     label: "Execution Plan",
     technicalName: "RunSpec",
-    meaning: "A configuração exata e imutável de uma execução antes que ela aconteça.",
   },
   admission: {
     label: "Readiness Check",
     technicalName: "AdmissionRecord",
-    meaning: "A checagem técnica que confirma se um plano pode ser executado agora.",
   },
   run: {
     label: "Run",
     technicalName: "Run",
-    meaning: "Uma tentativa factual realizada após o plano passar pela verificação técnica de prontidão.",
   },
   evaluationRecord: {
     label: "Recorded Evaluation",
     technicalName: "EvaluationRecord",
-    meaning: "Uma avaliação imutável, ancorada na evidência de uma execução.",
   },
   comparison: {
     label: "Comparison",
     technicalName: "Comparison",
-    meaning: "A leitura conjunta das execuções e de seus trade-offs.",
   },
   evidenceBundle: {
-    label: "Evidence Bundle",
-    technicalName: "Evidence Bundle",
-    meaning: "O pacote verificável de registros, referências e digests preservados.",
+    label: "Audit Evidence Bundle",
+    technicalName: "Evidence Bundle audit",
   },
   subjectEnvelope: {
     label: "Subject Context",
     technicalName: "SubjectEnvelope",
-    meaning: "A visão mínima e permitida entregue ao agente avaliado.",
   },
 } as const satisfies Record<string, ProductTerm>;
 
 export const studyPipelineSteps = [
-  { id: 1, label: "Study Design", technicalName: "Study" },
-  { id: 2, label: "Execution Plans", technicalName: "RunSpec" },
-  { id: 3, label: "Readiness Check", technicalName: "AdmissionRecord" },
-  { id: 4, label: "Runs", technicalName: "Run" },
+  {
+    id: 1,
+    label: productTerms.studyDesign.label,
+    technicalName: productTerms.studyDesign.technicalName,
+  },
+  {
+    id: 2,
+    label: `${productTerms.runSpec.label}s`,
+    technicalName: productTerms.runSpec.technicalName,
+  },
+  {
+    id: 3,
+    label: productTerms.admission.label,
+    technicalName: productTerms.admission.technicalName,
+  },
+  { id: 4, label: `${productTerms.run.label}s`, technicalName: productTerms.run.technicalName },
 ] as const;
+
+export function auditTerm(term: ProductTerm): string {
+  return term.label === term.technicalName
+    ? term.label
+    : `${term.label} (${term.technicalName})`;
+}
 
 export const admissionStateLabels = {
   admitted: "Ready",
@@ -93,7 +105,7 @@ export const admissionStateLabels = {
   stale: "Outdated",
 } as const;
 
-export const runStatusLabels: Record<string, string> = {
+const runStatusLabels = {
   queued: "Queued",
   preparing: "Preparing",
   running: "Running",
@@ -103,7 +115,13 @@ export const runStatusLabels: Record<string, string> = {
   budget_exhausted: "Budget exhausted",
   cancelled: "Cancelled",
   guardrail_stopped: "Guardrail stopped",
-};
+} as const;
+
+export function runStatusLabel(status: string): string {
+  return Object.hasOwn(runStatusLabels, status)
+    ? runStatusLabels[status as keyof typeof runStatusLabels]
+    : status;
+}
 
 export const navigationAreas = {
   "/create": "Study Builder",

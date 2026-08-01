@@ -1,5 +1,5 @@
 import { type ReactNode } from "react";
-import { statusLabels, statusTone } from "./observabilityModel";
+import { statusLabel, statusTone } from "./observabilityModel";
 
 export function Fact({ label, children, mono = true }: { label: string; children: ReactNode; mono?: boolean }) {
   return (
@@ -14,7 +14,7 @@ export function StatusMark({ status }: { status: string }) {
   return (
     <span className={`obs-status obs-status-${statusTone(status)}`}>
       <span aria-hidden="true" />
-      {statusLabels[status] ?? status}
+      {statusLabel(status)}
     </span>
   );
 }
