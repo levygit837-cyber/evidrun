@@ -99,13 +99,14 @@ resolution = "Nao. A UI usa nomes de produto naturais em ingles e mantem o termo
 
 [merge_gate]
 review = "proportional"
-ci_commit = "3eb967ac58e27231fb99074f1df1cac191414d4d"
+ci_commit = "880825a92ccdbcd8c38f486ef61c8e9f90a38701"
 
 [merge_gate.spec]
 conclusion = "passed"
 evidence = [
   "diff:docs/product/pipeline-language.md",
   "test:apps/web/src/productLanguage.test.ts",
+  "review:code-review/spec@880825a92ccdbcd8c38f486ef61c8e9f90a38701",
 ]
 
 [merge_gate.standards]
@@ -113,6 +114,7 @@ conclusion = "passed"
 evidence = [
   "diff:docs/adr/0023-natural-product-language-over-stable-contracts.md",
   "diff:CONTEXT.md",
+  "review:code-review/standards@880825a92ccdbcd8c38f486ef61c8e9f90a38701",
 ]
 
 [merge_gate.verification]
@@ -121,9 +123,9 @@ evidence = [
   "test:apps/web/src/features/create/CreatePage.test.tsx",
   "test:apps/web/src/features/observability/RunDetailPanel.test.tsx",
   "test:616-passed-1-live-skipped",
-  "test:pnpm-139-passed",
+  "test:pnpm-143-passed",
 ]
 
 [merge_gate.ci]
 conclusion = "passed"
-evidence = ["run:local/full-gates@3eb967ac58e27231fb99074f1df1cac191414d4d"]
+evidence = ["run:local/full-gates@880825a92ccdbcd8c38f486ef61c8e9f90a38701"]
