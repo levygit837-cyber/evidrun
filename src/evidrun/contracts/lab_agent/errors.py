@@ -194,3 +194,45 @@ def validate_lab_agent_error_tables(
 
 
 validate_lab_agent_error_tables()
+
+
+class LabAgentTargetSituation(StrEnum):
+    """Por que o alvo não está disponível: a razão real, conhecida só pelo enforcement.
+
+    Este tipo existe para ser apagado. `target_not_visible` aceita qualquer uma das três e
+    produz a mesma recusa, então a indistinguibilidade deixa de ser convenção que cada
+    callsite reescreve à mão — e a primeira divergência entre callsites é exatamente o que
+    transformaria a recusa num oráculo de existência.
+    """
+
+    ABSENT = "absent"
+    SIBLING_PROJECT = "sibling_project"
+    OTHER_WORKSPACE = "other_workspace"
+
+
+def target_not_visible(
+    situation: LabAgentTargetSituation,
+    *,
+    field_path: tuple[str, ...] = (),
+    tool_name: str | None = None,
+) -> LabAgentError:
+    """A recusa de alvo não visível, idêntica nas três situações.
+
+    `situation` é exigida e descartada: nenhum campo da recusa deriva dela. A assinatura a
+    pede para que o callsite prove ter classificado o alvo, e o descarte concentra num
+    único ponto a decisão de não revelar. Ramificar aqui por `situation` é a regressão que
+    o contrato proíbe.
+
+    A remediação instrui a **listar**, não a pedir acesso: sugerir acesso confirmaria que
+    existe algo a acessar, e tentar outro id gastaria budget numa sequência de recusas.
+    """
+
+    del situation
+    return LabAgentError(
+        stage=LabAgentStage.SCOPE,
+        code=LabAgentErrorCode.SCOPE_TARGET_NOT_VISIBLE,
+        message="A referência solicitada não está disponível nesta sessão.",
+        remediation="Liste os alvos deste Project antes de referenciar um id.",
+        field_path=field_path,
+        tool_name=tool_name,
+    )

@@ -21,6 +21,8 @@ from evidrun.contracts.lab_agent.errors import (
     LabAgentErrorCategory,
     LabAgentErrorCode,
     LabAgentStage,
+    LabAgentTargetSituation,
+    target_not_visible,
     validate_lab_agent_error_tables,
 )
 from evidrun.contracts.lab_agent.scope import (
@@ -29,7 +31,7 @@ from evidrun.contracts.lab_agent.scope import (
     LabAgentSessionScope,
 )
 from evidrun.contracts.scope import ScopeErrorCode
-from evidrun.contracts.triage import TriageErrorCode
+from evidrun.contracts.triage import TriageError, TriageErrorCode
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -387,33 +389,50 @@ def test_code_prefix_must_match_the_declared_stage() -> None:
 # --- Indistinguibilidade -----------------------------------------------------------------
 
 
-def not_visible(target_id: str) -> LabAgentError:
-    """A recusa que as três situações de alvo não visível produzem, por construção."""
-
-    return LabAgentError(
-        stage=LabAgentStage.SCOPE,
-        code=LabAgentErrorCode.SCOPE_TARGET_NOT_VISIBLE,
-        message="A referência solicitada não está disponível nesta sessão.",
-        remediation="Liste os alvos deste Project antes de referenciar um id.",
-        field_path=("revision_ref",),
-        tool_name="read_contract_revision",
-    )
+#: As três situações que o enforcement distingue e a recusa não pode distinguir.
+#: Enumeradas a partir do enum, não à mão: uma situação nova entra aqui sem editar teste.
+NOT_VISIBLE_SITUATIONS = tuple(LabAgentTargetSituation)
 
 
 def test_the_three_not_visible_situations_produce_an_identical_payload() -> None:
-    absent = not_visible("st-inexistente")
-    sibling_project = not_visible("st-do-projeto-irmao")
-    other_workspace = not_visible("st-de-outro-workspace")
+    assert len(NOT_VISIBLE_SITUATIONS) == 3
+
+    errors = [
+        target_not_visible(
+            situation, field_path=("revision_ref",), tool_name="read_contract_revision"
+        )
+        for situation in NOT_VISIBLE_SITUATIONS
+    ]
+    payloads = [error.model_dump(mode="json") for error in errors]
+
+    # Entradas distintas, saída única: é isso que a indistinguibilidade afirma. Comparar
+    # cópias de um literal provaria apenas que a igualdade funciona.
+    assert len({repr(payload) for payload in payloads}) == 1
+    assert len({error.category for error in errors}) == 1
+    assert len({HTTP_STATUS_BY_CODE[error.code] for error in errors}) == 1
+    assert len({CLI_EXIT_BY_CODE[error.code] for error in errors}) == 1
+    assert HTTP_STATUS_BY_CODE[errors[0].code] == 404
+    assert CLI_EXIT_BY_CODE[errors[0].code] is LabAgentCliExitCode.NOT_FOUND
+
+
+def test_no_not_visible_field_carries_the_situation() -> None:
+    """Nenhum campo da recusa varia com a razão que o enforcement conhecia.
+
+    O vazamento de existência por texto já é coberto por `EXISTENCE_LEAKS`. Aqui a
+    pergunta é outra: se o discriminante escapou para dentro do payload. Note que
+    "Project" aparece legitimamente na remediação — é o Project da sessão, que o humano
+    já conhece, e não o do alvo.
+    """
 
     payloads = [
-        error.model_dump(mode="json") for error in (absent, sibling_project, other_workspace)
+        target_not_visible(situation).model_dump(mode="json")
+        for situation in NOT_VISIBLE_SITUATIONS
     ]
+    rendered = " ".join(repr(payload) for payload in payloads).casefold()
 
-    assert payloads[0] == payloads[1] == payloads[2]
-    assert len({error.category for error in (absent, sibling_project, other_workspace)}) == 1
-    assert len({HTTP_STATUS_BY_CODE[error.code] for error in (absent, sibling_project)}) == 1
-    assert HTTP_STATUS_BY_CODE[absent.code] == 404
-    assert CLI_EXIT_BY_CODE[absent.code] is LabAgentCliExitCode.NOT_FOUND
+    for situation in NOT_VISIBLE_SITUATIONS:
+        assert situation.value not in rendered
+        assert situation.name.casefold() not in rendered
 
 
 def test_not_visible_and_focus_mismatch_share_category_status_and_payload_shape() -> None:
@@ -425,7 +444,9 @@ def test_not_visible_and_focus_mismatch_share_category_status_and_payload_shape(
         field_path=("run_id",),
         tool_name="read_run",
     )
-    target = not_visible("st-1")
+    target = target_not_visible(
+        LabAgentTargetSituation.ABSENT, field_path=("revision_ref",), tool_name="read_run"
+    )
 
     assert mismatch.category is target.category
     assert HTTP_STATUS_BY_CODE[mismatch.code] == HTTP_STATUS_BY_CODE[target.code]
@@ -505,11 +526,7 @@ def test_every_refusal_requires_a_non_empty_remediation(code: LabAgentErrorCode)
 
 def test_remediation_is_required_here_and_optional_in_triage() -> None:
     lab_required = LabAgentError.model_fields["remediation"].is_required()
-    triage_optional = not (
-        __import__("evidrun.contracts.triage", fromlist=["TriageError"])
-        .TriageError.model_fields["remediation"]
-        .is_required()
-    )
+    triage_optional = not TriageError.model_fields["remediation"].is_required()
 
     assert lab_required
     assert triage_optional

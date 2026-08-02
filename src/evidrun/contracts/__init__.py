@@ -76,6 +76,8 @@ from evidrun.contracts.lab_agent.errors import (
     LabAgentErrorCategory,
     LabAgentErrorCode,
     LabAgentStage,
+    LabAgentTargetSituation,
+    target_not_visible,
 )
 from evidrun.contracts.lab_agent.scope import (
     LabAgentFocusKind,
@@ -173,6 +175,7 @@ __all__ = [
     "LabAgentSessionForm",
     "LabAgentSessionScope",
     "LabAgentStage",
+    "LabAgentTargetSituation",
     "LabAgentTurnLimits",
     "ProgressArtifactContent",
     "ProgressArtifactPolicyRevision",
@@ -222,6 +225,7 @@ __all__ = [
     "normalize_scope_name",
     "parse_revision",
     "semantic_model_dump",
+    "target_not_visible",
     "validate_execution_trust_lineage",
     "validate_review_target_lineage",
     "validate_verified_trust",

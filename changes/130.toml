@@ -112,19 +112,43 @@ ci_commit = "171c025"
 [merge_gate.spec]
 conclusion = "passed"
 evidence = [
+  "review:orthogonal-spec-issue-130",
   "diff:src/evidrun/contracts/lab_agent/scope.py",
   "diff:src/evidrun/contracts/lab_agent/envelope.py",
   "diff:src/evidrun/contracts/lab_agent/errors.py",
   "test:tests/unit/test_lab_agent_contracts.py",
 ]
+justification = """
+A revisão de spec conferiu os 21 códigos e os 7 stages um a um contra o catálogo do
+contrato, e confirmou que o envelope não reintroduz locator e que remediation é campo
+requerido não-vazio. Ela recusou a prova de indistinguibilidade: o helper de teste
+ignorava o parâmetro, então o teste comparava três cópias do mesmo literal e não podia
+falhar. Corrigido com a costura `target_not_visible`, que exige a situação real como
+argumento e a descarta; a prova agora compara três entradas distintas e falha se algum
+campo passar a variar. Verificado por mutação: ramificar a mensagem por situação quebra o
+teste.
+"""
 
 [merge_gate.standards]
 conclusion = "passed"
 evidence = [
+  "review:orthogonal-standards-issue-130",
   "log:scripts/check_import_directions.py",
   "log:scripts/check_code_budget.py",
-  "review:PR#142",
+  "diff:src/evidrun/contracts/lab_agent/__init__.py",
 ]
+justification = """
+A revisão de standards confirmou orçamento, direções de import e a simetria com
+contracts/triage.py e contracts/scope.py. Ela recusou o docstring do pacote, que citava
+`lab_agent.refusals`, submódulo inexistente: como nada é reexportado no __init__, aquele
+docstring é o único índice de navegação do pacote, então o nome falso era a navegação
+mentindo. Corrigido para os três módulos reais e unificado em português. A evidência
+anterior citava `review:PR#142`, que é o PR da issue #129 e não descrevia esta mudança.
+A derivação de HTTP_STATUS_BY_CODE e CLI_EXIT_BY_CODE a partir de CATEGORY_BY_CODE foi
+mantida por decisão do coordenador: ela é o mecanismo que impede um status próprio para
+"não é seu", que seria oráculo de existência. A totalidade continua provada sobre
+CATEGORY_BY_CODE, que é enumerada à mão.
+"""
 
 [merge_gate.verification]
 conclusion = "passed"
@@ -135,7 +159,19 @@ evidence = [
 
 [merge_gate.ci]
 conclusion = "passed"
-evidence = ["run:actions/0"]
+evidence = [
+  "run:local/full-verification",
+  "log:full-gates-local-on-ci_commit",
+]
+justification = """
+A evidência anterior era `run:actions/0`, que escapa da lista literal de placeholders mas
+não nomeia execução alguma. Não existe run de GitHub Actions para este commit no momento
+da declaração, e inventar um identificador seria pior que não ter nenhum. A evidência
+declarada é a execução local completa sobre o commit em ci_commit, na ordem obrigatória:
+entrega commitada com os artefatos gerados, suíte completa verde, e só então o SHA gravado
+em commit separado. Mesma forma usada por changes/129.toml. O CI do repositório executa os
+mesmos gates no PR.
+"""
 
 [[questions]]
 text = "O catalogo do Lab Agent deve estender TriageErrorCode?"
