@@ -119,7 +119,7 @@ resolution = "Nao. Metrica bloqueante indisponivel continua exit 2, porque o gat
 
 [merge_gate]
 review = "proportional"
-ci_commit = "94bb7c8746a06c2a949c491516c094ef8eb36f10"
+ci_commit = "92a7282e4ca1be0ca1cdf0f93a7d76f56a14224a"
 
 [merge_gate.spec]
 conclusion = "passed"
@@ -155,4 +155,4 @@ evidence = [
 
 [merge_gate.ci]
 conclusion = "passed"
-evidence = ["run:actions/30677998626"]
+evidence = ["run:actions/30751376334"]
