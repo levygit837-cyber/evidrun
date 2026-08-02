@@ -284,9 +284,7 @@ class CheckpointRecordRow(Base):
 class EvaluationRecordRow(Base):
     __tablename__ = "evaluation_records"
     __table_args__ = (
-        UniqueConstraint(
-            "run_id", "stage_id", "source_type", name="uq_evaluation_stage_source"
-        ),
+        UniqueConstraint("run_id", "stage_id", "source_type", name="uq_evaluation_stage_source"),
     )
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
@@ -321,6 +319,11 @@ class ChatSessionRow(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
     workspace_id: Mapped[str] = mapped_column(ForeignKey("workspaces.id"), nullable=False)
+    project_id: Mapped[str | None] = mapped_column(
+        ForeignKey("projects.id"), nullable=True, index=True
+    )
+    focus_kind: Mapped[str | None] = mapped_column(String, nullable=True)
+    focus_id: Mapped[str | None] = mapped_column(String, nullable=True)
     scope_type: Mapped[str | None] = mapped_column(String)
     scope_id: Mapped[str | None] = mapped_column(String)
     title: Mapped[str] = mapped_column(String, nullable=False)
@@ -329,9 +332,29 @@ class ChatSessionRow(Base):
 
 class ChatMessageRow(Base):
     __tablename__ = "chat_messages"
+    __table_args__ = (UniqueConstraint("session_id", "sequence", name="uq_chat_message_sequence"),)
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
     session_id: Mapped[str] = mapped_column(ForeignKey("chat_sessions.id"), nullable=False)
     role: Mapped[str] = mapped_column(String, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(nullable=False)
+
+
+class LabToolTraceRow(Base):
+    __tablename__ = "lab_tool_traces"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    session_id: Mapped[str] = mapped_column(
+        ForeignKey("chat_sessions.id"), nullable=False, index=True
+    )
+    turn_sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    tool_name: Mapped[str] = mapped_column(String, nullable=False)
+    arguments_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    requested_refs_json: Mapped[str] = mapped_column(Text, nullable=False)
+    returned_refs_json: Mapped[str] = mapped_column(Text, nullable=False)
+    outcome: Mapped[str] = mapped_column(String, nullable=False)
+    refusal_code: Mapped[str | None] = mapped_column(String, nullable=True)
+    scope_snapshot_json: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(nullable=False)
