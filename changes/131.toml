@@ -99,7 +99,7 @@ resolution = "Não. LabToolTraceSink mantém o domínio do loop independente da 
 
 [merge_gate]
 review = "proportional"
-ci_commit = "pending"
+ci_commit = "e56c9d1"
 
 [merge_gate.spec]
 conclusion = "passed"
