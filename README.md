@@ -29,7 +29,7 @@ O que existe hoje:
 - Subject determinístico e Subject com modelo real, este último com tool de leitura confinada ao
   `SubjectEnvelope`;
 - autoridade humana verificável opt-in, com autenticador local, verifier e revogação;
-- evidence bundles v1/v2/v3 com verificação de cadeia e detecção de tamper;
+- evidence bundles v1/v2/v3/v4 com verificação de cadeia e detecção de tamper;
 - CLI, API, React e shell Electron multipágina;
 - CLIProxyAPI local como provider padrão, com `deepseek-v4-flash` e `reasoning=max`;
 - nenhuma API externa necessária para o benchmark determinístico `CRL-CTX-002`.
@@ -44,13 +44,16 @@ avaliação. Tools genéricas, skills, nested agents, protocolo em grafo, checkp
 Progress Artifacts, bounded exploration e restore/replay são representáveis, mas a admissão os
 rejeita explicitamente em vez de fingir suportá-los.
 
-Três lacunas afetam o uso do aplicativo instalado:
+Duas lacunas afetam o uso do aplicativo instalado:
 
-- não existe superfície pública para criar Workspace e Project; um banco novo depende de
-  `evidrun demo`;
-- o app desktop inicia a API, mas não o worker, então Runs enfileiradas pela UI não são processadas;
-- autoria verificada é opt-in por `EVIDRUN_AUTHORITY=1`; no default o único corredor de aceitação é a
-  fixture legada não humana.
+- a tela Create ainda mantém rascunho local e faz bootstrap da fixture, em vez de usar o corredor de
+  autoria já disponível na API e na CLI;
+- a página Laboratory é mock: o Lab Agent não existe em `src/evidrun/`.
+
+Criar Workspace e Project já possui superfície pública em API e CLI, o app desktop supervisiona API e
+worker separados, e o backend compila e admite uma Run explicitamente não verificada com
+`execution_trust_id`. Autoria verificada por autoridade humana continua opt-in por
+`EVIDRUN_AUTHORITY=1`.
 
 Consulte [Study, revisions e Run canônica v1](docs/contracts/study-run-v1.md) para as fronteiras
 completas e [o mapa de capabilities](docs/planning/mvp-capability-map.md) para o estado por
@@ -71,8 +74,7 @@ uv run evidrun provider doctor
 Backend e browser:
 
 ```bash
-uv run evidrun serve
-pnpm dev:web
+pnpm dev
 ```
 
 Electron:
@@ -80,6 +82,15 @@ Electron:
 ```bash
 pnpm desktop:dev
 ```
+
+Para listar ambientes, serviços isolados, testes e builds disponíveis:
+
+```bash
+pnpm commands
+```
+
+`pnpm run help` é um alias equivalente. `pnpm help` sem `run` pertence ao próprio pnpm e mostra a
+ajuda do gerenciador de pacotes.
 
 Testes e builds:
 

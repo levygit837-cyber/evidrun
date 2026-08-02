@@ -838,8 +838,8 @@
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "product-engineering",
-      "updated_at": "2026-07-27",
-      "review_due": "2026-07-30"
+      "updated_at": "2026-08-02",
+      "review_due": "2026-09-02"
     },
     {
       "id": "planning-admission-and-scoring-findings",
@@ -874,7 +874,7 @@
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "product-engineering",
-      "updated_at": "2026-07-31",
+      "updated_at": "2026-08-02",
       "review_due": "2026-08-23"
     },
     {
@@ -1073,13 +1073,13 @@
       "id": "planning-worktree-cleanup-plan",
       "path": "docs/planning/worktree-cleanup-plan.md",
       "type": "planning",
-      "title": "Plano de exclusao da worktree obsoleta 2280",
-      "status": "draft",
+      "title": "Registro da limpeza da worktree obsoleta 2280",
+      "status": "accepted",
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "core",
-      "updated_at": "2026-07-25",
-      "review_due": "2026-08-08"
+      "updated_at": "2026-08-02",
+      "review_due": "2026-09-02"
     },
     {
       "id": "product-charter",

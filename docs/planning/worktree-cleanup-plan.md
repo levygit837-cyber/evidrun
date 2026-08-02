@@ -1,15 +1,15 @@
 ---
 id: planning-worktree-cleanup-plan
 type: planning
-title: Plano de exclusao da worktree obsoleta 2280
-status: draft
+title: Registro da limpeza da worktree obsoleta 2280
+status: accepted
 authority: planning
 volatility: snapshot
 owner: core
 created_at: 2026-07-25
-updated_at: 2026-07-25
-observed_at: 2026-07-25
-review_due: 2026-08-08
+updated_at: 2026-08-02
+observed_at: 2026-08-02
+review_due: 2026-09-02
 applies_to: repository
 sources:
   - docs/planning/tasks/README.md
@@ -20,116 +20,65 @@ implementation_refs: []
 verification_refs: []
 ---
 
-# Plano de exclusao da worktree obsoleta 2280
+# Registro da limpeza da worktree obsoleta 2280
 
-Este documento registra intencao de limpeza. Ele **nao** executa a exclusao: `git worktree remove`
-descarta trabalho nao commitado sem confirmacao, e a worktree contem 53 arquivos nao rastreados que
-nunca existiram em `main`. A exclusao exige decisao humana explicita.
+Este documento registrava a **intencao** de excluir a worktree Codex 2280. A exclusao foi executada
+e o documento agora registra o que aconteceu. Ele nao autoriza nenhuma nova exclusao.
 
-## Estado medido em 2026-07-25
+## Estado medido em 2026-08-02
 
 ```text
-/Users/apple/Documents/evidrun              1198992 [main]         ← worktree principal, ativa
-/Users/apple/.codex/worktrees/2280/evidrun  1010879 (detached)     ← obsoleta
+~/Documentos/AProjects/evidrun  2d7ec43 [main]   ← unica worktree
 ```
 
 | Fato | Medicao |
 | --- | --- |
-| HEAD da worktree | `1010879 feat(authority): verifiable human authority per ADR 0010 (#3)`, de 2026-07-23 |
-| `1010879` e ancestral de `main`? | sim |
-| Commits na worktree ausentes de `main` | **nenhum** (`git log main..HEAD` vazio) |
-| Commits em `main` desde `1010879` | 12 |
-| Ultima escrita na worktree | 2026-07-23 17:41 |
-| Arquivos nao rastreados | 53 (10 em `docs/planning/`, 1 template, 52 md em `droid-wiki/`) |
+| Worktrees registradas | 1 (`git worktree list`) |
+| Diretorios administrativos em `.git/worktrees` | nenhum |
+| Branches locais | 1 (`main`) |
+| Worktree `2280` | nao existe mais; media em `/Users/apple/...`, de um checkout macOS anterior |
 
-Como nao ha commit exclusivo, **nenhum trabalho versionado se perde**. O risco esta exclusivamente no
-conteudo nao rastreado.
+A worktree nunca teve commit exclusivo: seu HEAD `1010879` era ancestral de `main`. O risco estava
+apenas no conteudo nao rastreado, e esse conteudo foi preservado antes da exclusao.
 
-## O que existe so na worktree, e o que fazer com cada coisa
+## O que foi preservado, e onde
 
-### 1. `docs/planning/` — versao anterior, ja superada
+O conteudo nao rastreado da worktree foi commitado no branch remoto
+`archive/codex-2280-uncommitted` (`c5d273f`, 2026-07-27, `archive: preserve Codex 2280 worktree
+snapshot`). Ele carrega 71 arquivos que nao existem em `main`, incluindo os 53 de `droid-wiki/` e os
+briefs `tasks/00-runtime-kernel-integration.md`, `tasks/10-mvp-operator-console.md` e
+`tasks/40-trust-sandbox-review-package.md`.
 
-Nove arquivos com o mesmo path que arquivos hoje em `main`, todos com conteudo diferente:
-`README.md`, `mvp-capability-map.md`, `mvp-implementation-roadmap.md`, `tasks/README.md`,
-`tasks/20-artifact-access-and-capture.md`, `tasks/30-evaluation-checkpoint-progress.md`,
-`tasks/40-trust-sandbox-review-package.md`, `tasks/50-lab-agent-bounded-exploration.md`,
-`templates/agent-workstream.md`.
+A decisao original de descartar cada grupo continua valida e agora esta cumprida em `main`:
 
-**Decisao: descartar.** As versoes em `main` sao posteriores e foram revisadas em PRs. As da worktree
-sao o rascunho de 2026-07-23 que originou aquelas.
+- **`docs/planning/` duplicado** — descartado. As versoes de `main` sao posteriores e revisadas em PR.
+- **WS-00** — entregue. Coordinator, queue/lease/fencing, worker separado, adapter Responses com read
+  tool, Bundle auditavel e authority opt-in existem em `main`; o Bundle evoluiu para v4 desde o plano.
+- **WS-10** — decomposto em WS-01/02/03 mais WS-13 e WS-51, conforme
+  [dispatch de workstreams](tasks/README.md).
+- **`droid-wiki/`** — descartado. Era snapshot gerado, ancorado em `1010879`, descrevendo `Repository`
+  e `AdmissionService` em formas que deixaram de existir. Regenerar contra `main` seria trabalho
+  proprio com issue propria, nao restauracao deste snapshot.
 
-### 2. `docs/planning/tasks/00-runtime-kernel-integration.md` (WS-00) e `10-mvp-operator-console.md` (WS-10)
+## Branches de preservacao ainda abertos
 
-Dois briefs que nao existem em `main` com esses nomes. Ambos com `status: accepted`.
+Estes branches remotos existem apenas como rede de seguranca. Nenhum deles esta mergeado em `main`, e
+nenhum deve ser tratado como trabalho pendente ou como fonte de comportamento atual:
 
-**WS-00 ja foi entregue.** O brief exigia coordinator, queue/lease/fencing, worker separado, adapter
-real Responses com read tool, Bundle v3 auditavel e authority preservada. Todos verificados presentes
-em `main`:
+| Branch | Data | Conteudo exclusivo |
+| --- | --- | --- |
+| `archive/codex-2280-uncommitted` | 2026-07-27 | 71 arquivos: `droid-wiki/` mais tres briefs superados |
+| `backup/migration-stash-2026-07-29` | 2026-07-24 | stash de `task/mvp-operator-console` mais protótipos de design |
+| `backup/migration-stash-base-2026-07-29` | 2026-07-23 | base do stash: `feat(design): add operator console prototypes` |
+| `backup/migration-stash-untracked-2026-07-29` | 2026-07-24 | 59 arquivos untracked, incluindo `scripts/publish_wiki.py` |
 
-| Resultado obrigatorio do WS-00 | Onde esta em `main` |
-| --- | --- |
-| `RunExecutionCoordinator`, queue, lease, fencing | `runs/coordinator.py`, `infrastructure/database/queue/` |
-| worker separado | `entrypoints/worker/app.py` |
-| adapter real Responses + read tool | `ResponsesReadAgentAdapter` em `runs/adapters.py` |
-| Bundle v3 | `export_run_v3` em `evidence/bundle.py` |
-| authority opt-in | `authority/service.py` |
-
-O brief tambem cita um `WORKTREE_PATH` de uma **terceira** worktree (`4073`) que nao existe mais, e um
-`TARGET_SHA_OBSERVED` que hoje esta 12 commits atras. E documento de coordenacao de uma migracao
-concluida.
-
-**WS-10 (`workstream_state: queued`) foi decomposto.** O console operacional aparece hoje como
-WS-01/02/03 (Onda 0) mais WS-13 e WS-51 em `docs/planning/tasks/README.md`.
-
-**Decisao: descartar, mas conferir antes.** Se algum nao-objetivo ou invariante do WS-00 nao estiver
-representado em nenhum brief atual, extraia essa linha para o brief correspondente **antes** de
-excluir. E o unico item deste plano que exige leitura, nao so verificacao.
-
-### 3. `droid-wiki/` — 52 arquivos, 3.761 linhas
-
-Wiki gerada automaticamente em 2026-07-23, ancorada no commit `1010879` (`.wiki-meta.json` declara
-`commitHash` e `generatedAt`). Descreve arquitetura, systems, primitives e "by the numbers".
-
-**Esta obsoleta de forma verificavel.** `by-the-numbers.md` afirma "Python under `src/`: 10,622 lines
-across 62 files", medido antes de WS-11 e WS-12, que juntos criaram 44 arquivos novos. As paginas
-`systems/database.md` e `systems/contracts/compiler.md` descrevem `Repository` e `AdmissionService`
-nas formas que deixaram de existir.
-
-**Decisao: descartar.** Nunca foi versionada, nunca foi referenciada por `docs/index.md`, e um wiki
-gerado a partir de um commit e reprodutivel a partir de qualquer outro. Manter uma copia de 3.761
-linhas que descreve uma arquitetura extinta cria exatamente o risco que o `AGENTS.md` proibe:
-documentacao que contradiz o codigo.
-
-Se o valor desejado for a wiki e nao aquele snapshot, o caminho e regenerar contra `main`, como
-trabalho proprio com issue propria.
-
-## Ordem de execucao proposta
-
-```text
-1. ler 00-runtime-kernel-integration.md e 10-mvp-operator-console.md
-   └─ extrair para os briefs atuais qualquer invariante ou nao-objetivo ainda nao representado
-2. confirmar de novo que nao ha commit exclusivo:
-   git -C <worktree> log --oneline main..HEAD     → deve sair vazio
-3. arquivar o que for decidido preservar (copiar para main como mudanca revisada em PR)
-4. remover a worktree:
-   git worktree remove --force /Users/apple/.codex/worktrees/2280/evidrun
-5. git worktree prune
-6. confirmar: git worktree list mostra apenas a worktree principal
-```
-
-O passo 4 usa `--force` porque a worktree tem alteracoes nao commitadas; sem `--force` o Git recusa,
-e essa recusa e a protecao. **Nao passe `--force` antes de concluir os passos 1 a 3.**
-
-## Riscos
-
-- **Perda de intencao, nao de codigo.** Os briefs WS-00/WS-10 registram decisoes de coordenacao. O
-  codigo esta em `main`; o raciocinio pode nao estar.
-- **`git worktree remove --force` e irreversivel** para conteudo nao rastreado. Nao ha stash, nao ha
-  reflog para arquivo untracked.
-- **O stash `stash@{0}`** (`On task/mvp-operator-console: safety: pre-merge uncommitted information
-  preserved in PRs 7-9`) pertence ao repositorio, nao a worktree, e **sobrevive** a exclusao. Ele nao
-  faz parte deste plano.
+Excluir qualquer um deles descarta conteudo que nao existe em outro lugar. Isso exige decisao humana
+explicita, exatamente como a exclusao da worktree exigiu.
 
 ## Registro de mudancas
 
 - 2026-07-25 — plano criado apos inspecao da worktree; nenhuma exclusao executada.
+- 2026-07-27 — conteudo nao rastreado preservado em `archive/codex-2280-uncommitted` (`c5d273f`).
+- 2026-08-02 — worktree confirmada ausente; documento convertido de plano em registro. Branch
+  `fix/issue-120-resource-budget-proof` removido do remote por ter arvore identica a `main` apos o
+  squash do PR #122.
