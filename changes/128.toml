@@ -20,22 +20,26 @@ stop_conditions = [
 [impact]
 capability = "breaking"
 persisted_contract = "changed"
-normative = "none"
+normative = "changed"
 notes = [
   "GET /api/v1/chat/sessions ganha workspace_id obrigatório e deixa de aceitar leitura global.",
   "chat list ganha --workspace-id obrigatório e passa a refletir a mesma projeção escopada da API.",
   "GET /api/v1/dashboard remove chats porque o agregado global não possui Workspace pelo qual filtrar conteúdo de usuário.",
   "schemas/generated/openapi-v1.json muda de forma breaking ao declarar o query param obrigatório.",
   "A implementação passa a cumprir os contratos normativos existentes sem alterar sua decisão.",
+  "O contrato humano registra workspace_id obrigatório, lista vazia para Workspace inexistente e a remoção de chats do dashboard.",
 ]
 
 [scope]
 expected = [
   "apps/web/src/types.ts",
   "changes/128.toml",
+  "docs/contracts/workspace-project-surface-v1.md",
+  "docs/adr/0025-chat-session-listing-requires-workspace.md",
+  "docs/index.md",
+  "docs/planning/tasks/04-lab-agent-runtime.md",
   "schemas/generated/**",
   "src/evidrun/entrypoints/api/routers/evidence.py",
-  "src/evidrun/entrypoints/api/routers/platform.py",
   "src/evidrun/entrypoints/cli/commands/runs.py",
   "src/evidrun/infrastructure/database/read_model/dashboard.py",
   "src/evidrun/infrastructure/database/read_model/queries.py",
@@ -46,8 +50,6 @@ forbidden = [
   "AGENTS.md",
   "CONTEXT.md",
   "alembic/**",
-  "docs/adr/**",
-  "docs/contracts/**",
   "src/evidrun/contracts/**",
   "src/evidrun/infrastructure/database/catalog.py",
   "src/evidrun/infrastructure/database/models.py",
@@ -56,8 +58,8 @@ forbidden = [
 preexisting = []
 
 [[scope.generated]]
-patterns = ["docs/_generated/claims.json"]
-source_patterns = ["changes/*.toml"]
+patterns = ["docs/_generated/claims.json", "docs/_generated/manifest.json"]
+source_patterns = ["changes/*.toml", "docs/**/*.md"]
 
 [[scope.generated]]
 patterns = ["schemas/generated/**"]
@@ -106,7 +108,7 @@ full_gates = [
 justification = "A leitura global viola a hard boundary de Workspace; preservar compatibilidade manteria o vazamento ativo por API, CLI ou dashboard."
 strategy = "migration"
 versioning = "A API v1 e a CLI fazem corte limpo: callers passam workspace_id explicitamente, e consumidores deixam de esperar chats no dashboard global."
-adr_successors = []
+adr_successors = ["docs/adr/0025-chat-session-listing-requires-workspace.md"]
 previous_artifact_tests = ["uv run pytest tests/integration/test_chat_workspace_scope.py"]
 previous_artifact_fixtures = ["tests/integration/fixtures/chat-sessions-unscoped-openapi-v1.json"]
 
@@ -117,13 +119,20 @@ ci_commit = "27151d7"
 [merge_gate.spec]
 conclusion = "passed"
 evidence = [
-  "diff:src/evidrun/infrastructure/database/read_model/queries.py",
-  "test:tests/integration/test_chat_workspace_scope.py",
+  "review:orthogonal-spec-issue-128-hard-findings-2-4-5-6",
+  "test:tests/integration/test_chat_workspace_scope.py::test_previous_unscoped_chat_listing_contract_is_rejected_by_current_openapi",
+  "test:tests/integration/test_chat_workspace_scope.py::test_chat_sessions_are_scoped_without_dashboard_fallback",
+  "test:tests/integration/test_chat_workspace_scope.py::test_chat_sessions_use_deterministic_created_at_and_id_order",
+  "diff:docs/contracts/workspace-project-surface-v1.md",
 ]
 
 [merge_gate.standards]
 conclusion = "passed"
-evidence = ["review:issue-128-coordinator-review"]
+evidence = [
+  "review:orthogonal-standards-issue-128-hard-findings-1-3-6-7",
+  "test:tests/integration/test_chat_workspace_scope.py::test_chat_storage_failure_maps_to_http_503_and_cli_3",
+  "diff:apps/web/src/types.ts",
+]
 
 [merge_gate.verification]
 conclusion = "passed"

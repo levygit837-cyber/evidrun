@@ -290,6 +290,18 @@
       "review_due": null
     },
     {
+      "id": "adr-0025",
+      "path": "docs/adr/0025-chat-session-listing-requires-workspace.md",
+      "type": "adr",
+      "title": "Exigir Workspace na listagem de sessões de chat",
+      "status": "accepted",
+      "authority": "normative",
+      "volatility": "timeless",
+      "owner": "product",
+      "updated_at": "2026-08-02",
+      "review_due": null
+    },
+    {
       "id": "agents-domain-docs",
       "path": "docs/agents/domain.md",
       "type": "guide",
@@ -754,7 +766,7 @@
       "authority": "normative",
       "volatility": "timeless",
       "owner": "core",
-      "updated_at": "2026-07-27",
+      "updated_at": "2026-08-02",
       "review_due": null
     },
     {
@@ -1006,8 +1018,8 @@
       "authority": "planning",
       "volatility": "snapshot",
       "owner": "laboratory",
-      "updated_at": "2026-07-27",
-      "review_due": "2026-08-23"
+      "updated_at": "2026-08-02",
+      "review_due": "2026-08-29"
     },
     {
       "id": "planning-task-subject-context-contract",

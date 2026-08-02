@@ -59,9 +59,10 @@ research, incubação, planning e roadmap.
 
 Roteamento atual: Workspace/Project/Run Environment usa o
 [ADR 0020](adr/0020-workspace-project-run-environment-boundaries.md); sessão, scope e memória do Lab
-Agent usam o [ADR 0021](adr/0021-hierarchical-lab-agent-scope.md); runtime, tools e instruções do Lab
-Agent usam o [ADR 0024](adr/0024-lab-agent-native-tool-runtime.md); trust de execução usa o
-[ADR 0022](adr/0022-explicit-execution-trust-without-per-run-authentication.md).
+Agent usam o [ADR 0021](adr/0021-hierarchical-lab-agent-scope.md); listagem de sessões de chat exige
+Workspace pelo [ADR 0025](adr/0025-chat-session-listing-requires-workspace.md); runtime, tools e
+instruções do Lab Agent usam o [ADR 0024](adr/0024-lab-agent-native-tool-runtime.md); trust de execução
+usa o [ADR 0022](adr/0022-explicit-execution-trust-without-per-run-authentication.md).
 
 ### Lab Agent
 
