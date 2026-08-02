@@ -1,0 +1,120 @@
+schema_version = "1"
+change_id = "GH-125"
+issue = 125
+title = "Adicionar catálogo de comandos de desenvolvimento"
+classification = "feature"
+base_ref = "origin/main"
+branch_pattern = "feat/dev-command-help"
+expected_outcome = "O desenvolvedor lista e inicia ambientes e serviços locais por comandos pnpm curtos, descritos em português e verificados contra os scripts declarados."
+confirmed_facts = [
+  "`pnpm help` é um comando interno do pnpm 9.15.0 e não executa um script homônimo do projeto.",
+  "O desktop já supervisiona backend e worker; iniciá-los separadamente junto de `pnpm desktop:dev` duplicaria processos.",
+  "O browser usa o proxy Vite em 127.0.0.1:5173 para acessar o backend em 127.0.0.1:8765.",
+]
+stop_conditions = [
+  "A mudança exigir alterar lifecycle do Electron, domínio Python ou contratos persistidos.",
+  "Um alias exigir credencial, rede externa ou materialização classificada para iniciar.",
+]
+
+[impact]
+capability = "none"
+persisted_contract = "none"
+normative = "additive"
+notes = [
+  "A documentação operacional ganha aliases de desenvolvimento; nenhum contrato de produto ou capability executável muda.",
+]
+
+[scope]
+expected = [
+  "changes/125.toml",
+  "package.json",
+  "scripts/show_commands.mjs",
+  "docs/operations/local-development.md",
+]
+forbidden = [
+  "AGENTS.md",
+  "CONTEXT.md",
+  ".github/**",
+  "alembic/**",
+  "apps/**",
+  "docs/adr/**",
+  "docs/contracts/**",
+  "schemas/**",
+  "src/**",
+  "tests/**",
+]
+preexisting = []
+
+[[scope.generated]]
+patterns = ["docs/_generated/manifest.json", "docs/_generated/claims.json"]
+source_patterns = [
+  "changes/125.toml",
+  "docs/operations/local-development.md",
+  "package.json",
+  "scripts/show_commands.mjs",
+]
+
+[preserve]
+interfaces = [
+  "Os scripts pnpm preexistentes preservam nomes e comandos.",
+  "A CLI Python `evidrun` e o entrypoint `evidrun-worker` preservam sua interface.",
+]
+errors = [
+  "Exit codes e mensagens dos serviços, testes e builds chamados pelos aliases permanecem inalterados.",
+]
+invariants = [
+  "`pnpm desktop:dev` continua sendo o único comando necessário para o ambiente Electron completo.",
+  "Backend e worker isolados usam o mesmo data_dir default quando iniciados por `pnpm dev`.",
+  "O catálogo falha explicitamente quando um novo script pnpm não possui descrição.",
+]
+
+[verification]
+focused = [
+  "pnpm commands",
+  "pnpm run help",
+  "node --check scripts/show_commands.mjs",
+]
+full_gates = [
+  "uv run pytest",
+  "uv run ruff check .",
+  "uv run python scripts/check_code_budget.py",
+  "uv run pyright",
+  "pnpm typecheck:web",
+  "pnpm typecheck:desktop",
+  "pnpm test",
+  "pnpm build",
+  "uv run python scripts/validate_docs.py",
+]
+
+[merge_gate]
+review = "proportional"
+ci_commit = "10adb3fc48cb109e2bf5b243bf0b99769366a67c"
+
+[merge_gate.spec]
+conclusion = "passed"
+evidence = [
+  "diff:package.json",
+  "diff:scripts/show_commands.mjs",
+  "diff:docs/operations/local-development.md",
+]
+
+[merge_gate.standards]
+conclusion = "passed"
+evidence = [
+  "diff:changes/125.toml",
+  "diff:docs/operations/local-development.md",
+  "log:check-code-budget-0-violations-21-warnings",
+]
+
+[merge_gate.verification]
+conclusion = "passed"
+evidence = [
+  "test:625-passed-1-live-skipped",
+  "test:pnpm-test-143-passed",
+  "test:pnpm-commands-and-help-exit-0",
+  "test:pnpm-dev-health-200-and-preview-html",
+]
+
+[merge_gate.ci]
+conclusion = "passed"
+evidence = ["run:local/full-gates@10adb3fc48cb109e2bf5b243bf0b99769366a67c"]
