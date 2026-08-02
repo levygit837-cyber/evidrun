@@ -101,7 +101,7 @@ previous_artifact_fixtures = ["tests/fixtures/lab_agent_session_store_v0007.sql"
 
 [merge_gate]
 review = "orthogonal"
-ci_commit = "pending"
+ci_commit = "d46938e"
 
 [merge_gate.spec]
 conclusion = "passed"
