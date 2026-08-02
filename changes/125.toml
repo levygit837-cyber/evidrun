@@ -85,3 +85,36 @@ full_gates = [
   "pnpm build",
   "uv run python scripts/validate_docs.py",
 ]
+
+[merge_gate]
+review = "proportional"
+ci_commit = "10adb3fc48cb109e2bf5b243bf0b99769366a67c"
+
+[merge_gate.spec]
+conclusion = "passed"
+evidence = [
+  "diff:package.json",
+  "diff:scripts/show_commands.mjs",
+  "diff:docs/operations/local-development.md",
+]
+
+[merge_gate.standards]
+conclusion = "passed"
+evidence = [
+  "diff:changes/125.toml",
+  "diff:docs/operations/local-development.md",
+  "log:check-code-budget-0-violations-21-warnings",
+]
+
+[merge_gate.verification]
+conclusion = "passed"
+evidence = [
+  "test:625-passed-1-live-skipped",
+  "test:pnpm-test-143-passed",
+  "test:pnpm-commands-and-help-exit-0",
+  "test:pnpm-dev-health-200-and-preview-html",
+]
+
+[merge_gate.ci]
+conclusion = "passed"
+evidence = ["run:local/full-gates@10adb3fc48cb109e2bf5b243bf0b99769366a67c"]
