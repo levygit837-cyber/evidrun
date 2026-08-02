@@ -14,6 +14,8 @@ confirmed_facts = [
   "Achado adicional encontrado durante a correcao: `_check_global_policy_field` passava `None` cru para o registro exigido, e TOML nao tem null, entao adicionar campo de metodologia era inautorizavel. Reproduzido com `methodology.statistic absent -> median`.",
   "Latente 7 confirmado por execucao: `run_bundle.bundle_bytes` deu 19227 e 19237 em duas execucoes do mesmo checkout, porque o zip carrega ids e timestamps.",
   "Ambos os perfis reais ficam verdes com o base-ref vinculado: python 16 ok, build 10 ok, exit 0 em cada um.",
+  "Segundo achado, encontrado pela propria CI na run 30677998626: fechar a porta do subprocesso nao bastava. `measurement_environment` roda `node --version` no processo pai, e `check=False` suprime exit code nao-zero mas nao o `FileNotFoundError` de binario ausente, entao o runner sem `node` no PATH restrito abortava antes de qualquer JSON. Reproduzido depois com `git` ausente: sem o `try/except`, a mesma classe de falha volta.",
+  "O teste do Ativo 2 usava PATH `/usr/bin:/bin`, que tem `node` numa maquina de dev e nao tem no runner, entao afirmava fato diferente em cada lugar. Trocado por diretorio vazio: todo binario procurado esta ausente em qualquer ambiente.",
 ]
 stop_conditions = [
   "Promover threshold novo a bloqueante: continua fora de escopo, como em #48. Tempo e memoria seguem warning-only.",
@@ -117,7 +119,7 @@ resolution = "Nao. Metrica bloqueante indisponivel continua exit 2, porque o gat
 
 [merge_gate]
 review = "proportional"
-ci_commit = "4ac0800f6f0ab58340b60664b64fae9da603c4af"
+ci_commit = "94bb7c8746a06c2a949c491516c094ef8eb36f10"
 
 [merge_gate.spec]
 conclusion = "passed"
@@ -137,6 +139,7 @@ evidence = [
   "diff:scripts/resource_budget/baseline.py",
   "diff:docs/governance/resource-budgets.md",
   "diff:resource-budget.toml",
+  "diff:scripts/resource_budget/environment.py",
   "review:issue-120/post-merge-two-axis",
   "log:check-code-budget-0-violations-21-warnings.txt",
 ]
@@ -146,10 +149,10 @@ conclusion = "passed"
 evidence = [
   "test:tests/unit/test_resource_budget.py",
   "test:tests/unit/test_resource_budget_policy.py",
-  "log:sonda-6-mutacoes-todas-capturadas.txt",
+  "log:sonda-7-mutacoes-todas-capturadas.txt",
   "log:spread-medida-real-mad-0.0000-vs-spread-0.0531.txt",
 ]
 
 [merge_gate.ci]
 conclusion = "passed"
-evidence = ["run:local/full-gates@4ac0800f6f0ab58340b60664b64fae9da603c4af"]
+evidence = ["run:actions/30677998626"]
