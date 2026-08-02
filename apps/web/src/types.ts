@@ -123,12 +123,6 @@ export interface Experiment {
   };
 }
 
-export interface ChatSession {
-  id: string;
-  title: string;
-  scope_type: string | null;
-  scope_id: string | null;
-}
 
 export interface DashboardData {
   workspaces: Array<{ id: string; name: string }>;
@@ -136,7 +130,6 @@ export interface DashboardData {
   experiments: Experiment[];
   runs: Run[];
   comparisons: Comparison[];
-  chats: ChatSession[];
   summary: {
     experiments: number;
     runs: number;

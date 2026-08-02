@@ -8,8 +8,17 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from evidrun.contracts.scope import HTTP_STATUS_BY_CODE
 from evidrun.entrypoints.api.context import ApiContext
 from evidrun.entrypoints.api.schemas import ChatMessageCreate, ChatSessionCreate
+from evidrun.infrastructure.database.scope_errors import ScopeStorageUnavailable
+
+
+def _scope_http_error(exc: ScopeStorageUnavailable) -> HTTPException:
+    return HTTPException(
+        status_code=HTTP_STATUS_BY_CODE[exc.error.code],
+        detail=exc.error.model_dump(mode="json"),
+    )
 
 
 def create_comparison_router(*, context: ApiContext, authorize: Callable[..., Any]) -> APIRouter:
@@ -57,8 +66,13 @@ def create_chat_router(*, context: ApiContext, authorize: Callable[..., Any]) ->
         }
 
     @router.get("/chat/sessions")
-    async def chat_sessions(_: None = Depends(authorize)) -> list[dict[str, Any]]:
-        return repository.read_model.latest_dashboard()["chats"]
+    async def chat_sessions(
+        workspace_id: str, _: None = Depends(authorize)
+    ) -> list[dict[str, Any]]:
+        try:
+            return repository.read_model.list_chat_sessions(workspace_id)
+        except ScopeStorageUnavailable as exc:
+            raise _scope_http_error(exc) from exc
 
     @router.post("/chat/sessions/{session_id}/messages")
     async def add_chat_message(

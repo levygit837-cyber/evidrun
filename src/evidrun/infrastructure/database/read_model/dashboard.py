@@ -5,7 +5,6 @@ from typing import Any
 from sqlalchemy import func, select
 
 from evidrun.infrastructure.database.models import (
-    ChatSessionRow,
     ComparisonRow,
     ContextSnapshotRow,
     ExecutionTrustRecordRow,
@@ -38,9 +37,6 @@ def latest_dashboard(unit_of_work: UnitOfWork) -> dict[str, Any]:
         run_spec_rows = list(session.scalars(select(RunSpecRow)))
         comparisons = list(
             session.scalars(select(ComparisonRow).order_by(ComparisonRow.created_at.desc()))
-        )
-        chats = list(
-            session.scalars(select(ChatSessionRow).order_by(ChatSessionRow.created_at.desc()))
         )
         grades = list(session.scalars(select(GradeRow).order_by(GradeRow.created_at.desc())))
         snapshots = list(
@@ -77,7 +73,6 @@ def latest_dashboard(unit_of_work: UnitOfWork) -> dict[str, Any]:
             for row in runs
         ],
         "comparisons": [projections.comparison_document(row) for row in comparisons],
-        "chats": [projections.chat_document(row) for row in chats],
         "summary": {
             "experiments": len(experiments),
             "runs": len(runs),

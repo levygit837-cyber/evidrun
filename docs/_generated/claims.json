@@ -1,6 +1,6 @@
 {
   "schema_version": "1",
-  "document_count": 122,
+  "document_count": 123,
   "repository_tree": [
     ".env.example",
     ".github/pull_request_template.md",
@@ -25,6 +25,7 @@
     "changes/120.toml",
     "changes/124.toml",
     "changes/125.toml",
+    "changes/128.toml",
     "changes/129.toml",
     "changes/137.toml",
     "changes/139.toml",

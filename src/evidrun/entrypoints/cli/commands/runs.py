@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, NoReturn
 
 import typer
 
 from evidrun.contracts.admission import admission_rejection_error
+from evidrun.contracts.scope import CLI_EXIT_BY_CODE as SCOPE_CLI_EXIT_BY_CODE
 from evidrun.contracts.triage import CLI_EXIT_BY_CODE, TriageRejected
 from evidrun.entrypoints.cli.shared import components, console
 from evidrun.evidence.bundle import EvidenceBundleService
@@ -19,6 +20,7 @@ from evidrun.infrastructure.database.queue.enqueue_errors import (
     enqueue_retry_legacy_run,
     enqueue_retry_source_succeeded,
 )
+from evidrun.infrastructure.database.scope_errors import ScopeStorageUnavailable
 from evidrun.runs import EvidrunService
 from evidrun.settings import Settings
 
@@ -33,6 +35,11 @@ def _exit_triage(rejection: TriageRejected) -> typer.Exit:
 
     console.print_json(data=rejection.error.model_dump(mode="json"))
     return typer.Exit(CLI_EXIT_BY_CODE[rejection.error.code])
+
+
+def _exit_scope_error(exc: ScopeStorageUnavailable) -> NoReturn:
+    console.print_json(data=exc.error.model_dump(mode="json"))
+    raise typer.Exit(SCOPE_CLI_EXIT_BY_CODE[exc.error.code]) from exc
 
 
 @run_app.command("inspect")
@@ -225,10 +232,19 @@ def export_run_bundle(
 
 
 @chat_app.command("list")
-def list_chats(data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None) -> None:
+def list_chats(
+    workspace_id: Annotated[str, typer.Option("--workspace-id")],
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+) -> None:
     _, database, repository = components(data_dir)
-    console.print_json(data=repository.read_model.latest_dashboard()["chats"])
-    database.dispose()
+    try:
+        try:
+            documents = repository.read_model.list_chat_sessions(workspace_id)
+        except ScopeStorageUnavailable as exc:
+            _exit_scope_error(exc)
+        console.print_json(data=documents)
+    finally:
+        database.dispose()
 
 
 @data_app.command("purge")

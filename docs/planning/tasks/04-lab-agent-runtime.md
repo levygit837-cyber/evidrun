@@ -7,9 +7,9 @@ authority: planning
 volatility: snapshot
 owner: laboratory
 created_at: 2026-07-26
-updated_at: 2026-07-27
-observed_at: 2026-07-27
-review_due: 2026-08-23
+updated_at: 2026-08-02
+observed_at: 2026-08-02
+review_due: 2026-08-29
 applies_to: lab-agent-runtime
 sources:
   - docs/adr/0018-lab-agent-copilot-scope.md
@@ -111,8 +111,9 @@ A presenca do provider nao promove nenhuma capability do Subject.
 
 ### Superficie
 
-Os endpoints de chat existem (`POST /api/v1/chat/sessions`, `GET`, `POST .../messages`) e nao possuem
-teste. Esta entrega os cobre e adiciona o caminho de streaming que
+Os endpoints de chat existem (`POST /api/v1/chat/sessions`, `GET`, `POST .../messages`) e possuem
+cobertura de integração para criação, listagem escopada por Workspace, ordem estável e mensagens.
+Esta entrega amplia a cobertura e adiciona o caminho de streaming que
 `apps/web/src/data/adapters.ts` hoje recusa com `integration_pending`.
 
 ## Invariantes que nao podem ser relaxadas

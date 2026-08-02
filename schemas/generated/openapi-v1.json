@@ -335,6 +335,15 @@
         "operationId": "chat_sessions_api_v1_chat_sessions_get",
         "parameters": [
           {
+            "in": "query",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
             "in": "header",
             "name": "authorization",
             "required": false,

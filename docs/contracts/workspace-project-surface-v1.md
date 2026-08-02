@@ -7,10 +7,11 @@ authority: normative
 volatility: timeless
 owner: core
 created_at: 2026-07-27
-updated_at: 2026-07-27
+updated_at: 2026-08-02
 applies_to: schema/control-plane-scope@1
 sources:
   - docs/adr/0020-workspace-project-run-environment-boundaries.md
+  - docs/adr/0025-chat-session-listing-requires-workspace.md
   - docs/contracts/triage-error.md
 supersedes: []
 superseded_by: null
@@ -20,12 +21,15 @@ implementation_refs:
   - src/evidrun/infrastructure/database/read_model/queries.py
   - src/evidrun/entrypoints/api/routers/platform.py
   - src/evidrun/entrypoints/cli/commands/scopes.py
+  - src/evidrun/entrypoints/api/routers/evidence.py
+  - src/evidrun/entrypoints/cli/commands/runs.py
   - alembic/versions/0005_workspace_name_identity.py
   - alembic/versions/0006_project_name_identity.py
 verification_refs:
   - tests/unit/test_scope_contracts.py
   - tests/integration/test_scope_surfaces.py
   - tests/integration/test_scope_migration.py
+  - tests/integration/test_chat_workspace_scope.py
 ---
 
 # Superfície pública de Workspace e Project v1
@@ -69,6 +73,7 @@ As superfícies são:
 | listar Workspaces | `GET /api/v1/workspaces` | `evidrun workspace list` | lista de `WorkspaceDocument` |
 | criar Project | `POST /api/v1/projects` | `evidrun project create <workspace-id> <name>` | HTTP 201 / exit 0 com `ProjectDocument` |
 | listar Projects | `GET /api/v1/projects?workspace_id=<id>` | `evidrun project list --workspace-id <id>` | lista de `ProjectDocument` |
+| listar sessões de chat | `GET /api/v1/chat/sessions?workspace_id=<id>` | `evidrun chat list --workspace-id <id>` | lista de sessões do Workspace |
 
 O filtro `workspace_id` de listagem é opcional para preservar a leitura humana global já exposta.
 Quando presente, Workspace inexistente devolve `project.workspace_not_found`; quando ausente, a
@@ -82,6 +87,12 @@ como desempate determinístico, `id`.
 As leituras canônicas consultam Workspace e Project diretamente. O dashboard pode reutilizar essas
 projeções, mas `GET /workspaces` e `GET /projects` não dependem de montar Runs, chats, comparisons ou
 outras seções do dashboard.
+
+A listagem de sessões de chat exige `workspace_id` em API e CLI; não existe forma global nem fallback
+pelo dashboard. Workspace inexistente devolve lista vazia, deliberadamente indistinguível de um
+Workspace sem sessões: responder `404` transformaria a rota em oráculo de existência. A ordem é
+`created_at` descendente, com `id` ascendente como desempate determinístico. O `GET /dashboard` não
+projeta mais `chats`, porque não recebe um Workspace explícito capaz de delimitar essa coleção.
 
 ## Normalização e identidade do nome
 
