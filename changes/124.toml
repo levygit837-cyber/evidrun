@@ -51,11 +51,7 @@ forbidden = [
   "src/**",
   "tests/**",
 ]
-preexisting = [
-  "package.json",
-  "scripts/show_commands.mjs",
-  "docs/operations/local-development.md",
-]
+preexisting = []
 
 [[scope.generated]]
 patterns = ["docs/_generated/manifest.json", "docs/_generated/claims.json"]
