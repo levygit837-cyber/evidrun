@@ -530,7 +530,13 @@ def test_missing_tooling_is_an_unavailable_measurement_not_a_config_error(
 
     It used to raise before any JSON was written, so the report could not explain
     itself, and a warning-only metric ended up blocking on exit 2.
+
+    The PATH is an empty directory rather than a system one: `/usr/bin:/bin` holds
+    `node` on a dev box but not on the CI runner, so the test would assert a different
+    fact in each place. With nothing on PATH, every probed binary is absent everywhere.
     """
+    empty_path = tmp_path / "empty-bin"
+    empty_path.mkdir()
     (tmp_path / "package.json").write_text('{"scripts":{"build":"node -e 1"}}', "utf-8")
     config = write_config(
         tmp_path,
@@ -551,7 +557,7 @@ warning_ratio = 2.0
 """,
     )
 
-    completed = run_checker(tmp_path, config, "build", path=("/usr/bin", "/bin"))
+    completed = run_checker(tmp_path, config, "build", path=(str(empty_path),))
 
     assert completed.returncode == 0, completed.stderr
     document = json.loads(completed.stdout)
