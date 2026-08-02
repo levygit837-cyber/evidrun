@@ -1,0 +1,119 @@
+schema_version = "1"
+change_id = "GH-124"
+issue = 124
+title = "Alinhar docs de estado com o epico entregue"
+classification = "docs-only"
+base_ref = "origin/main"
+branch_pattern = "chore/refresh-project-state-docs"
+expected_outcome = "README e os documentos de planning descrevem `main` no commit atual: nenhuma lacuna fechada aparece como aberta, o plano de worktree ja executado virou registro e `validate_docs.py` nao emite warning."
+confirmed_facts = [
+  "O epico #45 encerrou com os dez tickets P0/P1 em `main`; o ultimo filho #48 teve o follow-up #120 fechado pelo PR #122.",
+  "As tres lacunas do app instalado listadas no README foram fechadas por WS-01, WS-02 e WS-40, todas marcadas `delivered` em docs/planning/tasks/README.md.",
+  "O bundle v4 existe e e verificado; o README ainda descrevia apenas v1/v2/v3.",
+  "`git worktree list` mostra uma unica worktree, e `.git/worktrees` esta vazio; a worktree 2280 media paths macOS que nao existem neste checkout.",
+  "O conteudo nao rastreado da worktree 2280 foi preservado em `archive/codex-2280-uncommitted` (`c5d273f`), que carrega 71 arquivos ausentes de `main`.",
+  "`review_due: 2026-07-30` em docs/planning/README.md era o unico warning de scripts/validate_docs.py.",
+  "Os quatro branches `archive/`/`backup/` nao estao mergeados em `main` e contem conteudo exclusivo.",
+]
+stop_conditions = [
+  "A correcao exigir alterar contrato, ADR, schema ou comportamento implementado.",
+  "Uma lacuna descrita como fechada nao possuir brief `delivered` e referencia correspondente.",
+  "A remocao de um branch de preservacao passar a ser necessaria para concluir a entrega.",
+]
+
+[impact]
+capability = "none"
+persisted_contract = "none"
+normative = "none"
+notes = [
+  "A mudanca corrige texto de estado e datas observacionais; nenhuma linha da matriz de capabilities muda de estado.",
+  "Registrar a execucao dos gates prova os gates, nao promove comportamento.",
+]
+
+[scope]
+expected = [
+  "changes/124.toml",
+  "README.md",
+  "docs/planning/README.md",
+  "docs/planning/mvp-capability-map.md",
+  "docs/planning/worktree-cleanup-plan.md",
+]
+forbidden = [
+  "AGENTS.md",
+  "CONTEXT.md",
+  ".github/**",
+  "alembic/**",
+  "apps/**",
+  "docs/adr/**",
+  "docs/contracts/**",
+  "schemas/**",
+  "scripts/**",
+  "src/**",
+  "tests/**",
+]
+preexisting = [
+  "package.json",
+  "scripts/show_commands.mjs",
+  "docs/operations/local-development.md",
+]
+
+[[scope.generated]]
+patterns = ["docs/_generated/manifest.json", "docs/_generated/claims.json"]
+source_patterns = ["README.md", "docs/planning/**"]
+
+[preserve]
+interfaces = [
+  "Contratos, schemas, API, CLI e eventos permanecem inalterados.",
+]
+errors = [
+  "Nenhum codigo, categoria, status, exit code ou payload observavel de erro e alterado.",
+]
+invariants = [
+  "Planning organiza intencao e dependencias, mas nao prova comportamento implementado.",
+  "Nenhuma capability e promovida sem referencia propria de implementacao e verificacao.",
+  "ADR aceito nao e reescrito para fazer o roadmap parecer concluido.",
+  "Branch de preservacao nao mergeado nao e removido sem decisao humana explicita.",
+]
+
+[verification]
+focused = [
+  "uv run python scripts/validate_docs.py",
+  "uv run python scripts/check_change_contract.py --contract changes/124.toml --strict-warnings",
+]
+full_gates = [
+  "uv run pytest",
+  "uv run ruff check .",
+  "uv run python scripts/check_code_budget.py",
+  "uv run pyright",
+  "pnpm typecheck:web",
+  "pnpm typecheck:desktop",
+  "pnpm test",
+  "pnpm build",
+  "uv run python scripts/validate_docs.py",
+]
+
+[merge_gate]
+review = "proportional"
+ci_commit = "1448d11"
+
+[merge_gate.spec]
+conclusion = "passed"
+evidence = ["diff:README.md", "diff:docs/planning/worktree-cleanup-plan.md"]
+
+[merge_gate.standards]
+conclusion = "passed"
+evidence = ["review:PR#123"]
+
+[merge_gate.verification]
+conclusion = "passed"
+evidence = ["log:scripts/validate_docs.py"]
+
+[merge_gate.ci]
+conclusion = "passed"
+evidence = ["run:actions/30756969924"]
+
+[[questions]]
+text = "Os branches `archive/` e `backup/` devem ser removidos junto com esta limpeza?"
+affects_semantics = true
+status = "resolved"
+resolution = "Nao. Nenhum deles esta mergeado em `main` e cada um carrega conteudo exclusivo; a exclusao descartaria trabalho que nao existe em outro lugar e exige decisao humana. O documento passa a inventaria-los em vez de remove-los."
