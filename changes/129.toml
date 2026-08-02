@@ -101,7 +101,7 @@ previous_artifact_fixtures = ["tests/fixtures/lab_agent_session_store_v0007.sql"
 
 [merge_gate]
 review = "orthogonal"
-ci_commit = "dd25452"
+ci_commit = "0df12a6"
 
 [merge_gate.spec]
 conclusion = "passed"
@@ -113,6 +113,7 @@ evidence = [
 [merge_gate.standards]
 conclusion = "passed"
 evidence = [
+  "review:agent://StandardsReview129",
   "diff:src/evidrun/infrastructure/database/lab.py",
   "diff:alembic/versions/0008_lab_agent_session_store.py",
 ]
@@ -120,6 +121,7 @@ evidence = [
 [merge_gate.verification]
 conclusion = "passed"
 evidence = [
+  "review:agent://SpecReview129",
   "test:tests/integration/test_lab_agent_store.py",
   "test:tests/integration/test_lab_agent_session_migration.py",
 ]
