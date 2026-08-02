@@ -9,7 +9,13 @@
     "node": ">=24 <25"
   },
   "scripts": {
+    "commands": "node scripts/show_commands.mjs",
+    "help": "node scripts/show_commands.mjs",
+    "dev": "concurrently -k \"pnpm backend:dev\" \"pnpm worker:dev\" \"pnpm dev:web\"",
     "dev:web": "vite --config apps/web/vite.config.ts",
+    "preview:web": "vite preview --config apps/web/vite.config.ts",
+    "backend:dev": "uv run evidrun serve",
+    "worker:dev": "uv run evidrun-worker",
     "build:web": "vite build --config apps/web/vite.config.ts",
     "typecheck:web": "tsc --noEmit -p apps/web/tsconfig.json",
     "build:desktop": "tsc -p apps/desktop/tsconfig.main.json && tsc -p apps/desktop/tsconfig.preload.json",

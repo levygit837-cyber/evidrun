@@ -7,7 +7,7 @@ authority: normative
 volatility: current
 owner: core
 created_at: 2026-07-22
-updated_at: 2026-07-24
+updated_at: 2026-08-02
 applies_to: repository
 sources: []
 supersedes: []
@@ -28,13 +28,15 @@ uv sync --extra dev
 pnpm install
 uv run evidrun init
 uv run evidrun demo
-uv run evidrun serve
-uv run evidrun-worker --data-dir ./.local-evidrun --once
-pnpm dev:web
+pnpm dev
 ```
 
-Electron usa `pnpm desktop:dev`, que compila Main/preload, inicia Vite e deixa o Main iniciar o
-backend Python por handshake. `EVIDRUN_DATA_DIR` isola dados de testes manuais.
+`pnpm dev` inicia Vite, backend e worker para uso no browser. Electron usa `pnpm desktop:dev`, que
+compila Main/preload, inicia Vite e deixa o Main supervisionar backend e worker por handshakes.
+`EVIDRUN_DATA_DIR` isola dados de testes manuais.
+
+Use `pnpm commands` para listar os ambientes completos, serviços isolados, verificações, builds e
+comandos de preparação. `pnpm run help` é um alias equivalente; `pnpm help` é reservado pelo pnpm.
 
 Antes de entregar, execute os comandos de verificação do `AGENTS.md`.
 
