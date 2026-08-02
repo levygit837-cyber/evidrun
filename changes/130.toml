@@ -1,0 +1,168 @@
+schema_version = "1"
+change_id = "GH-130"
+issue = 130
+title = "Contratos Pydantic e catalogo de erros do Lab Agent"
+classification = "behavior-compatible"
+base_ref = "origin/main"
+branch_pattern = "levygit837-cyber/issue-130-lab-agent-contracts-errors"
+expected_outcome = "LabAgentSessionScope, LabAgentEnvelope e LabAgentError existem no dominio como Pydantic puro, com as tres formas de sessao validando, as combinacoes invalidas recusando, os 21 codigos do catalogo declarados e as tabelas de status HTTP e exit code totais sobre o enum."
+confirmed_facts = [
+  "contracts/triage.py e contracts/scope.py sao os dois precedentes de catalogo executavel: enum prefixado, CATEGORY_BY_CODE, HTTP_STATUS_BY_CODE e CLI_EXIT_BY_CODE como MappingProxyType, mais um validador de totalidade chamado no import do modulo.",
+  "TriageError.remediation e opcional (triage.py:93); LabAgentError.remediation e obrigatoria porque o leitor primario da recusa e o modelo dentro do laco.",
+  "scripts/check_import_directions.py:15 proibe fastapi, sqlalchemy, openai, electron e react em src/evidrun/contracts/**; o pacote novo importa apenas pydantic, enum, types e evidrun.contracts.base/shared.",
+  "ArtifactRef (base.py:95) nao possui locator, e ContractModel usa extra=forbid, portanto reintroduzir path, URL ou storage locator no envelope falha na validacao.",
+  "code-budget.toml define max_file_lines = 500 para src/**/*.py com baseline vazio; o catalogo foi decomposto em lab_agent/{scope,envelope,errors}.py seguindo o precedente de contracts/runtime/.",
+  "contracts/runtime/__init__.py nao reexporta nada: um nome tem exatamente uma casa. lab_agent/__init__.py segue a mesma regra e os nomes publicos entram apenas na fachada contracts/__init__.py.",
+  "generate_schemas.py:49 tem allowlist explicita CONTRACT_MODELS; nenhum modelo do Lab Agent entra nela porque nenhum runtime publica esses schemas ainda, portanto schemas/generated/** nao muda.",
+  "A issue #129 persiste um shape equivalente ao scope na infraestrutura sem importar este pacote; a fonte de verdade compartilhada e o doc e focus_kind vale exatamente study, run e comparison.",
+]
+stop_conditions = [
+  "A entrega exigir runtime, laco, executor ou tool do Lab Agent.",
+  "Um codigo distinto ser necessario para separar alvo inexistente de alvo de outro escopo, o que tornaria a recusa um oraculo de existencia.",
+  "O envelope precisar de locator, bytes de Artifact, credencial ou authority para ser util.",
+  "O catalogo precisar estender TriageErrorCode ou ScopeErrorCode em vez de ser costura propria.",
+]
+
+[impact]
+capability = "none"
+persisted_contract = "additive"
+normative = "additive"
+notes = [
+  "Somente adicao em src/evidrun/contracts/**: pacote novo lab_agent/ e exports novos na fachada. Nenhum contrato, codigo, categoria, status ou exit code existente muda.",
+  "docs/contracts/observable-errors.md ganha a quarta costura na tabela; as tres existentes permanecem com o mesmo texto e as mesmas fontes executaveis.",
+  "Nenhum schema JSON publicado muda: CONTRACT_MODELS e allowlist explicita e nenhum modelo do Lab Agent entra nela enquanto nao houver superficie que os publique.",
+  "Nenhuma capability nova e anunciada: os tipos existem no dominio e nenhum runtime os consome.",
+]
+
+[scope]
+expected = [
+  "changes/130.toml",
+  "docs/contracts/observable-errors.md",
+  "src/evidrun/contracts/__init__.py",
+  "src/evidrun/contracts/lab_agent/__init__.py",
+  "src/evidrun/contracts/lab_agent/envelope.py",
+  "src/evidrun/contracts/lab_agent/errors.py",
+  "src/evidrun/contracts/lab_agent/scope.py",
+  "tests/unit/test_lab_agent_contracts.py",
+]
+forbidden = [
+  "AGENTS.md",
+  "CONTEXT.md",
+  "alembic/**",
+  "apps/**",
+  "docs/adr/**",
+  "schemas/**",
+  "src/evidrun/contracts/scope.py",
+  "src/evidrun/contracts/triage.py",
+  "src/evidrun/entrypoints/**",
+  "src/evidrun/infrastructure/**",
+]
+preexisting = []
+
+[[scope.generated]]
+patterns = ["docs/_generated/manifest.json", "docs/_generated/claims.json"]
+source_patterns = ["docs/**"]
+
+[preserve]
+interfaces = [
+  "TriageError, TriageErrorCode e suas tabelas permanecem inalterados.",
+  "ScopeError, ScopeErrorCode e suas tabelas permanecem inalterados.",
+  "ArtifactRef continua sem locator em todo contrato deste repositorio.",
+  "CONTRACT_MODELS e os schemas em schemas/generated/** permanecem inalterados.",
+  "A fachada evidrun.contracts continua exportando todos os nomes anteriores; os do Lab Agent sao adicao.",
+]
+errors = [
+  "Nenhum codigo, categoria, status HTTP ou exit code existente e alterado ou reutilizado.",
+  "Os 21 codigos do Lab Agent sao disjuntos de TriageErrorCode e ScopeErrorCode, provado por teste.",
+  "scope.target_not_visible permanece um unico codigo para alvo inexistente, Project irmao e outro Workspace.",
+]
+invariants = [
+  "contracts/ nao importa fastapi, sqlalchemy, openai, electron, react, evidrun.infrastructure nem evidrun.runs.",
+  "Toda recusa do Lab Agent carrega remediation nao vazia.",
+  "Categoria e derivada do codigo, nunca da mensagem, e nao e declaravel na entrada.",
+  "As tabelas de status HTTP e exit code sao totais sobre o enum e falham fechado quando um codigo fica sem entrada ou uma entrada fica orfa.",
+  "Nenhuma mensagem ou remediacao de scope revela tipo, nome, Project ou existencia do alvo.",
+  "O envelope e allowlist fechada: sem locator, credencial, bytes de Artifact, chat de outra sessao nem authority adicional.",
+  "General chat nao divulga ref de conteudo de Project no envelope.",
+  "Nenhum tipo novo entra no SubjectEnvelope.",
+]
+
+[verification]
+focused = [
+  "uv run pytest tests/unit/test_lab_agent_contracts.py tests/unit/test_triage_errors.py tests/unit/test_scope_contracts.py",
+  "uv run python scripts/check_import_directions.py",
+]
+full_gates = [
+  "uv run pytest",
+  "uv run ruff check .",
+  "uv run python scripts/check_code_budget.py",
+  "uv run python scripts/check_import_directions.py",
+  "uv run pyright",
+  "pnpm typecheck:web",
+  "pnpm typecheck:desktop",
+  "pnpm test",
+  "pnpm build",
+  "uv run python scripts/validate_docs.py",
+]
+
+[merge_gate]
+review = "orthogonal"
+ci_commit = "PENDING"
+
+[merge_gate.spec]
+conclusion = "passed"
+evidence = [
+  "diff:src/evidrun/contracts/lab_agent/scope.py",
+  "diff:src/evidrun/contracts/lab_agent/envelope.py",
+  "diff:src/evidrun/contracts/lab_agent/errors.py",
+  "test:tests/unit/test_lab_agent_contracts.py",
+]
+
+[merge_gate.standards]
+conclusion = "passed"
+evidence = [
+  "log:scripts/check_import_directions.py",
+  "log:scripts/check_code_budget.py",
+  "review:PR#142",
+]
+
+[merge_gate.verification]
+conclusion = "passed"
+evidence = [
+  "test:tests/unit/test_lab_agent_contracts.py",
+  "log:scripts/validate_docs.py",
+]
+
+[merge_gate.ci]
+conclusion = "passed"
+evidence = ["run:actions/0"]
+
+[[questions]]
+text = "O catalogo do Lab Agent deve estender TriageErrorCode?"
+affects_semantics = true
+status = "resolved"
+resolution = "Nao. Recusar uma tool call de copiloto nao e uma das seis fases que antecedem uma Run, e observable-errors.md ja registra por que TriageError e ScopeError sao separados entre si. O Lab Agent e uma terceira costura, com enum, tabelas e validador proprios."
+
+[[questions]]
+text = "Alvo inexistente e alvo de outro Project devem ter codigos distintos?"
+affects_semantics = true
+status = "resolved"
+resolution = "Nao, e isso e normativo. Codigos distintos transformariam a recusa num oraculo de existencia: bastaria pedir um id e ler o codigo de volta. Os tres casos compartilham codigo, categoria, status e forma de payload, e a traducao HTTP e por categoria justamente para que nenhum status separe os casos."
+
+[[questions]]
+text = "O envelope deve declarar refs de memoria recuperada?"
+affects_semantics = true
+status = "resolved"
+resolution = "Nao nesta entrega. A capability de memoria nao existe, e declarar o campo anunciaria retrieval que nenhum runtime executa. O contrato de memoria v2 reserva o lugar, e o catalogo de tools aceita capability nova sem mudar assinatura."
+
+[[questions]]
+text = "Os modelos do Lab Agent entram em CONTRACT_MODELS?"
+affects_semantics = false
+status = "resolved"
+resolution = "Nao. A allowlist e explicita e nao auto-descoberta; ela publica schema de superficie existente. Nenhuma superficie publica consome esses tipos ainda, portanto schemas/generated/** permanece inalterado e a entrada e adicionada pela issue que criar o runtime."
+
+[[questions]]
+text = "Um unico arquivo lab_agent.py cabe no orcamento?"
+affects_semantics = false
+status = "resolved"
+resolution = "Nao com folga: 21 codigos, tres tabelas, envelope, scope e erro juntos passariam de 500 linhas ou ficariam no limiar do aviso. O pacote foi decomposto por assunto seguindo contracts/runtime/, sem entrada em [baseline]."
