@@ -1,0 +1,150 @@
+schema_version = "1"
+change_id = "GH-132"
+issue = 132
+title = "Tools de leitura do Lab Agent com scope imposto pelo repository"
+classification = "feature"
+base_ref = "origin/main"
+branch_pattern = "*/issue-132-lab-agent-read-tools"
+expected_outcome = "O Lab Agent oferece dez tools de leitura estritas, com disponibilidade por forma de sessão e leituras limitadas ao scope validado da sessão."
+confirmed_facts = [
+  "General chat oferece somente list_projects e read_capability_catalog; Project e Focused oferecem as dez tools de leitura.",
+  "LabToolContext.scope é a única fonte de workspace, project e foco; nenhuma tool aceita campos de scope como argumentos.",
+  "A admissão existente expõe os checkers que definem as rejeições ativas do runtime.",
+  "aggregate_metrics usa allowlists de métricas e agrupamentos mapeadas para expressões SQLAlchemy e filtra pelo Project visível.",
+]
+stop_conditions = [
+  "A implementação precisar editar src/evidrun/infrastructure/** ou src/evidrun/contracts/**.",
+  "Uma tool precisar alcançar append_event, decide_contract_revision ou criar AdmissionRecord.",
+  "Uma referência de outro Project precisar revelar metadata para explicar a recusa.",
+]
+
+[impact]
+capability = "additive"
+persisted_contract = "none"
+normative = "none"
+notes = [
+  "Adiciona as dez capabilities de leitura já definidas pelos contratos v1; não altera contratos persistidos nem decisões normativas.",
+  "O adapter SQLAlchemy é somente leitura e reutiliza ReadModel e stores existentes por injeção.",
+]
+
+[scope]
+expected = [
+  "changes/132.toml",
+  "src/evidrun/lab/tools/__init__.py",
+  "src/evidrun/lab/tools/_base.py",
+  "src/evidrun/lab/tools/aggregate_metrics.py",
+  "src/evidrun/lab/tools/list_projects.py",
+  "src/evidrun/lab/tools/list_runs.py",
+  "src/evidrun/lab/tools/read_admission.py",
+  "src/evidrun/lab/tools/read_capability_catalog.py",
+  "src/evidrun/lab/tools/read_comparison.py",
+  "src/evidrun/lab/tools/read_contract_revision.py",
+  "src/evidrun/lab/tools/read_evaluation_records.py",
+  "src/evidrun/lab/tools/read_repository.py",
+  "src/evidrun/lab/tools/read_run.py",
+  "src/evidrun/lab/tools/read_run_events.py",
+  "src/evidrun/lab/tools/registry.py",
+  "tests/unit/test_lab_read_tools.py",
+  "tests/integration/test_lab_read_tools_repository.py",
+]
+forbidden = [
+  "AGENTS.md",
+  "CONTEXT.md",
+  "alembic/**",
+  "docs/adr/**",
+  "docs/contracts/**",
+  "src/evidrun/contracts/**",
+  "src/evidrun/infrastructure/**",
+  "src/evidrun/lab/loop.py",
+  "src/evidrun/lab/protocol.py",
+  "src/evidrun/lab/tools/propose_draft.py",
+  "src/evidrun/lab/tools/request_human_approval.py",
+  "src/evidrun/lab/tools/validate_draft.py",
+]
+preexisting = []
+
+[[scope.generated]]
+patterns = ["docs/_generated/manifest.json", "docs/_generated/claims.json"]
+source_patterns = ["changes/**", "docs/**"]
+
+[preserve]
+interfaces = [
+  "build_catalog e offered_tools mantêm suas assinaturas e continuam aceitando tools de proposta registradas por outros workstreams.",
+  "LabTool, LabToolContext, LabToolResult e ToolAvailability permanecem sem alteração.",
+]
+errors = [
+  "Campos de scope em argumentos falham com schema.scope_argument_forbidden; conjuntos e tipos divergentes falham com seus códigos de schema.",
+  "Referências invisíveis falham com scope.target_not_visible sem metadata do target.",
+  "Dados sensitive ou restricted falham com classification.grant_required.",
+]
+invariants = [
+  "Scope vem exclusivamente de LabToolContext.scope e nunca de argumentos do modelo.",
+  "requested_refs e returned_refs permanecem separados em cada LabToolResult.",
+  "aggregate_metrics nunca cruza Projects e todo grupo devolvido inclui sample_size positivo.",
+  "read_capability_catalog deriva capacidades admitidas e rejeições ativas dos checkers de admissão.",
+  "Nenhuma tool escreve no ledger, decide revisão de contrato ou cria admissão.",
+]
+
+[verification]
+focused = [
+  "uv run pytest tests/unit/test_lab_read_tools.py tests/integration/test_lab_read_tools_repository.py tests/unit/test_lab_runtime_seam.py",
+  "uv run ruff check src/evidrun/lab/tools tests/unit/test_lab_read_tools.py tests/integration/test_lab_read_tools_repository.py",
+  "uv run pyright src/evidrun/lab/tools",
+]
+full_gates = [
+  "uv run pytest",
+  "uv run ruff check .",
+  "uv run python scripts/check_code_budget.py",
+  "uv run python scripts/check_import_directions.py",
+  "uv run pyright",
+  "pnpm typecheck:web",
+  "pnpm typecheck:desktop",
+  "pnpm test",
+  "pnpm build",
+  "uv run python scripts/validate_docs.py",
+]
+
+[merge_gate]
+review = "proportional"
+ci_commit = "146c16e"
+
+[merge_gate.spec]
+conclusion = "passed"
+evidence = [
+  "diff:src/evidrun/lab/tools",
+  "test:tests/unit/test_lab_read_tools.py",
+  "test:tests/integration/test_lab_read_tools_repository.py",
+]
+
+[merge_gate.standards]
+conclusion = "passed"
+evidence = [
+  "log:scripts/check_code_budget.py",
+  "log:scripts/check_import_directions.py",
+  "log:ruff",
+  "log:pyright",
+]
+
+[merge_gate.verification]
+conclusion = "passed"
+evidence = [
+  "test:tests/unit/test_lab_read_tools.py",
+  "test:tests/integration/test_lab_read_tools_repository.py",
+  "test:tests/unit/test_lab_runtime_seam.py",
+]
+
+[merge_gate.ci]
+conclusion = "passed"
+evidence = ["run:local/full-verification"]
+
+[[questions]]
+text = "Como manter o catálogo de rejeições ativo sincronizado com os checkers de admissão?"
+affects_semantics = true
+status = "resolved"
+resolution = "A fonte inspeciona os checkers e o RuntimeCapabilityEnvelope; não mantém uma lista manual paralela de códigos."
+
+[[questions]]
+text = "Focused chat deveria oferecer tools adicionais ao Project chat?"
+affects_semantics = true
+status = "resolved"
+resolution = "Não. Focused oferece o mesmo catálogo do Project e apenas estreita o conjunto visível de Study, Run ou Comparison."
