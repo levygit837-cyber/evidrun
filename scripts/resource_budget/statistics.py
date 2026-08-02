@@ -5,11 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from statistics import median
 
+MINIMUM_CONCLUSIVE_SAMPLES = 3
+
 
 @dataclass(frozen=True)
 class SampleEvaluation:
     value: float
-    relative_mad: float
+    relative_spread: float
     status: str
     threshold: float
 
@@ -19,21 +21,42 @@ def evaluate_samples(
     *,
     baseline: float,
     warning_ratio: float,
-    noise_mad_ratio: float,
+    noise_spread_ratio: float,
 ) -> SampleEvaluation:
-    """Classify a repeated observation using median and relative MAD.
+    """Classify a repeated observation using the median and the relative spread.
 
-    Median resists isolated outliers. The median absolute deviation then tells a
-    reviewer when the whole sample is too dispersed to call a regression.
+    The median resists an isolated outlier, so it stays the reported value.
+
+    Dispersion is measured as `(max - min) / median` rather than by a median absolute
+    deviation. MAD has no resolution at the sample sizes this repository configures:
+    with three samples the deviations from the median are `[b-a, 0, c-b]`, whose median
+    is `min(b-a, c-b)`, so one tight pair pins MAD near zero no matter how far the
+    third sample lies. Measured on the real python profile, `crl_ctx_002.duration_ms`
+    reported relative MAD `0.0000` against a true spread of `0.0531`, and a synthetic
+    `(100, 101, 1000)` scored `0.0099` — a tenfold outlier called stable.
+
+    Relative spread is deliberately the pessimistic choice: it reacts to the single
+    worst sample. For a warning-only signal that is the safer direction, because the
+    consequence of over-reporting noise is `inconclusive`, never a failed build.
+
+    The guard applies exactly when the quantity was sampled more than once. A single
+    observation is measured, not estimated, so calling it inconclusive would withhold a
+    fact the checker holds; a repeated one has a dispersion worth judging. Sampling is
+    the honest axis rather than classification: `run_bundle.bundle_bytes` is a
+    `runtime_artifact` repeated three times and it does vary run to run (19227 -> 19237,
+    the measurement behind #120's Latente 7), so keying on classification would have
+    excluded the one metric proven noisy.
     """
 
     if not samples:
         raise ValueError("at least one sample is required")
     value = float(median(samples))
-    absolute_deviations = tuple(abs(sample - value) for sample in samples)
-    relative_mad = float(median(absolute_deviations)) / value if value else 0.0
+    relative_spread = (max(samples) - min(samples)) / value if value else 0.0
     threshold = baseline * warning_ratio
-    if len(samples) < 3 or relative_mad > noise_mad_ratio:
+    sampled = len(samples) > 1
+    if sampled and (
+        len(samples) < MINIMUM_CONCLUSIVE_SAMPLES or relative_spread > noise_spread_ratio
+    ):
         status = "inconclusive"
     elif value > threshold:
         status = "regression"
@@ -41,7 +64,7 @@ def evaluate_samples(
         status = "ok"
     return SampleEvaluation(
         value=value,
-        relative_mad=relative_mad,
+        relative_spread=relative_spread,
         status=status,
         threshold=threshold,
     )

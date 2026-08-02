@@ -10,11 +10,29 @@ source = "local calibration on the versioned checkout"
 
 [methodology]
 statistic = "median"
-dispersion = "median absolute deviation divided by the median"
-noise_mad_ratio = 0.20
+dispersion = "relative spread: (max - min) divided by the median"
+noise_spread_ratio = 0.60
 timing_policy = "warning-only; an inconclusive noisy sample never blocks"
 memory_policy = "warning-only; process peak RSS is reported when the OS exposes it"
 stable_policy = "only generated size/count and exact verification facts block"
+
+# The dispersion metric itself changed, so both fields need a reviewable record. The
+# old MAD field is absent on this side, which is what `None -> 0.6` reports.
+[[policy_adjustments]]
+scenario = "*"
+metric = "*"
+field = "methodology.dispersion"
+previous = "median absolute deviation divided by the median"
+new = "relative spread: (max - min) divided by the median"
+justification = "MAD has no resolution at three samples: the deviations are [b-a, 0, c-b], so a tight pair pins it near zero however far the third sample sits. Measured on the real profile, crl_ctx_002.duration_ms reported relative MAD 0.0000 against a true spread of 0.0531, and (100, 101, 1000) scored 0.0099. Issue #120."
+
+[[policy_adjustments]]
+scenario = "*"
+metric = "*"
+field = "methodology.noise_spread_ratio"
+previous = "absent"
+new = 0.60
+justification = "Relative spread is a wider quantity than MAD, so the old 0.20 threshold would call the healthy real profile inconclusive. Calibrated against measured spreads: the worst real warning metric sits at 0.2424, and a 10x outlier scores 8.9109. Issue #120."
 
 [classifications]
 generated = [

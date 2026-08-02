@@ -47,14 +47,14 @@ def _evaluate_metric(
     samples: list[float],
     policy: dict[str, Any],
     *,
-    noise_mad_ratio: float,
+    noise_spread_ratio: float,
 ) -> dict[str, Any]:
     value = float(median(samples))
     status = "ok"
     limit = policy.get("limit")
     minimum = policy.get("minimum")
     threshold = None
-    relative_mad = None
+    relative_spread = None
     if policy.get("enforcement") == "blocking" and limit is not None and any(
         sample > limit for sample in samples
     ):
@@ -67,26 +67,21 @@ def _evaluate_metric(
         baseline = policy.get("baseline")
         warning_ratio = policy.get("warning_ratio")
         if baseline is not None and warning_ratio is not None:
-            if len(samples) >= 3:
-                evaluation = evaluate_samples(
-                    tuple(samples),
-                    baseline=float(baseline),
-                    warning_ratio=float(warning_ratio),
-                    noise_mad_ratio=noise_mad_ratio,
-                )
-                value = evaluation.value
-                threshold = evaluation.threshold
-                relative_mad = evaluation.relative_mad
-                status = evaluation.status
-            else:
-                threshold = baseline * warning_ratio
-                if value > threshold:
-                    status = "regression"
+            evaluation = evaluate_samples(
+                tuple(samples),
+                baseline=float(baseline),
+                warning_ratio=float(warning_ratio),
+                noise_spread_ratio=noise_spread_ratio,
+            )
+            value = evaluation.value
+            threshold = evaluation.threshold
+            relative_spread = evaluation.relative_spread
+            status = evaluation.status
     return {
         "name": name,
         "value": value,
         "samples": samples,
-        "relative_mad": relative_mad,
+        "relative_spread": relative_spread,
         "unit": policy["unit"],
         "classification": policy["classification"],
         "enforcement": policy["enforcement"],
@@ -96,6 +91,15 @@ def _evaluate_metric(
         "threshold": threshold,
         "status": status,
     }
+
+
+class WorkloadUnavailable(RuntimeError):
+    """The workload could not be measured here, as opposed to measuring badly.
+
+    A missing tool is a property of the environment, not a fault in the policy the
+    gate protects. It has to reach the document as an `unavailable` measurement so the
+    report still explains itself, instead of aborting before any JSON is written.
+    """
 
 
 def _run_workload(root: Path, workload: str, repetitions: int) -> dict[str, list[float]]:
@@ -116,51 +120,80 @@ def _run_workload(root: Path, workload: str, repetitions: int) -> dict[str, list
             text=True,
         )
         if completed.returncode != 0:
-            raise ValueError(completed.stderr.strip() or f"{workload} failed")
+            detail = completed.stderr.strip() or f"{workload} failed"
+            missing = _missing_executable(detail)
+            if missing is not None:
+                raise WorkloadUnavailable(f"{missing} is not available on this runner")
+            raise ValueError(detail)
         document = json.loads(completed.stdout)
         for name, value in document.items():
             samples.setdefault(name, []).append(float(value))
     return samples
 
 
+def _missing_executable(detail: str) -> str | None:
+    """The executable name when the workload failed only because it is absent."""
+    marker = "FileNotFoundError: [Errno 2] No such file or directory: "
+    _, separator, tail = detail.partition(marker)
+    if not separator:
+        return None
+    name = tail.splitlines()[0].strip().strip("'\"")
+    return name or None
+
+
+def _unavailable_metric(
+    name: str, policy: dict[str, Any], reason: str
+) -> dict[str, Any]:
+    """A metric that could not be measured, carrying why."""
+    return {
+        "name": name,
+        "value": None,
+        "samples": [],
+        "relative_spread": None,
+        "unit": policy["unit"],
+        "classification": policy["classification"],
+        "enforcement": policy["enforcement"],
+        "baseline": policy.get("baseline"),
+        "limit": policy.get("limit"),
+        "minimum": policy.get("minimum"),
+        "threshold": None,
+        "status": "unavailable",
+        "reason": reason,
+    }
+
+
 def _document(root: Path, config: dict[str, Any], profile: str) -> dict[str, Any]:
     scenarios: list[dict[str, Any]] = []
-    noise_mad_ratio = float(config["methodology"]["noise_mad_ratio"])
+    noise_spread_ratio = float(config["methodology"]["noise_spread_ratio"])
     for scenario_id, scenario in sorted(config["scenarios"].items()):
         if scenario["profile"] != profile:
             continue
         workload = scenario["workload"]
+        unavailable_reason: str | None = None
         if workload == "path_inventory":
             inventory = _path_inventory(
                 root,
                 scenario["paths"],
                 list(config.get("classifications", {}).get("cache_excluded", [])),
             )
-            measured = (
-                None
-                if inventory is None
-                else {name: [float(value)] for name, value in inventory.items()}
-            )
+            if inventory is None:
+                unavailable_reason = "required paths do not exist: " + ", ".join(
+                    scenario["paths"]
+                )
+                measured = None
+            else:
+                measured = {name: [float(value)] for name, value in inventory.items()}
         else:
-            measured = _run_workload(root, workload, int(scenario["repetitions"]))
+            try:
+                measured = _run_workload(root, workload, int(scenario["repetitions"]))
+            except WorkloadUnavailable as exc:
+                unavailable_reason = str(exc)
+                measured = None
         metrics: list[dict[str, Any]]
         if measured is None:
-            reason = "required paths do not exist: " + ", ".join(scenario["paths"])
+            assert unavailable_reason is not None
             metrics = [
-                {
-                    "name": name,
-                    "value": None,
-                    "samples": [],
-                    "relative_mad": None,
-                    "unit": policy["unit"],
-                    "classification": policy["classification"],
-                    "enforcement": policy["enforcement"],
-                    "baseline": policy.get("baseline"),
-                    "limit": policy.get("limit"),
-                    "minimum": policy.get("minimum"),
-                    "status": "unavailable",
-                    "reason": reason,
-                }
+                _unavailable_metric(name, policy, unavailable_reason)
                 for name, policy in sorted(scenario["metrics"].items())
             ]
         else:
@@ -169,7 +202,7 @@ def _document(root: Path, config: dict[str, Any], profile: str) -> dict[str, Any
                     name,
                     measured[name],
                     policy,
-                    noise_mad_ratio=noise_mad_ratio,
+                    noise_spread_ratio=noise_spread_ratio,
                 )
                 for name, policy in sorted(scenario["metrics"].items())
             ]
@@ -221,11 +254,27 @@ def main(argv: list[str] | None = None) -> int:
     if args.json_out is not None:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
         args.json_out.write_text(rendered_json, encoding="utf-8")
-    if document["summary"]["unavailable"]:
+    if _unavailable_blocking_metrics(document):
         return 2
     if document["summary"]["violation"]:
         return 1
     return 0
+
+
+def _unavailable_blocking_metrics(document: dict[str, Any]) -> tuple[str, ...]:
+    """Unavailable metrics whose absence removes a bound the gate is meant to hold.
+
+    A blocking metric that cannot be measured leaves the gate unprotected, so it must
+    fail. A warning-only metric that cannot be measured is reported and nothing more:
+    failing there would make missing tooling block a merge that timing and memory are
+    declared never to block.
+    """
+    return tuple(
+        f"{scenario['id']}.{metric['name']}"
+        for scenario in document["scenarios"]
+        for metric in scenario["metrics"]
+        if metric["status"] == "unavailable" and metric["enforcement"] == "blocking"
+    )
 
 
 if __name__ == "__main__":

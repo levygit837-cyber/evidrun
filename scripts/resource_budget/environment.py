@@ -19,11 +19,22 @@ def measurement_environment(root: Path) -> dict[str, str]:
 
 
 def _command(root: Path, command: list[str]) -> str:
-    completed = subprocess.run(
-        command,
-        cwd=root,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    """The command's output, or `unavailable` when it cannot describe anything.
+
+    `check=False` suppresses a non-zero exit code but not the `FileNotFoundError` a
+    missing binary raises, so describing the environment aborted the whole run before
+    any JSON existed. A runner without `node` is the same fact as `node` failing:
+    unavailable. Found by CI, where `node` lives outside the restricted PATH.
+    """
+
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=root,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError:
+        return "unavailable"
     return completed.stdout.strip() if completed.returncode == 0 else "unavailable"

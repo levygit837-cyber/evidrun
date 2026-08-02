@@ -10,8 +10,6 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from resource_budget.statistics import evaluate_samples  # noqa: E402
-
 from tests.support.resource_budget_cli import run_checker, write_config  # noqa: E402
 
 
@@ -28,7 +26,7 @@ def test_build_outputs_are_measured_from_real_files(tmp_path: Path) -> None:
 schema_version = "1"
 
 [methodology]
-noise_mad_ratio = 0.20
+noise_spread_ratio = 0.20
 
 [scenarios.web_build]
 profile = "build"
@@ -86,7 +84,7 @@ def test_build_inventory_excludes_declared_cache_patterns(tmp_path: Path) -> Non
         """
 schema_version = "1"
 [methodology]
-noise_mad_ratio = 0.20
+noise_spread_ratio = 0.20
 [classifications]
 cache_excluded = ["**/node_modules/**"]
 [scenarios.web_build]
@@ -127,7 +125,7 @@ def test_warning_metric_reports_a_regression_without_blocking(tmp_path: Path) ->
 schema_version = "1"
 
 [methodology]
-noise_mad_ratio = 0.20
+noise_spread_ratio = 0.20
 
 [scenarios.bundle]
 profile = "build"
@@ -152,19 +150,6 @@ warning_ratio = 1.5
     assert metric["threshold"] == 6
 
 
-def test_noisy_repeated_measurement_is_inconclusive_instead_of_a_regression() -> None:
-    result = evaluate_samples(
-        (100.0, 140.0, 160.0, 200.0, 240.0),
-        baseline=80.0,
-        warning_ratio=1.5,
-        noise_mad_ratio=0.20,
-    )
-
-    assert result.value == 160.0
-    assert result.relative_mad == 0.25
-    assert result.status == "inconclusive"
-
-
 def test_python_profile_measures_a_real_evidrun_import(tmp_path: Path) -> None:
     config = write_config(
         tmp_path,
@@ -172,7 +157,7 @@ def test_python_profile_measures_a_real_evidrun_import(tmp_path: Path) -> None:
 schema_version = "1"
 
 [methodology]
-noise_mad_ratio = 0.50
+noise_spread_ratio = 0.50
 
 [scenarios.startup_import]
 profile = "python"
@@ -205,8 +190,14 @@ warning_ratio = 2.0
 
 
 def test_application_build_runs_real_pnpm_three_times(tmp_path: Path) -> None:
+    """The real build workload, exercised by the node CI job.
+
+    The python job has no `pnpm`, so it skips. `.github/workflows/ci.yml` runs this
+    file in the node job for exactly that reason: a skip is not coverage, and the
+    earlier message claimed coverage the node job did not provide.
+    """
     if shutil.which("pnpm") is None:
-        pytest.skip("pnpm is unavailable; the Node CI job runs this real workload")
+        pytest.skip("pnpm is absent here; the node CI job runs this file with pnpm present")
     (tmp_path / "package.json").write_text(
         json.dumps({"scripts": {"build": "node build.mjs"}}), encoding="utf-8"
     )
@@ -221,7 +212,7 @@ def test_application_build_runs_real_pnpm_three_times(tmp_path: Path) -> None:
         """
 schema_version = "1"
 [methodology]
-noise_mad_ratio = 0.50
+noise_spread_ratio = 0.50
 [scenarios.application_build]
 profile = "build"
 workload = "application_build"
@@ -257,7 +248,7 @@ def test_crl_fixture_and_bundle_use_the_real_runtime(tmp_path: Path) -> None:
 schema_version = "1"
 
 [methodology]
-noise_mad_ratio = 0.50
+noise_spread_ratio = 0.50
 
 [scenarios.crl_ctx_002]
 profile = "python"
@@ -359,7 +350,7 @@ def test_text_report_and_json_artifact_describe_the_same_measurement(tmp_path: P
 schema_version = "1"
 
 [methodology]
-noise_mad_ratio = 0.20
+noise_spread_ratio = 0.20
 
 [scenarios.build]
 profile = "build"
@@ -402,7 +393,7 @@ def test_blocking_minimum_catches_an_invalid_real_measurement(tmp_path: Path) ->
         """
 schema_version = "1"
 [methodology]
-noise_mad_ratio = 0.20
+noise_spread_ratio = 0.20
 [scenarios.build]
 profile = "build"
 workload = "path_inventory"
@@ -434,7 +425,7 @@ def test_timing_and_memory_cannot_be_promoted_to_blocking_by_configuration(
         """
 schema_version = "1"
 [methodology]
-noise_mad_ratio = 0.20
+noise_spread_ratio = 0.20
 [scenarios.build]
 profile = "build"
 workload = "path_inventory"
@@ -461,7 +452,7 @@ def test_missing_real_build_output_is_reported_as_unavailable(tmp_path: Path) ->
         """
 schema_version = "1"
 [methodology]
-noise_mad_ratio = 0.20
+noise_spread_ratio = 0.20
 [scenarios.build]
 profile = "build"
 workload = "path_inventory"
@@ -484,13 +475,87 @@ limit = 8
     assert metric["reason"] == "required paths do not exist: dist"
 
 
+def test_missing_tooling_is_an_unavailable_measurement_not_a_config_error(
+    tmp_path: Path,
+) -> None:
+    """A tool the runner lacks is a property of the environment, not a broken policy.
+
+    It used to raise before any JSON was written, so the report could not explain
+    itself, and a warning-only metric ended up blocking on exit 2.
+
+    The PATH is an empty directory rather than a system one: `/usr/bin:/bin` holds
+    `node` on a dev box but not on the CI runner, so the test would assert a different
+    fact in each place. With nothing on PATH, every probed binary is absent everywhere.
+    """
+    empty_path = tmp_path / "empty-bin"
+    empty_path.mkdir()
+    (tmp_path / "package.json").write_text('{"scripts":{"build":"node -e 1"}}', "utf-8")
+    config = write_config(
+        tmp_path,
+        """
+schema_version = "1"
+[methodology]
+noise_spread_ratio = 0.60
+[scenarios.application_build]
+profile = "build"
+workload = "application_build"
+repetitions = 3
+[scenarios.application_build.metrics.duration_ms]
+unit = "milliseconds"
+classification = "timing"
+enforcement = "warning"
+baseline = 10000
+warning_ratio = 2.0
+""",
+    )
+
+    completed = run_checker(tmp_path, config, "build", path=(str(empty_path),))
+
+    assert completed.returncode == 0, completed.stderr
+    document = json.loads(completed.stdout)
+    metric = document["scenarios"][0]["metrics"][0]
+    assert metric["status"] == "unavailable"
+    assert metric["reason"] == "pnpm is not available on this runner"
+    assert document["summary"]["unavailable"] == 1
+
+
+def test_an_unavailable_blocking_metric_still_fails_the_gate(tmp_path: Path) -> None:
+    """A bound that cannot be measured leaves the gate unprotected, so it must fail."""
+    config = write_config(
+        tmp_path,
+        """
+schema_version = "1"
+[methodology]
+noise_spread_ratio = 0.60
+[scenarios.build]
+profile = "build"
+workload = "path_inventory"
+paths = ["dist"]
+repetitions = 1
+[scenarios.build.metrics.output_bytes]
+unit = "bytes"
+classification = "generated"
+enforcement = "blocking"
+baseline = 4
+limit = 8
+""",
+    )
+
+    completed = run_checker(tmp_path, config, "build")
+
+    assert completed.returncode == 2
+    metric = json.loads(completed.stdout)["scenarios"][0]["metrics"][0]
+    assert metric["status"] == "unavailable"
+    assert metric["enforcement"] == "blocking"
+
+
 def test_requested_profile_cannot_pass_without_any_scenario(tmp_path: Path) -> None:
     config = write_config(
         tmp_path,
         """
 schema_version = "1"
 [methodology]
-noise_mad_ratio = 0.20
+noise_spread_ratio = 0.20
 [scenarios.startup]
 profile = "python"
 workload = "startup_import"

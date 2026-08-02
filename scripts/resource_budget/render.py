@@ -41,8 +41,8 @@ def _display_value(value: object) -> str:
 def _detail(metric: dict[str, Any]) -> str:
     if metric.get("reason"):
         return f" — {metric['reason']}"
-    if metric["status"] == "inconclusive":
-        return f" — relative_mad={metric['relative_mad']:.3f}"
+    if metric["status"] == "inconclusive" and metric.get("relative_spread") is not None:
+        return f" — relative_spread={metric['relative_spread']:.3f}"
     if metric["status"] == "regression":
         return f" — warning threshold={_display_value(metric['threshold'])}"
     if metric["status"] == "violation":

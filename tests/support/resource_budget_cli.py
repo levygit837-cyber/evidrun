@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -25,7 +26,13 @@ def run_checker(
     output_format: str | None = "json",
     json_out: Path | None = None,
     timeout: int | None = None,
+    path: tuple[str, ...] | None = None,
 ) -> subprocess.CompletedProcess[str]:
+    """Run the checker as a real process.
+
+    `path` replaces `PATH` for the child, which is how a test observes what the checker
+    does when a workload's tool is absent from the runner.
+    """
     command = [
         sys.executable,
         str(CHECKER),
@@ -42,12 +49,16 @@ def run_checker(
         command.extend(("--format", output_format))
     if json_out is not None:
         command.extend(("--json-out", str(json_out)))
+    environment = None
+    if path is not None:
+        environment = {**os.environ, "PATH": os.pathsep.join(path)}
     return subprocess.run(
         command,
         check=False,
         capture_output=True,
         text=True,
         timeout=timeout,
+        env=environment,
     )
 
 
