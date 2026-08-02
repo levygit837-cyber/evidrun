@@ -221,3 +221,28 @@ Workspace pai. Não lê outro Project e não representa um agente próprio daque
 **Focused chat**:
 Sessão de Project adicionalmente estreitada a um Study, Run ou Comparison pertencente ao mesmo
 Project.
+
+**Lab Agent turn**:
+Uma mensagem do humano e todo o trabalho do agente até um terminal nomeado. Pode conter várias idas ao
+provider e várias tool calls. Não é turno do Subject e não produz Event de Run.
+_Avoid_: turno do Subject, round-trip, request
+
+**Lab Agent tool catalog**:
+Conjunto fechado de tools oferecido a uma sessão, derivado da sua forma. Tool ausente do catálogo
+efetivo é recusada sem execução; acrescentar tool ao catálogo normativo exige ADR sucessor.
+_Avoid_: plugin, function registry, skill
+
+**Lab Agent refusal**:
+Recusa por código estável em uma das etapas de verificação, sempre com remediação acionável endereçada
+ao modelo. Alvo fora do escopo é indistinguível de alvo inexistente.
+_Avoid_: erro genérico, exception, denial
+
+**Composed system instruction**:
+Instrução de sistema montada por base invariante, um bloco de escopo e um bloco de capabilities
+derivado do catálogo efetivo. Descreve a fronteira para o modelo cooperar; nunca a implementa.
+_Avoid_: prompt, template, persona
+
+**Lab Agent tool trace**:
+Registro de Control Plane de cada tool call, com scope efetivo, refs solicitadas e refs devolvidas
+separadas. Vive fora do event ledger e nunca é Event, bundle ou evidência de Run.
+_Avoid_: log, event, audit event
