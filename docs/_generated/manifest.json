@@ -1286,6 +1286,18 @@
       "review_due": "2026-10-22"
     },
     {
+      "id": "research-framing-turn-quality",
+      "path": "docs/research/framing-turn-quality.md",
+      "type": "research",
+      "title": "Hipótese — turno de framing forçado e qualidade da resposta",
+      "status": "draft",
+      "authority": "research",
+      "volatility": "snapshot",
+      "owner": "evals",
+      "updated_at": "2026-08-02",
+      "review_due": "2026-11-02"
+    },
+    {
       "id": "research-run-scenario-discovery-comparison",
       "path": "docs/research/run-scenario-discovery/comparison.md",
       "type": "research",

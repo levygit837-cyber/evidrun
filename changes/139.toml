@@ -1,0 +1,120 @@
+schema_version = "1"
+change_id = "GH-139"
+issue = 139
+title = "Registrar a hipotese do turno de framing como research"
+classification = "docs-only"
+base_ref = "origin/main"
+branch_pattern = "docs/framing-turn-hypothesis"
+expected_outcome = "A hipotese do turno de framing existe como dossier de research com variavel primaria isolada, confounders declarados e dependencias ausentes nomeadas, sem alterar nenhum contrato ou ADR e sem afirmar ganho de qualidade."
+confirmed_facts = [
+  "ResponsesReadAgentAdapter._terminal_result recusa resposta terminal quando state.tool_calls == 0, portanto o repositorio ja possui precedente de recusar terminal que nao fez o trabalho.",
+  "OpenAIResponsesProvider.invoke monta reasoning a partir de self.profile.reasoning_effort e nao inclui reasoning na tupla de campos repassados do request, logo o effort nao e sobreponivel por chamada.",
+  "ProviderProfile.load_default resolve reasoning_effort de EVIDRUN_PROVIDER_REASONING_EFFORT com default max.",
+  "Os cinco budgets de lab-agent-loop-v1 sao tetos: max_tool_calls_per_turn, max_provider_round_trips_per_turn, max_wall_seconds_per_turn, max_refusals_per_turn e max_output_tokens_per_round_trip. Nenhum e piso.",
+  "A admissao rejeita max_turns > 1 porque nao existe coordinator de turnos, portanto o experimento nao e executavel hoje.",
+  "docs/planning/comfortable-minimum.md ja nomeia a tensao de que sem multi-turn o corredor entrega o laboratorio e nao entrega o experimento que o justifica.",
+  "docs/research/ ja usa authority research com volatility snapshot, observed_at e review_due; o dossier segue esse padrao existente.",
+]
+stop_conditions = [
+  "O dossier precisar alterar o ADR 0024 ou qualquer contrato v1 do Lab Agent.",
+  "O registro exigir afirmar que o turno de framing melhora qualidade sem Study que meca.",
+  "A hipotese precisar promover capability ou relaxar a rejeicao de max_turns > 1.",
+]
+
+[impact]
+capability = "none"
+persisted_contract = "none"
+normative = "none"
+notes = [
+  "Dossier de research com volatilidade snapshot; nunca prova comportamento atual.",
+  "O turno de framing permanece fora do runtime decidido e fora do epico #127.",
+  "Nenhum documento normativo e tocado: docs/research/ nao e superficie de contrato persistido.",
+]
+
+[scope]
+expected = [
+  "changes/139.toml",
+  "docs/research/framing-turn-quality.md",
+]
+forbidden = [
+  "AGENTS.md",
+  "CONTEXT.md",
+  ".github/**",
+  "alembic/**",
+  "apps/**",
+  "docs/adr/**",
+  "docs/contracts/**",
+  "docs/index.md",
+  "schemas/**",
+  "scripts/**",
+  "src/**",
+  "tests/**",
+]
+preexisting = []
+
+[[scope.generated]]
+patterns = ["docs/_generated/manifest.json", "docs/_generated/claims.json"]
+source_patterns = ["docs/research/**"]
+
+[preserve]
+interfaces = [
+  "Contratos, schemas, API, CLI e eventos permanecem inalterados.",
+]
+errors = [
+  "Nenhum codigo, categoria, status ou exit code e alterado.",
+]
+invariants = [
+  "Research nunca prova comportamento atual nem promove capability.",
+  "Hipotese registrada nao e achado: o dossier declara explicitamente que nao afirma ganho de qualidade.",
+  "A rejeicao de max_turns > 1 permanece honesta e nao e relaxada para viabilizar o experimento.",
+  "O ADR 0024 e os cinco contratos v1 nao sao alterados por esta entrega.",
+]
+
+[verification]
+focused = [
+  "uv run python scripts/validate_docs.py",
+  "uv run python scripts/check_change_contract.py --contract changes/139.toml --strict-warnings",
+]
+full_gates = [
+  "uv run pytest",
+  "uv run ruff check .",
+  "uv run python scripts/check_code_budget.py",
+  "uv run pyright",
+  "pnpm typecheck:web",
+  "pnpm typecheck:desktop",
+  "pnpm test",
+  "pnpm build",
+  "uv run python scripts/validate_docs.py",
+]
+
+[merge_gate]
+review = "proportional"
+ci_commit = "0000000"
+
+[merge_gate.spec]
+conclusion = "passed"
+evidence = ["diff:docs/research/framing-turn-quality.md"]
+
+[merge_gate.standards]
+conclusion = "passed"
+evidence = ["review:PR#140"]
+
+[merge_gate.verification]
+conclusion = "passed"
+evidence = ["log:scripts/validate_docs.py"]
+
+[merge_gate.ci]
+conclusion = "passed"
+evidence = ["run:actions/0"]
+
+[[questions]]
+text = "O turno de framing deve entrar no runtime decidido do Lab Agent?"
+affects_semantics = true
+status = "resolved"
+resolution = "Nao. A decisao explicita do usuario foi tornar o framing um experimento validavel em vez de decisao de projeto. O ADR 0024 permanece sem ele, e o dossier registra a hipotese com authority research."
+
+[[questions]]
+text = "reasoning.effort por turno resolveria o problema de forcar mais raciocinio?"
+affects_semantics = false
+status = "resolved"
+resolution = "Nao sozinho. Effort aprofunda o passe existente e nao cria um segundo; forcar passe adicional exige recusar o terminal. Tornar effort sobreponivel por request e melhoria separada, fora deste dossier."
