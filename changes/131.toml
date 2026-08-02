@@ -1,0 +1,127 @@
+schema_version = "1"
+change_id = "GH-131"
+issue = 131
+title = "Loop nativo do Lab Agent com budgets e terminais nomeados"
+classification = "feature"
+base_ref = "origin/main"
+branch_pattern = "*/issue-131-lab-agent-loop"
+expected_outcome = "Um turno do Lab Agent reenvia o transcript limitado, serve tool calls pela ordem catálogo-budget-schema-scope-classification, registra rastros e termina em um dos seis terminais nomeados."
+confirmed_facts = [
+  "O provider default opera Responses sem persistência confiável, então cada round-trip recebe o transcript explícito.",
+  "Recusas voltam ao modelo como function_call_output e não encerram o turno, salvo repetição exata ou esgotamento do budget próprio.",
+  "Tool fora do catálogo não consome max_tool_calls_per_turn.",
+  "O Lab Agent não escreve no event ledger; rastro e eventos de UI entram por portas estreitas injetadas.",
+]
+stop_conditions = [
+  "O loop precisar chamar append_event ou emitir Event de Run.",
+  "O runtime anunciar um budget que não consegue verificar antes do efeito correspondente.",
+  "Uma recusa revelar classificação de alvo fora do scope autorizado.",
+]
+
+[impact]
+capability = "additive"
+persisted_contract = "none"
+normative = "none"
+notes = [
+  "Adiciona execução nativa de um turno de chat, sem criar capability do Execution Plane.",
+  "A persistência existente de LabToolTrace é consumida apenas por Protocol injetado; não há migration.",
+  "O comportamento segue o contrato v1 e o ADR 0024 sem alterá-los.",
+]
+
+[scope]
+expected = [
+  "changes/131.toml",
+  "src/evidrun/lab/budgets.py",
+  "src/evidrun/lab/loop.py",
+  "src/evidrun/lab/trace.py",
+  "src/evidrun/lab/turn.py",
+  "tests/unit/test_lab_agent_loop.py",
+]
+forbidden = [
+  "AGENTS.md",
+  "CONTEXT.md",
+  "alembic/**",
+  "apps/**",
+  "docs/adr/**",
+  "docs/contracts/**",
+  "entrypoints/**",
+  "src/evidrun/contracts/**",
+  "src/evidrun/infrastructure/**",
+  "src/evidrun/lab/protocol.py",
+  "src/evidrun/lab/tools/**",
+]
+preexisting = []
+
+[[scope.generated]]
+patterns = ["docs/_generated/manifest.json", "docs/_generated/claims.json"]
+source_patterns = ["docs/**"]
+
+[preserve]
+interfaces = [
+  "ProviderPort continua com um único método invoke; o loop monta requests compatíveis com OpenAI Responses.",
+  "LabTool, LabToolContext e o catálogo compartilhado permanecem sem alterações.",
+]
+errors = [
+  "Cada recusa usa LabAgentErrorCode da etapa normativa e retorna o payload estruturado ao modelo.",
+  "Falha do provider e falha da tool produzem terminal provider_failed incompleto.",
+]
+invariants = [
+  "A ordem de validação é catálogo, budget, schema, scope e classification.",
+  "Negação por budget é registrada no rastro antes do terminal.",
+  "Duas recusas idênticas terminam em repeated_refusal sem terceiro round-trip.",
+  "Cancelamento ocorre em fronteira segura e preserva draft já registrado.",
+  "Nenhum caminho escreve Event de Run ou conta subject.responded.",
+]
+
+[verification]
+focused = [
+  "uv run pytest tests/unit/test_lab_agent_loop.py",
+  "uv run pytest tests/unit/test_lab_runtime_seam.py tests/unit/test_lab_agent_contracts.py tests/unit/test_lab_agent_loop.py",
+]
+full_gates = [
+  "uv run pytest",
+  "uv run ruff check .",
+  "uv run python scripts/check_code_budget.py",
+  "uv run python scripts/check_import_directions.py",
+  "uv run pyright",
+  "pnpm typecheck:web",
+  "pnpm typecheck:desktop",
+  "pnpm test",
+  "pnpm build",
+  "uv run python scripts/validate_docs.py",
+]
+
+[[questions]]
+text = "O loop deve depender diretamente de LabAgentStore para persistir o rastro?"
+affects_semantics = true
+status = "resolved"
+resolution = "Não. LabToolTraceSink mantém o domínio do loop independente da infraestrutura e permite à issue de integração ligar LabAgentStore.append_tool_trace sem introduzir acesso ao event ledger."
+
+[merge_gate]
+review = "proportional"
+ci_commit = "pending"
+
+[merge_gate.spec]
+conclusion = "passed"
+evidence = [
+  "test:tests/unit/test_lab_agent_loop.py",
+  "diff:src/evidrun/lab/loop.py",
+]
+
+[merge_gate.standards]
+conclusion = "passed"
+evidence = [
+  "log:scripts/check_import_directions.py",
+  "log:scripts/check_code_budget.py",
+]
+
+[merge_gate.verification]
+conclusion = "passed"
+evidence = [
+  "test:tests/unit/test_lab_agent_loop.py",
+  "log:scripts/validate_docs.py",
+]
+
+[merge_gate.ci]
+conclusion = "passed"
+evidence = ["run:local/full-verification"]
