@@ -7,9 +7,9 @@ authority: planning
 volatility: snapshot
 owner: product-engineering
 created_at: 2026-07-23
-updated_at: 2026-07-27
-observed_at: 2026-07-27
-review_due: 2026-07-30
+updated_at: 2026-08-02
+observed_at: 2026-08-02
+review_due: 2026-09-02
 applies_to: implementation-planning
 sources:
   - docs/index.md

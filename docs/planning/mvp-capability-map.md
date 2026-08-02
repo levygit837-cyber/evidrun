@@ -7,8 +7,8 @@ authority: planning
 volatility: snapshot
 owner: product-engineering
 created_at: 2026-07-23
-updated_at: 2026-07-31
-observed_at: 2026-07-31
+updated_at: 2026-08-02
+observed_at: 2026-08-02
 review_due: 2026-08-23
 applies_to: mvp-capabilities
 sources:
@@ -42,7 +42,12 @@ incubacao. Ele nao promove nenhuma capability.
 ## Snapshot auditado
 
 - escopos afetados por esta revisao rechecados em 2026-07-28 sobre `main` no commit `ced8a1d`;
-- este snapshot descreve o repositorio, nao uma worktree ativa.
+- este snapshot descreve o repositorio, nao uma worktree ativa;
+- em 2026-08-02 a verificacao obrigatoria completa rodou sobre `main` no commit `2d7ec43` sem
+  violacao: 625 testes Python, 40 testes de desktop, ruff, pyright, typecheck web/desktop, build,
+  115 documentos validados, orcamento estrutural com 0 violacoes e 21 avisos, direcao de imports com
+  0 violacoes e secret scan sem finding. Essa execucao prova os gates, nao promove nenhuma linha da
+  matriz abaixo: mudar um estado continua exigindo referencia propria de implementacao e verificacao.
 
 ## Legenda
 
