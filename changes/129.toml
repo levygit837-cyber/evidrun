@@ -48,9 +48,12 @@ forbidden = [
   "docs/contracts/**",
   "src/evidrun/contracts/**",
   "src/evidrun/entrypoints/**",
-  "src/evidrun/infrastructure/database/catalog.py",
   "src/evidrun/infrastructure/database/read_model/**",
 ]
+
+[[scope.expansions]]
+patterns = ["src/evidrun/infrastructure/database/catalog.py"]
+rationale = "A revisão ortogonal provou que tornar sequence obrigatório quebra o escritor legado ativo; a correção mínima preserva a API existente sem integrar LabAgentStore ao CatalogStore."
 preexisting = []
 
 [[scope.generated]]
