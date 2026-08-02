@@ -114,7 +114,7 @@ previous_artifact_fixtures = ["tests/integration/fixtures/chat-sessions-unscoped
 
 [merge_gate]
 review = "orthogonal"
-ci_commit = "b1a3eab0824b8324459886dc4a8acac120476824"
+ci_commit = "3d1c340dd8ff538af538031e4659e6837b9381e5"
 [merge_gate.spec]
 conclusion = "passed"
 evidence = [
