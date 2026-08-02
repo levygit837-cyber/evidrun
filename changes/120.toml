@@ -29,7 +29,9 @@ persisted_contract = "none"
 normative = "changed"
 notes = [
   "`methodology.noise_mad_ratio` passa a `noise_spread_ratio` e `dispersion` muda de texto. Os dois estao registrados em `[[policy_adjustments]]` no proprio `resource-budget.toml`, com a medicao que motivou a troca. O limiar sobe de 0.20 para 0.60 porque amplitude relativa e grandeza mais larga que MAD: a pior metrica warning real fica em 0.2424 e um outlier 10x marca 8.9109.",
-  "O guarda de ruido passa a se aplicar somente a classificacao `timing` e `memory`. Contagem e bytes lidos do artefato pronto sao exatos; chama-los de inconclusivos esconderia fato que o checker possui. Um teste preexistente pegou essa regressao quando o caminho estava unificado.",
+  "O guarda de ruido passa a se aplicar exatamente quando a grandeza foi medida mais de uma vez. Observacao unica e medida, nao estimada; chama-la de inconclusiva esconderia fato que o checker possui. Um teste preexistente pegou a regressao quando o caminho estava unificado sem essa distincao.",
+  "A primeira versao desta entrega fazia esse gate por classificacao (`timing`/`memory`). A revisao de Standards achou o defeito e a medicao confirmou: `run_bundle.bundle_bytes` e `runtime_artifact` com `repetitions = 3` e varia entre execucoes do mesmo checkout (19227 -> 19237), e `crl_ctx_002.artifact_bytes`/`database_bytes` sao remedidos a cada repeticao por `_crl_ctx_002`. Filtrar por classificacao excluia justamente a metrica que o Latente 7 provou ruidosa, e a doc afirmava que esses bytes eram lidos exatos. Amostragem e o eixo honesto; `NOISY_CLASSIFICATIONS` foi removido.",
+  "`tests/unit/test_resource_budget.py` cruzou o aviso de orcamento em 660/800 linhas. Os cinco casos que chamam `evaluate_samples` direto sairam para `tests/unit/test_resource_budget_statistics.py`, seguindo o precedente de decompor por assunto que o `code-budget.toml` declara. Avisos voltaram de 22 para 21, nenhum nos arquivos desta entrega.",
   "`unavailable` deixa de ser alcancavel so por `path_inventory`: falha de subprocesso por ferramenta ausente vira metrica com `reason`, JSON emitido, e exit code seguindo a regra que ja existia. `unavailable` bloqueia apenas quando a metrica e bloqueante, porque so ai o gate fica sem a protecao que declara ter.",
   "`docs/governance/resource-budgets.md` corrige a afirmacao de MAD, declara a convencao `absent`/`removed`, registra a provenance hand-authored e ancora `verification_valid` nos tres eixos do verificador, sem prometer portabilidade nem replay.",
   "`changes/48.toml` permanece intacto de proposito; os Latentes 6 e 7 estao corrigidos como fato registrado neste contrato, em `confirmed_facts` e nas notas acima.",
@@ -42,6 +44,7 @@ expected = [
   "resource-budget.toml",
   "tests/unit/test_resource_budget.py",
   "tests/unit/test_resource_budget_policy.py",
+  "tests/unit/test_resource_budget_statistics.py",
   "tests/support/resource_budget_cli.py",
   "docs/governance/resource-budgets.md",
   ".github/workflows/ci.yml",
@@ -71,13 +74,13 @@ invariants = [
   "Tempo e memoria nunca bloqueiam, inclusive quando indisponiveis.",
   "Registro que ja existia no merge-base nao autoriza a mudanca deste diff.",
   "O lado do merge-base decide sozinho se um limite existia; sair de `blocking` nao retira o limite antigo sem registro proprio.",
-  "Guarda de ruido se aplica somente a grandeza amostrada; quantidade exata nunca e reportada como inconclusiva.",
+  "Guarda de ruido se aplica exatamente a grandeza medida mais de uma vez; observacao unica nunca e reportada como inconclusiva. O eixo e amostragem, nao classificacao.",
   "Nenhuma mensagem de skip afirma cobertura que o CI nao fornece.",
 ]
 
 [verification]
 focused = [
-  "uv run pytest tests/unit/test_resource_budget.py tests/unit/test_resource_budget_policy.py",
+  "uv run pytest tests/unit/test_resource_budget.py tests/unit/test_resource_budget_policy.py tests/unit/test_resource_budget_statistics.py",
   "uv run python scripts/check_resource_budgets.py --profile python --base-ref origin/main",
   "pnpm build && uv run python scripts/check_resource_budgets.py --profile build --base-ref origin/main",
 ]
@@ -119,7 +122,7 @@ resolution = "Nao. Metrica bloqueante indisponivel continua exit 2, porque o gat
 
 [merge_gate]
 review = "proportional"
-ci_commit = "92a7282e4ca1be0ca1cdf0f93a7d76f56a14224a"
+ci_commit = "6696db7dd93e0222a7b98959216aa5fc13dfb17d"
 
 [merge_gate.spec]
 conclusion = "passed"
@@ -127,7 +130,8 @@ evidence = [
   "test:tests/unit/test_resource_budget.py::test_missing_tooling_is_an_unavailable_measurement_not_a_config_error",
   "test:tests/unit/test_resource_budget.py::test_an_unavailable_blocking_metric_still_fails_the_gate",
   "test:tests/unit/test_resource_budget_policy.py::test_an_adjustment_already_present_at_the_merge_base_does_not_reauthorise",
-  "test:tests/unit/test_resource_budget.py::test_noisy_repeated_measurement_is_inconclusive_instead_of_a_regression",
+  "test:tests/unit/test_resource_budget_statistics.py::test_a_repeated_byte_count_is_guarded_like_any_other_sample",
+  "review:code-review/spec@143c98584ab8ef6d4a1361ca177ebf151c19ef4a",
   "log:resource-python-16-ok-base-ref-main.txt",
   "log:resource-build-10-ok-base-ref-main.txt",
 ]
@@ -140,7 +144,7 @@ evidence = [
   "diff:docs/governance/resource-budgets.md",
   "diff:resource-budget.toml",
   "diff:scripts/resource_budget/environment.py",
-  "review:issue-120/post-merge-two-axis",
+  "review:code-review/standards@143c98584ab8ef6d4a1361ca177ebf151c19ef4a",
   "log:check-code-budget-0-violations-21-warnings.txt",
 ]
 
@@ -149,7 +153,8 @@ conclusion = "passed"
 evidence = [
   "test:tests/unit/test_resource_budget.py",
   "test:tests/unit/test_resource_budget_policy.py",
-  "log:sonda-7-mutacoes-todas-capturadas.txt",
+  "test:tests/unit/test_resource_budget_statistics.py",
+  "log:sonda-9-mutacoes-todas-capturadas.txt",
   "log:spread-medida-real-mad-0.0000-vs-spread-0.0531.txt",
 ]
 
