@@ -18,12 +18,6 @@ from resource_budget.policy import validate_policy
 from resource_budget.render import json_document, text_document
 from resource_budget.statistics import evaluate_samples
 
-# Only sampled quantities get the noise guard. A byte count or a record count read
-# from the finished artifact is exact: withholding it as `inconclusive` would hide a
-# fact the checker actually holds. Duration and peak RSS are estimates of a
-# distribution, so a dispersed sample there means "do not conclude".
-NOISY_CLASSIFICATIONS = frozenset({"timing", "memory"})
-
 
 def _path_inventory(
     root: Path, paths: list[str], excluded_patterns: list[str]
@@ -77,11 +71,7 @@ def _evaluate_metric(
                 tuple(samples),
                 baseline=float(baseline),
                 warning_ratio=float(warning_ratio),
-                noise_spread_ratio=(
-                    noise_spread_ratio
-                    if policy["classification"] in NOISY_CLASSIFICATIONS
-                    else None
-                ),
+                noise_spread_ratio=noise_spread_ratio,
             )
             value = evaluation.value
             threshold = evaluation.threshold

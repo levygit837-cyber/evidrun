@@ -29,8 +29,8 @@ verification_refs:
 `scripts/check_resource_budgets.py` mede poucos cenários reais e registra o resultado em texto e
 JSON. A primeira política prefere sinal honesto a precisão falsa: duração e pico de memória nunca
 bloqueiam o merge; tamanhos, contagens e fatos contratuais bloqueiam somente quando a metodologia os
-classifica como determinísticos. Métrica warning amostrada usa mediana com guarda de amplitude
-relativa; tamanho de artifact e de banco são lidos exatos e não passam por esse guarda.
+classifica como determinísticos. Métrica warning medida mais de uma vez usa mediana com guarda de
+amplitude relativa; observação única é reportada direto, sem guarda.
 
 ```bash
 uv run python scripts/check_resource_budgets.py --profile python
@@ -80,9 +80,15 @@ esteja a terceira amostra. Medido no perfil real, `crl_ctx_002.duration_ms` repo
 propósito: reage à pior amostra. Para sinal warning-only essa é a direção segura, porque a
 consequência de exagerar ruído é `inconclusive`, nunca build vermelho.
 
-O guarda de ruído só se aplica a grandeza amostrada, isto é, classificação `timing` ou `memory`.
-Contagem e bytes lidos do artefato pronto são exatos: chamá-los de inconclusivos esconderia fato que
-o checker de fato possui.
+O guarda de ruído se aplica exatamente quando a grandeza foi medida mais de uma vez. Observação única
+é medida, não estimada: chamá-la de inconclusiva esconderia fato que o checker de fato possui. Uma
+grandeza repetida tem dispersão que vale julgar.
+
+O eixo é amostragem, não classificação. `run_bundle.bundle_bytes` é `runtime_artifact` com
+`repetitions = 3` e varia de verdade entre execuções do mesmo checkout (19227 → 19237, a medição por
+trás do Latente 7 da #120), então filtrar por classificação teria excluído justamente a métrica
+comprovadamente ruidosa. `crl_ctx_002.artifact_bytes` e `database_bytes` também são remedidos a cada
+repetição, e não lidos de um artefato pronto.
 
 Uma amostra estável acima de `baseline * warning_ratio` é `regression`, e continua exit 0.
 

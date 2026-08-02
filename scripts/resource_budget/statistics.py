@@ -21,7 +21,7 @@ def evaluate_samples(
     *,
     baseline: float,
     warning_ratio: float,
-    noise_spread_ratio: float | None,
+    noise_spread_ratio: float,
 ) -> SampleEvaluation:
     """Classify a repeated observation using the median and the relative spread.
 
@@ -39,9 +39,13 @@ def evaluate_samples(
     worst sample. For a warning-only signal that is the safer direction, because the
     consequence of over-reporting noise is `inconclusive`, never a failed build.
 
-    `noise_spread_ratio = None` disables the guard, for a quantity that is exact rather
-    than sampled. A byte count read once is measured, not estimated; calling it
-    inconclusive would withhold a fact the checker actually holds.
+    The guard applies exactly when the quantity was sampled more than once. A single
+    observation is measured, not estimated, so calling it inconclusive would withhold a
+    fact the checker holds; a repeated one has a dispersion worth judging. Sampling is
+    the honest axis rather than classification: `run_bundle.bundle_bytes` is a
+    `runtime_artifact` repeated three times and it does vary run to run (19227 -> 19237,
+    the measurement behind #120's Latente 7), so keying on classification would have
+    excluded the one metric proven noisy.
     """
 
     if not samples:
@@ -49,7 +53,8 @@ def evaluate_samples(
     value = float(median(samples))
     relative_spread = (max(samples) - min(samples)) / value if value else 0.0
     threshold = baseline * warning_ratio
-    if noise_spread_ratio is not None and (
+    sampled = len(samples) > 1
+    if sampled and (
         len(samples) < MINIMUM_CONCLUSIVE_SAMPLES or relative_spread > noise_spread_ratio
     ):
         status = "inconclusive"

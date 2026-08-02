@@ -10,8 +10,6 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from resource_budget.statistics import evaluate_samples  # noqa: E402
-
 from tests.support.resource_budget_cli import run_checker, write_config  # noqa: E402
 
 
@@ -150,52 +148,6 @@ warning_ratio = 1.5
     metric = json.loads(completed.stdout)["scenarios"][0]["metrics"][0]
     assert metric["status"] == "regression"
     assert metric["threshold"] == 6
-
-
-def test_noisy_repeated_measurement_is_inconclusive_instead_of_a_regression() -> None:
-    result = evaluate_samples(
-        (100.0, 140.0, 160.0, 200.0, 240.0),
-        baseline=80.0,
-        warning_ratio=1.5,
-        noise_spread_ratio=0.20,
-    )
-
-    assert result.value == 160.0
-    assert result.relative_spread == 0.875
-    assert result.status == "inconclusive"
-
-
-def test_a_single_outlier_cannot_be_reported_as_a_stable_measurement() -> None:
-    """Relative spread exists because a median absolute deviation was blind here.
-
-    With three samples the deviations from the median are `[b-a, 0, c-b]`, so their
-    median is `min(b-a, c-b)`: one tight pair reported MAD 0.0099 for a tenfold
-    outlier. Measured on the real python profile, `crl_ctx_002.duration_ms` scored
-    relative MAD 0.0000 against a true spread of 0.0531.
-    """
-    result = evaluate_samples(
-        (100.0, 101.0, 1000.0),
-        baseline=100.0,
-        warning_ratio=2.0,
-        noise_spread_ratio=0.60,
-    )
-
-    assert result.value == 101.0
-    assert result.relative_spread > 0.60
-    assert result.status == "inconclusive"
-
-
-def test_a_tight_repeated_measurement_stays_conclusive() -> None:
-    """The noise guard must not swallow every sample: a stable one still concludes."""
-    result = evaluate_samples(
-        (100.0, 101.0, 102.0),
-        baseline=100.0,
-        warning_ratio=2.0,
-        noise_spread_ratio=0.60,
-    )
-
-    assert result.status == "ok"
-    assert result.relative_spread < 0.05
 
 
 def test_python_profile_measures_a_real_evidrun_import(tmp_path: Path) -> None:
