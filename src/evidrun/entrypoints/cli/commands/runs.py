@@ -225,10 +225,15 @@ def export_run_bundle(
 
 
 @chat_app.command("list")
-def list_chats(data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None) -> None:
+def list_chats(
+    workspace_id: Annotated[str, typer.Option("--workspace-id")],
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+) -> None:
     _, database, repository = components(data_dir)
-    console.print_json(data=repository.read_model.latest_dashboard()["chats"])
-    database.dispose()
+    try:
+        console.print_json(data=repository.read_model.list_chat_sessions(workspace_id))
+    finally:
+        database.dispose()
 
 
 @data_app.command("purge")

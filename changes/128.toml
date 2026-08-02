@@ -1,0 +1,146 @@
+schema_version = "1"
+change_id = "GH-128"
+issue = 128
+title = "Listagem de chat limitada ao Workspace"
+classification = "breaking"
+base_ref = "origin/main"
+branch_pattern = "levygit837-cyber/issue-128-chat-session-workspace-scope"
+expected_outcome = "API e CLI listam sessões somente do Workspace explícito, e o dashboard global deixa de expor chats."
+confirmed_facts = [
+  "A listagem de chat usava latest_dashboard e devolvia sessões de todos os Workspaces.",
+  "O dashboard global projetava a mesma coleção sem filtro por Workspace.",
+  "Nenhum consumidor TypeScript acessa dashboard.chats.",
+  "O contrato de store exige workspace_id em toda leitura de sessões.",
+]
+stop_conditions = [
+  "A correção exigir alterar o shape tipado de scope ou a migração de storage reservados à issue 129.",
+  "A UI possuir consumidor real de dashboard.chats que não possa migrar dentro da superfície autorizada.",
+]
+
+[impact]
+capability = "breaking"
+persisted_contract = "changed"
+normative = "none"
+notes = [
+  "GET /api/v1/chat/sessions ganha workspace_id obrigatório e deixa de aceitar leitura global.",
+  "chat list ganha --workspace-id obrigatório e passa a refletir a mesma projeção escopada da API.",
+  "GET /api/v1/dashboard remove chats porque o agregado global não possui Workspace pelo qual filtrar conteúdo de usuário.",
+  "schemas/generated/openapi-v1.json muda de forma breaking ao declarar o query param obrigatório.",
+  "A implementação passa a cumprir os contratos normativos existentes sem alterar sua decisão.",
+]
+
+[scope]
+expected = [
+  "apps/web/src/types.ts",
+  "changes/128.toml",
+  "schemas/generated/**",
+  "src/evidrun/entrypoints/api/routers/evidence.py",
+  "src/evidrun/entrypoints/api/routers/platform.py",
+  "src/evidrun/entrypoints/cli/commands/runs.py",
+  "src/evidrun/infrastructure/database/read_model/dashboard.py",
+  "src/evidrun/infrastructure/database/read_model/queries.py",
+  "tests/integration/fixtures/chat-sessions-unscoped-openapi-v1.json",
+  "tests/integration/test_chat_workspace_scope.py",
+]
+forbidden = [
+  "AGENTS.md",
+  "CONTEXT.md",
+  "alembic/**",
+  "docs/adr/**",
+  "docs/contracts/**",
+  "src/evidrun/contracts/**",
+  "src/evidrun/infrastructure/database/catalog.py",
+  "src/evidrun/infrastructure/database/models.py",
+  "src/evidrun/infrastructure/database/repository.py",
+]
+preexisting = []
+
+[[scope.generated]]
+patterns = ["docs/_generated/claims.json"]
+source_patterns = ["changes/*.toml"]
+
+[[scope.generated]]
+patterns = ["schemas/generated/**"]
+source_patterns = [
+  "src/evidrun/entrypoints/api/**",
+  "src/evidrun/entrypoints/api/schemas.py",
+  "scripts/generate_schemas.py",
+]
+
+[preserve]
+interfaces = [
+  "POST /api/v1/chat/sessions continua aceitando workspace_id, title, scope_type e scope_id.",
+  "POST /api/v1/chat/sessions/{session_id}/messages preserva status e documento de resposta.",
+  "A projeção de uma sessão preserva id, workspace_id, scope_type, scope_id, title e created_at.",
+]
+errors = [
+  "GET /api/v1/chat/sessions sem workspace_id é recusado pelo FastAPI com status 422.",
+  "Workspace inexistente na listagem produz lista vazia e não revela sua existência por 404.",
+]
+invariants = [
+  "Nenhuma sessão de outro Workspace aparece na listagem da API ou da CLI.",
+  "O dashboard global não contém chats nem outra agregação de sessões entre Workspaces.",
+  "A listagem tem ordem estável por created_at descendente e id como desempate.",
+  "Shape tipado de scope, role, sequence, migração e rastro de tool permanecem fora desta mudança.",
+]
+
+[verification]
+focused = [
+  "uv run pytest tests/integration/test_chat_workspace_scope.py",
+]
+full_gates = [
+  "uv run pytest",
+  "uv run ruff check .",
+  "uv run python scripts/check_code_budget.py",
+  "uv run python scripts/check_import_directions.py",
+  "uv run pyright",
+  "pnpm typecheck:web",
+  "pnpm typecheck:desktop",
+  "pnpm test",
+  "pnpm build",
+  "uv run python scripts/validate_docs.py",
+  "uv run python scripts/check_change_contract.py --discover --base-ref origin/main --strict-warnings",
+]
+
+[breaking]
+justification = "A leitura global viola a hard boundary de Workspace; preservar compatibilidade manteria o vazamento ativo por API, CLI ou dashboard."
+strategy = "migration"
+versioning = "A API v1 e a CLI fazem corte limpo: callers passam workspace_id explicitamente, e consumidores deixam de esperar chats no dashboard global."
+adr_successors = []
+previous_artifact_tests = ["uv run pytest tests/integration/test_chat_workspace_scope.py"]
+previous_artifact_fixtures = ["tests/integration/fixtures/chat-sessions-unscoped-openapi-v1.json"]
+
+[merge_gate]
+review = "orthogonal"
+ci_commit = "c9dc6d0"
+
+[merge_gate.spec]
+conclusion = "passed"
+evidence = [
+  "diff:src/evidrun/infrastructure/database/read_model/queries.py",
+  "test:tests/integration/test_chat_workspace_scope.py",
+]
+
+[merge_gate.standards]
+conclusion = "passed"
+evidence = ["review:issue-128-coordinator-review"]
+
+[merge_gate.verification]
+conclusion = "passed"
+evidence = ["test:tests/integration/test_chat_workspace_scope.py"]
+
+[merge_gate.ci]
+conclusion = "passed"
+evidence = ["run:local-full-gates-on-ci_commit"]
+
+[[questions]]
+text = "Workspace inexistente deve produzir 404 ou lista vazia?"
+affects_semantics = true
+status = "resolved"
+resolution = "Lista vazia. A listagem não resolve um alvo e deve tornar indistinguíveis Workspace ausente e Workspace sem sessões, evitando oráculo de existência."
+
+[[questions]]
+text = "O dashboard global deve filtrar chats ou remover a coleção?"
+affects_semantics = true
+status = "resolved"
+resolution = "Remove a coleção. O dashboard não recebe Workspace para derivar filtro, e fingir um default violaria a fronteira normativa."

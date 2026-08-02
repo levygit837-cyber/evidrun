@@ -57,8 +57,10 @@ def create_chat_router(*, context: ApiContext, authorize: Callable[..., Any]) ->
         }
 
     @router.get("/chat/sessions")
-    async def chat_sessions(_: None = Depends(authorize)) -> list[dict[str, Any]]:
-        return repository.read_model.latest_dashboard()["chats"]
+    async def chat_sessions(
+        workspace_id: str, _: None = Depends(authorize)
+    ) -> list[dict[str, Any]]:
+        return repository.read_model.list_chat_sessions(workspace_id)
 
     @router.post("/chat/sessions/{session_id}/messages")
     async def add_chat_message(

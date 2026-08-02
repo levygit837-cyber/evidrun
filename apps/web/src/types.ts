@@ -136,7 +136,6 @@ export interface DashboardData {
   experiments: Experiment[];
   runs: Run[];
   comparisons: Comparison[];
-  chats: ChatSession[];
   summary: {
     experiments: number;
     runs: number;

@@ -1,0 +1,7 @@
+{
+  "method": "GET",
+  "path": "/api/v1/chat/sessions",
+  "query_parameters": [],
+  "response_status": 200,
+  "response_shape": "array"
+}
