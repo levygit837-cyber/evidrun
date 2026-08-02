@@ -1,0 +1,127 @@
+schema_version = "1"
+change_id = "GH-127"
+issue = 127
+title = "Costura compartilhada do runtime do Lab Agent"
+classification = "feature"
+base_ref = "origin/main"
+branch_pattern = "feat/lab-agent-runtime-seam"
+expected_outcome = "O pacote src/evidrun/lab/ existe com o Protocol de tool e o catálogo indexado, para que o laço e as tools sejam implementados em paralelo sem que um importe o outro."
+confirmed_facts = [
+  "src/evidrun/lab/ não existia; as issues #131, #132 e #133 precisam todas do mesmo pacote.",
+  "A issue #131 (laço) consome a interface que #132 e #133 implementam, então o Protocol é pré-requisito das três e não pertence a nenhuma.",
+  "As três issues correm em worktrees separadas, que não veem o código uma da outra: um import cruzado entre elas não resolveria.",
+  "LabAgentSessionForm declara GENERAL, PROJECT e FOCUSED; não existem membros com sufixo _CHAT.",
+  "O catálogo v1 exige igualdade exata do conjunto de chaves dos argumentos, não presença dos obrigatórios.",
+]
+stop_conditions = [
+  "A costura precisar importar evidrun.infrastructure, o que colocaria o Control Plane atrás do storage.",
+  "O Protocol precisar declarar workspace_id, project_id, scope ou session_id como argumento de tool.",
+  "A costura precisar de qualquer caminho que alcance append_event, decide_contract_revision ou criação de AdmissionRecord.",
+]
+
+[impact]
+capability = "none"
+persisted_contract = "none"
+normative = "none"
+notes = [
+  "Nenhuma capability nova: o pacote declara a fronteira e não executa tool call nem produz efeito.",
+  "Nada persistido muda: a costura não toca schema, migration nem contrato serializado.",
+  "Nenhuma decisão normativa nova: o Protocol materializa o que os contratos v1 já declaram.",
+]
+
+[scope]
+expected = [
+  "changes/127.toml",
+  "src/evidrun/lab/__init__.py",
+  "src/evidrun/lab/protocol.py",
+  "src/evidrun/lab/tools/__init__.py",
+  "tests/unit/test_lab_runtime_seam.py",
+]
+forbidden = [
+  "AGENTS.md",
+  "CONTEXT.md",
+  "alembic/**",
+  "docs/adr/**",
+  "docs/contracts/**",
+  "src/evidrun/contracts/**",
+  "src/evidrun/infrastructure/**",
+]
+preexisting = []
+
+[[scope.generated]]
+patterns = ["docs/_generated/manifest.json", "docs/_generated/claims.json"]
+source_patterns = ["docs/**"]
+
+[preserve]
+interfaces = [
+  "Nenhuma superfície pública existente muda: o pacote é novo e ninguém o importa ainda.",
+  "LabAgentSessionScope e LabAgentSessionForm continuam com a mesma forma; a costura apenas os consome.",
+]
+errors = [
+  "Nome de tool duplicado no catálogo levanta ValueError, porque é erro de programação e não configuração.",
+  "Schema malformado não levanta: devolve conjunto vazio, que faz a comparação por igualdade exata recusar a chamada.",
+]
+invariants = [
+  "Nenhuma tool recebe workspace_id, project_id, scope, session_id, ator ou autoridade como argumento; o scope vem por LabToolContext.",
+  "ToolAvailability por default NÃO oferece General chat, para que uma tool nova de leitura não vaze para o Workspace scope por esquecimento.",
+  "requested_refs e returned_refs são campos separados em LabToolResult.",
+  "O pacote não importa evidrun.infrastructure nem produz Event de Run.",
+]
+
+[verification]
+focused = [
+  "uv run pytest tests/unit/test_lab_runtime_seam.py",
+]
+full_gates = [
+  "uv run pytest",
+  "uv run ruff check .",
+  "uv run python scripts/check_code_budget.py",
+  "uv run python scripts/check_import_directions.py",
+  "uv run pyright",
+  "pnpm typecheck:web",
+  "pnpm typecheck:desktop",
+  "pnpm test",
+  "pnpm build",
+  "uv run python scripts/validate_docs.py",
+]
+
+[[questions]]
+text = "O Protocol de tool devia morar em src/evidrun/contracts/ em vez de src/evidrun/lab/?"
+affects_semantics = true
+status = "resolved"
+resolution = "Não. `contracts/` é vocabulário serializável do domínio, e um Protocol com método `execute` é fronteira de runtime, não documento. Colocá-lo lá arrastaria a mecânica de execução para dentro do vocabulário que os bundles e schemas projetam."
+
+[[questions]]
+text = "Por que ToolAvailability tem default em vez de exigir as formas explicitamente?"
+affects_semantics = true
+status = "resolved"
+resolution = "Porque o default seguro é o restritivo. Dez das doze tools do catálogo v1 são Project/Focused; exigir declaração explícita em todas tornaria o caso comum verboso e o esquecimento perigoso. Com o default excluindo General, esquecer produz uma tool indisponível — falha fechada — em vez de uma tool que vaza para o Workspace scope."
+
+[merge_gate]
+review = "proportional"
+ci_commit = "PENDING"
+
+[merge_gate.spec]
+conclusion = "passed"
+evidence = [
+  "test:tests/unit/test_lab_runtime_seam.py",
+  "diff:src/evidrun/lab/protocol.py",
+]
+
+[merge_gate.standards]
+conclusion = "passed"
+evidence = [
+  "log:scripts/check_import_directions.py",
+  "log:scripts/check_code_budget.py",
+]
+
+[merge_gate.verification]
+conclusion = "passed"
+evidence = [
+  "test:tests/unit/test_lab_runtime_seam.py",
+  "log:scripts/validate_docs.py",
+]
+
+[merge_gate.ci]
+conclusion = "passed"
+evidence = ["run:local/full-verification"]
