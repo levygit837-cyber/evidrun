@@ -238,7 +238,7 @@ class LabAgentStore:
         refusal_code: str | None = None,
     ) -> LabToolTrace:
         self._validate_trace(turn_sequence, tool_name, outcome, refusal_code)
-        with self.unit_of_work.session() as session:
+        with self.unit_of_work.immediate() as session:
             chat = self._load_session(session, session_id, workspace_id)
             row = LabToolTraceRow(
                 id=new_id("labtrace"),
@@ -347,29 +347,34 @@ class LabAgentStore:
                 raise not_visible()
             return revision.project_id
         run = session.get(RunRow, focus_id)
-        spec = (
-            None
-            if run is None or run.run_spec_id is None
-            else session.get(RunSpecRow, run.run_spec_id)
-        )
-        if spec is None:
+        if run is None:
             raise not_visible()
-        try:
-            study_ref = json.loads(spec.spec_json)["study_ref"]
-            logical_id = str(study_ref["logical_id"])
-            revision_number = int(study_ref["revision"])
-        except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
-            raise not_visible() from exc
-        study = session.scalar(
-            select(ContractRevisionRow).where(
-                ContractRevisionRow.contract_type == "study",
-                ContractRevisionRow.logical_id == logical_id,
-                ContractRevisionRow.revision == revision_number,
-            )
-        )
-        if study is None:
+        candidates: set[str] = set()
+        if run.experiment_revision_id is not None:
+            experiment = session.get(ExperimentRevisionRow, run.experiment_revision_id)
+            if experiment is not None:
+                candidates.add(experiment.project_id)
+        if run.run_spec_id is not None:
+            spec = session.get(RunSpecRow, run.run_spec_id)
+            if spec is not None:
+                try:
+                    study_ref = json.loads(spec.spec_json)["study_ref"]
+                    logical_id = str(study_ref["logical_id"])
+                    revision_number = int(study_ref["revision"])
+                except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+                    raise not_visible() from exc
+                study = session.scalar(
+                    select(ContractRevisionRow).where(
+                        ContractRevisionRow.contract_type == "study",
+                        ContractRevisionRow.logical_id == logical_id,
+                        ContractRevisionRow.revision == revision_number,
+                    )
+                )
+                if study is not None:
+                    candidates.add(study.project_id)
+        if len(candidates) != 1:
             raise not_visible()
-        return study.project_id
+        return candidates.pop()
 
     @staticmethod
     def _message_from_row(row: ChatMessageRow) -> LabMessage:
@@ -411,6 +416,8 @@ class LabAgentStore:
             raise invalid_trace("O rastro persistido contém JSON inválido.") from exc
         if not isinstance(requested_value, list) or not isinstance(returned_value, list):
             raise invalid_trace("Refs persistidas precisam ser listas.")
+        if not isinstance(snapshot_value, dict):
+            raise invalid_trace("O snapshot persistido precisa ser objeto.")
         requested = cast(list[Any], requested_value)
         returned = cast(list[Any], returned_value)
         raw_snapshot = cast(dict[Any, Any], snapshot_value)

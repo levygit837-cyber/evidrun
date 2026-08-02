@@ -12,8 +12,10 @@ from evidrun.infrastructure.database.models import (
     ChatMessageRow,
     ChatSessionRow,
     ContractRevisionRow,
+    ExperimentRevisionRow,
     LabToolTraceRow,
     RunEventRow,
+    RunRow,
 )
 from evidrun.shared.types import sha256_json
 
@@ -64,7 +66,13 @@ def test_session_scope_is_typed_immutable_and_workspace_filtered(repository) -> 
         "created_at",
     }
     assert {field.name for field in fields(LabSession)} == {
-        "id", "workspace_id", "project_id", "focus_kind", "focus_id", "title", "created_at"
+        "id",
+        "workspace_id",
+        "project_id",
+        "focus_kind",
+        "focus_id",
+        "title",
+        "created_at",
     }
     assert not any(name.startswith("update") for name in dir(repository.lab))
 
@@ -112,9 +120,47 @@ def test_read_revalidates_project_and_focus_membership(repository) -> None:
         )
 
 
+def test_run_focus_accepts_experiment_revision_lineage(repository) -> None:
+    workspace, _other_workspace, project, _sibling, _foreign = _scopes(repository)
+    with repository.unit_of_work.session() as session:
+        revision = ExperimentRevisionRow(
+            id="expr_legacy",
+            experiment_id="exp_legacy",
+            project_id=project.id,
+            title="Experimento legado",
+            status="accepted",
+            manifest_json='{"schema_version":"1"}',
+            manifest_hash="b" * 64,
+            created_at=workspace.created_at,
+        )
+        run = RunRow(
+            id="run_legacy",
+            experiment_revision_id=revision.id,
+            variant_id="default",
+            repetition=1,
+            status="completed",
+            runner="fixture",
+            objective="Run anterior ao RunSpec",
+            created_at=workspace.created_at,
+        )
+        session.add_all((revision, run))
+        session.commit()
+
+    chat = repository.lab.create_session(
+        workspace_id=workspace.id,
+        project_id=project.id,
+        focus_kind="run",
+        focus_id=run.id,
+        title="Run legado",
+    )
+
+    assert repository.lab.get_session(session_id=chat.id, workspace_id=workspace.id) == chat
+
+
 def test_messages_are_closed_ordered_gapless_and_append_only(repository) -> None:
     workspace, *_ = _scopes(repository)
     chat = repository.lab.create_session(workspace_id=workspace.id, title="Geral")
+
     with pytest.raises(LabStoreRejected, match=r"lab\.message_role_invalid"):
         repository.lab.append_message(
             session_id=chat.id, workspace_id=workspace.id, role="tool", content="x"
@@ -126,13 +172,13 @@ def test_messages_are_closed_ordered_gapless_and_append_only(repository) -> None
     second = repository.lab.append_message(
         session_id=chat.id, workspace_id=workspace.id, role="agent", content="Olá"
     )
-    assert [item.sequence for item in repository.lab.list_messages(
-        session_id=chat.id, workspace_id=workspace.id
-    )] == [1, 2]
+    assert [
+        item.sequence
+        for item in repository.lab.list_messages(session_id=chat.id, workspace_id=workspace.id)
+    ] == [1, 2]
     assert first.content == "Oi" and second.content == "Olá"
     assert not any(
-        name.startswith(("update_message", "delete_message"))
-        for name in dir(repository.lab)
+        name.startswith(("update_message", "delete_message")) for name in dir(repository.lab)
     )
 
     with repository.unit_of_work.session() as session:
@@ -142,6 +188,16 @@ def test_messages_are_closed_ordered_gapless_and_append_only(repository) -> None
         session.commit()
     with pytest.raises(LabStoreRejected, match=r"lab\.tool_trace_invalid"):
         repository.lab.list_messages(session_id=chat.id, workspace_id=workspace.id)
+
+
+def test_legacy_message_writer_assigns_gapless_sequence(repository) -> None:
+    workspace, *_ = _scopes(repository)
+    chat = repository.lab.create_session(workspace_id=workspace.id, title="Geral")
+
+    first = repository.catalog.add_chat_message(chat.id, "human", "Oi")
+    second = repository.catalog.add_chat_message(chat.id, "agent", "Olá")
+
+    assert (first.sequence, second.sequence) == (1, 2)
 
 
 def test_tool_trace_preserves_attempt_and_stays_outside_ledger(repository) -> None:
@@ -175,7 +231,9 @@ def test_tool_trace_preserves_attempt_and_stays_outside_ledger(repository) -> No
     assert trace.arguments_digest == sha256_json({"ref": requested[0]})
     assert trace.refusal_code == "lab.target_not_visible"
     assert {field.name for field in fields(LabToolTrace)} >= {
-        "requested_refs", "returned_refs", "scope_snapshot"
+        "requested_refs",
+        "returned_refs",
+        "scope_snapshot",
     }
     with repository.unit_of_work.session() as session:
         stored = session.get(LabToolTraceRow, trace.id)

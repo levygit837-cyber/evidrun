@@ -12,7 +12,7 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from evidrun.contracts import (
@@ -96,9 +96,7 @@ class CatalogStore:
                 session.rollback()
                 try:
                     existing = session.scalar(
-                        select(WorkspaceRow.id).where(
-                            WorkspaceRow.name_key == normalized.name_key
-                        )
+                        select(WorkspaceRow.id).where(WorkspaceRow.name_key == normalized.name_key)
                     )
                 except SQLAlchemyError as lookup_exc:
                     raise ScopeStorageUnavailable() from lookup_exc
@@ -182,9 +180,7 @@ class CatalogStore:
                 raise ValueError("admission digest does not match its RunSpec")
             if record.execution_trust is None:
                 raise ValueError("new AdmissionRecord requires execution trust")
-            trust_row = session.get(
-                ExecutionTrustRecordRow, record.execution_trust.trust_id
-            )
+            trust_row = session.get(ExecutionTrustRecordRow, record.execution_trust.trust_id)
             if trust_row is None:
                 raise ValueError("execution trust does not exist")
             trust = ExecutionTrustRecord.model_validate(json.loads(trust_row.record_json))
@@ -319,10 +315,8 @@ class CatalogStore:
                 raise ValueError("Run requires an admitted record for the exact RunSpec")
             if (
                 admission.execution_trust is None
-                or admission_row.execution_trust_id
-                != admission.execution_trust.trust_id
-                or admission_row.execution_trust_digest
-                != admission.execution_trust.digest
+                or admission_row.execution_trust_id != admission.execution_trust.trust_id
+                or admission_row.execution_trust_digest != admission.execution_trust.digest
             ):
                 raise ValueError("Run requires the AdmissionRecord execution trust")
             expected_identity = (
@@ -445,14 +439,20 @@ class CatalogStore:
         return row
 
     def add_chat_message(self, session_id: str, role: str, content: str) -> ChatMessageRow:
-        row = ChatMessageRow(
-            id=new_id("msg"),
-            session_id=session_id,
-            role=role,
-            content=content,
-            created_at=clock.utc_now(),
-        )
-        with self.unit_of_work.session() as session:
+        with self.unit_of_work.immediate() as session:
+            sequence = session.scalar(
+                select(func.max(ChatMessageRow.sequence)).where(
+                    ChatMessageRow.session_id == session_id
+                )
+            )
+            row = ChatMessageRow(
+                id=new_id("msg"),
+                session_id=session_id,
+                role=role,
+                content=content,
+                sequence=(sequence or 0) + 1,
+                created_at=clock.utc_now(),
+            )
             session.add(row)
             session.commit()
-        return row
+            return row

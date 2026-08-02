@@ -74,7 +74,8 @@ def _typed_scope(bind: Connection, row: RowMapping, *, legacy: bool) -> dict[str
     workspace_id = str(row["workspace_id"])
     if not _exists(bind, "workspaces", id=workspace_id):
         raise LabSessionMigrationError(f"chat_sessions references unknown Workspace; id={row_id}")
-    if not legacy:
+    typed_values = (row["project_id"], row["focus_kind"], row["focus_id"])
+    if not legacy or any(value is not None for value in typed_values):
         return _validate_existing_typed_scope(bind, row)
     scope_type = row["scope_type"]
     scope_id = row["scope_id"]

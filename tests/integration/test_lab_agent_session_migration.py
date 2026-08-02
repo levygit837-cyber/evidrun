@@ -131,6 +131,25 @@ def test_migration_preserves_ids_content_and_stable_message_order(tmp_path: Path
     engine.dispose()
 
 
+def test_migration_preserves_already_typed_scope(tmp_path: Path) -> None:
+    path = tmp_path / "typed.db"
+    _legacy_database(path, scope_type=None, scope_id=None)
+    with sqlite3.connect(path) as connection:
+        connection.execute("ALTER TABLE chat_sessions ADD COLUMN project_id VARCHAR")
+        connection.execute("ALTER TABLE chat_sessions ADD COLUMN focus_kind VARCHAR")
+        connection.execute("ALTER TABLE chat_sessions ADD COLUMN focus_id VARCHAR")
+        connection.execute(
+            "UPDATE chat_sessions SET project_id='prj_legacy' WHERE id='chat_legacy'"
+        )
+
+    command.upgrade(_config(path), "head")
+
+    with sqlite3.connect(path) as connection:
+        assert connection.execute(
+            "SELECT project_id,focus_kind,focus_id FROM chat_sessions WHERE id='chat_legacy'"
+        ).fetchone() == ("prj_legacy", None, None)
+
+
 def test_migration_fails_closed_without_inference_from_text(tmp_path: Path) -> None:
     path = tmp_path / "ambiguous.db"
     _legacy_database(path, scope_type="unknown", scope_id="prj_missing")
