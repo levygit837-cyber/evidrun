@@ -1,0 +1,149 @@
+schema_version = "1"
+change_id = "GH-137"
+issue = 137
+title = "Documentar as decisoes do runtime do Lab Agent"
+classification = "docs-only"
+base_ref = "origin/main"
+branch_pattern = "docs/lab-agent-runtime-contracts"
+expected_outcome = "Um ADR aceito e cinco contratos normativos decidem runtime, tools, loop, erros, instrucoes e store do Lab Agent; o roteador ganha o perfil correspondente e a linguagem ubiqua os termos novos, sem promover capability."
+confirmed_facts = [
+  "O Lab Agent nao existe em src/evidrun/; glob por lab_agent e chat em src/evidrun nao retorna modulo de runtime.",
+  "ResponsesReadAgentAdapter.execute exige SubjectEnvelope, exige trace_sink nao nulo, deriva o teto de envelope.budgets.max_tool_calls e valida exatamente uma capability resolvida; os quatro sao acoplamento ao Execution Plane.",
+  "ChatSessionRow.scope_type e scope_id sao String anulaveis sem enum nem chave estrangeira, e create_chat_session os aceita como texto livre.",
+  "O GET /api/v1/chat/sessions devolve latest_dashboard()['chats'], cujo select(ChatSessionRow) nao possui WHERE; chat_document projeta workspace_id.",
+  "Nenhum teste cobre os endpoints de chat: grep por chat em tests nao retorna match.",
+  "productionLaboratoryAdapter recusa send/stream/cancel com source integration_pending.",
+  "O tipo LabUiEvent em apps/web/src/data/contracts.ts declara status, tool, message, error e done, com resumo de argumento e resultado na tool.",
+  "TriageError.validate_code_phase exige prefixo do codigo igual a phase, e validate_error_tables falha quando um codigo fica sem entrada nas duas tabelas.",
+  "save_contract_revision aceita apenas draft ou proposed como status inicial e nao toca decide_contract_revision.",
+  "A admissao rejeita hoje progress policy, checkpoint_policy, goal mode fora de goal_state, mais de um stage de evaluation, adjudicacao humana verificada, disclosure diferente de none, budgets nao suportados e stop conditions fora do par terminal.",
+]
+stop_conditions = [
+  "A documentacao exigir reescrever o ADR 0018 ou o ADR 0021 em vez de suceder uma decisao.",
+  "Uma decisao registrada exigir promover capability ou alterar o que a admissao aceita.",
+  "Um contrato precisar afirmar comportamento implementado que nao existe em src/evidrun/.",
+]
+
+[impact]
+capability = "none"
+persisted_contract = "none"
+normative = "additive"
+notes = [
+  "O ADR 0024 decide o que os ADRs 0018 e 0021 nao decidiram; nao revisa nenhuma decisao aceita.",
+  "Os cinco contratos nascem aceitos e sem runtime, com implementation_refs e verification_refs vazios.",
+  "Nenhuma linha do mapa de capabilities muda de estado: o Lab Agent continua sem runtime.",
+]
+
+[scope]
+expected = [
+  "changes/137.toml",
+  "CONTEXT.md",
+  "docs/index.md",
+  "docs/adr/0024-lab-agent-native-tool-runtime.md",
+  "docs/contracts/lab-agent-tools-v1.md",
+  "docs/contracts/lab-agent-loop-v1.md",
+  "docs/contracts/lab-agent-errors-v1.md",
+  "docs/contracts/lab-agent-instructions-v1.md",
+  "docs/contracts/lab-agent-session-store-v1.md",
+]
+forbidden = [
+  "AGENTS.md",
+  ".github/**",
+  "alembic/**",
+  "apps/**",
+  "schemas/**",
+  "scripts/**",
+  "src/**",
+  "tests/**",
+  "docs/adr/0018-lab-agent-copilot-scope.md",
+  "docs/adr/0021-hierarchical-lab-agent-scope.md",
+  "docs/contracts/lab-agent-scope-v1.md",
+  "docs/contracts/lab-agent-memory-v2.md",
+  "docs/planning/mvp-capability-map.md",
+]
+preexisting = []
+
+[[scope.generated]]
+patterns = ["docs/_generated/manifest.json", "docs/_generated/claims.json"]
+source_patterns = ["CONTEXT.md", "docs/index.md", "docs/adr/**", "docs/contracts/**"]
+
+[preserve]
+interfaces = [
+  "Contratos, schemas, API, CLI e eventos permanecem inalterados por esta entrega.",
+  "O tipo LabUiEvent consumido pelo frontend nao e alterado; ele e citado como especificacao existente.",
+]
+errors = [
+  "Nenhum codigo, categoria, status HTTP ou exit code existente e alterado; o catalogo do Lab Agent e uma costura nova e ainda sem runtime.",
+]
+invariants = [
+  "O Lab Agent nao possui autoridade humana: nao decide, nao aceita, nao atesta e nao adjudica.",
+  "O Lab Agent nunca escreve no event ledger.",
+  "Instrucao de sistema descreve a fronteira e nunca a implementa; o executor de tool e a fronteira.",
+  "Alvo fora do escopo e indistinguivel de alvo inexistente.",
+  "ADR aceito e sucedido, nunca reescrito para esconder historico.",
+  "Documento normativo nunca declara volatilidade snapshot nem afirma runtime que nao existe.",
+]
+
+[verification]
+focused = [
+  "uv run python scripts/validate_docs.py",
+  "uv run python scripts/check_change_contract.py --contract changes/137.toml --strict-warnings",
+]
+full_gates = [
+  "uv run pytest",
+  "uv run ruff check .",
+  "uv run python scripts/check_code_budget.py",
+  "uv run pyright",
+  "pnpm typecheck:web",
+  "pnpm typecheck:desktop",
+  "pnpm test",
+  "pnpm build",
+  "uv run python scripts/validate_docs.py",
+]
+
+[merge_gate]
+review = "orthogonal"
+ci_commit = "0000000"
+
+[merge_gate.spec]
+conclusion = "passed"
+evidence = [
+  "diff:docs/adr/0024-lab-agent-native-tool-runtime.md",
+  "diff:docs/contracts/lab-agent-tools-v1.md",
+]
+
+[merge_gate.standards]
+conclusion = "passed"
+evidence = ["review:PR#138"]
+
+[merge_gate.verification]
+conclusion = "passed"
+evidence = ["log:scripts/validate_docs.py"]
+
+[merge_gate.ci]
+conclusion = "passed"
+evidence = ["run:actions/0"]
+
+[[questions]]
+text = "O Lab Agent pode solicitar uma admissao para ler a rejeicao real?"
+affects_semantics = true
+status = "resolved"
+resolution = "Nao. AdmissionRecord e record persistido, e produzir efeito persistido para descobrir uma resposta transforma diagnostico em escrita. O agente le admissoes existentes e explica o codigo exato; solicitar admissao pertence ao humano pela superficie publica."
+
+[[questions]]
+text = "O runtime deve detectar laco de tool call por heuristica de similaridade?"
+affects_semantics = true
+status = "resolved"
+resolution = "Nao. Similaridade produziria um limite que ninguem consegue declarar nem testar. A decisao e recusa determinista com remediacao obrigatoria, mais terminal por repeticao exata de tool, argumentos e codigo de recusa."
+
+[[questions]]
+text = "O Lab Agent deve executar Python para raciocinar sobre metricas?"
+affects_semantics = true
+status = "resolved"
+resolution = "Nao nesta decisao. Uma superficie de execucao no Control Plane exigiria modelo de isolamento, policy e auditoria proprios. Agregacao declarativa tipada entrega o caso de uso com determinismo e amostra obrigatoria; um ADR sucessor pode revisitar se aparecer caso que ela nao expresse."
+
+[[questions]]
+text = "A instrucao de sistema deve ser um texto por tipo de sessao?"
+affects_semantics = true
+status = "resolved"
+resolution = "Nao. Tres textos divergem e uma invariante corrigida em dois deles e defeito silencioso. A decisao e composicao: base invariante mais um bloco de escopo mais um bloco de capabilities derivado do catalogo efetivo."

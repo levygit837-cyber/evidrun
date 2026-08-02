@@ -278,6 +278,18 @@
       "review_due": null
     },
     {
+      "id": "adr-0024",
+      "path": "docs/adr/0024-lab-agent-native-tool-runtime.md",
+      "type": "adr",
+      "title": "Runtime nativo de tool calling para o Lab Agent",
+      "status": "accepted",
+      "authority": "normative",
+      "volatility": "timeless",
+      "owner": "product",
+      "updated_at": "2026-08-02",
+      "review_due": null
+    },
+    {
       "id": "agents-domain-docs",
       "path": "docs/agents/domain.md",
       "type": "guide",
@@ -566,6 +578,42 @@
       "review_due": null
     },
     {
+      "id": "contract-lab-agent-errors-v1",
+      "path": "docs/contracts/lab-agent-errors-v1.md",
+      "type": "contract",
+      "title": "Erros estáveis do Lab Agent v1",
+      "status": "accepted",
+      "authority": "normative",
+      "volatility": "timeless",
+      "owner": "core",
+      "updated_at": "2026-08-02",
+      "review_due": null
+    },
+    {
+      "id": "contract-lab-agent-instructions-v1",
+      "path": "docs/contracts/lab-agent-instructions-v1.md",
+      "type": "contract",
+      "title": "Composição das instruções de sistema do Lab Agent v1",
+      "status": "accepted",
+      "authority": "normative",
+      "volatility": "timeless",
+      "owner": "core",
+      "updated_at": "2026-08-02",
+      "review_due": null
+    },
+    {
+      "id": "contract-lab-agent-loop-v1",
+      "path": "docs/contracts/lab-agent-loop-v1.md",
+      "type": "contract",
+      "title": "Loop, budgets e terminais do Lab Agent v1",
+      "status": "accepted",
+      "authority": "normative",
+      "volatility": "timeless",
+      "owner": "core",
+      "updated_at": "2026-08-02",
+      "review_due": null
+    },
+    {
       "id": "contract-lab-agent-memory-v1",
       "path": "docs/contracts/lab-agent-memory-v1.md",
       "type": "contract",
@@ -599,6 +647,30 @@
       "volatility": "timeless",
       "owner": "core",
       "updated_at": "2026-07-27",
+      "review_due": null
+    },
+    {
+      "id": "contract-lab-agent-session-store-v1",
+      "path": "docs/contracts/lab-agent-session-store-v1.md",
+      "type": "contract",
+      "title": "Persistência de sessão e rastro do Lab Agent v1",
+      "status": "accepted",
+      "authority": "normative",
+      "volatility": "timeless",
+      "owner": "core",
+      "updated_at": "2026-08-02",
+      "review_due": null
+    },
+    {
+      "id": "contract-lab-agent-tools-v1",
+      "path": "docs/contracts/lab-agent-tools-v1.md",
+      "type": "contract",
+      "title": "Catálogo de tools do Lab Agent v1",
+      "status": "accepted",
+      "authority": "normative",
+      "volatility": "timeless",
+      "owner": "core",
+      "updated_at": "2026-08-02",
       "review_due": null
     },
     {

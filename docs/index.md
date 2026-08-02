@@ -59,8 +59,27 @@ research, incubação, planning e roadmap.
 
 Roteamento atual: Workspace/Project/Run Environment usa o
 [ADR 0020](adr/0020-workspace-project-run-environment-boundaries.md); sessão, scope e memória do Lab
-Agent usam o [ADR 0021](adr/0021-hierarchical-lab-agent-scope.md); trust de execução usa o
+Agent usam o [ADR 0021](adr/0021-hierarchical-lab-agent-scope.md); runtime, tools e instruções do Lab
+Agent usam o [ADR 0024](adr/0024-lab-agent-native-tool-runtime.md); trust de execução usa o
 [ADR 0022](adr/0022-explicit-execution-trust-without-per-run-authentication.md).
+
+### Lab Agent
+
+Obrigatórios, 3–4 documentos e até 8.000 palavras:
+
+1. [ADR 0024](adr/0024-lab-agent-native-tool-runtime.md)
+2. o único contrato do Lab Agent afetado: [tools](contracts/lab-agent-tools-v1.md),
+   [loop](contracts/lab-agent-loop-v1.md), [erros](contracts/lab-agent-errors-v1.md),
+   [instruções](contracts/lab-agent-instructions-v1.md),
+   [store de sessão](contracts/lab-agent-session-store-v1.md) ou
+   [escopo](contracts/lab-agent-scope-v1.md)
+3. [ADR 0018](adr/0018-lab-agent-copilot-scope.md), quando a fronteira de autoridade estiver em escopo
+4. [ADR 0021](adr/0021-hierarchical-lab-agent-scope.md), quando sessão ou memória estiver em escopo
+
+Opcional: [agentes e autoridade](architecture/agents-and-authority.md) para a fronteira entre Lab
+Agent e Subject; o [contrato de memória v2](contracts/lab-agent-memory-v2.md) quando a tarefa tocar
+`informed_by` ou retrieval. Proibido: descrever o Lab Agent como existente em `src/evidrun/`, tratar
+instrução de sistema como fronteira de isolamento, ou anunciar tool que o catálogo efetivo não ofereça.
 
 ### Contrato ou schema
 
