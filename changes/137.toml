@@ -26,12 +26,13 @@ stop_conditions = [
 
 [impact]
 capability = "none"
-persisted_contract = "none"
+persisted_contract = "additive"
 normative = "additive"
 notes = [
   "O ADR 0024 decide o que os ADRs 0018 e 0021 nao decidiram; nao revisa nenhuma decisao aceita.",
   "Os cinco contratos nascem aceitos e sem runtime, com implementation_refs e verification_refs vazios.",
   "Nenhuma linha do mapa de capabilities muda de estado: o Lab Agent continua sem runtime.",
+  "persisted_contract=additive porque tres contratos novos declaram shape persistido futuro sob docs/contracts/: sessao, mensagem e rastro do Lab Agent, mais catalogo de tools e budgets do loop. Nenhum shape existente muda, nenhuma migration entra nesta entrega e nenhum consumidor atual e afetado; a migration real pertence a issue #129.",
 ]
 
 [scope]
