@@ -99,7 +99,7 @@ resolution = "Porque o default seguro é o restritivo. Dez das doze tools do cat
 
 [merge_gate]
 review = "proportional"
-ci_commit = "PENDING"
+ci_commit = "8a1cd50"
 
 [merge_gate.spec]
 conclusion = "passed"
