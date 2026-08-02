@@ -7,6 +7,7 @@ from evidrun.contracts.authority import (
 from evidrun.infrastructure.database.catalog import CatalogStore
 from evidrun.infrastructure.database.engine import Database
 from evidrun.infrastructure.database.evaluation import CheckpointStore, EvaluationStore
+from evidrun.infrastructure.database.lab import LabAgentStore
 from evidrun.infrastructure.database.ledger.store import LedgerStore
 from evidrun.infrastructure.database.queue.enqueue import EnqueueStore
 from evidrun.infrastructure.database.queue.lease import LeaseStore
@@ -41,13 +42,10 @@ class Repository:
         self.unit_of_work = UnitOfWork(database)
         self.read_model = ReadModel(self.unit_of_work)
         self.catalog = CatalogStore(self.unit_of_work)
-        self.registry = ContractRegistryStore(
-            self.unit_of_work, self.human_attestation_verifier
-        )
+        self.lab = LabAgentStore(self.unit_of_work)
+        self.registry = ContractRegistryStore(self.unit_of_work, self.human_attestation_verifier)
         self.ledger = LedgerStore(self.unit_of_work)
-        self.evaluation = EvaluationStore(
-            self.unit_of_work, self.human_attestation_verifier
-        )
+        self.evaluation = EvaluationStore(self.unit_of_work, self.human_attestation_verifier)
         self.checkpoints = CheckpointStore(self.unit_of_work)
         self.enqueue = EnqueueStore(self.unit_of_work)
         self.lease = LeaseStore(self.unit_of_work)

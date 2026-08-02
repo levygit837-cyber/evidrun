@@ -1,0 +1,129 @@
+schema_version = "1"
+change_id = "GH-129"
+issue = 129
+title = "Store tipado de sessão, mensagem e rastro do Lab Agent"
+classification = "breaking"
+base_ref = "origin/main"
+branch_pattern = "*issue-129-lab-agent-session-store"
+expected_outcome = "Sessões do Lab Agent têm escopo tipado e validado, mensagens append-only ordenadas e rastro de tool separado do event ledger."
+confirmed_facts = [
+  "O storage legado usava scope_type e scope_id livres e anuláveis.",
+  "A validação de pertencimento precisa ocorrer tanto na escrita quanto na leitura.",
+  "Requested refs e returned refs separados preservam a tentativa recusada.",
+]
+stop_conditions = [
+  "A migração precisar inferir Project de título ou conteúdo de mensagem.",
+  "O rastro de tool precisar ser gravado no event ledger.",
+  "O store precisar integrar CatalogStore ou importar contratos da issue 130.",
+]
+
+[impact]
+capability = "additive"
+persisted_contract = "breaking"
+normative = "none"
+notes = [
+  "Adiciona colunas tipadas às sessões, sequência às mensagens e tabela própria de rastros.",
+  "Mantém as colunas legadas nullable para consumidores existentes, sem usá-las no novo store.",
+]
+
+[scope]
+expected = [
+  "alembic/versions/0008_lab_agent_session_store.py",
+  "changes/129.toml",
+  "src/evidrun/infrastructure/database/lab.py",
+  "src/evidrun/infrastructure/database/lab_errors.py",
+  "src/evidrun/infrastructure/database/models.py",
+  "src/evidrun/infrastructure/database/repository.py",
+  "tests/integration/test_lab_agent_session_migration.py",
+  "tests/integration/test_lab_agent_store.py",
+  "tests/fixtures/lab_agent_session_store_v0007.sql",
+  "tests/integration/test_contract_migration.py",
+  "tests/integration/test_execution_trust_migration.py",
+]
+forbidden = [
+  "AGENTS.md",
+  "CONTEXT.md",
+  "apps/**",
+  "docs/adr/**",
+  "docs/contracts/**",
+  "src/evidrun/contracts/**",
+  "src/evidrun/entrypoints/**",
+  "src/evidrun/infrastructure/database/catalog.py",
+  "src/evidrun/infrastructure/database/read_model/**",
+]
+preexisting = []
+
+[[scope.generated]]
+patterns = ["docs/_generated/manifest.json", "docs/_generated/claims.json"]
+source_patterns = ["docs/**"]
+
+[preserve]
+interfaces = [
+  "CatalogStore permanece separado do agregado LabAgentStore.",
+  "O event ledger e os bundles não recebem linhas de rastro do Lab Agent.",
+]
+errors = [
+  "Alvo inexistente e alvo fora do escopo usam lab.target_not_visible.",
+  "Scope legado ambíguo interrompe a migração nomeando a linha.",
+]
+invariants = [
+  "Scope da sessão é imutável.",
+  "Mensagem é append-only e sua sequência é monotônica sem lacuna.",
+  "Nenhum Project é inferido de texto legado.",
+  "arguments_digest é canônico e argumentos brutos não são persistidos.",
+]
+
+[verification]
+focused = [
+  "uv run pytest tests/integration/test_lab_agent_store.py tests/integration/test_lab_agent_session_migration.py",
+  "uv run pytest tests/integration/test_lab_agent_session_migration.py",
+]
+full_gates = [
+  "uv run pytest",
+  "uv run ruff check .",
+  "uv run python scripts/check_code_budget.py",
+  "uv run python scripts/check_import_directions.py",
+  "uv run pyright",
+  "pnpm typecheck:web",
+  "pnpm typecheck:desktop",
+  "pnpm test",
+  "pnpm build",
+  "uv run python scripts/validate_docs.py",
+]
+
+[breaking]
+justification = "O schema legado sem escopo tipado aceita estados ambíguos; a migração precisa adicionar campos obrigatórios e rejeitar dados que não possam ser resolvidos sem ampliar autoridade."
+strategy = "migration"
+versioning = "A migration 0008 converte integralmente o schema legado; não há janela com escrita simultânea nos dois shapes."
+adr_successors = []
+previous_artifact_tests = ["uv run pytest tests/integration/test_lab_agent_session_migration.py"]
+previous_artifact_fixtures = ["tests/fixtures/lab_agent_session_store_v0007.sql"]
+
+[merge_gate]
+review = "orthogonal"
+ci_commit = "pending"
+
+[merge_gate.spec]
+conclusion = "passed"
+evidence = [
+  "test:tests/integration/test_lab_agent_store.py",
+  "test:tests/integration/test_lab_agent_session_migration.py",
+]
+
+[merge_gate.standards]
+conclusion = "passed"
+evidence = [
+  "diff:src/evidrun/infrastructure/database/lab.py",
+  "diff:alembic/versions/0008_lab_agent_session_store.py",
+]
+
+[merge_gate.verification]
+conclusion = "passed"
+evidence = [
+  "test:tests/integration/test_lab_agent_store.py",
+  "test:tests/integration/test_lab_agent_session_migration.py",
+]
+
+[merge_gate.ci]
+conclusion = "passed"
+evidence = ["run:local/full-verification", "log:verificacao-completa-local"]
