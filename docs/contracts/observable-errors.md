@@ -7,22 +7,25 @@ authority: normative
 volatility: current
 owner: core
 created_at: 2026-07-31
-updated_at: 2026-07-31
+updated_at: 2026-08-02
 applies_to: repository
 sources:
   - github:issue/46
   - docs/contracts/triage-error.md
   - docs/contracts/workspace-project-surface-v1.md
+  - docs/contracts/lab-agent-errors-v1.md
 supersedes: []
 superseded_by: null
 implementation_refs:
   - src/evidrun/contracts/triage.py
   - src/evidrun/contracts/scope.py
+  - src/evidrun/contracts/lab_agent/errors.py
   - src/evidrun/evidence/verify/failures.py
   - apps/desktop/src/shared/desktop-contract.ts
 verification_refs:
   - tests/unit/test_triage_errors.py
   - tests/unit/test_scope_contracts.py
+  - tests/unit/test_lab_agent_contracts.py
   - tests/unit/test_bundle_failures.py
   - tests/integration/test_runtime_kernel.py
   - apps/desktop/src/shared/bridge-errors.test.ts
@@ -45,10 +48,19 @@ contrato; mensagem é texto livre para o humano.** Nenhuma borda deduz causa a p
 | Criação de Workspace/Project | `ScopeError` | `src/evidrun/contracts/scope.py` | `tests/unit/test_scope_contracts.py` |
 | Verificação de Evidence Bundle | `BundleVerificationFailure` | `src/evidrun/evidence/verify/failures.py` | `tests/unit/test_bundle_failures.py`, `tests/integration/test_runtime_kernel.py` |
 | Desktop bridge | `BridgeError` | `apps/desktop/src/shared/desktop-contract.ts` | `apps/desktop/src/shared/bridge-errors.test.ts` |
+| Recusa de tool call do Lab Agent (`catalog`, `budget`, `schema`, `scope`, `classification`, `authority`, `draft`) | `LabAgentError` | `src/evidrun/contracts/lab_agent/errors.py` | `tests/unit/test_lab_agent_contracts.py` |
 
 `TriageError` e `ScopeError` são contratos separados de propósito: criar uma fronteira do Control
 Plane não é uma das seis fases que antecedem uma Run. Ver
 [erros de triagem](triage-error.md) e [Workspace/Project v1](workspace-project-surface-v1.md).
+
+`LabAgentError` é uma terceira costura pela mesma razão, e acrescenta duas obrigações que as outras
+não têm. `remediation` é obrigatória, porque o leitor primário da recusa é o modelo dentro do laço e
+uma negação sem próxima ação nomeada produz laço de tool call. E `scope.target_not_visible` é um
+único código para alvo inexistente, alvo de Project irmão e alvo de outro Workspace: mesma
+categoria, mesmo status e mesma forma de payload, porque códigos distintos para "não existe" e "não
+é seu" transformariam a recusa num oráculo de existência. Ver
+[erros do Lab Agent v1](lab-agent-errors-v1.md).
 
 ## Verificação de bundle
 

@@ -65,6 +65,25 @@ from evidrun.contracts.execution_trust import (
     validate_review_target_lineage,
     validate_verified_trust,
 )
+from evidrun.contracts.lab_agent.envelope import (
+    LabAgentEnvelope,
+    LabAgentMessage,
+    LabAgentMessageRole,
+    LabAgentTurnLimits,
+)
+from evidrun.contracts.lab_agent.errors import (
+    LabAgentError,
+    LabAgentErrorCategory,
+    LabAgentErrorCode,
+    LabAgentStage,
+    LabAgentTargetSituation,
+    target_not_visible,
+)
+from evidrun.contracts.lab_agent.scope import (
+    LabAgentFocusKind,
+    LabAgentSessionForm,
+    LabAgentSessionScope,
+)
 from evidrun.contracts.review_package import (
     ReviewPackage,
     ReviewPackageDiff,
@@ -146,6 +165,18 @@ __all__ = [
     "InputBinding",
     "InteractionProtocolRevision",
     "InteractionProtocolSpec",
+    "LabAgentEnvelope",
+    "LabAgentError",
+    "LabAgentErrorCategory",
+    "LabAgentErrorCode",
+    "LabAgentFocusKind",
+    "LabAgentMessage",
+    "LabAgentMessageRole",
+    "LabAgentSessionForm",
+    "LabAgentSessionScope",
+    "LabAgentStage",
+    "LabAgentTargetSituation",
+    "LabAgentTurnLimits",
     "ProgressArtifactContent",
     "ProgressArtifactPolicyRevision",
     "ProgressArtifactPolicySpec",
@@ -194,6 +225,7 @@ __all__ = [
     "normalize_scope_name",
     "parse_revision",
     "semantic_model_dump",
+    "target_not_visible",
     "validate_execution_trust_lineage",
     "validate_review_target_lineage",
     "validate_verified_trust",
