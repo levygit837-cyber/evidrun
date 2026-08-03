@@ -23,7 +23,7 @@ from evidrun.lab.tools.read_capability_catalog import ReadCapabilityCatalogTool
 from evidrun.lab.tools.read_comparison import ReadComparisonTool
 from evidrun.lab.tools.read_contract_revision import ReadContractRevisionTool
 from evidrun.lab.tools.read_evaluation_records import ReadEvaluationRecordsTool
-from evidrun.lab.tools.read_repository import LabReadRepository
+from evidrun.lab.tools.read_port import LabReadRepository
 from evidrun.lab.tools.read_run import ReadRunTool
 from evidrun.lab.tools.read_run_events import ReadRunEventsTool
 

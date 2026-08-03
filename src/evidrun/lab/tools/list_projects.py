@@ -6,7 +6,7 @@ from typing import Any
 from evidrun.contracts.lab_agent.scope import LabAgentSessionForm
 from evidrun.lab.protocol import LabToolContext, LabToolResult, ToolAvailability
 from evidrun.lab.tools._base import strict_schema, validate_arguments
-from evidrun.lab.tools.read_repository import LabReadRepository
+from evidrun.lab.tools.read_port import LabReadRepository
 
 
 class ListProjectsTool:

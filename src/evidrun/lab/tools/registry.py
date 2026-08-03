@@ -13,6 +13,7 @@ from evidrun.contracts.admission.checks.unsupported import (
     check_goal_mode,
     check_human_adjudication,
     check_progress_observer,
+    check_stop_conditions,
     check_subject_disclosure,
 )
 from evidrun.contracts.admission.envelope import RuntimeCapabilityEnvelope
@@ -87,6 +88,7 @@ class AdmissionCapabilityCatalog:
             *_missing_entries(check_evaluation_pipeline),
             *_missing_entries(check_human_adjudication),
             *_missing_entries(check_goal_mode),
+            *_missing_entries(check_stop_conditions),
             *(
                 {
                     "name": "subject_disclosure",

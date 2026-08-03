@@ -9,19 +9,13 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable, Mapping, Sequence
-from typing import Any, Protocol, cast
+from typing import Any, cast
 
 from sqlalchemy import Select, case, func, select
 from sqlalchemy.orm import Session
 
 from evidrun.contracts import EvaluationRecord, semantic_model_dump
-from evidrun.contracts.lab_agent.errors import (
-    LabAgentError,
-    LabAgentErrorCode,
-    LabAgentStage,
-    LabAgentTargetSituation,
-    target_not_visible,
-)
+from evidrun.contracts.lab_agent.errors import LabAgentTargetSituation
 from evidrun.contracts.lab_agent.scope import LabAgentFocusKind, LabAgentSessionScope
 from evidrun.infrastructure.database.models import (
     AdmissionRecordRow,
@@ -37,55 +31,26 @@ from evidrun.infrastructure.database.models import (
 from evidrun.infrastructure.database.read_model import ReadModel
 from evidrun.infrastructure.database.timestamps import aware_utc
 from evidrun.infrastructure.database.unit_of_work import UnitOfWork
+from evidrun.lab.tools.read_port import (
+    Readable,
+    is_classified,
+    reject_classification,
+    reject_project_required,
+    reject_target,
+)
 from evidrun.lab.tools.registry import CapabilityCatalog, CapabilityCatalogSource
-
-Readable = Mapping[str, Any]
-
-
-class LabToolRejected(Exception):
-    """Recusa nomeada que o laço pode devolver ao modelo sem inferir por texto."""
-
-    def __init__(self, error: LabAgentError) -> None:
-        self.error = error
-        super().__init__(error.code.value)
-
-
-
-
-class LabReadRepository(Protocol):
-    def list_projects(self, scope: LabAgentSessionScope) -> Sequence[Readable]: ...
-    def read_contract_revision(
-        self, scope: LabAgentSessionScope, revision_ref: str
-    ) -> Readable: ...
-    def list_runs(
-        self, scope: LabAgentSessionScope, *, limit: int, status: str | None
-    ) -> Sequence[Readable]: ...
-    def read_run(self, scope: LabAgentSessionScope, run_id: str) -> Readable: ...
-    def read_run_events(
-        self, scope: LabAgentSessionScope, run_id: str, *, after_sequence: int, limit: int
-    ) -> Sequence[Readable]: ...
-    def read_evaluation_records(
-        self, scope: LabAgentSessionScope, run_id: str
-    ) -> Sequence[Readable]: ...
-    def read_comparison(self, scope: LabAgentSessionScope, comparison_id: str) -> Readable: ...
-    def read_admission(self, scope: LabAgentSessionScope, admission_id: str) -> Readable: ...
-    def read_capability_catalog(self) -> CapabilityCatalog: ...
-    def aggregate_metrics(
-        self,
-        scope: LabAgentSessionScope,
-        *,
-        metric: str,
-        group_by: str,
-        run_ids: Sequence[str],
-    ) -> Sequence[Readable]: ...
 
 
 class SqlAlchemyLabReadRepository:
     """Adapter read-only sobre o ReadModel e as tabelas existentes."""
 
+    #: Toda métrica conta Run distinta, nunca linha do outerjoin com GradeRow. Uma Run com
+    #: dois grades produz duas linhas de junção: sem `distinct`, `run_count` devolvia 2 para
+    #: uma única Run, e `sample_size` afirmava uma amostra que não existe. O contrato trata
+    #: `sample_size` como validade do grupo, então inflá-lo mente sobre a evidência.
     _METRICS: Mapping[str, Callable[[], Any]] = {
         "grade_score": lambda: func.avg(GradeRow.score),
-        "run_count": lambda: func.count(RunRow.id),
+        "run_count": lambda: func.count(RunRow.id.distinct()),
         "completion_rate": lambda: func.avg(
             case((RunRow.completed_at.is_not(None), 1.0), else_=0.0)
         ),
@@ -117,15 +82,14 @@ class SqlAlchemyLabReadRepository:
         with self._uow.session() as session:
             row = session.get(ContractRevisionRow, revision_ref)
             if row is None:
-                self._reject_target(LabAgentTargetSituation.ABSENT, "revision_ref")
-            assert row is not None
+                reject_target(LabAgentTargetSituation.ABSENT, "revision_ref")
             self._require_project(session, scope, row.project_id, "revision_ref")
             if not self._focus_allows_revision(session, scope, row):
-                self._reject_target(LabAgentTargetSituation.SIBLING_PROJECT, "revision_ref")
+                reject_target(LabAgentTargetSituation.SIBLING_PROJECT, "revision_ref")
             revision = self._read_model.get_contract_revision(row.id)
             document = semantic_model_dump(revision)
             if self._contains_classified_content(document):
-                self._reject_classification("revision_ref")
+                reject_classification("revision_ref")
             return {"document": document, "status": row.status, "digest": row.digest}
 
     def list_runs(
@@ -160,12 +124,11 @@ class SqlAlchemyLabReadRepository:
         with self._uow.session() as session:
             row = session.get(RunRow, run_id)
             if row is None:
-                self._reject_target(LabAgentTargetSituation.ABSENT, "run_id")
-            assert row is not None
+                reject_target(LabAgentTargetSituation.ABSENT, "run_id")
             project_id = self._project_id_for_run(row.id)
             self._require_project(session, scope, project_id, "run_id")
             if not self._focus_allows_run(session, scope, row.id):
-                self._reject_target(LabAgentTargetSituation.SIBLING_PROJECT, "run_id")
+                reject_target(LabAgentTargetSituation.SIBLING_PROJECT, "run_id")
             terminal = session.scalar(
                 select(RunEventRow)
                 .where(
@@ -179,8 +142,8 @@ class SqlAlchemyLabReadRepository:
             )
             terminal_cause = None
             if terminal is not None:
-                if terminal.classification in {"sensitive", "restricted"}:
-                    self._reject_classification("run_id")
+                if is_classified(terminal.classification):
+                    reject_classification("run_id")
                 payload = json.loads(terminal.payload_json)
                 terminal_cause = (
                     payload.get("reason") or payload.get("cause") or terminal.event_type
@@ -216,16 +179,19 @@ class SqlAlchemyLabReadRepository:
                 )
             )
         for row in rows:
-            if row.classification in {"sensitive", "restricted"}:
-                self._reject_classification("run_id")
+            if is_classified(row.classification):
+                reject_classification("run_id")
         return tuple(
             {
+                # Sem `classification`: toda linha que chega aqui sobreviveu à recusa acima,
+                # então o campo só ecoaria internal/public. A coluna "Devolve" do contrato v1
+                # é "eventos válidos da Run em ordem de sequência"; um campo a mais é
+                # superfície que o próximo consumidor passa a poder depender.
                 "event_id": row.id,
                 "run_id": row.run_id,
                 "sequence": row.sequence,
                 "type": row.event_type,
                 "occurred_at": aware_utc(row.occurred_at).isoformat(),
-                "classification": row.classification,
                 "payload": json.loads(row.payload_json),
             }
             for row in rows
@@ -244,8 +210,7 @@ class SqlAlchemyLabReadRepository:
         with self._uow.session() as session:
             row = session.get(ComparisonRow, comparison_id)
             if row is None:
-                self._reject_target(LabAgentTargetSituation.ABSENT, "comparison_id")
-            assert row is not None
+                reject_target(LabAgentTargetSituation.ABSENT, "comparison_id")
             experiment = session.get(ExperimentRevisionRow, row.experiment_revision_id)
             if experiment is None:
                 raise ValueError("comparison references an unknown experiment revision")
@@ -254,13 +219,15 @@ class SqlAlchemyLabReadRepository:
                 scope.focus_kind == LabAgentFocusKind.COMPARISON
                 and scope.focus_id == comparison_id
             ):
-                self._reject_target(LabAgentTargetSituation.SIBLING_PROJECT, "comparison_id")
+                reject_target(LabAgentTargetSituation.SIBLING_PROJECT, "comparison_id")
         return {
+            # A coluna "Devolve" do contrato v1 é a allowlist desta projeção: variável
+            # primária, validade, deltas e refs das Runs. `baseline_score` e
+            # `candidate_score` ficam fora porque o delta já é a comparação, e os dois
+            # escores brutos são o número de onde ele saiu, não a comparação.
             "comparison_id": row.id,
             "primary_variable": row.primary_variable,
             "validity": row.validity,
-            "baseline_score": row.baseline_score,
-            "candidate_score": row.candidate_score,
             "delta": row.delta,
             "run_refs": [row.baseline_run_id, row.candidate_run_id],
         }
@@ -269,8 +236,7 @@ class SqlAlchemyLabReadRepository:
         with self._uow.session() as session:
             row = session.get(AdmissionRecordRow, admission_id)
             if row is None:
-                self._reject_target(LabAgentTargetSituation.ABSENT, "admission_id")
-            assert row is not None
+                reject_target(LabAgentTargetSituation.ABSENT, "admission_id")
             record = self._read_model.get_admission_record(admission_id)
             project_id = self._read_model.project_id_for_run_spec(
                 self._read_model.get_run_spec(row.run_spec_id)
@@ -282,7 +248,7 @@ class SqlAlchemyLabReadRepository:
             if scope.focus_kind is not None and not any(
                 self._focus_allows_run(session, scope, run_id) for run_id in run_ids
             ):
-                self._reject_target(LabAgentTargetSituation.SIBLING_PROJECT, "admission_id")
+                reject_target(LabAgentTargetSituation.SIBLING_PROJECT, "admission_id")
         return {
             "decision": record.decision,
             "rejection_codes": [item.reason.code for item in record.issues],
@@ -324,12 +290,12 @@ class SqlAlchemyLabReadRepository:
                 session.scalars(self._apply_focus_to_runs(candidate_query, scope))
             )
             if set(visible_ids) != set(run_ids):
-                self._reject_target(LabAgentTargetSituation.SIBLING_PROJECT, "run_ids")
+                reject_target(LabAgentTargetSituation.SIBLING_PROJECT, "run_ids")
             query = (
                 select(
                     group_expression.label("group_key"),
                     metric_expression.label("value"),
-                    func.count(RunRow.id).label("sample_size"),
+                    func.count(RunRow.id.distinct()).label("sample_size"),
                 )
                 .select_from(RunRow)
                 .outerjoin(GradeRow, GradeRow.run_id == RunRow.id)
@@ -351,32 +317,23 @@ class SqlAlchemyLabReadRepository:
     @staticmethod
     def _project_required(scope: LabAgentSessionScope) -> str:
         if scope.project_id is None:
-            raise LabToolRejected(
-                LabAgentError(
-                    stage=LabAgentStage.SCOPE,
-                    code=LabAgentErrorCode.SCOPE_PROJECT_REQUIRED,
-                    message="Esta leitura exige uma sessão de Project.",
-                    remediation="Peça ao humano para abrir uma Project chat.",
-                )
-            )
+            reject_project_required()
         return scope.project_id
 
     def _project_id_for_run(self, run_id: str) -> str:
         try:
             return self._read_model.project_id_for_run(run_id)
         except KeyError:
-            self._reject_target(LabAgentTargetSituation.ABSENT, "run_id")
-        raise AssertionError("unreachable")
+            reject_target(LabAgentTargetSituation.ABSENT, "run_id")
 
     def _require_visible_run(self, scope: LabAgentSessionScope, run_id: str) -> None:
         with self._uow.session() as session:
             row = session.get(RunRow, run_id)
             if row is None:
-                self._reject_target(LabAgentTargetSituation.ABSENT, "run_id")
-            assert row is not None
+                reject_target(LabAgentTargetSituation.ABSENT, "run_id")
             self._require_project(session, scope, self._project_id_for_run(run_id), "run_id")
             if not self._focus_allows_run(session, scope, run_id):
-                self._reject_target(LabAgentTargetSituation.SIBLING_PROJECT, "run_id")
+                reject_target(LabAgentTargetSituation.SIBLING_PROJECT, "run_id")
 
     def _require_project(
         self,
@@ -394,23 +351,9 @@ class SqlAlchemyLabReadRepository:
             if target is not None and target.workspace_id == scope.workspace_id
             else LabAgentTargetSituation.OTHER_WORKSPACE
         )
-        self._reject_target(situation, field)
+        reject_target(situation, field)
 
-    @staticmethod
-    def _reject_target(situation: LabAgentTargetSituation, field: str) -> None:
-        raise LabToolRejected(target_not_visible(situation, field_path=(field,)))
 
-    @staticmethod
-    def _reject_classification(field: str) -> None:
-        raise LabToolRejected(
-            LabAgentError(
-                stage=LabAgentStage.CLASSIFICATION,
-                code=LabAgentErrorCode.CLASSIFICATION_GRANT_REQUIRED,
-                message="O conteúdo solicitado exige um grant de classificação.",
-                remediation="Use apenas conteúdo internal/public nesta sessão.",
-                field_path=(field,),
-            )
-        )
 
     @staticmethod
     def _evaluation_projection(record: EvaluationRecord) -> Readable:
@@ -429,7 +372,7 @@ class SqlAlchemyLabReadRepository:
                 (item for key, item in document.items() if str(key) == "classification"),
                 None,
             )
-            if classification in {"sensitive", "restricted"}:
+            if is_classified(classification):
                 return True
             return any(
                 SqlAlchemyLabReadRepository._contains_classified_content(item)

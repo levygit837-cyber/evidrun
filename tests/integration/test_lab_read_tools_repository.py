@@ -17,7 +17,8 @@ from evidrun.infrastructure.database.models import (
     WorkspaceRow,
 )
 from evidrun.infrastructure.database.unit_of_work import UnitOfWork
-from evidrun.lab.tools.read_repository import LabToolRejected, SqlAlchemyLabReadRepository
+from evidrun.lab.tools.read_port import LabToolRejected
+from evidrun.lab.tools.read_repository import SqlAlchemyLabReadRepository
 from evidrun.lab.tools.registry import CapabilityCatalog
 
 
@@ -91,6 +92,75 @@ def test_list_projects_returns_only_navigation_metadata(
         {"id": "project-1", "name": "Alpha", "created_at": "2026-08-02T12:00:00+00:00"},
     )
     assert set(projects[0]) == {"id", "name", "created_at"}
+
+
+def test_sample_size_counts_runs_not_join_rows(
+    scoped_repository: tuple[SqlAlchemyLabReadRepository, UnitOfWork],
+) -> None:
+    """Uma Run com dois grades é uma amostra, não duas.
+
+    O outerjoin com GradeRow multiplica linhas por grade. Sem `distinct`, `run_count`
+    devolvia 2.0 para uma única Run e `sample_size` afirmava uma amostra inexistente — e o
+    contrato trata `sample_size` como a validade do grupo, então inflá-lo mente ao humano
+    sobre quanta evidência sustenta o número.
+    """
+
+    repository, unit_of_work = scoped_repository
+    scope = LabAgentSessionScope(workspace_id="workspace-1", project_id="project-1")
+    with unit_of_work.session() as session:
+        session.add(
+            GradeRow(
+                id="grade-run-1-second",
+                run_id="run-1",
+                grader_id="second-grader",
+                score=0.95,
+                passed=True,
+                rationale="ok",
+                evidence_json="[]",
+                created_at=datetime(2026, 8, 2, 12, tzinfo=UTC),
+            )
+        )
+        session.commit()
+
+    counted = repository.aggregate_metrics(
+        scope, metric="run_count", group_by="status", run_ids=("run-1",)
+    )
+    averaged = repository.aggregate_metrics(
+        scope, metric="grade_score", group_by="status", run_ids=("run-1",)
+    )
+
+    assert counted == ({"group": "completed", "value": 1.0, "sample_size": 1},)
+    # A média ainda usa os dois grades; só a contagem de amostra fala de Runs.
+    assert averaged == ({"group": "completed", "value": 0.85, "sample_size": 1},)
+
+
+def test_absent_and_out_of_project_targets_are_indistinguishable(
+    scoped_repository: tuple[SqlAlchemyLabReadRepository, UnitOfWork],
+) -> None:
+    """Alvo inexistente e alvo de outro Project produzem a mesma recusa, campo a campo.
+
+    Esta é a prova mínima do errors-v1 exercida pelo enforcement real, não pelo helper: a
+    primeira divergência entre callsites transformaria a recusa num oráculo de existência,
+    e nenhum teste do helper isolado pegaria isso.
+    """
+
+    repository, _unit_of_work = scoped_repository
+    scope = LabAgentSessionScope(workspace_id="workspace-1", project_id="project-1")
+
+    with pytest.raises(LabToolRejected) as absent:
+        repository.read_run(scope, "run-does-not-exist")
+    with pytest.raises(LabToolRejected) as foreign:
+        repository.read_run(scope, "run-2")
+
+    first, second = absent.value.error, foreign.value.error
+    assert first.code == second.code == LabAgentErrorCode.SCOPE_TARGET_NOT_VISIBLE
+    assert first.category == second.category
+    assert first.message == second.message
+    assert first.remediation == second.remediation
+    assert first.field_path == second.field_path
+    leaks = ("run-2", "project-2", "Beta", "workspace-2", "exist")
+    text = f"{first.message} {first.remediation} {second.message} {second.remediation}"
+    assert not [leak for leak in leaks if leak in text]
 
 
 def _seed(unit_of_work: UnitOfWork) -> None:

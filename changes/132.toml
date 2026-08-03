@@ -40,6 +40,7 @@ expected = [
   "src/evidrun/lab/tools/read_comparison.py",
   "src/evidrun/lab/tools/read_contract_revision.py",
   "src/evidrun/lab/tools/read_evaluation_records.py",
+  "src/evidrun/lab/tools/read_port.py",
   "src/evidrun/lab/tools/read_repository.py",
   "src/evidrun/lab/tools/read_run.py",
   "src/evidrun/lab/tools/read_run_events.py",

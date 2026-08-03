@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -10,7 +11,7 @@ from evidrun.contracts.lab_agent.errors import LabAgentErrorCode
 from evidrun.contracts.lab_agent.scope import LabAgentSessionForm, LabAgentSessionScope
 from evidrun.lab.protocol import LabToolContext
 from evidrun.lab.tools import build_catalog, build_read_tools, offered_tools
-from evidrun.lab.tools.read_repository import LabToolRejected
+from evidrun.lab.tools.read_port import LabReadRepository, LabToolRejected
 from evidrun.lab.tools.registry import AdmissionCapabilityCatalog, CapabilityCatalog
 
 
@@ -129,6 +130,10 @@ def test_every_schema_is_strict_and_declares_no_scope_argument() -> None:
         ({"run_id": "run-1", "project_id": "project-2"}, "schema.scope_argument_forbidden"),
         ({}, "schema.argument_set_invalid"),
         ({"run_id": 1}, "schema.argument_type_invalid"),
+        # Chave desconhecida junto de uma chave válida: o critério de aceitação da issue
+        # exige recusa, e a validação é por igualdade exata do conjunto, não por presença
+        # dos obrigatórios. Sem este caso, trocar a igualdade por um superset passaria.
+        ({"run_id": "run-1", "foo": 1}, "schema.argument_set_invalid"),
     ],
 )
 def test_exact_argument_validation_refuses_override_missing_and_wrong_type(
@@ -171,6 +176,11 @@ def test_capability_catalog_contains_real_active_admission_codes() -> None:
         "runtime:evaluation_pipeline",
         "runtime:verified_human_adjudication",
         "runtime:bounded_exploration_terminal",
+        # O runner ativo só aceita goal_complete e budget_exhausted terminal, então esta
+        # rejeição existe de verdade. Ela ficava fora do catálogo porque a derivação não
+        # inspecionava check_stop_conditions: omitir rejeição ativa produz um agente que
+        # propõe o impossível, que é o dano que o catálogo existe para evitar.
+        "runtime:stop_condition_coordinator",
         "evaluation_disclosure:pre_run",
         "evaluation_disclosure:on_request",
         "evaluation_disclosure:post_run",
@@ -225,3 +235,31 @@ def test_aggregate_metrics_rejects_group_without_sample_size() -> None:
             {"metric": "run_count", "group_by": "status", "run_ids": ["run-1"]},
             context(),
         )
+
+
+def test_no_read_tool_can_reach_a_write_surface() -> None:
+    """O invariante de autoridade, provado pela superfície e não pela intenção.
+
+    As tools só alcançam o mundo pelo `LabReadRepository`. Se todo método da porta é leitura,
+    nenhuma tool pode chamar `append_event`, `decide_contract_revision` nem criar
+    AdmissionRecord — não por disciplina de quem escreveu a tool, mas porque o verbo não
+    existe onde ela pode chegar. Um método de escrita adicionado à porta quebra este teste
+    antes de qualquer tool passar a usá-lo.
+    """
+
+    forbidden = ("append_event", "decide_contract_revision", "save_admission_record", "admit")
+    port_methods = tuple(
+        name for name in vars(LabReadRepository) if not name.startswith("_")
+    )
+
+    assert port_methods
+    assert not [name for name in port_methods if name in forbidden]
+    assert all(
+        name.startswith(("read_", "list_", "aggregate_")) for name in port_methods
+    ), port_methods
+
+    # E o módulo de cada tool não importa nenhuma superfície de escrita por outra via.
+    for tool in build_read_tools(FakeReadRepository()):
+        module = sys.modules[type(tool).__module__]
+        reachable = tuple(vars(module))
+        assert not [name for name in reachable if name in forbidden], type(tool).__name__
