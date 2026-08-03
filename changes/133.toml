@@ -1,0 +1,127 @@
+schema_version = "1"
+change_id = "GH-133"
+issue = 133
+title = "Validar e propor drafts do Lab Agent"
+classification = "feature"
+base_ref = "origin/main"
+branch_pattern = "levygit837-cyber/issue-133-lab-agent-draft-tools"
+expected_outcome = "O Lab Agent valida contratos pelo parser e compilador canonicos, registra drafts sem decisao e solicita aprovacao humana sem attestation."
+confirmed_facts = [
+  "O parser publico evidrun.contracts.authoring.parse.parse_revision e o compilador StudyCompiler sao as fontes canonicas de validacao.",
+  "ContractRegistryStore.save_contract_revision aceita status draft ou proposed sem criar decisao.",
+  "LabToolContext carrega Project validado da sessao; as tools nao recebem scope como argumento.",
+  "A recusa da superficie humana sem verifier confiavel usa decide.human_authority_unavailable.",
+]
+stop_conditions = [
+  "A implementacao exigir relaxar compile.dependency_not_accepted.",
+  "Uma tool precisar alcancar decide_contract_revision, HumanAttestationRecord, human_review ou adjudicacao.",
+  "A implementacao exigir alterar contratos, infraestrutura, loop ou protocolo compartilhado.",
+]
+
+[impact]
+capability = "additive"
+persisted_contract = "additive"
+normative = "none"
+notes = [
+  "Tres tools novas ficam disponiveis em Project e Focused chat e ausentes de General chat.",
+  "O adapter de storage expoe apenas validacao, leitura e registro inicial de revision.",
+]
+
+[scope]
+expected = [
+  "changes/133.toml",
+  "src/evidrun/lab/tools/__init__.py",
+  "src/evidrun/lab/tools/draft_store.py",
+  "src/evidrun/lab/tools/propose_draft.py",
+  "src/evidrun/lab/tools/request_human_approval.py",
+  "src/evidrun/lab/tools/validate_draft.py",
+  "tests/integration/test_lab_draft_tools.py",
+  "docs/_generated/manifest.json",
+  "docs/_generated/claims.json",
+]
+forbidden = [
+  "src/evidrun/lab/loop.py",
+  "src/evidrun/lab/protocol.py",
+  "src/evidrun/contracts/**",
+  "src/evidrun/infrastructure/**",
+  "src/evidrun/entrypoints/**",
+  "apps/**",
+]
+preexisting = []
+
+[[scope.generated]]
+patterns = ["docs/_generated/manifest.json", "docs/_generated/claims.json"]
+source_patterns = ["docs/**", "changes/**"]
+
+[preserve]
+interfaces = [
+  "build_catalog e offered_tools preservam assinatura e comportamento.",
+  "ContractRegistryStore e ReadModel permanecem inalterados.",
+  "As dez tools de leitura da issue 132 continuam registradas pelo catalogo compartilhado apos o merge.",
+]
+errors = [
+  "Documento nao validado recusa com draft.not_validated.",
+  "Override divergente do Project recusa com draft.scope_override_forbidden.",
+  "Tentativa de declarar decisao ou autoridade recusa com authority.human_decision_required.",
+  "A decisao humana continua falhando com decide.human_authority_unavailable sem verifier confiavel.",
+]
+invariants = [
+  "validate_draft nao persiste revision nem decisao.",
+  "propose_draft registra apenas status draft e nunca decide.",
+  "request_human_approval promove apenas draft para proposed preservando Project e digest e sem attestation.",
+  "O Project efetivo sempre e herdado da sessao validada.",
+  "informed_by permanece obrigatorio na assinatura e aceita lista vazia.",
+]
+
+[verification]
+focused = [
+  "uv run pytest tests/integration/test_lab_draft_tools.py",
+  "uv run ruff check src/evidrun/lab/tools tests/integration/test_lab_draft_tools.py",
+  "uv run pyright src/evidrun/lab/tools tests/integration/test_lab_draft_tools.py",
+]
+full_gates = [
+  "uv run pytest",
+  "uv run ruff check .",
+  "uv run python scripts/check_code_budget.py",
+  "uv run pyright",
+  "pnpm typecheck:web",
+  "pnpm typecheck:desktop",
+  "pnpm test",
+  "pnpm build",
+  "uv run python scripts/validate_docs.py",
+]
+
+[merge_gate]
+review = "orthogonal"
+ci_commit = "7c7952097bc615ba49e10fd65dd9821479ff9d04"
+
+[merge_gate.spec]
+conclusion = "passed"
+evidence = [
+  "test:tests/integration/test_lab_draft_tools.py",
+  "diff:src/evidrun/lab/tools/validate_draft.py",
+  "diff:src/evidrun/lab/tools/propose_draft.py",
+  "diff:src/evidrun/lab/tools/request_human_approval.py",
+]
+
+[merge_gate.standards]
+conclusion = "passed"
+evidence = [
+  "test:tests/integration/test_lab_draft_tools.py",
+  "log:scripts/check_import_directions.py",
+  "log:scripts/check_code_budget.py",
+  "log:scripts/validate_docs.py",
+  "review:StandardsReview",
+]
+
+[merge_gate.verification]
+conclusion = "passed"
+evidence = [
+  "test:tests/integration/test_lab_draft_tools.py",
+  "log:focused-pyright",
+  "log:focused-ruff",
+]
+
+[merge_gate.ci]
+conclusion = "passed"
+evidence = ["run:local/full-verification"]
