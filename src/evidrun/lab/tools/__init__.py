@@ -14,10 +14,13 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 
 from evidrun.contracts.lab_agent.scope import LabAgentSessionForm
+from evidrun.infrastructure.database.repository import Repository
 from evidrun.lab.protocol import LabTool
 from evidrun.lab.tools.aggregate_metrics import AggregateMetricsTool
+from evidrun.lab.tools.draft_store import DatabaseDraftStore
 from evidrun.lab.tools.list_projects import ListProjectsTool
 from evidrun.lab.tools.list_runs import ListRunsTool
+from evidrun.lab.tools.propose_draft import ProposeDraftTool
 from evidrun.lab.tools.read_admission import ReadAdmissionTool
 from evidrun.lab.tools.read_capability_catalog import ReadCapabilityCatalogTool
 from evidrun.lab.tools.read_comparison import ReadComparisonTool
@@ -26,8 +29,26 @@ from evidrun.lab.tools.read_evaluation_records import ReadEvaluationRecordsTool
 from evidrun.lab.tools.read_port import LabReadRepository
 from evidrun.lab.tools.read_run import ReadRunTool
 from evidrun.lab.tools.read_run_events import ReadRunEventsTool
+from evidrun.lab.tools.request_human_approval import RequestHumanApprovalTool
+from evidrun.lab.tools.validate_draft import ValidateDraftTool
 
-__all__ = ["build_catalog", "build_read_tools", "offered_tools"]
+__all__ = [
+    "build_catalog",
+    "build_proposal_tools",
+    "build_read_tools",
+    "offered_tools",
+]
+
+
+def build_proposal_tools(repository: Repository) -> tuple[LabTool, ...]:
+    """Monta as três tools contra uma superfície que não expõe decisão."""
+
+    store = DatabaseDraftStore(repository.registry, repository.read_model)
+    return (
+        ValidateDraftTool(store),
+        ProposeDraftTool(store),
+        RequestHumanApprovalTool(store),
+    )
 
 
 def build_read_tools(repository: LabReadRepository) -> tuple[LabTool, ...]:
@@ -67,6 +88,4 @@ def offered_tools(
 ) -> Mapping[str, LabTool]:
     """O catálogo efetivo daquela forma de sessão, em ordem estável por nome."""
 
-    return {
-        name: tool for name, tool in sorted(catalog.items()) if tool.availability.offers(form)
-    }
+    return {name: tool for name, tool in sorted(catalog.items()) if tool.availability.offers(form)}
