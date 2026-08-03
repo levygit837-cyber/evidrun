@@ -93,7 +93,7 @@ full_gates = [
 
 [merge_gate]
 review = "orthogonal"
-ci_commit = "7c7952097bc615ba49e10fd65dd9821479ff9d04"
+ci_commit = "1262c82"
 
 [merge_gate.spec]
 conclusion = "passed"
