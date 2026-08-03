@@ -29,6 +29,20 @@ class LabTurnTerminalName(StrEnum):
     CANCELLED = "cancelled"
 
 
+class TurnBudget(StrEnum):
+    """O teto que encerrou o turno.
+
+    Enum e não texto livre porque o valor atravessa a fronteira de stream até a UI, que
+    precisa distinguir qual teto foi alcançado para dizer ao humano o que aconteceu. Os
+    valores são os nomes declarados no contrato de loop v1.
+    """
+
+    TOOL_CALLS = "max_tool_calls_per_turn"
+    ROUND_TRIPS = "max_provider_round_trips_per_turn"
+    WALL_SECONDS = "max_wall_seconds_per_turn"
+    REFUSALS = "max_refusals_per_turn"
+
+
 @dataclass(frozen=True, slots=True)
 class LabTurnTerminal:
     """Resultado nomeado; `complete` impede apresentar interrupção como resposta completa."""
@@ -37,7 +51,7 @@ class LabTurnTerminal:
     content: str = ""
     complete: bool = True
     error: LabAgentError | None = None
-    budget: str | None = None
+    budget: TurnBudget | None = None
     returned_refs: tuple[str, ...] = ()
     provider_round_trips: int = 0
     tool_calls: int = 0
@@ -224,9 +238,17 @@ def refusal_error(
             "Remova o campo; o runtime deriva o scope da sessão validada.",
         ),
     }
-    message, remediation = messages.get(
-        code, ("A chamada foi recusada.", "Corrija a chamada conforme o código de recusa.")
-    )
+    entry = messages.get(code)
+    if entry is None:
+        # Sem fallback genérico de propósito. "A chamada foi recusada" é exatamente a
+        # remediação que o errors-v1 classifica como causadora de laço: ela nega sem nomear
+        # a próxima ação válida, então o modelo tenta variações até esgotar budget. Um código
+        # novo sem texto próprio é defeito de programação e falha alto, no import do teste,
+        # em vez de degradar silenciosamente dentro do laço.
+        raise ValueError(
+            f"refusal code without a declared message and remediation: {code.value}"
+        )
+    message, remediation = entry
     return LabAgentError(
         stage=code.stage,
         code=code,

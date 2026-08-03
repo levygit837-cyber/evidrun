@@ -19,7 +19,7 @@ from evidrun.contracts.lab_agent.scope import LabAgentSessionScope
 from evidrun.lab.loop import LabAgentLoop
 from evidrun.lab.protocol import LabToolContext, LabToolResult, ToolAvailability
 from evidrun.lab.tools import build_catalog
-from evidrun.lab.turn import LabTurnTerminalName
+from evidrun.lab.turn import LabTurnTerminalName, TurnBudget, refusal_error
 
 
 class FakeProvider:
@@ -326,3 +326,45 @@ async def test_cancelled_at_initial_safe_boundary_does_not_call_provider() -> No
     )
     assert result.name is LabTurnTerminalName.CANCELLED
     assert provider.requests == []
+
+
+def test_every_refusal_code_the_loop_raises_has_its_own_remediation() -> None:
+    """Sem fallback genérico: recusa que só nega faz o modelo tentar variações até o budget.
+
+    A tabela de errors-v1 nomeia "A chamada foi recusada." como remediação causadora de laço.
+    Este teste falha se alguém introduzir código sem texto próprio, no import e não no laço.
+    """
+
+    raised = {
+        LabAgentErrorCode.CATALOG_TOOL_UNKNOWN,
+        LabAgentErrorCode.CATALOG_TOOL_NOT_OFFERED,
+        LabAgentErrorCode.BUDGET_TOOL_CALLS_EXHAUSTED,
+        LabAgentErrorCode.BUDGET_WALL_TIME_EXHAUSTED,
+        LabAgentErrorCode.SCHEMA_ARGUMENT_SET_INVALID,
+        LabAgentErrorCode.SCHEMA_ARGUMENT_TYPE_INVALID,
+        LabAgentErrorCode.SCHEMA_ARGUMENT_LIMIT_EXCEEDED,
+        LabAgentErrorCode.SCHEMA_SCOPE_ARGUMENT_FORBIDDEN,
+    }
+
+    for code in raised:
+        error = refusal_error(code, tool_name="read_run")
+        assert error.code is code
+        assert error.stage is code.stage
+        assert error.remediation.strip()
+        assert "A chamada foi recusada" not in error.message
+
+
+def test_a_code_without_declared_text_fails_loudly() -> None:
+    """Código novo sem texto é defeito de programação, não degradação aceitável."""
+
+    with pytest.raises(ValueError, match="without a declared message"):
+        refusal_error(LabAgentErrorCode.SCOPE_TARGET_NOT_VISIBLE)
+
+
+def test_budget_names_come_from_the_enum_not_free_text() -> None:
+    """O teto atravessa o stream até a UI, que precisa distinguir qual foi alcançado."""
+
+    assert TurnBudget.TOOL_CALLS.value == "max_tool_calls_per_turn"
+    assert TurnBudget.ROUND_TRIPS.value == "max_provider_round_trips_per_turn"
+    assert TurnBudget.WALL_SECONDS.value == "max_wall_seconds_per_turn"
+    assert TurnBudget.REFUSALS.value == "max_refusals_per_turn"

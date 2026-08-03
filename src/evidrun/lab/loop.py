@@ -10,9 +10,8 @@ from collections.abc import Callable, Mapping
 from typing import Any, cast
 
 from evidrun.contracts.lab_agent.envelope import LabAgentEnvelope, LabAgentMessageRole
-from evidrun.contracts.lab_agent.errors import LabAgentError, LabAgentErrorCode
+from evidrun.contracts.lab_agent.errors import LabAgentError
 from evidrun.infrastructure.providers.openai_responses import (
-    ProviderFunctionCall,
     ProviderRequestError,
     extract_function_calls,
     extract_output_text,
@@ -21,6 +20,7 @@ from evidrun.infrastructure.providers.openai_responses import (
 )
 from evidrun.lab.budgets import TurnBudgetGuard, TurnLimits
 from evidrun.lab.protocol import LabTool, LabToolContext
+from evidrun.lab.serving import ToolCallServer
 from evidrun.lab.tools import offered_tools
 from evidrun.lab.trace import (
     AllowingLabToolPolicy,
@@ -33,15 +33,10 @@ from evidrun.lab.turn import (
     LabTurnState,
     LabTurnTerminal,
     LabTurnTerminalName,
-    error_payload,
-    parse_arguments,
-    refusal_error,
-    validate_schema,
-    workspace_id,
+    TurnBudget,
 )
 from evidrun.providers.profile import ProviderProfile
 from evidrun.shared.ports import ProviderPort
-from evidrun.shared.types import canonical_json, sha256_json
 
 
 class LabAgentLoop:
@@ -97,7 +92,7 @@ class LabAgentLoop:
                     self._terminal(
                         state,
                         LabTurnTerminalName.BUDGET_EXHAUSTED,
-                        budget="max_provider_round_trips_per_turn",
+                        budget=TurnBudget.ROUND_TRIPS,
                         complete=False,
                     ),
                     state,
@@ -121,7 +116,7 @@ class LabAgentLoop:
                     emit,
                 )
             if calls:
-                terminal = self._service_calls(
+                terminal = self._server().serve(
                     calls,
                     state=state,
                     envelope=envelope,
@@ -152,234 +147,17 @@ class LabAgentLoop:
             name = LabTurnTerminalName.PROPOSED if state.proposed else LabTurnTerminalName.ANSWERED
             return self._finish(self._terminal(state, name, content=text), state, emit)
 
-    def _service_calls(
-        self,
-        calls: tuple[ProviderFunctionCall, ...],
-        *,
-        state: LabTurnState,
-        envelope: LabAgentEnvelope,
-        effective: Mapping[str, LabTool],
-        context: LabToolContext,
-        guard: TurnBudgetGuard,
-        trace_sink: LabToolTraceSink,
-        policy: LabToolPolicy,
-        emit: LabUiEventSink | None,
-        cancelled: CancellationProbe,
-    ) -> LabTurnTerminal | None:
-        for call in calls:
-            arguments, parse_error = parse_arguments(call.arguments, call.name)
-            state.transcript.append(
-                {
-                    "type": "function_call",
-                    "call_id": call.call_id,
-                    "name": call.name,
-                    "arguments": call.arguments,
-                }
-            )
-            tool = effective.get(call.name)
-            if tool is None:
-                code = (
-                    LabAgentErrorCode.CATALOG_TOOL_NOT_OFFERED
-                    if call.name in self.catalog
-                    else LabAgentErrorCode.CATALOG_TOOL_UNKNOWN
-                )
-                error = refusal_error(code, tool_name=call.name)
-                terminal = self._refuse(call, arguments, error, state, envelope, trace_sink)
-                if terminal is not None:
-                    return terminal
-                if guard.refusal_exhausted(state.refusals):
-                    return self._terminal(
-                        state,
-                        LabTurnTerminalName.BUDGET_EXHAUSTED,
-                        error=error,
-                        budget="max_refusals_per_turn",
-                        complete=False,
-                    )
-                continue
+    def _server(self) -> ToolCallServer:
+        """O servidor de tool call, montado com as duas costuras que são estado do laço.
 
-            state.tool_calls += 1
-            if guard.tool_call_denied(state.tool_calls):
-                error = refusal_error(
-                    LabAgentErrorCode.BUDGET_TOOL_CALLS_EXHAUSTED,
-                    tool_name=call.name,
-                )
-                self._append_refusal_trace(
-                    trace_sink, envelope, context, call.name, arguments, error
-                )
-                return self._terminal(
-                    state,
-                    LabTurnTerminalName.BUDGET_EXHAUSTED,
-                    error=error,
-                    budget="max_tool_calls_per_turn",
-                    complete=False,
-                )
-            if guard.wall_exhausted():
-                error = refusal_error(
-                    LabAgentErrorCode.BUDGET_WALL_TIME_EXHAUSTED,
-                    tool_name=call.name,
-                )
-                self._append_refusal_trace(
-                    trace_sink, envelope, context, call.name, arguments, error
-                )
-                return self._terminal(
-                    state,
-                    LabTurnTerminalName.BUDGET_EXHAUSTED,
-                    error=error,
-                    budget="max_wall_seconds_per_turn",
-                    complete=False,
-                )
+        Recriado por turno em vez de guardado em `__init__` porque ele não carrega estado:
+        guardá-lo sugeriria que carrega, e o próximo leitor teria de provar que não.
+        """
 
-            error = parse_error or validate_schema(tool.provider_schema(), arguments, call.name)
-            if error is None:
-                error = policy.check_scope(tool, arguments, context)
-            if error is None:
-                error = policy.check_classification(tool, arguments, context)
-            if error is not None:
-                terminal = self._refuse(call, arguments, error, state, envelope, trace_sink)
-                if terminal is not None:
-                    return terminal
-                if guard.refusal_exhausted(state.refusals):
-                    return self._terminal(
-                        state,
-                        LabTurnTerminalName.BUDGET_EXHAUSTED,
-                        error=error,
-                        budget="max_refusals_per_turn",
-                        complete=False,
-                    )
-                continue
-
-            self._emit(
-                emit,
-                {
-                    "type": "tool",
-                    "source": "live",
-                    "id": call.call_id,
-                    "name": call.name,
-                    "status": "running",
-                    "argumentsSummary": canonical_json(arguments),
-                },
-            )
-            try:
-                result = tool.execute(arguments, context)
-            except Exception:
-                trace_sink.append_tool_trace(
-                    session_id=envelope.session_id,
-                    workspace_id=workspace_id(context),
-                    turn_sequence=context.turn_sequence,
-                    tool_name=call.name,
-                    arguments=arguments,
-                    outcome="failed",
-                )
-                self._emit(
-                    emit,
-                    {
-                        "type": "tool",
-                        "source": "live",
-                        "id": call.call_id,
-                        "name": call.name,
-                        "status": "failed",
-                    },
-                )
-                return self._terminal(
-                    state,
-                    LabTurnTerminalName.PROVIDER_FAILED,
-                    content="A tool não devolveu um resultado utilizável.",
-                    complete=False,
-                )
-            trace_sink.append_tool_trace(
-                session_id=envelope.session_id,
-                workspace_id=workspace_id(context),
-                turn_sequence=context.turn_sequence,
-                tool_name=call.name,
-                arguments=arguments,
-                requested_refs=result.requested_refs,
-                returned_refs=result.returned_refs,
-                outcome="completed",
-            )
-            state.returned_refs.extend(result.returned_refs)
-            state.proposed = state.proposed or call.name == "propose_draft"
-            output = canonical_json(result.content)
-            state.transcript.append(
-                {"type": "function_call_output", "call_id": call.call_id, "output": output}
-            )
-            self._emit(
-                emit,
-                {
-                    "type": "tool",
-                    "source": "live",
-                    "id": call.call_id,
-                    "name": call.name,
-                    "status": "completed",
-                    "resultSummary": output,
-                },
-            )
-            if cancelled():
-                return self._terminal(
-                    state,
-                    LabTurnTerminalName.CANCELLED,
-                    content="Turno cancelado após registrar o trabalho parcial.",
-                    complete=False,
-                )
-        return None
-
-    def _refuse(
-        self,
-        call: ProviderFunctionCall,
-        arguments: Mapping[str, Any],
-        error: LabAgentError,
-        state: LabTurnState,
-        envelope: LabAgentEnvelope,
-        trace_sink: LabToolTraceSink,
-    ) -> LabTurnTerminal | None:
-        state.refusals += 1
-        digest = sha256_json(
-            {"tool_name": call.name, "arguments": arguments, "refusal_code": error.code.value}
-        )
-        repeated = digest in state.refusal_digests
-        state.refusal_digests.add(digest)
-        self._append_refusal_trace(
-            trace_sink,
-            envelope,
-            LabToolContext(
-                scope=envelope.scope,
-                session_id=envelope.session_id,
-                turn_sequence=max((m.sequence for m in envelope.history), default=1),
-            ),
-            call.name,
-            arguments,
-            error,
-        )
-        output = canonical_json({"error": error_payload(error)})
-        state.transcript.append(
-            {"type": "function_call_output", "call_id": call.call_id, "output": output}
-        )
-        if repeated:
-            return self._terminal(
-                state,
-                LabTurnTerminalName.REPEATED_REFUSAL,
-                content=output,
-                error=error,
-                complete=False,
-            )
-        return None
-
-    @staticmethod
-    def _append_refusal_trace(
-        trace_sink: LabToolTraceSink,
-        envelope: LabAgentEnvelope,
-        context: LabToolContext,
-        tool_name: str,
-        arguments: Mapping[str, Any],
-        error: LabAgentError,
-    ) -> None:
-        trace_sink.append_tool_trace(
-            session_id=envelope.session_id,
-            workspace_id=workspace_id(context),
-            turn_sequence=context.turn_sequence,
-            tool_name=tool_name,
-            arguments=arguments,
-            outcome="refused",
-            refusal_code=error.code.value,
+        return ToolCallServer(
+            self.catalog,
+            emit_event=self._emit,
+            build_terminal=self._terminal,
         )
 
     def _request(
@@ -430,7 +208,7 @@ class LabAgentLoop:
             return LabAgentLoop._terminal(
                 state,
                 LabTurnTerminalName.BUDGET_EXHAUSTED,
-                budget="max_wall_seconds_per_turn",
+                budget=TurnBudget.WALL_SECONDS,
                 complete=False,
             )
         return None
@@ -443,7 +221,7 @@ class LabAgentLoop:
         content: str = "",
         complete: bool = True,
         error: LabAgentError | None = None,
-        budget: str | None = None,
+        budget: TurnBudget | None = None,
     ) -> LabTurnTerminal:
         return LabTurnTerminal(
             name=name,
