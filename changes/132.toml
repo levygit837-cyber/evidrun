@@ -107,7 +107,7 @@ full_gates = [
 
 [merge_gate]
 review = "proportional"
-ci_commit = "4a3be37"
+ci_commit = "ce8c1ea"
 
 [merge_gate.spec]
 conclusion = "passed"
