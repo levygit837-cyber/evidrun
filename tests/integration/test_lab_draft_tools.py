@@ -6,13 +6,12 @@ from typing import Any
 
 import pytest
 
-from evidrun.contracts import GoalRevision, GoalSpec
+from evidrun.contracts import ArtifactRef, GoalRevision, GoalSpec
 from evidrun.contracts.authoring.goal import GoalOutcome
-from evidrun.contracts.lab_agent.errors import LabAgentErrorCode
+from evidrun.contracts.lab_agent.errors import LabAgentErrorCategory, LabAgentErrorCode
 from evidrun.contracts.lab_agent.scope import LabAgentSessionScope
 from evidrun.contracts.triage import TriageErrorCode, TriageRejected
 from evidrun.infrastructure.database import Repository
-from evidrun.infrastructure.database.decide_errors import decide_human_authority_unavailable
 from evidrun.infrastructure.database.models import ContractDecisionRow, ContractRevisionRow
 from evidrun.lab.protocol import LabToolContext, declared_argument_keys
 from evidrun.lab.tools import build_proposal_tools
@@ -20,6 +19,9 @@ from evidrun.lab.tools.draft_store import DatabaseDraftStore
 from evidrun.lab.tools.propose_draft import DraftRevisionStore, ProposeDraftTool
 from evidrun.lab.tools.request_human_approval import RequestHumanApprovalTool
 from evidrun.lab.tools.validate_draft import DraftToolRejected, ValidateDraftTool
+from evidrun.shared.types import Classification, sha256_json
+from tests.support.human_attestation import accepted_decision
+from tests.support.runtime_study import build_runtime_study
 
 
 def _document(project_id: str | None = None) -> dict[str, object]:
@@ -146,6 +148,14 @@ def test_scope_override_and_authority_fields_are_rejected_before_persistence(
 def test_lab_decision_attempt_matches_human_authority_refusal(
     repository: Repository,
 ) -> None:
+    """As duas tentativas de decisão falham fechadas, cada uma na sua costura.
+
+    A perna humana exercita `decide_contract_revision` de verdade: o `Repository` default
+    carrega `UnavailableHumanAttestationVerifier`, então a recusa vem do enforcement, não
+    de um `raise` escrito no teste. Levantar o erro à mão provaria apenas que o construtor
+    do erro funciona, e continuaria passando se o guard de autoridade fosse removido.
+    """
+
     workspace = repository.catalog.create_workspace("Autoridade")
     project = repository.catalog.create_project(workspace.id, "Projeto")
     context = _context(workspace.id, project.id)
@@ -159,14 +169,24 @@ def test_lab_decision_attempt_matches_human_authority_refusal(
             },
             context,
         )
+
+    # A perna humana: uma revision real, uma decisão real, o verifier real do default.
+    revision = GoalRevision.model_validate({**_document(), "project_id": project.id})
+    row = repository.registry.save_contract_revision(revision, status="proposed")
     with pytest.raises(TriageRejected) as human_attempt:
-        raise decide_human_authority_unavailable()
+        repository.registry.decide_contract_revision(accepted_decision(revision))
 
     assert lab_attempt.value.error.code == LabAgentErrorCode.AUTHORITY_HUMAN_DECISION_REQUIRED
     assert human_attempt.value.error.code == TriageErrorCode.DECIDE_HUMAN_AUTHORITY_UNAVAILABLE
     # Os catálogos são costuras separadas: Lab Agent recusa a tentativa antes de ela
     # formar RevisionDecisionRecord; a API humana nomeia a ausência do autenticador.
-    assert repository.read_model.list_contract_revisions() == []
+    # Ambas falham fechadas: nada foi persistido por nenhuma das duas.
+    with repository.unit_of_work.session() as session:
+        assert session.query(ContractDecisionRow).count() == 0
+    stored = repository.read_model.list_contract_revisions(project.id)
+    assert [item["id"] for item in stored] == [row.id]
+    assert stored[0]["status"] == "proposed"
+    assert stored[0]["decision"] is None
 
 
 def test_approval_request_promotes_without_decision_or_attestation(
@@ -227,7 +247,12 @@ def test_approval_request_refuses_a_revision_not_in_draft_status(
     with pytest.raises(DraftToolRejected) as repeated:
         request_approval.execute(call, context)
 
-    assert repeated.value.error.code == LabAgentErrorCode.SCOPE_TARGET_NOT_VISIBLE
+    # Não `scope.target_not_visible`: o alvo é visível, é do Project da sessão e o modelo
+    # acabou de criá-lo. Aquele código traria a remediação "liste os alvos", que mandaria o
+    # modelo procurar uma ref que ele já tem — laço de recusa até esgotar budget.
+    error = repeated.value.error
+    assert error.code == LabAgentErrorCode.AUTHORITY_PERSISTED_EFFECT_FORBIDDEN
+    assert "list" not in error.remediation.casefold()
     stored = repository.read_model.list_contract_revisions(project.id)[0]
     assert stored["status"] == "proposed"
     assert stored["decision"] is None
@@ -318,3 +343,89 @@ def test_proposal_schemas_expose_exact_contract_fields(repository: Repository) -
         "revision_ref",
         "rationale",
     }
+
+
+@pytest.mark.parametrize(
+    ("label", "document"),
+    [
+        (
+            "payload ausente",
+            {"contract_type": "goal", "logical_id": "x", "revision": 1, "title": "T"},
+        ),
+        ("contract_type inexistente", {"contract_type": "nao_existe", "logical_id": "x"}),
+        ("contract_type ausente", {"logical_id": "x", "revision": 1}),
+        (
+            "campo com tipo errado",
+            {
+                "contract_type": "goal",
+                "logical_id": "x",
+                "revision": 1,
+                "title": "T",
+                "payload": {"mode": "goal_state", "instruction": 42, "outcomes": []},
+            },
+        ),
+    ],
+)
+def test_parser_refusals_arrive_in_the_lab_agent_catalog(
+    repository: Repository, label: str, document: dict[str, object]
+) -> None:
+    """Recusa do parser canônico chega como `draft.validation_failed`, não como código de triage.
+
+    `parse_revision` recusa com `parse.*`, que pertence ao catálogo da superfície humana. Se
+    esses códigos escapam crus, duas coisas quebram: o catálogo do Lab Agent deixa de ser
+    fechado, e `serving.py` — que captura `Exception` da tool — encerra o turno como
+    `provider_failed`, apresentando documento inválido como falha de infraestrutura. O
+    contrato classifica documento que não satisfaz seu tipo como `invalid`: recusa que o
+    modelo pode corrigir dentro do mesmo turno.
+    """
+
+    workspace = repository.catalog.create_workspace(f"Traducao {label}")
+    project = repository.catalog.create_project(workspace.id, "Projeto")
+    context = _context(workspace.id, project.id)
+    tool = ValidateDraftTool(DatabaseDraftStore(repository.registry, repository.read_model))
+    declared = str(document.get("contract_type", "goal"))
+
+    with pytest.raises(DraftToolRejected) as refused:
+        tool.execute({"contract_type": declared, "document": document}, context)
+
+    error = refused.value.error
+    assert error.code == LabAgentErrorCode.DRAFT_VALIDATION_FAILED
+    assert error.category is LabAgentErrorCategory.INVALID
+    assert error.remediation.strip()
+    assert error.field_path[:1] == ("document",)
+    assert repository.read_model.list_contract_revisions() == []
+
+
+def test_study_compiler_refusal_is_named_and_persists_nothing(
+    repository: Repository,
+) -> None:
+    """A perna do compilador é exercitada, não presumida.
+
+    Um Study cujas dependências não estão registradas é exatamente o caso que motiva a issue:
+    validar pelo compilador canônico impede o agente de propor uma Study que não compila. A
+    recusa precisa ser nomeada no catálogo do Lab Agent e não pode persistir revision alguma.
+    """
+
+    workspace = repository.catalog.create_workspace("Compilador")
+    project = repository.catalog.create_project(workspace.id, "Projeto")
+    context = _context(workspace.id, project.id)
+    source = ArtifactRef(
+        artifact_id="artifact:lab-draft-study-fixture",
+        digest=sha256_json({"fixture": "lab-draft-study"}),
+        media_type="text/plain",
+        classification=Classification.INTERNAL,
+    )
+    _revisions, study = build_runtime_study(project_id=project.id, source=source)
+    document = study.semantic_document()
+    document.pop("project_id", None)
+    tool = ValidateDraftTool(DatabaseDraftStore(repository.registry, repository.read_model))
+
+    with pytest.raises(DraftToolRejected) as refused:
+        tool.execute({"contract_type": "study", "document": document}, context)
+
+    error = refused.value.error
+    assert error.code == LabAgentErrorCode.DRAFT_VALIDATION_FAILED
+    assert error.category is LabAgentErrorCategory.INVALID
+    assert error.field_path[:1] == ("document",)
+    # Validação é pura: nem a Study candidata nem qualquer dependência foi registrada.
+    assert repository.read_model.list_contract_revisions() == []

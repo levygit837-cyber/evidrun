@@ -100,6 +100,11 @@ class ProposeDraftTool:
                 "project_id": row.project_id,
                 "informed_by": informed_by,
             },
-            requested_refs=informed_by,
-            returned_refs=(),
+            # `informed_by` NÃO entra em requested_refs. A diferença entre refs pedidas e
+            # devolvidas é a evidência de que o enforcement recusou uma leitura; declarar
+            # aqui procedência citada pelo modelo como leitura tentada faria o rastro
+            # afirmar uma recusa que nunca houve. Esta tool não lê por ref: ela cria uma,
+            # e a ref criada é o que ela devolve.
+            requested_refs=(),
+            returned_refs=(row.id,),
         )

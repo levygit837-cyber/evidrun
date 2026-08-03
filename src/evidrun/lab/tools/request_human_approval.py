@@ -77,13 +77,28 @@ class RequestHumanApprovalTool:
                 )
             )
         existing = self._store.get_contract_revision_record(revision_ref)
-        if existing.status != "draft" or existing.decision is not None:
-            raise DraftToolRejected(
-                target_not_visible(
-                    LabAgentTargetSituation.ABSENT,
-                    field_path=("revision_ref",),
-                    tool_name=self.name,
-                )
+        if existing.decision is not None:
+            # O humano já decidiu. Repropor sobrescreveria decisão humana com pedido de
+            # agente, que é precisamente o que a invariante de autoridade proíbe.
+            raise draft_error(
+                LabAgentErrorCode.AUTHORITY_HUMAN_DECISION_REQUIRED,
+                "Esta revision já carrega decisão humana registrada.",
+                "Crie uma revision nova; decisão registrada não é reaberta por agente.",
+                field_path=("revision_ref",),
+                tool_name=self.name,
+            )
+        if existing.status != "draft":
+            # Não é `scope.target_not_visible`: o alvo é visível, é do Project da sessão e o
+            # modelo acabou de criá-lo. Usar o código de invisibilidade aqui seria uma quarta
+            # situação fora das três que o errors-v1 enumera, e sua remediação ("liste os
+            # alvos") mandaria o modelo procurar algo que ele já tem — o laço de recusa que
+            # a remediação acionável existe para evitar.
+            raise draft_error(
+                LabAgentErrorCode.AUTHORITY_PERSISTED_EFFECT_FORBIDDEN,
+                "O pedido de aprovação desta revision já foi registrado.",
+                "Aguarde a resposta humana; não registre o mesmo pedido duas vezes.",
+                field_path=("revision_ref",),
+                tool_name=self.name,
             )
         row = self._store.save_contract_revision(revision, status="proposed")
         return LabToolResult(

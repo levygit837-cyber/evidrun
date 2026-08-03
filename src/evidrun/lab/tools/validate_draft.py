@@ -11,6 +11,7 @@ from evidrun.contracts.base import ContractRef, NonEmptyStr, RevisionEnvelope
 from evidrun.contracts.compiler import StudyCompiler
 from evidrun.contracts.lab_agent.errors import LabAgentError, LabAgentErrorCode
 from evidrun.contracts.registry import ContractResolver
+from evidrun.contracts.triage import TriageRejected
 from evidrun.lab.protocol import LabToolContext, LabToolResult, ToolAvailability
 from evidrun.shared.types import sha256_json
 
@@ -154,7 +155,10 @@ def validated_revision(
         inherited_document["project_id"] = project_id
         effective_document = inherited_document
 
-    revision = parse_revision(effective_document)
+    try:
+        revision = parse_revision(effective_document)
+    except TriageRejected as exc:
+        raise _translated_refusal(exc, tool_name=tool_name) from exc
     if revision.ref.contract_type.value != contract_type:
         raise draft_error(
             LabAgentErrorCode.DRAFT_VALIDATION_FAILED,
@@ -165,8 +169,36 @@ def validated_revision(
         )
     if isinstance(revision, StudyRevision):
         accepted = store.contract_registry(project_id)
-        StudyCompiler(_DraftResolver(revision, accepted)).compile(revision)
+        try:
+            StudyCompiler(_DraftResolver(revision, accepted)).compile(revision)
+        except TriageRejected as exc:
+            raise _translated_refusal(exc, tool_name=tool_name) from exc
     return revision
+
+
+def _translated_refusal(rejected: TriageRejected, *, tool_name: str) -> DraftToolRejected:
+    """Traduz a recusa canônica para o catálogo fechado do Lab Agent.
+
+    O parser e o compilador recusam com códigos `parse.*` e `compile.*`, que pertencem ao
+    catálogo de triage da superfície humana. Deixá-los escapar crus quebra duas coisas ao
+    mesmo tempo: o catálogo do Lab Agent deixa de ser fechado, e `serving.py` — que captura
+    `Exception` da tool — encerra o turno como `provider_failed`, apresentando documento
+    inválido como falha de infraestrutura. O contrato classifica documento que não satisfaz
+    seu tipo como `draft.validation_failed`, categoria `invalid`: recusa que volta ao modelo
+    para ele corrigir, não terminal.
+
+    A mensagem e a `field_path` canônicas são preservadas porque são o conteúdo acionável;
+    só o código passa a ser o do catálogo que o consumidor do Lab Agent conhece.
+    """
+
+    canonical = rejected.error
+    return draft_error(
+        LabAgentErrorCode.DRAFT_VALIDATION_FAILED,
+        canonical.message,
+        canonical.remediation or "Corrija o documento para satisfazer o contrato declarado.",
+        field_path=("document", *canonical.field_path),
+        tool_name=tool_name,
+    )
 
 
 class ValidateDraftTool:
