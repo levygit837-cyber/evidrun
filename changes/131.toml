@@ -33,6 +33,7 @@ expected = [
   "changes/131.toml",
   "src/evidrun/lab/budgets.py",
   "src/evidrun/lab/loop.py",
+  "src/evidrun/lab/serving.py",
   "src/evidrun/lab/trace.py",
   "src/evidrun/lab/turn.py",
   "tests/unit/test_lab_agent_loop.py",
@@ -99,7 +100,7 @@ resolution = "Não. LabToolTraceSink mantém o domínio do loop independente da 
 
 [merge_gate]
 review = "proportional"
-ci_commit = "e56c9d1"
+ci_commit = "d2a78e8"
 
 [merge_gate.spec]
 conclusion = "passed"
