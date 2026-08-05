@@ -79,8 +79,9 @@ Obrigatórios, 3–4 documentos e até 8.000 palavras:
 
 Opcional: [agentes e autoridade](architecture/agents-and-authority.md) para a fronteira entre Lab
 Agent e Subject; o [contrato de memória v2](contracts/lab-agent-memory-v2.md) quando a tarefa tocar
-`informed_by` ou retrieval. Proibido: descrever o Lab Agent como existente em `src/evidrun/`, tratar
-instrução de sistema como fronteira de isolamento, ou anunciar tool que o catálogo efetivo não ofereça.
+`informed_by` ou retrieval. Proibido: descrever o runtime já existente em `src/evidrun/lab/` como
+integração end-to-end enquanto API e renderer não oferecerem `send/stream/cancel`, tratar instrução
+de sistema como fronteira de isolamento, ou anunciar tool que o catálogo efetivo não ofereça.
 
 ### Contrato ou schema
 
