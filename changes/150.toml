@@ -37,6 +37,10 @@ expected = [
   "tests/fixtures/lab_turn_instruction_digest_v0008.sql",
   "tests/integration/test_lab_agent_session_migration.py",
   "tests/integration/test_lab_api_turns.py",
+  "tests/integration/test_contract_migration.py",
+  "tests/integration/test_execution_trust_migration.py",
+  "docs/_generated/manifest.json",
+  "docs/_generated/claims.json",
 ]
 forbidden = [
   "AGENTS.md",
@@ -47,6 +51,17 @@ forbidden = [
   "src/evidrun/contracts/**",
 ]
 preexisting = []
+
+[[scope.generated]]
+patterns = ["docs/_generated/manifest.json", "docs/_generated/claims.json"]
+source_patterns = ["docs/**", "changes/**"]
+
+[[scope.expansions]]
+patterns = [
+  "tests/integration/test_contract_migration.py",
+  "tests/integration/test_execution_trust_migration.py",
+]
+rationale = "Os dois arquivos afirmam o head do alembic por literal. Uma migration nova torna a asserção obsoleta por construção, e o gate reprovava sete testes com 'table already exists' mais duas comparações contra 0008. Atualizar o literal é consequência direta da migration, não escopo novo."
 
 [preserve]
 interfaces = [

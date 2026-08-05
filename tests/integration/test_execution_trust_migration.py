@@ -65,7 +65,7 @@ def test_execution_trust_migration_preserves_a_legacy_database(tmp_path: Path) -
         )
         assert (
             connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()
-            == "0008_lab_agent_session_store"
+            == "0009_lab_turn_instruction_digest"
         )
     engine.dispose()
 

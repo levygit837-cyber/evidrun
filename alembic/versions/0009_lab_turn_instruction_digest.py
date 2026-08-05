@@ -20,7 +20,13 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    if "chat_sessions" not in inspect(op.get_bind()).get_table_names():
+    tables = set(inspect(op.get_bind()).get_table_names())
+    if "chat_sessions" not in tables:
+        return
+    if "lab_turn_instructions" in tables:
+        # O bootstrap por `create_all` já materializou a tabela antes da migration rodar. Sem esta
+        # guarda, `create_table` estoura com "table already exists" e derruba toda a cadeia de
+        # migrations a partir de 0001. É o mesmo padrão de `_create_tool_traces` na 0008.
         return
     op.create_table(
         "lab_turn_instructions",
