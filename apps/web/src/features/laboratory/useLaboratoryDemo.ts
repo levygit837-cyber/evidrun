@@ -17,14 +17,14 @@ import {
 } from "./laboratoryModel";
 
 /**
- * Phase machine for the Laboratory demo: `empty → ready → submitting → active → stopping →
+ * Phase machine for the Laboratory: `empty → ready → submitting → active → stopping →
  * completed | cancelled | failed | unavailable`.
  *
  * `submitLockRef` is a synchronous guard: it is set before the first `await` so two clicks
  * dispatched inside one task can never both reach `adapter.send`.
  */
 export function useLaboratoryDemo(laboratoryAdapter: LaboratoryAdapter) {
-  const initiallyUnavailable = laboratoryAdapter.mode !== "demo";
+  const initiallyUnavailable = laboratoryAdapter.mode === "integration_pending" || laboratoryAdapter.mode === "unavailable";
   const [phase, setPhase] = useState<LaboratoryPhase>(
     initiallyUnavailable ? "unavailable" : "empty",
   );
@@ -79,6 +79,7 @@ export function useLaboratoryDemo(laboratoryAdapter: LaboratoryAdapter) {
       setPhase("submitting");
 
       let terminalEventSeen = false;
+      let terminalStatus: string | null = null;
       try {
         for await (const event of laboratoryAdapter.send(
           exactInput,
@@ -95,6 +96,7 @@ export function useLaboratoryDemo(laboratoryAdapter: LaboratoryAdapter) {
           if (event.type === "status") {
             setPhase("active");
             setStatusLog((current) => [...current, event.label]);
+            terminalStatus = event.label.toLowerCase();
           } else if (event.type === "tool") {
             setPhase("active");
             setTools((current) => {
@@ -111,11 +113,11 @@ export function useLaboratoryDemo(laboratoryAdapter: LaboratoryAdapter) {
             setAgentMessage(event.content);
           } else if (event.type === "error") {
             terminalEventSeen = true;
-            setError(event.message);
-            setPhase(event.source === "demo" ? "failed" : "unavailable");
+            setError([event.code, event.message, event.remediation].filter(Boolean).join("\n"));
+            setPhase("failed");
           } else if (event.type === "done") {
             terminalEventSeen = true;
-            setPhase("completed");
+            setPhase(terminalStatus?.includes("cancel") ? "cancelled" : terminalStatus?.includes("failed") || terminalStatus?.includes("falh") ? "failed" : "completed");
           }
         }
 

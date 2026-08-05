@@ -48,10 +48,12 @@ export function AuditActivity({
   statusLog,
   tools,
   phase,
+  mode = "demo",
 }: {
   statusLog: string[];
   tools: ToolEvent[];
   phase: LaboratoryPhase;
+  mode?: "demo" | "live";
 }) {
   const running = isRunningPhase(phase);
 
@@ -64,7 +66,7 @@ export function AuditActivity({
           size={15}
         />
         <span>Atividade auditável</span>
-        <span className="laboratory-demo-label">Demo</span>
+        <span className="laboratory-live-label">{mode === "live" ? "Live" : "Demo"}</span>
         <span className="laboratory-audit-summary-state">
           {running
             ? "em andamento"
@@ -73,8 +75,7 @@ export function AuditActivity({
       </summary>
       <div className="laboratory-audit-body">
         <p>
-          Eventos expostos pelo adapter Demo. Esta área não mostra raciocínio
-          oculto e não representa execução do backend.
+          Eventos de apresentação do corredor {mode === "live" ? "real" : "Demo"}. Esta área não mostra raciocínio oculto.
         </p>
         {statusLog.length > 0 ? (
           <ol className="laboratory-status-log" aria-label="Cronologia Demo">
@@ -110,20 +111,27 @@ export function AuditActivity({
                     <div>
                       <dt>Parâmetros</dt>
                       <dd>
-                        {tool.argumentsSummary ??
-                          "Sem parâmetros demonstrativos."}
+                        {tool.argumentsSummary ?? "Sem parâmetros."}
                       </dd>
                     </div>
                     <div>
                       <dt>Resultado</dt>
                       <dd>
-                        {tool.resultSummary ?? "Aguardando resultado Demo."}
+                        {safeResult(tool.resultSummary)}
                       </dd>
                     </div>
                     <div>
-                      <dt>Fonte</dt>
-                      <dd>Demo local determinística</dd>
+                      <dt>Visibilidade</dt>
+                      <dd>{mode === "live" ? "Resumo retornado pela tool" : "Demo local determinística"}</dd>
                     </div>
+                    {tool.name === "propose_draft" ? (
+                      <div>
+                        <dt>Draft — aguarda humano</dt>
+                        <dd>
+                          Contrato que seria registrado: {safeResult(tool.resultSummary)}. Revise o documento e registre a decisão humana na superfície de aceitação; este draft não é fato nem produz efeito externo.
+                        </dd>
+                      </div>
+                    ) : null}
                   </dl>
                 </div>
               </details>
@@ -133,4 +141,13 @@ export function AuditActivity({
       </div>
     </details>
   );
+}
+
+function safeResult(resultSummary: string | undefined) {
+  if (!resultSummary) return "Aguardando resultado.";
+  const looksAggregate = /agregad|média|media|average|metric|valor/i.test(resultSummary);
+  if (looksAggregate && !/sample_size/i.test(resultSummary)) {
+    return "Resultado agregado oculto: a amostra (sample_size) não foi informada.";
+  }
+  return resultSummary;
 }

@@ -36,6 +36,23 @@ export interface LaboratoryAdapter {
   send(input: string, signal: AbortSignal): AsyncIterable<LabUiEvent>;
 }
 
+export interface LabScopeSelection {
+  workspaceId: string;
+  projectId?: string;
+  focusKind?: string;
+  focusId?: string;
+}
+
+export interface LaboratorySessionAdapter extends LaboratoryAdapter {
+  scopeOptions(): Promise<{
+    workspaces: Array<{ id: string; name: string }>;
+    projects: Array<{ id: string; name: string }>;
+  }>;
+  selectScope(selection: LabScopeSelection): Promise<LabSession>;
+  activeSession(): LabSession | null;
+  messages(): Promise<LabMessage[]>;
+}
+
 export interface LabSession {
   id: string;
   workspace_id: string;

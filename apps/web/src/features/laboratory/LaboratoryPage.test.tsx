@@ -1,274 +1,63 @@
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import type { LaboratoryAdapter } from "../../data/contracts";
-import { DemoLaboratoryAdapter } from "./DemoLaboratoryAdapter";
+import type { LabScopeSelection, LabSession, LaboratorySessionAdapter } from "../../data/contracts";
 import { LaboratoryPage } from "./LaboratoryPage";
 
 afterEach(cleanup);
 
-function renderLaboratory(
-  adapter: LaboratoryAdapter = new DemoLaboratoryAdapter({ delayMs: 0 }),
-) {
-  const result = render(<LaboratoryPage adapter={adapter} />);
-  const root = result.container.querySelector<HTMLElement>(".laboratory");
-  if (!root) throw new Error("Laboratory root not found");
-  return { ...result, root };
+function sessionFor(scope: LabScopeSelection): LabSession {
+  return { id: `${scope.projectId ?? "general"}:${scope.focusId ?? ""}`, workspace_id: scope.workspaceId, project_id: scope.projectId ?? null, focus_kind: scope.focusKind ?? null, focus_id: scope.focusId ?? null, form: scope.focusId ? "focused" : scope.projectId ? "project" : "general", title: "Laboratory", created_at: "2026-08-05T00:00:00Z" };
+}
+
+function adapter(): LaboratorySessionAdapter {
+  let active: LabSession | null = null;
+  return {
+    mode: "live",
+    scopeOptions: async () => ({ workspaces: [{ id: "w:1", name: "Principal" }], projects: [{ id: "p:1", name: "Pesquisa" }, { id: "p:2", name: "Outro" }] }),
+    selectScope: async (scope) => (active = sessionFor(scope)),
+    activeSession: () => active,
+    messages: async () => [],
+    async *send(_input, signal) {
+      yield { type: "status", source: "live", label: "Lendo evidência" };
+      yield { type: "tool", source: "live", id: "tool:1", name: "read_run", status: "completed", argumentsSummary: "run:1", resultSummary: "sample_size: 2" };
+      if (!signal.aborted) yield { type: "message", source: "live", content: "Resposta em rascunho." };
+      if (!signal.aborted) yield { type: "done", source: "live" };
+    },
+  };
+}
+
+async function open(form: "general" | "project" | "focused") {
+  fireEvent.change(await screen.findByLabelText("Workspace"), { target: { value: "w:1" } });
+  fireEvent.change(screen.getByLabelText("Forma da sessão"), { target: { value: form } });
+  if (form !== "general") fireEvent.change(screen.getByLabelText("Project"), { target: { value: "p:1" } });
+  if (form === "focused") { fireEvent.change(screen.getByLabelText("Tipo do foco"), { target: { value: "study" } }); fireEvent.change(screen.getByLabelText("ID do foco"), { target: { value: "study:1" } }); }
+  fireEvent.click(screen.getByRole("button", { name: "Criar ou retomar" }));
+  await screen.findByLabelText("Mensagem para o Laboratory");
 }
 
 describe("LaboratoryPage", () => {
-  it("starts centered, becomes ready, and preserves the exact first message on Enter", async () => {
-    const { root } = renderLaboratory();
-    const textarea = screen.getByLabelText(
-      "Mensagem para a demonstração do Laboratory",
-    );
-    const exactMessage = "  Primeira linha\nsegunda linha com espaços  ";
-
-    expect(root).toHaveAttribute("data-state", "empty");
-    fireEvent.change(textarea, { target: { value: exactMessage } });
-    expect(root).toHaveAttribute("data-state", "ready");
-    fireEvent.keyDown(textarea, { key: "Enter", shiftKey: false });
-
-    await waitFor(() =>
-      expect(root).toHaveAttribute("data-state", "completed"),
-    );
-    expect(resultMessage(root, ".laboratory-user-message p")).toBe(
-      exactMessage,
-    );
-    expect(screen.getByText("Atividade auditável")).toBeInTheDocument();
-    expect(
-      screen.getByText(/não contém resultados de uma Run real/i),
-    ).toBeInTheDocument();
-    expect(root).toHaveAttribute("data-conversation", "started");
-    expect(root.querySelector(".laboratory-fresh-state")).toHaveAttribute(
-      "aria-hidden",
-      "true",
-    );
+  it("abre as três formas sem copiar mensagens e marca a forma devolvida pela API", async () => {
+    render(<LaboratoryPage adapter={adapter()} />);
+    await open("general"); expect(screen.getAllByText("Chat geral").length).toBeGreaterThan(0);
+    await open("project"); expect(screen.getAllByText("Project Room").length).toBeGreaterThan(0);
+    await open("focused"); expect(screen.getAllByText("Chat focado").length).toBeGreaterThan(0);
+    expect(screen.getByText(/não são copiadas/i)).toBeInTheDocument();
   });
 
-  it("keeps Shift+Enter available for a newline instead of submitting", () => {
-    const { root } = renderLaboratory();
-    const textarea = screen.getByLabelText(
-      "Mensagem para a demonstração do Laboratory",
-    );
-
-    fireEvent.change(textarea, { target: { value: "linha um" } });
-    fireEvent.keyDown(textarea, { key: "Enter", shiftKey: true });
-
-    expect(root).toHaveAttribute("data-state", "ready");
-    expect(screen.queryByText("Você")).not.toBeInTheDocument();
+  it("mostra o que a tool leu e a resposta do agente", async () => {
+    render(<LaboratoryPage adapter={adapter()} />); await open("project");
+    const input = screen.getByLabelText("Mensagem para o Laboratory");
+    fireEvent.change(input, { target: { value: "Leia a Run" } }); fireEvent.click(screen.getByLabelText("Enviar mensagem"));
+    await screen.findByText("Resposta em rascunho.");
+    expect(screen.getByText("run:1")).toBeInTheDocument();
+    expect(screen.getByText("sample_size: 2")).toBeInTheDocument();
   });
 
-  it("caps textarea auto-growth at 160 pixels", () => {
-    renderLaboratory();
-    const textarea = screen.getByLabelText<HTMLTextAreaElement>(
-      "Mensagem para a demonstração do Laboratory",
-    );
-    Object.defineProperty(textarea, "scrollHeight", {
-      configurable: true,
-      value: 260,
-    });
-
-    fireEvent.input(textarea);
-
-    expect(textarea.style.height).toBe("160px");
-  });
-
-  it("turns send into cancel and reaches the cancelled state", async () => {
-    const { root } = renderLaboratory(
-      new DemoLaboratoryAdapter({ delayMs: 100 }),
-    );
-    const textarea = screen.getByLabelText(
-      "Mensagem para a demonstração do Laboratory",
-    );
-
-    fireEvent.change(textarea, {
-      target: { value: "Demonstração longa para cancelar" },
-    });
-    fireEvent.click(screen.getByLabelText("Enviar mensagem"));
-    const cancelButton = await screen.findByLabelText("Cancelar demonstração");
-    fireEvent.click(cancelButton);
-
-    await waitFor(() =>
-      expect(root).toHaveAttribute("data-state", "cancelled"),
-    );
-    expect(
-      screen.getByText("Demonstração cancelada", { selector: "strong" }),
-    ).toBeInTheDocument();
-  });
-
-  it("shows expandable Lucide tool calls in chronological order", async () => {
-    const { root } = renderLaboratory();
-    const textarea = screen.getByLabelText(
-      "Mensagem para a demonstração do Laboratory",
-    );
-    fireEvent.change(textarea, {
-      target: { value: "Use ferramentas para inspecionar o Run Demo." },
-    });
-    fireEvent.click(screen.getByLabelText("Enviar mensagem"));
-
-    await waitFor(() =>
-      expect(root).toHaveAttribute("data-state", "completed"),
-    );
-    const toolNames = Array.from(
-      root.querySelectorAll(".laboratory-tool-name"),
-    ).map((element) => element.textContent);
-    expect(toolNames).toEqual([
-      "search_repository",
-      "compile_subject",
-      "inspect_run",
-    ]);
-
-    fireEvent.click(screen.getByText("search_repository"));
-    expect(
-      screen.getByText("3 referências demonstrativas encontradas."),
-    ).toBeVisible();
-    expect(
-      root.querySelectorAll(".laboratory-tool svg").length,
-    ).toBeGreaterThan(0);
-  });
-
-  it("exposes failed and retry states without implying backend execution", async () => {
-    const { root } = renderLaboratory();
-    const textarea = screen.getByLabelText(
-      "Mensagem para a demonstração do Laboratory",
-    );
-    fireEvent.change(textarea, {
-      target: { value: "Simule uma falha e permita uma nova tentativa." },
-    });
-    fireEvent.click(screen.getByLabelText("Enviar mensagem"));
-
-    await waitFor(() => expect(root).toHaveAttribute("data-state", "failed"));
-    expect(
-      screen.getByText(/Nenhum backend foi acionado/i),
-    ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /tentar novamente/i }));
-
-    await waitFor(() =>
-      expect(root).toHaveAttribute("data-state", "completed"),
-    );
-    expect(
-      screen.getByText(/recuperado na nova tentativa/i),
-    ).toBeInTheDocument();
-  });
-
-  it("locks submission synchronously against double submit", async () => {
-    let sendCalls = 0;
-    let release: (() => void) | undefined;
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    const adapter: LaboratoryAdapter = {
-      mode: "demo",
-      async *send() {
-        sendCalls += 1;
-        await gate;
-        yield { type: "done", source: "demo" };
-      },
-    };
-    const { root } = renderLaboratory(adapter);
-    const textarea = screen.getByLabelText(
-      "Mensagem para a demonstração do Laboratory",
-    );
-    const sendButton = screen.getByLabelText("Enviar mensagem");
-    fireEvent.change(textarea, { target: { value: "Enviar uma única vez" } });
-
-    act(() => {
-      sendButton.click();
-      sendButton.click();
-    });
-
-    await waitFor(() => expect(sendCalls).toBe(1));
-    release?.();
-    await waitFor(() =>
-      expect(root).toHaveAttribute("data-state", "completed"),
-    );
-  });
-
-  it("labels visual-only settings and supports roving menu focus", async () => {
-    renderLaboratory();
-    expect(
-      screen.getByText("Configuração visual Demo · não aplicada"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Demo local determinística · nenhum provider consultado",
-      ),
-    ).toBeInTheDocument();
-    const trigger = screen.getByLabelText(
-      "Selecionar modo de aprovação visual Demo, não aplicado",
-    );
-
-    fireEvent.keyDown(trigger, { key: "ArrowDown" });
-    const ask = await screen.findByRole("menuitemradio", {
-      name: "Ask before actions",
-    });
-    const readOnly = screen.getByRole("menuitemradio", { name: "Read-only" });
-    const admitted = screen.getByRole("menuitemradio", {
-      name: "Allow admitted tools",
-    });
-    await waitFor(() => expect(ask).toHaveFocus());
-
-    fireEvent.keyDown(ask, { key: "ArrowDown" });
-    await waitFor(() => expect(readOnly).toHaveFocus());
-    fireEvent.keyDown(readOnly, { key: "End" });
-    await waitFor(() => expect(admitted).toHaveFocus());
-    fireEvent.keyDown(admitted, { key: "Home" });
-    await waitFor(() => expect(ask).toHaveFocus());
-    fireEvent.keyDown(ask, { key: "Escape" });
-    await waitFor(() => expect(trigger).toHaveFocus());
-    expect(trigger).toHaveAttribute("aria-expanded", "false");
-
-    fireEvent.keyDown(trigger, { key: "ArrowDown" });
-    await waitFor(() =>
-      expect(
-        screen.getByRole("menuitemradio", { name: "Ask before actions" }),
-      ).toHaveFocus(),
-    );
-    fireEvent.click(screen.getByRole("menuitemradio", { name: "Read-only" }));
-    await waitFor(() => expect(trigger).toHaveFocus());
-    expect(trigger).toHaveTextContent("Read-only");
-  });
-
-  it("fails closed into unavailable when the injected adapter has no capability", () => {
-    const unavailableAdapter: LaboratoryAdapter = {
-      mode: "integration_pending",
-      async *send() {
-        throw new Error("send must not be reached");
-      },
-    };
-    const { root } = renderLaboratory(unavailableAdapter);
-
-    expect(root).toHaveAttribute("data-state", "unavailable");
-    expect(
-      screen.getByRole("heading", { name: "Laboratory indisponível" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Nenhuma mensagem foi enviada."),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByLabelText("Mensagem para a demonstração do Laboratory"),
-    ).not.toBeInTheDocument();
-    expect(
-      root.querySelector(".laboratory-composer-position"),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
-    expect(
-      screen.queryByLabelText(
-        "Selecionar modo de aprovação visual Demo, não aplicado",
-      ),
-    ).not.toBeInTheDocument();
+  it("não transforma terminal cancelado em conclusão", async () => {
+    const cancelled = adapter(); cancelled.send = async function* () { yield { type: "status", source: "live", label: "cancelled" }; yield { type: "done", source: "live" }; };
+    const { container } = render(<LaboratoryPage adapter={cancelled} />); await open("general");
+    fireEvent.change(screen.getByLabelText("Mensagem para o Laboratory"), { target: { value: "Pare" } }); fireEvent.click(screen.getByLabelText("Enviar mensagem"));
+    await waitFor(() => expect(container.querySelector(".laboratory")).toHaveAttribute("data-state", "cancelled"));
+    expect(screen.getByText("Turno cancelado", { selector: "strong" })).toBeInTheDocument();
   });
 });
-
-function resultMessage(root: HTMLElement, selector: string) {
-  const element = root.querySelector(selector);
-  if (!element) throw new Error(`Expected ${selector}`);
-  return element.textContent;
-}

@@ -1,0 +1,79 @@
+schema_version = "1"
+change_id = "GH-136"
+issue = 136
+title = "Página Laboratory consumindo o corredor real do Lab Agent"
+classification = "feature"
+base_ref = "origin/main"
+branch_pattern = "levygit837-cyber/issue-136-laboratory"
+expected_outcome = "A página Laboratory usa o adapter live por padrão, exige escolha explícita de sessão General, Project ou Focused e apresenta o stream do Lab Agent sem transformar drafts, agregados incompletos ou trabalho parcial em fatos completos."
+confirmed_facts = [
+  "O adapter live existia, mas criava uma sessão General para o primeiro Workspace sem escolha da pessoa.",
+  "A rota montava LaboratoryPage sem adapter e a página usava DemoLaboratoryAdapter como fallback.",
+  "O corredor SSE já emitia status, tool, message, error e done, incluindo resumos de argumentos e resultado.",
+]
+stop_conditions = [
+  "A implementação exigir alteração em src/evidrun/**.",
+  "A UI precisar inferir a forma da sessão sem usar o campo form retornado pela API.",
+  "Um draft for apresentado como fato ou aceito pela interface.",
+]
+
+[impact]
+capability = "changed"
+persisted_contract = "none"
+normative = "none"
+notes = ["A mudança é somente renderer e cliente HTTP; não cria endpoint nem altera contrato normativo."]
+
+[scope]
+expected = [
+  "changes/136.toml",
+  "apps/web/src/data/contracts.ts",
+  "apps/web/src/data/adapters.ts",
+  "apps/web/src/data/contracts.test.ts",
+  "apps/web/src/features/laboratory/LaboratoryPage.tsx",
+  "apps/web/src/features/laboratory/LaboratoryPage.test.tsx",
+  "apps/web/src/features/laboratory/AuditActivity.tsx",
+  "apps/web/src/features/laboratory/laboratory.css",
+  "apps/web/src/features/laboratory/useLaboratoryDemo.ts",
+  "docs/planning/mvp-capability-map.md",
+  "docs/_generated/manifest.json",
+  "docs/_generated/claims.json",
+]
+forbidden = ["AGENTS.md", "CONTEXT.md", "docs/adr/**", "docs/contracts/**", "src/evidrun/**"]
+preexisting = []
+
+[[scope.generated]]
+patterns = ["docs/_generated/manifest.json", "docs/_generated/claims.json"]
+source_patterns = ["docs/**", "changes/**"]
+
+[preserve]
+interfaces = ["LaboratoryAdapter.send preserva os dois argumentos.", "Renderer não importa electron nem node:*."]
+invariants = [
+  "Trocar de Project cria ou retoma outra sessão e não copia mensagens.",
+  "A forma ativa é exibida a partir de LabSession.form retornado pela API.",
+  "Tool mostra argumentsSummary e resultSummary.",
+  "Erro expõe code e remediation; terminal cancelado não é concluído.",
+]
+
+[verification]
+focused = ["pnpm test:web", "pnpm typecheck:web", "pnpm build", "uv run python scripts/check_code_budget.py"]
+full_gates = ["uv run python scripts/check_change_contract.py", "uv run python scripts/validate_docs.py"]
+
+[merge_gate]
+review = "proportional"
+ci_commit = "27ec6664e383c5b9cc8f7719be883646928fe41e"
+
+[merge_gate.spec]
+conclusion = "passed"
+evidence = ["test:apps/web/src/features/laboratory/LaboratoryPage.test.tsx", "diff:apps/web/src/features/laboratory/LaboratoryPage.tsx"]
+
+[merge_gate.standards]
+conclusion = "passed"
+evidence = ["log:scripts/check_code_budget.py", "diff:apps/web/src/data/adapters.ts"]
+
+[merge_gate.verification]
+conclusion = "passed"
+evidence = ["test:pnpm test:web", "log:pnpm typecheck:web", "log:pnpm build"]
+
+[merge_gate.ci]
+conclusion = "passed"
+evidence = ["run:local/web-verification"]
