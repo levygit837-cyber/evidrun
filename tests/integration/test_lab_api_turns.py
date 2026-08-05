@@ -12,6 +12,7 @@ from evidrun.entrypoints.api.app import create_app
 from evidrun.infrastructure.providers import ProviderRequestError
 from evidrun.lab.session import LabAgentSessionService
 from evidrun.lab.tools.registry import AdmissionCapabilityCatalog
+from evidrun.shared.types import sha256_json
 
 
 class FakeProvider:
@@ -289,6 +290,7 @@ def test_terminal_incompleto_nao_entra_no_transcript_como_fala_do_agente(
     app = create_app(data_dir=tmp_path)
     provider = FakeProvider([ProviderRequestError("falha de transporte")])
     _install_provider(app, provider)
+    repository = app.state.repository
 
     with TestClient(app) as client:
         workspace = client.post("/api/v1/workspaces", json={"name": "Workspace"}).json()
@@ -311,6 +313,12 @@ def test_terminal_incompleto_nao_entra_no_transcript_como_fala_do_agente(
     # A mensagem do humano é fato registrado e permanece; nenhuma fala de agente foi inventada.
     assert [item["role"] for item in transcript] == ["human"]
     assert all("provider" not in item["content"] for item in transcript)
+    records = repository.lab.list_turn_instructions(
+        session_id=session_id, workspace_id=workspace["id"]
+    )
+    assert [(record.turn_sequence, record.instruction_digest) for record in records] == [
+        (1, sha256_json({"form": "general", "text": provider.requests[0]["instructions"]}))
+    ]
 
 
 async def _drive_until_disconnect(

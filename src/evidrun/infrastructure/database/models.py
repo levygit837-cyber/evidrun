@@ -358,3 +358,15 @@ class LabToolTraceRow(Base):
     refusal_code: Mapped[str | None] = mapped_column(String, nullable=True)
     scope_snapshot_json: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(nullable=False)
+
+
+class LabTurnInstructionRow(Base):
+    __tablename__ = "lab_turn_instructions"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    session_id: Mapped[str] = mapped_column(
+        ForeignKey("chat_sessions.id"), nullable=False, index=True
+    )
+    turn_sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    instruction_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(nullable=False)

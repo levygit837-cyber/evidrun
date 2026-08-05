@@ -20,6 +20,7 @@ from evidrun.infrastructure.database.lab_records import (
     LabMessage,
     LabSession,
     LabToolTrace,
+    LabTurnInstruction,
     ProjectNavigationItem,
 )
 from evidrun.infrastructure.database.models import (
@@ -29,6 +30,7 @@ from evidrun.infrastructure.database.models import (
     ContractRevisionRow,
     ExperimentRevisionRow,
     LabToolTraceRow,
+    LabTurnInstructionRow,
     ProjectRow,
     RunRow,
     RunSpecRow,
@@ -44,6 +46,7 @@ __all__ = [
     "LabMessage",
     "LabSession",
     "LabToolTrace",
+    "LabTurnInstruction",
     "ProjectNavigationItem",
 ]
 
@@ -198,6 +201,49 @@ class LabAgentStore:
             if tuple(item.sequence for item in messages) != tuple(range(1, len(messages) + 1)):
                 raise invalid_trace("A sequência persistida de mensagens contém lacuna.")
             return messages
+
+    def append_turn_instruction(
+        self,
+        *,
+        session_id: str,
+        workspace_id: str,
+        turn_sequence: int,
+        instruction_digest: str,
+    ) -> LabTurnInstruction:
+        """Guarda a identidade enviada antes do provider poder produzir qualquer terminal.
+
+        A persistência antecede a invocação para que cancelamento, timeout e falha do provider
+        não apaguem qual documento já foi entregue. Não há unicidade por turno: corrigir uma
+        identidade registrada exige outro fato append-only, nunca mutar a evidência anterior.
+        """
+
+        self._validate_turn_instruction(turn_sequence, instruction_digest)
+        with self.unit_of_work.immediate() as session:
+            self._load_session(session, session_id, workspace_id)
+            row = LabTurnInstructionRow(
+                id=new_id("labinstruction"),
+                session_id=session_id,
+                turn_sequence=turn_sequence,
+                instruction_digest=instruction_digest,
+                created_at=clock.utc_now(),
+            )
+            session.add(row)
+            session.commit()
+            return self._turn_instruction_from_row(row)
+
+    def list_turn_instructions(
+        self, *, session_id: str, workspace_id: str
+    ) -> tuple[LabTurnInstruction, ...]:
+        """Recupera os fatos do turno dentro da mesma fronteira da sessão."""
+
+        with self.unit_of_work.session() as session:
+            self._load_session(session, session_id, workspace_id)
+            rows = session.scalars(
+                select(LabTurnInstructionRow)
+                .where(LabTurnInstructionRow.session_id == session_id)
+                .order_by(LabTurnInstructionRow.created_at, LabTurnInstructionRow.id)
+            )
+            return tuple(self._turn_instruction_from_row(row) for row in rows)
 
     def append_tool_trace(
         self,
@@ -380,6 +426,26 @@ class LabAgentStore:
             raise invalid_trace("Toda recusa exige refusal_code.", field="refusal_code")
         if outcome != "refused" and refusal_code is not None:
             raise invalid_trace("refusal_code só acompanha outcome refused.", field="refusal_code")
+
+    @staticmethod
+    def _validate_turn_instruction(turn_sequence: int, instruction_digest: str) -> None:
+        if turn_sequence < 1:
+            raise invalid_trace("turn_sequence precisa ser positivo.", field="turn_sequence")
+        if len(instruction_digest) != 64 or any(
+            character not in "0123456789abcdef" for character in instruction_digest
+        ):
+            raise invalid_trace("instruction_digest persistido é inválido.")
+
+    @staticmethod
+    def _turn_instruction_from_row(row: LabTurnInstructionRow) -> LabTurnInstruction:
+        LabAgentStore._validate_turn_instruction(row.turn_sequence, row.instruction_digest)
+        return LabTurnInstruction(
+            row.id,
+            row.session_id,
+            row.turn_sequence,
+            row.instruction_digest,
+            aware_utc(row.created_at),
+        )
 
     def _trace_from_row(self, row: LabToolTraceRow, chat: LabSession) -> LabToolTrace:
         self._validate_trace(row.turn_sequence, row.tool_name, row.outcome, row.refusal_code)

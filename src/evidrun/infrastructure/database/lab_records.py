@@ -20,6 +20,7 @@ __all__ = [
     "LabMessage",
     "LabSession",
     "LabToolTrace",
+    "LabTurnInstruction",
     "ProjectNavigationItem",
 ]
 
@@ -82,6 +83,22 @@ class LabMessage:
     role: str
     content: str
     sequence: int
+    created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class LabTurnInstruction:
+    """Identifica a instrução enviada em um turno sem inventar uma mensagem ou uma tool.
+
+    O digest pertence ao turno: terminais incompletos não têm fala do agente, e registrar uma
+    linha sintética no rastro de tool declararia uma execução que nunca aconteceu. Mantê-lo
+    separado preserva esses dois fatos e permite que uma correção seja outro registro append-only.
+    """
+
+    id: str
+    session_id: str
+    turn_sequence: int
+    instruction_digest: str
     created_at: datetime
 
 

@@ -12,6 +12,7 @@ from evidrun.infrastructure.database.lab_errors import LabSessionMigrationError
 
 ROOT = Path(__file__).resolve().parents[2]
 LEGACY_FIXTURE = ROOT / "tests/fixtures/lab_agent_session_store_v0007.sql"
+PREVIOUS_FIXTURE = ROOT / "tests/fixtures/lab_turn_instruction_digest_v0008.sql"
 
 
 def _config(path: Path) -> Config:
@@ -148,6 +149,26 @@ def test_migration_preserves_already_typed_scope(tmp_path: Path) -> None:
         assert connection.execute(
             "SELECT project_id,focus_kind,focus_id FROM chat_sessions WHERE id='chat_legacy'"
         ).fetchone() == ("prj_legacy", None, None)
+
+
+def test_migration_cria_registro_de_instrucao_sem_reescrever_sessao_anterior(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "v0008.db"
+    with sqlite3.connect(path) as connection:
+        connection.executescript(PREVIOUS_FIXTURE.read_text())
+
+    command.upgrade(_config(path), "head")
+
+    with sqlite3.connect(path) as connection:
+        assert connection.execute("SELECT id,title FROM chat_sessions").fetchone() == (
+            "chat_v0008",
+            "Sessão anterior",
+        )
+        assert connection.execute("SELECT * FROM lab_turn_instructions").fetchall() == []
+        assert connection.execute("SELECT version_num FROM alembic_version").fetchone() == (
+            "0009_lab_turn_instruction_digest",
+        )
 
 
 def test_migration_fails_closed_without_inference_from_text(tmp_path: Path) -> None:
