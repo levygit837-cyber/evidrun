@@ -11,9 +11,14 @@ from evidrun.contracts.lab_agent.errors import (
     LabAgentTargetSituation,
     target_not_visible,
 )
-from evidrun.lab.protocol import LabToolContext, LabToolResult, ToolAvailability
+from evidrun.lab.protocol import (
+    LabToolContext,
+    LabToolRejected,
+    LabToolResult,
+    ToolAvailability,
+)
 from evidrun.lab.tools.propose_draft import DraftRevisionRecord
-from evidrun.lab.tools.validate_draft import DraftToolRejected, draft_error
+from evidrun.lab.tools.validate_draft import draft_error
 
 __all__ = ["ApprovalRequestStore", "RequestHumanApprovalTool"]
 
@@ -61,7 +66,7 @@ class RequestHumanApprovalTool:
         try:
             revision = self._store.get_contract_revision(revision_ref)
         except KeyError as exc:
-            raise DraftToolRejected(
+            raise LabToolRejected(
                 target_not_visible(
                     LabAgentTargetSituation.ABSENT,
                     field_path=("revision_ref",),
@@ -69,7 +74,7 @@ class RequestHumanApprovalTool:
                 )
             ) from exc
         if revision.project_id != project_id:
-            raise DraftToolRejected(
+            raise LabToolRejected(
                 target_not_visible(
                     LabAgentTargetSituation.SIBLING_PROJECT,
                     field_path=("revision_ref",),

@@ -1,3 +1,11 @@
+"""Os invariantes do ADR 0025 na superfície tipada do Lab Agent.
+
+A rota migrou de `/chat/sessions` para `/lab/sessions` na issue #135, mas a decisão que estes
+testes defendem não mudou: listar sessões exige `workspace_id` declarado, Workspace inexistente
+devolve lista vazia em vez de `404`, a ordem é determinística, e CLI e API projetam o mesmo
+documento. O fixture de OpenAPI continua provando que a forma global anterior não voltou.
+"""
+
 from __future__ import annotations
 
 import json
@@ -14,28 +22,35 @@ from evidrun.entrypoints.api.app import create_app
 from evidrun.entrypoints.cli.app import app as cli_app
 from evidrun.entrypoints.cli.commands import runs as run_commands
 from evidrun.infrastructure.database import clock as database_clock
-from evidrun.infrastructure.database.read_model.queries import ReadModel
+from evidrun.infrastructure.database.lab import LabAgentStore
 
 ROOT = Path(__file__).resolve().parents[2]
+LISTING = "/api/v1/lab/sessions"
 
 
 def test_previous_unscoped_chat_listing_contract_is_rejected_by_current_openapi(
     tmp_path: Path,
 ) -> None:
+    """A forma global anterior não existe mais em nenhuma rota de listagem de sessão.
+
+    O fixture descreve `GET /api/v1/chat/sessions` sem parâmetro de query. Depois do cutover a
+    rota antiga desapareceu, e a atual exige `workspace_id`. Provar as duas coisas juntas é o
+    que impede a forma global de voltar por uma rota nova com outro nome.
+    """
+
     fixture_path = (
         ROOT / "tests/integration/fixtures/chat-sessions-unscoped-openapi-v1.json"
     )
     previous = json.loads(fixture_path.read_text(encoding="utf-8"))
-    operation = create_app(data_dir=tmp_path / "openapi-data").openapi()["paths"][
-        previous["path"]
-    ][previous["method"].lower()]
-    current_query_parameters = [
-        parameter
-        for parameter in operation["parameters"]
-        if parameter["in"] == "query"
-    ]
+    paths = create_app(data_dir=tmp_path / "openapi-data").openapi()["paths"]
 
     assert previous["query_parameters"] == []
+    assert previous["path"] not in paths
+
+    operation = paths[LISTING][previous["method"].lower()]
+    current_query_parameters = [
+        parameter for parameter in operation["parameters"] if parameter["in"] == "query"
+    ]
     assert current_query_parameters == [
         {
             "name": "workspace_id",
@@ -52,11 +67,10 @@ def test_previous_unscoped_chat_listing_contract_is_rejected_by_current_openapi(
     assert current_response_schema["type"] == previous["response_shape"]
 
 
-def test_chat_sessions_are_scoped_without_dashboard_fallback(
+def test_sessions_are_scoped_without_dashboard_fallback(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    data_dir = tmp_path / "data"
-    app = create_app(data_dir=data_dir)
+    app = create_app(data_dir=tmp_path / "data")
 
     with TestClient(app) as client:
         workspace_a = client.post(
@@ -65,13 +79,17 @@ def test_chat_sessions_are_scoped_without_dashboard_fallback(
         workspace_b = client.post(
             "/api/v1/workspaces", json={"name": "Workspace B"}
         ).json()
+        project_a = client.post(
+            "/api/v1/projects",
+            json={"workspace_id": workspace_a["id"], "name": "Projeto A"},
+        ).json()
+
         created_a = client.post(
-            "/api/v1/chat/sessions",
+            LISTING,
             json={
                 "workspace_id": workspace_a["id"],
                 "title": "Sessão A",
-                "scope_type": "workspace",
-                "scope_id": workspace_a["id"],
+                "project_id": project_a["id"],
             },
         )
         assert created_a.status_code == 200
@@ -79,72 +97,61 @@ def test_chat_sessions_are_scoped_without_dashboard_fallback(
         assert session_a == {
             "id": session_a["id"],
             "workspace_id": workspace_a["id"],
-            "scope_type": "workspace",
-            "scope_id": workspace_a["id"],
+            "project_id": project_a["id"],
+            "focus_kind": None,
+            "focus_id": None,
+            "form": "project",
             "title": "Sessão A",
+            "created_at": session_a["created_at"],
         }
 
         created_b = client.post(
-            "/api/v1/chat/sessions",
-            json={"workspace_id": workspace_b["id"], "title": "Sessão B"},
+            LISTING, json={"workspace_id": workspace_b["id"], "title": "Sessão B"}
         )
         assert created_b.status_code == 200
         session_b = created_b.json()
-        assert session_b == {
-            "id": session_b["id"],
-            "workspace_id": workspace_b["id"],
-            "scope_type": None,
-            "scope_id": None,
-            "title": "Sessão B",
-        }
+        assert session_b["form"] == "general"
+        assert (session_b["project_id"], session_b["focus_kind"]) == (None, None)
 
         dashboard = client.get("/api/v1/dashboard")
         assert dashboard.status_code == 200
         assert "chats" not in dashboard.json()
 
+        # A listagem consulta as sessões diretamente. Derivá-la do dashboard reintroduziria a
+        # leitura global que o ADR 0025 recusa, então ler o dashboard aqui é um defeito.
         monkeypatch.setattr(
             app.state.repository.read_model,
             "latest_dashboard",
             lambda: (_ for _ in ()).throw(AssertionError("dashboard must not be read")),
         )
 
-        listed_a = client.get(
-            "/api/v1/chat/sessions", params={"workspace_id": workspace_a["id"]}
-        )
+        listed_a = client.get(LISTING, params={"workspace_id": workspace_a["id"]})
         assert listed_a.status_code == 200
         assert [item["id"] for item in listed_a.json()] == [session_a["id"]]
-        assert listed_a.json()[0]["workspace_id"] == workspace_a["id"]
 
-        listed_b = client.get(
-            "/api/v1/chat/sessions", params={"workspace_id": workspace_b["id"]}
-        )
+        listed_b = client.get(LISTING, params={"workspace_id": workspace_b["id"]})
         assert listed_b.status_code == 200
         assert [item["id"] for item in listed_b.json()] == [session_b["id"]]
         assert session_a["id"] not in {item["id"] for item in listed_b.json()}
 
-        missing_parameter = client.get("/api/v1/chat/sessions")
-        assert missing_parameter.status_code == 422
+        assert client.get(LISTING).status_code == 422
 
-        missing_workspace = client.get(
-            "/api/v1/chat/sessions", params={"workspace_id": "ws_missing"}
-        )
+        # Workspace inexistente devolve vazio, igual a Workspace existente sem sessões. Um
+        # `404` transformaria a rota de conteúdo em oráculo de existência de Workspace.
+        missing_workspace = client.get(LISTING, params={"workspace_id": "ws_missing"})
         assert missing_workspace.status_code == 200
         assert missing_workspace.json() == []
 
         message = client.post(
-            f"/api/v1/chat/sessions/{session_a['id']}/messages",
-            json={"role": "human", "content": "Mensagem preservada"},
+            f"{LISTING}/{session_a['id']}/messages",
+            json={"workspace_id": workspace_a["id"], "content": "Mensagem preservada"},
         )
         assert message.status_code == 200
-        assert message.json() == {
-            "id": message.json()["id"],
-            "session_id": session_a["id"],
-            "role": "human",
-            "content": "Mensagem preservada",
-        }
+        assert message.json()["role"] == "human"
+        assert message.json()["content"] == "Mensagem preservada"
 
 
-def test_chat_sessions_use_deterministic_created_at_and_id_order(
+def test_sessions_use_deterministic_created_at_and_id_order(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     app = create_app(data_dir=tmp_path / "ordered-data")
@@ -164,23 +171,29 @@ def test_chat_sessions_use_deterministic_created_at_and_id_order(
         ).json()
         sessions = [
             client.post(
-                "/api/v1/chat/sessions",
-                json={"workspace_id": workspace["id"], "title": title},
+                LISTING, json={"workspace_id": workspace["id"], "title": title}
             ).json()
             for title in ("Antiga", "Empate B", "Empate A")
         ]
-        response = client.get(
-            "/api/v1/chat/sessions", params={"workspace_id": workspace["id"]}
-        )
+        response = client.get(LISTING, params={"workspace_id": workspace["id"]})
 
     assert response.status_code == 200
+    # Mais recente primeiro; `id` ascendente desempata timestamps iguais, para que o resultado
+    # seja reproduzível sem depender da ordem de inserção.
     newest_tie = sorted((sessions[1]["id"], sessions[2]["id"]))
     assert [item["id"] for item in response.json()] == [*newest_tie, sessions[0]["id"]]
 
 
-def test_chat_storage_failure_maps_to_http_503_and_cli_3(
+def test_storage_failure_maps_to_http_503_and_cli_3(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Falha de driver é indisponibilidade, não fronteira errada.
+
+    Se a listagem traduzisse o erro de storage para uma recusa de escopo, o caller concluiria
+    que o Workspace não existe e pararia de tentar. O detalhe do driver também não pode
+    aparecer na resposta: ele descreve o schema interno.
+    """
+
     app = create_app(data_dir=tmp_path / "api-storage-data")
     session = app.state.repository.unit_of_work.database.session()
 
@@ -192,9 +205,7 @@ def test_chat_storage_failure_maps_to_http_503_and_cli_3(
         app.state.repository.unit_of_work.database, "session", lambda: session
     )
     with TestClient(app) as client:
-        response = client.get(
-            "/api/v1/chat/sessions", params={"workspace_id": "ws_unavailable"}
-        )
+        response = client.get(LISTING, params={"workspace_id": "ws_unavailable"})
 
     assert response.status_code == 503
     assert response.json()["detail"]["code"] == "scope.storage_unavailable"
@@ -205,8 +216,7 @@ def test_chat_storage_failure_maps_to_http_503_and_cli_3(
     monkeypatch.setattr(cli_session, "scalars", fail_scalars)
     fake_database = SimpleNamespace(dispose=lambda: None)
     fake_unit_of_work = SimpleNamespace(session=lambda: cli_session)
-    fake_read_model = ReadModel(fake_unit_of_work)
-    fake_repository = SimpleNamespace(read_model=fake_read_model)
+    fake_repository = SimpleNamespace(lab=LabAgentStore(fake_unit_of_work))
     monkeypatch.setattr(
         run_commands,
         "components",
@@ -230,7 +240,13 @@ def test_chat_storage_failure_maps_to_http_503_and_cli_3(
     assert "secret_chat_path" not in result.stdout
 
 
-def test_chat_list_cli_matches_workspace_scoped_api(tmp_path: Path) -> None:
+def test_list_cli_matches_workspace_scoped_api(tmp_path: Path) -> None:
+    """CLI e API devolvem o documento idêntico, porque a projeção é uma só.
+
+    Duas projeções divergiriam no primeiro campo novo, e a CLI passaria a afirmar uma forma de
+    sessão que a API não reconhece.
+    """
+
     data_dir = tmp_path / "data"
     app = create_app(data_dir=data_dir)
 
@@ -238,25 +254,13 @@ def test_chat_list_cli_matches_workspace_scoped_api(tmp_path: Path) -> None:
         workspace = client.post(
             "/api/v1/workspaces", json={"name": "Workspace CLI"}
         ).json()
-        client.post(
-            "/api/v1/chat/sessions",
-            json={"workspace_id": workspace["id"], "title": "Sessão CLI"},
-        )
-        api_list = client.get(
-            "/api/v1/chat/sessions", params={"workspace_id": workspace["id"]}
-        )
+        client.post(LISTING, json={"workspace_id": workspace["id"], "title": "Sessão CLI"})
+        api_list = client.get(LISTING, params={"workspace_id": workspace["id"]})
         assert api_list.status_code == 200
 
     cli_list = CliRunner().invoke(
         cli_app,
-        [
-            "chat",
-            "list",
-            "--workspace-id",
-            workspace["id"],
-            "--data-dir",
-            str(data_dir),
-        ],
+        ["chat", "list", "--workspace-id", workspace["id"], "--data-dir", str(data_dir)],
     )
     assert cli_list.exit_code == 0, cli_list.output
     assert json.loads(cli_list.stdout) == api_list.json()

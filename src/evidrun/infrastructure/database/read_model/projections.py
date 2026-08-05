@@ -16,7 +16,6 @@ from evidrun.contracts import (
     semantic_model_dump,
 )
 from evidrun.infrastructure.database.models import (
-    ChatSessionRow,
     ComparisonRow,
     ContextSnapshotRow,
     ExecutionTrustRecordRow,
@@ -31,7 +30,6 @@ from evidrun.infrastructure.database.models import (
 from evidrun.infrastructure.database.timestamps import aware_utc
 
 __all__ = [
-    "chat_document",
     "comparison_document",
     "event_document",
     "experiment_document",
@@ -180,16 +178,6 @@ def comparison_document(row: ComparisonRow) -> dict[str, Any]:
         "created_at": row.created_at.isoformat(),
     }
 
-
-def chat_document(row: ChatSessionRow) -> dict[str, Any]:
-    return {
-        "id": row.id,
-        "workspace_id": row.workspace_id,
-        "scope_type": row.scope_type,
-        "scope_id": row.scope_id,
-        "title": row.title,
-        "created_at": row.created_at.isoformat(),
-    }
 
 
 def event_document(row: RunEventRow) -> dict[str, Any]:

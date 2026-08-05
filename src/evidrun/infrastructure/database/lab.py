@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
-from datetime import datetime
 from typing import Any, cast
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from evidrun.infrastructure.database import clock
@@ -16,6 +15,12 @@ from evidrun.infrastructure.database.lab_errors import (
     invalid_scope,
     invalid_trace,
     not_visible,
+)
+from evidrun.infrastructure.database.lab_records import (
+    LabMessage,
+    LabSession,
+    LabToolTrace,
+    ProjectNavigationItem,
 )
 from evidrun.infrastructure.database.models import (
     ChatMessageRow,
@@ -29,6 +34,7 @@ from evidrun.infrastructure.database.models import (
     RunSpecRow,
     WorkspaceRow,
 )
+from evidrun.infrastructure.database.scope_errors import ScopeStorageUnavailable
 from evidrun.infrastructure.database.timestamps import aware_utc
 from evidrun.infrastructure.database.unit_of_work import UnitOfWork
 from evidrun.shared.types import canonical_json, new_id, sha256_json
@@ -45,56 +51,6 @@ _FOCUS_KINDS = frozenset({"study", "run", "comparison"})
 _MESSAGE_ROLES = frozenset({"human", "agent", "system_note"})
 _TRACE_OUTCOMES = frozenset({"completed", "refused", "failed"})
 
-
-@dataclass(frozen=True, slots=True)
-class LabSession:
-    id: str
-    workspace_id: str
-    project_id: str | None
-    focus_kind: str | None
-    focus_id: str | None
-    title: str
-    created_at: datetime
-
-    def scope_document(self) -> dict[str, str | None]:
-        return {
-            "workspace_id": self.workspace_id,
-            "project_id": self.project_id,
-            "focus_kind": self.focus_kind,
-            "focus_id": self.focus_id,
-        }
-
-
-@dataclass(frozen=True, slots=True)
-class LabMessage:
-    id: str
-    session_id: str
-    role: str
-    content: str
-    sequence: int
-    created_at: datetime
-
-
-@dataclass(frozen=True, slots=True)
-class LabToolTrace:
-    id: str
-    session_id: str
-    turn_sequence: int
-    tool_name: str
-    arguments_digest: str
-    requested_refs: tuple[Any, ...]
-    returned_refs: tuple[Any, ...]
-    outcome: str
-    refusal_code: str | None
-    scope_snapshot: dict[str, str | None]
-    created_at: datetime
-
-
-@dataclass(frozen=True, slots=True)
-class ProjectNavigationItem:
-    id: str
-    name: str
-    created_at: datetime
 
 
 class LabAgentStore:
@@ -143,19 +99,38 @@ class LabAgentStore:
             return self._session_from_row(session, row, workspace_id=workspace_id)
 
     def list_sessions(self, *, workspace_id: str) -> tuple[LabSession, ...]:
+        """Lista dentro da fronteira declarada, sem resolvê-la como alvo.
+
+        Workspace inexistente devolve vazio, igual a Workspace existente sem sessões. O ADR
+        0025 recusa `404` aqui de propósito: a operação é listar conteúdo dentro de uma
+        fronteira que o caller já declarou, e recusar por ausência transformaria a rota num
+        oráculo de existência de Workspace.
+
+        A ordem é `created_at` descendente com `id` ascendente para desempate, porque a
+        listagem é navegação humana — a sessão mais recente vem primeiro — e o desempate por
+        `id` mantém o resultado reproduzível quando dois registros compartilham timestamp.
+        """
+
         if not workspace_id:
             raise invalid_scope("workspace_id é obrigatório.", field="workspace_id")
-        with self.unit_of_work.session() as session:
-            if session.get(WorkspaceRow, workspace_id) is None:
-                raise not_visible()
-            rows = session.scalars(
-                select(ChatSessionRow)
-                .where(ChatSessionRow.workspace_id == workspace_id)
-                .order_by(ChatSessionRow.created_at, ChatSessionRow.id)
-            )
-            return tuple(
-                self._session_from_row(session, row, workspace_id=workspace_id) for row in rows
-            )
+        try:
+            with self.unit_of_work.session() as session:
+                rows = list(
+                    session.scalars(
+                        select(ChatSessionRow)
+                        .where(ChatSessionRow.workspace_id == workspace_id)
+                        .order_by(ChatSessionRow.created_at.desc(), ChatSessionRow.id)
+                    )
+                )
+                return tuple(
+                    self._session_from_row(session, row, workspace_id=workspace_id)
+                    for row in rows
+                )
+        except SQLAlchemyError as exc:
+            # A falha de driver não pode virar recusa de escopo: `lab.target_not_visible`
+            # afirmaria que o Workspace não existe, e o caller trataria indisponibilidade
+            # temporária como fronteira errada. O detalhe do driver fica fora da mensagem.
+            raise ScopeStorageUnavailable() from exc
 
     def list_navigation_projects(
         self, *, session_id: str, workspace_id: str

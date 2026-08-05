@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from typing import Any
 
@@ -17,7 +18,12 @@ from evidrun.contracts.lab_agent.errors import (
 )
 from evidrun.contracts.lab_agent.scope import LabAgentSessionScope
 from evidrun.lab.loop import LabAgentLoop
-from evidrun.lab.protocol import LabToolContext, LabToolResult, ToolAvailability
+from evidrun.lab.protocol import (
+    LabToolContext,
+    LabToolRejected,
+    LabToolResult,
+    ToolAvailability,
+)
 from evidrun.lab.tools import build_catalog
 from evidrun.lab.turn import LabTurnTerminalName, TurnBudget, refusal_error
 
@@ -65,6 +71,23 @@ class StubTool:
             requested_refs=(str(arguments["run_id"]),),
             returned_refs=(str(arguments["run_id"]),),
         )
+
+
+class RejectingTool(StubTool):
+    def __init__(self, error: LabAgentError) -> None:
+        super().__init__()
+        self.error = error
+
+    def execute(self, arguments: Mapping[str, Any], context: LabToolContext) -> LabToolResult:
+        del context
+        self.executions.append(arguments)
+        raise LabToolRejected(self.error)
+
+
+class FailingTool(StubTool):
+    def execute(self, arguments: Mapping[str, Any], context: LabToolContext) -> LabToolResult:
+        del arguments, context
+        raise RuntimeError("falha genuína da tool")
 
 
 class RecordingPolicy:
@@ -134,6 +157,66 @@ def refusal(code: LabAgentErrorCode) -> LabAgentError:
         remediation="Corrija a chamada.",
         tool_name="read_run",
     )
+
+
+@pytest.mark.anyio
+async def test_tool_rejection_returns_to_model_and_turn_can_answer() -> None:
+    error = refusal(LabAgentErrorCode.SCHEMA_ARGUMENT_TYPE_INVALID)
+    tool = RejectingTool(error)
+    provider = FakeProvider([call("r1", "read_run", '{"run_id":"run_1"}'), answer()])
+    trace = FakeTraceSink()
+
+    result = await LabAgentLoop(provider, build_catalog([tool])).execute(
+        envelope("read_run", max_refusals=3), trace_sink=trace
+    )
+
+    assert result.name is LabTurnTerminalName.ANSWERED
+    assert trace.rows == [
+        {
+            "session_id": "chat_1",
+            "workspace_id": "ws_1",
+            "turn_sequence": 1,
+            "tool_name": "read_run",
+            "arguments": {"run_id": "run_1"},
+            "outcome": "refused",
+            "refusal_code": "schema.argument_type_invalid",
+        }
+    ]
+    output = provider.requests[1]["input"][-1]
+    assert output["type"] == "function_call_output"
+    payload = json.loads(output["output"])["error"]
+    assert payload["code"] == "schema.argument_type_invalid"
+    assert payload["remediation"] == "Corrija a chamada."
+
+
+@pytest.mark.anyio
+async def test_genuine_tool_failure_remains_provider_failed() -> None:
+    provider = FakeProvider([call("r1", "read_run", '{"run_id":"run_1"}')])
+    result = await LabAgentLoop(provider, build_catalog([FailingTool()])).execute(
+        envelope("read_run"), trace_sink=FakeTraceSink()
+    )
+
+    assert result.name is LabTurnTerminalName.PROVIDER_FAILED
+    assert result.complete is False
+
+
+@pytest.mark.anyio
+async def test_exact_repeated_tool_rejection_uses_refusal_deduplication() -> None:
+    tool = RejectingTool(refusal(LabAgentErrorCode.SCHEMA_ARGUMENT_TYPE_INVALID))
+    provider = FakeProvider(
+        [
+            call("r1", "read_run", '{"run_id":"same"}'),
+            call("r2", "read_run", '{"run_id":"same"}', "call_2"),
+        ]
+    )
+
+    result = await LabAgentLoop(provider, build_catalog([tool])).execute(
+        envelope("read_run", max_refusals=3), trace_sink=FakeTraceSink()
+    )
+
+    assert result.name is LabTurnTerminalName.REPEATED_REFUSAL
+    assert result.complete is False
+    assert len(provider.requests) == 2
 
 
 @pytest.mark.anyio

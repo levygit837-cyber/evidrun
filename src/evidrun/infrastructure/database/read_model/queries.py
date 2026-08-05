@@ -31,7 +31,6 @@ from evidrun.contracts import (
 )
 from evidrun.infrastructure.database.models import (
     AdmissionRecordRow,
-    ChatSessionRow,
     CheckpointRecordRow,
     ComparisonRow,
     ContractDecisionRow,
@@ -92,20 +91,6 @@ class ReadModel:
         except SQLAlchemyError as exc:
             raise ScopeStorageUnavailable() from exc
         return [projections.project_document(row) for row in rows]
-
-    def list_chat_sessions(self, workspace_id: str) -> list[dict[str, Any]]:
-        try:
-            with self.unit_of_work.session() as session:
-                rows = list(
-                    session.scalars(
-                        select(ChatSessionRow)
-                        .where(ChatSessionRow.workspace_id == workspace_id)
-                        .order_by(ChatSessionRow.created_at.desc(), ChatSessionRow.id)
-                    )
-                )
-        except SQLAlchemyError as exc:
-            raise ScopeStorageUnavailable() from exc
-        return [projections.chat_document(row) for row in rows]
 
 
     def get_run_events(self, run_id: str) -> list[dict[str, Any]]:

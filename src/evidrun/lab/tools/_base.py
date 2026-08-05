@@ -6,8 +6,7 @@ from collections.abc import Mapping
 from typing import Any, cast
 
 from evidrun.contracts.lab_agent.errors import LabAgentError, LabAgentErrorCode, LabAgentStage
-from evidrun.lab.protocol import declared_argument_keys
-from evidrun.lab.tools.read_port import LabToolRejected
+from evidrun.lab.protocol import LabToolRejected, declared_argument_keys
 
 FORBIDDEN_SCOPE_KEYS = frozenset(
     {"workspace_id", "project_id", "scope", "session_id", "actor", "authority"}

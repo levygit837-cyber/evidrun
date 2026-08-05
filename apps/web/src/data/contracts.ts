@@ -22,12 +22,52 @@ export type LabUiEvent =
       resultSummary?: string;
     }
   | { type: "message"; source: DataMode; content: string }
-  | { type: "error"; source: DataMode; message: string }
+  | {
+      type: "error";
+      source: DataMode;
+      message: string;
+      code?: string;
+      remediation?: string;
+    }
   | { type: "done"; source: DataMode };
 
 export interface LaboratoryAdapter {
   readonly mode: DataMode;
   send(input: string, signal: AbortSignal): AsyncIterable<LabUiEvent>;
+}
+
+export interface LabSession {
+  id: string;
+  workspace_id: string;
+  project_id: string | null;
+  focus_kind: string | null;
+  focus_id: string | null;
+  form: "general" | "project" | "focused";
+  title: string;
+  created_at: string;
+}
+
+export interface CreateLabSessionInput {
+  workspace_id: string;
+  title: string;
+  project_id?: string;
+  focus_kind?: string;
+  focus_id?: string;
+}
+
+export interface LabMessage {
+  id: string;
+  session_id: string;
+  role: "human" | "agent" | "system_note";
+  content: string;
+  sequence: number;
+  created_at: string;
+}
+
+export interface LabAgentErrorDocument {
+  code: string;
+  message: string;
+  remediation: string;
 }
 
 export interface CreationAdapter {

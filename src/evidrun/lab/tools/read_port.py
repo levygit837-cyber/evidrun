@@ -1,9 +1,9 @@
-"""A porta de leitura das tools: a recusa nomeada e o Protocol que as tools consomem.
+"""A porta de leitura que separa o contrato das tools do adapter de banco.
 
-Separado do adapter de propósito. As nove tools de leitura e a validação de schema em
-`_base.py` dependem apenas deste módulo, que não importa SQLAlchemy. Mantê-lo junto do
-adapter arrastava o ORM para o caminho de validação de argumentos, onde nenhuma sessão de
-banco é aberta — e fazia o módulo do adapter mudar por três razões diferentes.
+As nove tools de leitura e a validação de schema em `_base.py` dependem deste módulo, que
+não importa SQLAlchemy. Mantê-lo junto do adapter arrastava o ORM para o caminho de
+validação de argumentos, onde nenhuma sessão de banco é aberta — e fazia o módulo do
+adapter mudar por três razões diferentes.
 """
 
 from __future__ import annotations
@@ -19,6 +19,7 @@ from evidrun.contracts.lab_agent.errors import (
     target_not_visible,
 )
 from evidrun.contracts.lab_agent.scope import LabAgentSessionScope
+from evidrun.lab.protocol import LabToolRejected
 from evidrun.lab.tools.registry import CapabilityCatalog
 
 #: Projeção pública do catálogo v1: o que a tool devolve ao modelo, nunca a linha do banco.
@@ -31,22 +32,12 @@ CLASSIFIED = frozenset({"sensitive", "restricted"})
 __all__ = [
     "CLASSIFIED",
     "LabReadRepository",
-    "LabToolRejected",
     "Readable",
     "is_classified",
     "reject_classification",
     "reject_project_required",
     "reject_target",
 ]
-
-
-class LabToolRejected(Exception):
-    """Recusa nomeada que o laço pode devolver ao modelo sem inferir por texto."""
-
-    def __init__(self, error: LabAgentError) -> None:
-        self.error = error
-        super().__init__(error.code.value)
-
 
 def is_classified(classification: object) -> bool:
     """Se o runtime ativo recusa este conteúdo.

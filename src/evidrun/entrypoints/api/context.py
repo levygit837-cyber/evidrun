@@ -13,6 +13,7 @@ from pathlib import Path
 from evidrun.evidence.bundle import EvidenceBundleService
 from evidrun.infrastructure.database import Repository
 from evidrun.infrastructure.providers import ProviderCredentialStore
+from evidrun.lab.session import LabAgentSessionService
 from evidrun.runs import EvidrunService
 from evidrun.settings import Settings
 
@@ -26,4 +27,5 @@ class ApiContext:
     service: EvidrunService
     bundles: EvidenceBundleService
     provider_credentials: ProviderCredentialStore
+    lab_agent: LabAgentSessionService
     benchmarks: Path

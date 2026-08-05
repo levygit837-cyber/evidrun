@@ -12,7 +12,7 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from evidrun.contracts import (
@@ -27,8 +27,6 @@ from evidrun.contracts.scope import normalize_scope_name
 from evidrun.infrastructure.database import clock
 from evidrun.infrastructure.database.models import (
     AdmissionRecordRow,
-    ChatMessageRow,
-    ChatSessionRow,
     ComparisonRow,
     ExecutionTrustRecordRow,
     ExperimentRevisionRow,
@@ -417,42 +415,3 @@ class CatalogStore:
             session.commit()
         return row
 
-    def create_chat_session(
-        self,
-        *,
-        workspace_id: str,
-        title: str,
-        scope_type: str | None = None,
-        scope_id: str | None = None,
-    ) -> ChatSessionRow:
-        row = ChatSessionRow(
-            id=new_id("chat"),
-            workspace_id=workspace_id,
-            title=title,
-            scope_type=scope_type,
-            scope_id=scope_id,
-            created_at=clock.utc_now(),
-        )
-        with self.unit_of_work.session() as session:
-            session.add(row)
-            session.commit()
-        return row
-
-    def add_chat_message(self, session_id: str, role: str, content: str) -> ChatMessageRow:
-        with self.unit_of_work.immediate() as session:
-            sequence = session.scalar(
-                select(func.max(ChatMessageRow.sequence)).where(
-                    ChatMessageRow.session_id == session_id
-                )
-            )
-            row = ChatMessageRow(
-                id=new_id("msg"),
-                session_id=session_id,
-                role=role,
-                content=content,
-                sequence=(sequence or 0) + 1,
-                created_at=clock.utc_now(),
-            )
-            session.add(row)
-            session.commit()
-            return row

@@ -16,16 +16,31 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Protocol, cast, runtime_checkable
 
+from evidrun.contracts.lab_agent.errors import LabAgentError
 from evidrun.contracts.lab_agent.scope import LabAgentSessionForm, LabAgentSessionScope
 
 __all__ = [
     "LabTool",
     "LabToolContext",
+    "LabToolRejected",
     "LabToolResult",
     "ToolAvailability",
     "declared_argument_keys",
     "required_argument_keys",
 ]
+
+
+class LabToolRejected(Exception):
+    """Recusa nomeada que o laço devolve ao modelo sem inferir por texto.
+
+    Vive aqui, e não no módulo de uma família de tools, porque é a costura: o laço precisa
+    distinguir recusa de falha, e uma exceção declarada duas vezes em dois módulos-folha é
+    exatamente por que o laço não conseguia capturá-la.
+    """
+
+    def __init__(self, error: LabAgentError) -> None:
+        super().__init__(error.message)
+        self.error = error
 
 
 @dataclass(frozen=True, slots=True)
