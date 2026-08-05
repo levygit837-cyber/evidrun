@@ -1,0 +1,167 @@
+schema_version = "1"
+change_id = "GH-135"
+issue = 135
+title = "Endpoints de sessao, mensagem e streaming do Lab Agent"
+classification = "feature"
+base_ref = "origin/main"
+branch_pattern = "levygit837-cyber/issue-135-lab-agent-endpoints"
+expected_outcome = "A superficie publica do Lab Agent existe e e testada: sessao com scope tipado, mensagem, turno por streaming SSE, cancelamento em fronteira segura e traducao de recusa por codigo nas duas bordas. O frontend deixa de receber integration_pending."
+confirmed_facts = [
+  "As rotas /chat/* aceitavam scope_type e scope_id como texto livre e nenhum teste as cobria.",
+  "LabAgentStore ja impunha pertencimento no write e ao hidratar; o cutover apenas passou a usa-lo na borda.",
+  "O laco emitia LabUiEvent no shape que apps/web/src/data/contracts.ts declara, sem carregar codigo de recusa no evento de erro.",
+  "serving.py capturava Exception generica da tool, entao toda recusa nomeada chegava ao humano como provider_failed.",
+  "O ADR 0025 exige workspace_id explicito, lista vazia para Workspace inexistente, ordem created_at descendente com id ascendente e paridade entre CLI e API.",
+]
+stop_conditions = [
+  "O streaming precisar emitir Event de Run ou alcancar append_event.",
+  "Uma borda precisar deduzir causa de recusa pelo texto da mensagem.",
+  "A recusa de alvo passar a distinguir ausente, Project irmao e outro Workspace.",
+  "A composicao do turno precisar de texto autoral de instrucao de sistema, que pertence a issue 134.",
+]
+
+[impact]
+capability = "additive"
+persisted_contract = "none"
+normative = "none"
+notes = [
+  "Adiciona a superficie HTTP do runtime que as issues 131, 132 e 133 entregaram; nenhuma capability do Execution Plane nasce aqui.",
+  "As colunas legadas scope_type e scope_id permanecem na tabela e deixam de ser expostas; LabAgentStore.create_session ja gravava None nas duas, portanto nao existe migration.",
+  "O ADR 0025 nao muda: seus invariantes migraram de /chat/sessions para /lab/sessions com as mesmas provas.",
+]
+
+[scope]
+expected = [
+  "changes/135.toml",
+  "apps/web/src/api/client.ts",
+  "apps/web/src/data/adapters.ts",
+  "apps/web/src/data/contracts.test.ts",
+  "apps/web/src/data/contracts.ts",
+  "schemas/generated/openapi-v1.json",
+  "src/evidrun/entrypoints/api/app.py",
+  "src/evidrun/entrypoints/api/context.py",
+  "src/evidrun/entrypoints/api/lab_errors.py",
+  "src/evidrun/entrypoints/api/routers/__init__.py",
+  "src/evidrun/entrypoints/api/routers/evidence.py",
+  "src/evidrun/entrypoints/api/routers/lab.py",
+  "src/evidrun/entrypoints/api/routers/lab_turns.py",
+  "src/evidrun/entrypoints/api/schemas.py",
+  "src/evidrun/entrypoints/cli/commands/runs.py",
+  "src/evidrun/infrastructure/database/catalog.py",
+  "src/evidrun/infrastructure/database/lab.py",
+  "src/evidrun/infrastructure/database/lab_records.py",
+  "src/evidrun/infrastructure/database/read_model/projections.py",
+  "src/evidrun/infrastructure/database/read_model/queries.py",
+  "src/evidrun/lab/loop.py",
+  "src/evidrun/lab/protocol.py",
+  "src/evidrun/lab/serving.py",
+  "src/evidrun/lab/session.py",
+  "src/evidrun/lab/tools/_base.py",
+  "src/evidrun/lab/tools/read_port.py",
+  "src/evidrun/lab/tools/request_human_approval.py",
+  "src/evidrun/lab/tools/validate_draft.py",
+  "tests/integration/test_chat_workspace_scope.py",
+  "tests/integration/test_lab_agent_store.py",
+  "tests/integration/test_lab_api_sessions.py",
+  "tests/integration/test_lab_api_turns.py",
+  "tests/integration/test_lab_draft_tools.py",
+  "tests/integration/test_lab_read_tools_repository.py",
+  "tests/unit/test_lab_agent_loop.py",
+  "tests/unit/test_lab_read_tools.py",
+  "docs/_generated/manifest.json",
+  "docs/_generated/claims.json",
+]
+forbidden = [
+  "AGENTS.md",
+  "CONTEXT.md",
+  "alembic/**",
+  "docs/adr/**",
+  "docs/contracts/**",
+  "src/evidrun/contracts/**",
+]
+preexisting = []
+
+[[scope.generated]]
+patterns = ["docs/_generated/manifest.json", "docs/_generated/claims.json"]
+source_patterns = ["docs/**", "changes/**"]
+
+[preserve]
+interfaces = [
+  "LaboratoryAdapter.send mantem assinatura de dois argumentos; o adapter live resolve a sessao internamente para nao arrastar a UI, que pertence a issue 136.",
+  "LabAgentLoop.execute preserva assinatura; apenas o evento de erro passa a carregar code e remediation.",
+  "build_catalog, build_read_tools, build_proposal_tools e offered_tools permanecem inalterados.",
+  "LabAgentStore preserva a superficie publica; list_sessions passa a ordenar pelo ADR 0025 e a traduzir falha de driver.",
+]
+errors = [
+  "A borda HTTP traduz por codigo lendo apenas as tabelas de contracts/lab_agent/errors.py; a traducao vive em um modulo unico compartilhado pelos dois routers.",
+  "Codigo de store sem traducao declarada falha alto em vez de virar 500 silencioso.",
+  "Indisponibilidade de storage traduz por ScopeErrorCode com 503, nunca por codigo do Lab Agent.",
+  "Recusa nomeada de tool volta ao modelo pelo caminho estruturado; apenas falha genuina produz provider_failed.",
+]
+invariants = [
+  "Eventos de interface sao de apresentacao; nenhum caminho emite Event de Run.",
+  "Turno parcial nunca e apresentado como completo.",
+  "Alvo ausente e alvo de outro Workspace produzem codigo, categoria, status e forma de payload identicos.",
+  "Listar sessoes exige workspace_id; Workspace inexistente devolve lista vazia.",
+  "CLI e API projetam o mesmo documento de sessao, a partir de LabSession.document.",
+  "O streaming emite a tool comecando e terminando, nao apenas a resposta final.",
+  "Cancelamento interrompe em fronteira segura e preserva draft ja registrado.",
+  "A instrucao de sistema permanece vazia; sua composicao e a issue 134.",
+]
+
+[verification]
+focused = [
+  "uv run pytest tests/integration/test_lab_api_sessions.py tests/integration/test_lab_api_turns.py",
+  "uv run pytest tests/integration/test_chat_workspace_scope.py tests/integration/test_lab_agent_store.py",
+  "uv run pytest tests/unit/test_lab_agent_loop.py tests/unit/test_lab_read_tools.py",
+]
+full_gates = [
+  "uv run pytest",
+  "uv run ruff check .",
+  "uv run python scripts/check_code_budget.py",
+  "uv run python scripts/check_import_directions.py",
+  "uv run pyright",
+  "pnpm typecheck:web",
+  "pnpm typecheck:desktop",
+  "pnpm test",
+  "pnpm build",
+  "uv run python scripts/validate_docs.py",
+]
+
+[[questions]]
+text = "A recusa nomeada de tool devia continuar chegando ao humano como provider_failed?"
+affects_semantics = true
+status = "resolved"
+resolution = "Nao. O criterio de aceitacao exige recusa traduzida por codigo nas duas bordas, e serving.py capturava Exception generica, apresentando argumento invalido como falha de infraestrutura. LabToolRejected passou a viver em lab/protocol.py, que e a costura entre laco e tools, e o laco a roteia por refuse_and_maybe_terminate."
+
+[[questions]]
+text = "A combinacao invalida de scope devia recusar com scope.focus_mismatch?"
+affects_semantics = true
+status = "resolved"
+resolution = "Nao. focus_mismatch e categoria not_found para preservar a indistinguibilidade de alvo e devolveria 404 para um corpo malformado. Combinacao invalida e defeito estrutural do documento, que o cliente corrige, portanto schema.argument_set_invalid com 422."
+
+[[questions]]
+text = "O turno devia expor um endpoint proprio de cancelamento?"
+affects_semantics = true
+status = "resolved"
+resolution = "Nao. O aborto do fetch fecha a conexao e ja identifica exatamente o turno em voo. Um endpoint separado criaria uma segunda identidade de cancelamento sem tornar a tool interrompivel."
+
+[merge_gate]
+review = "orthogonal"
+ci_commit = "PENDING"
+
+[merge_gate.spec]
+conclusion = "pending"
+evidence = []
+
+[merge_gate.standards]
+conclusion = "pending"
+evidence = []
+
+[merge_gate.verification]
+conclusion = "pending"
+evidence = []
+
+[merge_gate.ci]
+conclusion = "pending"
+evidence = []

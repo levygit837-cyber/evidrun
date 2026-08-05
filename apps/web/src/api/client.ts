@@ -9,7 +9,15 @@ import type {
   RunDetail,
   RunEvent,
 } from "../types";
-import type { RunEventStream, RunStreamState } from "../data/contracts";
+import type {
+  CreateLabSessionInput,
+  LabAgentErrorDocument,
+  LabMessage,
+  LabSession,
+  LabUiEvent,
+  RunEventStream,
+  RunStreamState,
+} from "../data/contracts";
 import type { TriageError } from "../generated/contracts";
 
 let cachedConnection: BackendConnection | null = null;
@@ -122,11 +130,112 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   return response.json() as Promise<T>;
 }
 
+function labErrorOf(detail: string): LabAgentErrorDocument | null {
+  try {
+    const body: unknown = JSON.parse(detail);
+    if (!body || typeof body !== "object") return null;
+    const candidate = "detail" in body ? body.detail : body;
+    if (
+      !candidate ||
+      typeof candidate !== "object" ||
+      !("code" in candidate) ||
+      !("message" in candidate) ||
+      !("remediation" in candidate) ||
+      typeof candidate.code !== "string" ||
+      typeof candidate.message !== "string" ||
+      typeof candidate.remediation !== "string"
+    ) {
+      return null;
+    }
+    return {
+      code: candidate.code,
+      message: candidate.message,
+      remediation: candidate.remediation,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export class LabStreamError extends ApiError {
+  constructor(
+    status: number,
+    detail: string,
+    public readonly labError: LabAgentErrorDocument | null,
+  ) {
+    super(status, detail);
+  }
+}
+
+function parseLabEventBlock(block: string): LabUiEvent | null {
+  const data = block
+    .split("\n")
+    .filter((line) => line.startsWith("data:"))
+    .map((line) => line.slice(5).trimStart())
+    .join("\n");
+  if (!data) return null;
+  return JSON.parse(data) as LabUiEvent;
+}
+
+export async function* streamLabTurn(
+  sessionId: string,
+  workspaceId: string,
+  content: string,
+  signal: AbortSignal,
+): AsyncIterable<LabUiEvent> {
+  const backend = await connection();
+  const init: RequestInit = {
+    method: "POST",
+    body: JSON.stringify({ workspace_id: workspaceId, content }),
+    signal,
+  };
+  const headers = await authenticatedHeaders(init);
+  const response = await fetch(
+    `${backend.baseUrl}/api/v1/lab/sessions/${encodeURIComponent(sessionId)}/turns`,
+    { ...init, headers },
+  );
+  if (!response.ok || !response.body) {
+    const detail = await response.text();
+    throw new LabStreamError(response.status, detail, labErrorOf(detail));
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  while (!signal.aborted) {
+    const { done, value } = await reader.read();
+    buffer += decoder.decode(value, { stream: !done }).replaceAll("\r\n", "\n");
+    let boundary = buffer.indexOf("\n\n");
+    while (boundary >= 0) {
+      const block = buffer.slice(0, boundary);
+      buffer = buffer.slice(boundary + 2);
+      const event = parseLabEventBlock(block);
+      if (event) yield event;
+      boundary = buffer.indexOf("\n\n");
+    }
+    if (done) return;
+  }
+}
+
 export const api = {
   dashboard: () => apiFetch<DashboardData>("/api/v1/dashboard"),
   defaultProvider: () => apiFetch<ProviderProfile>("/api/v1/providers/default"),
   bootstrapDemo: () =>
     apiFetch<BootstrapDemoResult>("/api/v1/demo/bootstrap", { method: "POST" }),
+  createLabSession: (input: CreateLabSessionInput) =>
+    apiFetch<LabSession>("/api/v1/lab/sessions", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  labSessions: (workspaceId: string) =>
+    apiFetch<LabSession[]>(
+      `/api/v1/lab/sessions?workspace_id=${encodeURIComponent(workspaceId)}`,
+    ),
+  labMessages: (sessionId: string, workspaceId: string) =>
+    apiFetch<LabMessage[]>(
+      `/api/v1/lab/sessions/${encodeURIComponent(sessionId)}/messages?workspace_id=${encodeURIComponent(workspaceId)}`,
+    ),
+  streamLabTurn,
   runs: () => apiFetch<Run[]>("/api/v1/runs"),
   /**
    * Resolve inventory and capabilities for a RunSpec.

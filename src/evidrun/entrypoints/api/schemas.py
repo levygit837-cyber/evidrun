@@ -11,17 +11,18 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class ChatSessionCreate(BaseModel):
+class LabSessionCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     workspace_id: str
     title: str = Field(min_length=1, max_length=120)
-    scope_type: str | None = None
-    scope_id: str | None = None
+    project_id: str | None = None
+    focus_kind: str | None = None
+    focus_id: str | None = None
 
 
-class ChatMessageCreate(BaseModel):
+class LabMessageCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    role: str
+    workspace_id: str
     content: str = Field(min_length=1, max_length=100_000)
 
 

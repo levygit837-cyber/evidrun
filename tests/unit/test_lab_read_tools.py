@@ -9,9 +9,9 @@ import pytest
 from evidrun.contracts.admission.envelope import RuntimeCapabilityEnvelope
 from evidrun.contracts.lab_agent.errors import LabAgentErrorCode
 from evidrun.contracts.lab_agent.scope import LabAgentSessionForm, LabAgentSessionScope
-from evidrun.lab.protocol import LabToolContext
+from evidrun.lab.protocol import LabToolContext, LabToolRejected
 from evidrun.lab.tools import build_catalog, build_read_tools, offered_tools
-from evidrun.lab.tools.read_port import LabReadRepository, LabToolRejected
+from evidrun.lab.tools.read_port import LabReadRepository
 from evidrun.lab.tools.registry import AdmissionCapabilityCatalog, CapabilityCatalog
 
 

@@ -27,10 +27,11 @@ from evidrun.entrypoints.api.context import ApiContext
 from evidrun.entrypoints.api.routers import (
     create_admission_router,
     create_catalog_router,
-    create_chat_router,
     create_comparison_router,
     create_contract_router,
     create_evidence_router,
+    create_lab_router,
+    create_lab_turn_router,
     create_platform_router,
     create_review_router,
     create_run_read_router,
@@ -39,7 +40,9 @@ from evidrun.entrypoints.api.routers import (
 from evidrun.evidence.bundle import EvidenceBundleService
 from evidrun.infrastructure.artifacts.store import ArtifactStore
 from evidrun.infrastructure.database import Database, Repository
-from evidrun.infrastructure.providers import ProviderCredentialStore
+from evidrun.infrastructure.providers import OpenAIResponsesProvider, ProviderCredentialStore
+from evidrun.lab.session import LabAgentSessionService
+from evidrun.lab.tools.registry import AdmissionCapabilityCatalog
 from evidrun.runs import EvidrunService
 from evidrun.settings import Settings
 from evidrun.shared.resources import benchmarks_root
@@ -60,7 +63,8 @@ ROUTER_FACTORIES = (
     create_run_router,
     create_run_read_router,
     create_comparison_router,
-    create_chat_router,
+    create_lab_router,
+    create_lab_turn_router,
     create_evidence_router,
 )
 
@@ -98,12 +102,22 @@ def create_app(
         human_attestation_verifier=None if authority is None else authority.verifier,
     )
     service = EvidrunService(repository)
+    provider_credentials = ProviderCredentialStore()
+    lab_agent = LabAgentSessionService(
+        repository,
+        OpenAIResponsesProvider(settings.default_provider, provider_credentials),
+        profile=settings.default_provider,
+        capability_source=AdmissionCapabilityCatalog(
+            service.runtime.catalog.capability_envelope()
+        ),
+    )
     context = ApiContext(
         settings=settings,
         repository=repository,
         service=service,
         bundles=EvidenceBundleService(repository),
-        provider_credentials=ProviderCredentialStore(),
+        provider_credentials=provider_credentials,
+        lab_agent=lab_agent,
         benchmarks=benchmark_root or benchmarks_root(),
     )
 
@@ -142,6 +156,7 @@ def _build_app(
     app.state.settings = context.settings
     app.state.repository = context.repository
     app.state.service = context.service
+    app.state.lab_agent = context.lab_agent
     app.state.runtime_kernel = context.service.runtime
     app.state.launch_token = launch_token
     app.add_middleware(

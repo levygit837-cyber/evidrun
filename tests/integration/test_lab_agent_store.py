@@ -52,9 +52,11 @@ def test_session_scope_is_typed_immutable_and_workspace_filtered(repository) -> 
     )
     repository.lab.create_session(workspace_id=other_workspace.id, title="Outro")
 
+    # Mais recente primeiro, com `id` desempatando: a ordem normativa do ADR 0025. A
+    # listagem é navegação humana, então a sessão recém-aberta encabeça o resultado.
     assert [item.id for item in repository.lab.list_sessions(workspace_id=workspace.id)] == [
-        general.id,
         project_chat.id,
+        general.id,
     ]
     navigation = repository.lab.list_navigation_projects(
         session_id=general.id, workspace_id=workspace.id
@@ -190,12 +192,16 @@ def test_messages_are_closed_ordered_gapless_and_append_only(repository) -> None
         repository.lab.list_messages(session_id=chat.id, workspace_id=workspace.id)
 
 
-def test_legacy_message_writer_assigns_gapless_sequence(repository) -> None:
+def test_message_writer_assigns_gapless_sequence(repository) -> None:
     workspace, *_ = _scopes(repository)
     chat = repository.lab.create_session(workspace_id=workspace.id, title="Geral")
 
-    first = repository.catalog.add_chat_message(chat.id, "human", "Oi")
-    second = repository.catalog.add_chat_message(chat.id, "agent", "Olá")
+    first = repository.lab.append_message(
+        session_id=chat.id, workspace_id=workspace.id, role="human", content="Oi"
+    )
+    second = repository.lab.append_message(
+        session_id=chat.id, workspace_id=workspace.id, role="agent", content="Olá"
+    )
 
     assert (first.sequence, second.sequence) == (1, 2)
 

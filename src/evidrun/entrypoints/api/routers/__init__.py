@@ -5,10 +5,11 @@ from evidrun.entrypoints.api.routers.contracts import (
     create_contract_router,
 )
 from evidrun.entrypoints.api.routers.evidence import (
-    create_chat_router,
     create_comparison_router,
     create_evidence_router,
 )
+from evidrun.entrypoints.api.routers.lab import create_lab_router
+from evidrun.entrypoints.api.routers.lab_turns import create_lab_turn_router
 from evidrun.entrypoints.api.routers.platform import (
     create_catalog_router,
     create_platform_router,
@@ -22,10 +23,11 @@ from evidrun.entrypoints.api.routers.runs import (
 __all__ = [
     "create_admission_router",
     "create_catalog_router",
-    "create_chat_router",
     "create_comparison_router",
     "create_contract_router",
     "create_evidence_router",
+    "create_lab_router",
+    "create_lab_turn_router",
     "create_platform_router",
     "create_review_router",
     "create_run_read_router",

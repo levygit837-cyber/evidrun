@@ -13,12 +13,12 @@ from evidrun.contracts.lab_agent.scope import LabAgentSessionScope
 from evidrun.contracts.triage import TriageErrorCode, TriageRejected
 from evidrun.infrastructure.database import Repository
 from evidrun.infrastructure.database.models import ContractDecisionRow, ContractRevisionRow
-from evidrun.lab.protocol import LabToolContext, declared_argument_keys
+from evidrun.lab.protocol import LabToolContext, LabToolRejected, declared_argument_keys
 from evidrun.lab.tools import build_proposal_tools
 from evidrun.lab.tools.draft_store import DatabaseDraftStore
 from evidrun.lab.tools.propose_draft import DraftRevisionStore, ProposeDraftTool
 from evidrun.lab.tools.request_human_approval import RequestHumanApprovalTool
-from evidrun.lab.tools.validate_draft import DraftToolRejected, ValidateDraftTool
+from evidrun.lab.tools.validate_draft import ValidateDraftTool
 from evidrun.shared.types import Classification, sha256_json
 from tests.support.human_attestation import accepted_decision
 from tests.support.runtime_study import build_runtime_study
@@ -83,7 +83,7 @@ def test_propose_requires_validation_and_accepts_empty_informed_by(
         "informed_by": [],
     }
 
-    with pytest.raises(DraftToolRejected) as missing:
+    with pytest.raises(LabToolRejected) as missing:
         tool.execute(arguments, context)
     assert missing.value.error.code == LabAgentErrorCode.DRAFT_NOT_VALIDATED
 
@@ -113,7 +113,7 @@ def test_scope_override_and_authority_fields_are_rejected_before_persistence(
 
     override = _document()
     override["project_id"] = sibling.id
-    with pytest.raises(DraftToolRejected) as scoped:
+    with pytest.raises(LabToolRejected) as scoped:
         tool.execute({"contract_type": "goal", "document": override}, context)
     assert scoped.value.error.code == LabAgentErrorCode.DRAFT_SCOPE_OVERRIDE_FORBIDDEN
 
@@ -128,13 +128,13 @@ def test_scope_override_and_authority_fields_are_rejected_before_persistence(
         ("attestation", {"principal_id": "human"}),
     ):
         decision = {**_document(), field: value}
-        with pytest.raises(DraftToolRejected) as authority:
+        with pytest.raises(LabToolRejected) as authority:
             tool.execute({"contract_type": "goal", "document": decision}, context)
         assert authority.value.error.code == LabAgentErrorCode.AUTHORITY_HUMAN_DECISION_REQUIRED
         assert "pedido de aprovação" in authority.value.error.remediation
 
     nested = {**_document(), "payload": {"decision": "accepted"}}
-    with pytest.raises(DraftToolRejected) as nested_authority:
+    with pytest.raises(LabToolRejected) as nested_authority:
         tool.execute({"contract_type": "goal", "document": nested}, context)
     assert nested_authority.value.error.code == LabAgentErrorCode.AUTHORITY_HUMAN_DECISION_REQUIRED
     assert nested_authority.value.error.field_path == (
@@ -161,7 +161,7 @@ def test_lab_decision_attempt_matches_human_authority_refusal(
     context = _context(workspace.id, project.id)
     tool = ValidateDraftTool(DatabaseDraftStore(repository.registry, repository.read_model))
 
-    with pytest.raises(DraftToolRejected) as lab_attempt:
+    with pytest.raises(LabToolRejected) as lab_attempt:
         tool.execute(
             {
                 "contract_type": "goal",
@@ -244,7 +244,7 @@ def test_approval_request_refuses_a_revision_not_in_draft_status(
     call = {"revision_ref": proposed.content["revision_ref"], "rationale": "Revisar."}
     request_approval.execute(call, context)
 
-    with pytest.raises(DraftToolRejected) as repeated:
+    with pytest.raises(LabToolRejected) as repeated:
         request_approval.execute(call, context)
 
     # Não `scope.target_not_visible`: o alvo é visível, é do Project da sessão e o modelo
@@ -267,7 +267,7 @@ def test_validation_receipt_is_exact_to_turn_scope_and_document(repository: Repo
     validate.execute({"contract_type": "goal", "document": document}, context)
 
     changed = {**document, "title": "Mudou depois da validação"}
-    with pytest.raises(DraftToolRejected) as mismatch:
+    with pytest.raises(LabToolRejected) as mismatch:
         propose.execute({"contract_type": "goal", "document": changed, "informed_by": []}, context)
     assert mismatch.value.error.code == LabAgentErrorCode.DRAFT_NOT_VALIDATED
 
@@ -276,7 +276,7 @@ def test_validation_receipt_is_exact_to_turn_scope_and_document(repository: Repo
         session_id=context.session_id,
         turn_sequence=context.turn_sequence + 1,
     )
-    with pytest.raises(DraftToolRejected) as stale:
+    with pytest.raises(LabToolRejected) as stale:
         propose.execute(
             {"contract_type": "goal", "document": document, "informed_by": []}, next_turn
         )
@@ -293,7 +293,7 @@ def test_validation_receipt_is_private_to_composed_store(repository: Repository)
         {"contract_type": "goal", "document": document}, context
     )
 
-    with pytest.raises(DraftToolRejected) as recomposed:
+    with pytest.raises(LabToolRejected) as recomposed:
         ProposeDraftTool(DatabaseDraftStore(repository.registry, repository.read_model)).execute(
             {"contract_type": "goal", "document": document, "informed_by": []},
             context,
@@ -311,7 +311,7 @@ def test_approval_request_cannot_cross_project(repository: Repository) -> None:
     revision = GoalRevision.model_validate({**_document(), "project_id": sibling.id})
     row = repository.registry.save_contract_revision(revision)
 
-    with pytest.raises(DraftToolRejected) as refused:
+    with pytest.raises(LabToolRejected) as refused:
         store = DatabaseDraftStore(repository.registry, repository.read_model)
         RequestHumanApprovalTool(store).execute(
             {"revision_ref": row.id, "rationale": "Não deveria atravessar Project."}, context
@@ -385,7 +385,7 @@ def test_parser_refusals_arrive_in_the_lab_agent_catalog(
     tool = ValidateDraftTool(DatabaseDraftStore(repository.registry, repository.read_model))
     declared = str(document.get("contract_type", "goal"))
 
-    with pytest.raises(DraftToolRejected) as refused:
+    with pytest.raises(LabToolRejected) as refused:
         tool.execute({"contract_type": declared, "document": document}, context)
 
     error = refused.value.error
@@ -420,7 +420,7 @@ def test_study_compiler_refusal_is_named_and_persists_nothing(
     document.pop("project_id", None)
     tool = ValidateDraftTool(DatabaseDraftStore(repository.registry, repository.read_model))
 
-    with pytest.raises(DraftToolRejected) as refused:
+    with pytest.raises(LabToolRejected) as refused:
         tool.execute({"contract_type": "study", "document": document}, context)
 
     error = refused.value.error

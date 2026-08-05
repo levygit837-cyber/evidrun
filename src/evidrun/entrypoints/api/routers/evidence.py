@@ -1,4 +1,4 @@
-"""Comparisons, chat sessions, and evidence bundle export."""
+"""Comparisons and evidence bundle export."""
 
 from __future__ import annotations
 
@@ -8,17 +8,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from evidrun.contracts.scope import HTTP_STATUS_BY_CODE
 from evidrun.entrypoints.api.context import ApiContext
-from evidrun.entrypoints.api.schemas import ChatMessageCreate, ChatSessionCreate
-from evidrun.infrastructure.database.scope_errors import ScopeStorageUnavailable
-
-
-def _scope_http_error(exc: ScopeStorageUnavailable) -> HTTPException:
-    return HTTPException(
-        status_code=HTTP_STATUS_BY_CODE[exc.error.code],
-        detail=exc.error.model_dump(mode="json"),
-    )
 
 
 def create_comparison_router(*, context: ApiContext, authorize: Callable[..., Any]) -> APIRouter:
@@ -43,52 +33,6 @@ def create_comparison_router(*, context: ApiContext, authorize: Callable[..., An
     return router
 
 
-def create_chat_router(*, context: ApiContext, authorize: Callable[..., Any]) -> APIRouter:
-    router = APIRouter(prefix="/api/v1")
-    repository = context.repository
-
-    @router.post("/chat/sessions")
-    async def create_chat(
-        payload: ChatSessionCreate, _: None = Depends(authorize)
-    ) -> dict[str, Any]:
-        row = repository.catalog.create_chat_session(
-            workspace_id=payload.workspace_id,
-            title=payload.title,
-            scope_type=payload.scope_type,
-            scope_id=payload.scope_id,
-        )
-        return {
-            "id": row.id,
-            "workspace_id": row.workspace_id,
-            "title": row.title,
-            "scope_type": row.scope_type,
-            "scope_id": row.scope_id,
-        }
-
-    @router.get("/chat/sessions")
-    async def chat_sessions(
-        workspace_id: str, _: None = Depends(authorize)
-    ) -> list[dict[str, Any]]:
-        try:
-            return repository.read_model.list_chat_sessions(workspace_id)
-        except ScopeStorageUnavailable as exc:
-            raise _scope_http_error(exc) from exc
-
-    @router.post("/chat/sessions/{session_id}/messages")
-    async def add_chat_message(
-        session_id: str,
-        payload: ChatMessageCreate,
-        _: None = Depends(authorize),
-    ) -> dict[str, Any]:
-        row = repository.catalog.add_chat_message(session_id, payload.role, payload.content)
-        return {
-            "id": row.id,
-            "session_id": row.session_id,
-            "role": row.role,
-            "content": row.content,
-        }
-
-    return router
 
 
 def create_evidence_router(*, context: ApiContext, authorize: Callable[..., Any]) -> APIRouter:

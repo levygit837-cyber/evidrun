@@ -15,7 +15,7 @@ from evidrun.contracts.lab_agent.envelope import LabAgentEnvelope
 from evidrun.contracts.lab_agent.errors import LabAgentError, LabAgentErrorCode
 from evidrun.infrastructure.providers.openai_responses import ProviderFunctionCall
 from evidrun.lab.budgets import TurnBudgetGuard
-from evidrun.lab.protocol import LabTool, LabToolContext
+from evidrun.lab.protocol import LabTool, LabToolContext, LabToolRejected
 from evidrun.lab.trace import (
     CancellationProbe,
     LabToolPolicy,
@@ -172,6 +172,7 @@ class ToolCallServer:
                 state=state,
                 envelope=envelope,
                 context=context,
+                guard=guard,
                 trace_sink=trace_sink,
                 emit=emit,
                 cancelled=cancelled,
@@ -189,6 +190,7 @@ class ToolCallServer:
         state: LabTurnState,
         envelope: LabAgentEnvelope,
         context: LabToolContext,
+        guard: TurnBudgetGuard,
         trace_sink: LabToolTraceSink,
         emit: LabUiEventSink | None,
         cancelled: CancellationProbe,
@@ -213,6 +215,27 @@ class ToolCallServer:
         )
         try:
             result = tool.execute(arguments, context)
+        except LabToolRejected as rejected:
+            # Fecha o estado visual iniciado acima sem classificar a recusa como falha real.
+            self.emit_event(
+                emit,
+                {
+                    "type": "tool",
+                    "source": "live",
+                    "id": call.call_id,
+                    "name": call.name,
+                    "status": "failed",
+                },
+            )
+            return self.refuse_and_maybe_terminate(
+                call,
+                arguments,
+                rejected.error,
+                state=state,
+                envelope=envelope,
+                guard=guard,
+                trace_sink=trace_sink,
+            )
         except Exception:
             trace_sink.append_tool_trace(
                 session_id=envelope.session_id,

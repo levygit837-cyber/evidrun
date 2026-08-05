@@ -10,6 +10,7 @@
     ".python-version",
     "AGENTS.md",
     "CONTEXT.md",
+    "LICENSE",
     "README.md",
     "alembic.ini",
     "alembic/env.py",

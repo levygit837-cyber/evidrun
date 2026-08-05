@@ -243,7 +243,25 @@ class LabAgentLoop:
         del state
         error = terminal.error
         if error is not None:
-            LabAgentLoop._emit(emit, {"type": "error", "source": "live", "message": error.message})
+            LabAgentLoop._emit(
+                emit,
+                {
+                    "type": "error",
+                    "source": "live",
+                    "message": error.message,
+                    "code": error.code.value,
+                    "remediation": error.remediation,
+                },
+            )
+        elif terminal.name is LabTurnTerminalName.PROVIDER_FAILED:
+            LabAgentLoop._emit(
+                emit,
+                {
+                    "type": "error",
+                    "source": "live",
+                    "message": terminal.content,
+                },
+            )
         LabAgentLoop._emit(emit, {"type": "status", "source": "live", "label": terminal.name.value})
         LabAgentLoop._emit(emit, {"type": "done", "source": "live"})
         return terminal

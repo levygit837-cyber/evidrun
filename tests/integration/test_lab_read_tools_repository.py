@@ -17,7 +17,7 @@ from evidrun.infrastructure.database.models import (
     WorkspaceRow,
 )
 from evidrun.infrastructure.database.unit_of_work import UnitOfWork
-from evidrun.lab.tools.read_port import LabToolRejected
+from evidrun.lab.protocol import LabToolRejected
 from evidrun.lab.tools.read_repository import SqlAlchemyLabReadRepository
 from evidrun.lab.tools.registry import CapabilityCatalog
 

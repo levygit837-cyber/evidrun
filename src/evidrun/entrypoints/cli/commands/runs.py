@@ -239,10 +239,12 @@ def list_chats(
     _, database, repository = components(data_dir)
     try:
         try:
-            documents = repository.read_model.list_chat_sessions(workspace_id)
+            # A mesma projeção que `GET /lab/sessions` devolve. O ADR 0025 exige paridade
+            # entre as duas superfícies, então nenhuma delas monta o documento por conta.
+            sessions = repository.lab.list_sessions(workspace_id=workspace_id)
         except ScopeStorageUnavailable as exc:
             _exit_scope_error(exc)
-        console.print_json(data=documents)
+        console.print_json(data=[item.document() for item in sessions])
     finally:
         database.dispose()
 
