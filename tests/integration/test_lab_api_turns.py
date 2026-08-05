@@ -410,3 +410,64 @@ def test_desconexao_cancela_o_turno_em_fronteira_segura(tmp_path: Path) -> None:
     assert [frame.get("label") for frame in frames if frame["type"] == "status"] == ["working"]
     # A mensagem do humano é fato registrado; a resposta tardia não entra no transcript.
     assert [item.role for item in transcript] == ["human"]
+
+
+
+def test_instrucao_composta_chega_ao_provider_com_o_catalogo_da_sessao(
+    tmp_path: Path,
+) -> None:
+    """O prompt e o executor precisam concordar sobre quais tools existem.
+
+    Este teste é o que impede a divergência real: se a composição usasse um catálogo diferente
+    do que o laço oferece, o modelo receberia instrução para chamar tool que a etapa de catálogo
+    recusa, e o turno viraria uma sequência de recusas.
+    """
+
+    app = create_app(data_dir=tmp_path)
+    provider = FakeProvider([_answer("Pronto."), _answer("Pronto.")])
+    _install_provider(app, provider)
+
+    with TestClient(app) as client:
+        workspace = client.post("/api/v1/workspaces", json={"name": "Workspace"}).json()
+        project = client.post(
+            "/api/v1/projects",
+            json={"workspace_id": workspace["id"], "name": "Project"},
+        ).json()
+        general_id = _session(client, workspace_id=workspace["id"])
+        project_id = _session(
+            client, workspace_id=workspace["id"], project_id=project["id"]
+        )
+        for session_id in (general_id, project_id):
+            assert (
+                client.post(
+                    f"/api/v1/lab/sessions/{session_id}/turns",
+                    json={"workspace_id": workspace["id"], "content": "Oi."},
+                ).status_code
+                == 200
+            )
+
+    general_request, project_request = provider.requests
+    for request in (general_request, project_request):
+        instructions = str(request["instructions"])
+        for section in (
+            "Identidade",
+            "Fronteira de autoridade",
+            "Vocabulário",
+            "Regras de tool call",
+            "Regras de evidência",
+            "Forma de resposta",
+        ):
+            assert f"## {section}" in instructions
+        assert instructions.count("## Escopo desta sessão") == 1
+        assert instructions.count("## Capabilities desta sessão") == 1
+        # A instrução anuncia exatamente as tools que o request oferece ao provider.
+        offered = sorted(str(item["name"]) for item in request["tools"])
+        assert f"Tools oferecidas nesta sessão ({len(offered)})" in instructions
+        for name in offered:
+            assert name in instructions
+
+    # General chat não cita a tool de aprovação porque ali ela não é oferecida; citá-la produziria
+    # chamada recusada por catálogo. Project chat cita, porque ali ela existe.
+    assert "request_human_approval" not in str(general_request["instructions"])
+    assert "request_human_approval" in str(project_request["instructions"])
+    assert general_request["instructions"] != project_request["instructions"]

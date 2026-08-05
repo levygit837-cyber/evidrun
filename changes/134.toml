@@ -1,0 +1,161 @@
+schema_version = "1"
+change_id = "GH-134"
+issue = 134
+title = "Composicao da instrucao de sistema do Lab Agent"
+classification = "feature"
+base_ref = "origin/main"
+branch_pattern = "levygit837-cyber/issue-134-lab-agent-instructions"
+expected_outcome = "A instrucao de sistema e montada por composicao deterministica de uma base invariante, um bloco de escopo e um bloco derivado do catalogo efetivo, com digest computavel e estavel. Prompt e executor nao podem divergir porque leem o mesmo catalogo."
+confirmed_facts = [
+  "O laco ja aceita instructions e o repassa ao provider; a issue 135 deixou o valor vazio de proposito.",
+  "offered_tools e a unica fonte do catalogo efetivo: General chat recebe duas tools, Project e Focused recebem treze.",
+  "AdmissionCapabilityCatalog deriva capabilities admitidas e rejeicoes ativas dos proprios checkers; com o envelope real sao 4 admitidas e 13 rejeicoes.",
+  "REVISION_MODELS aceita nove contract_type e nao inclui variant nem comparison_plan; ambos sao campos do payload do Study.",
+  "O ADR 0018 lista Variant e ComparisonPlan como proponiveis, o que divergia do parser; registrado como defeito de redacao na issue 149.",
+]
+stop_conditions = [
+  "A instrucao precisar implementar uma fronteira em vez de descreve-la.",
+  "Um bloco de escopo precisar conceder autoridade, ampliar leitura ou relaxar proibicao da base.",
+  "A lista de tools, capabilities, rejeicoes, tetos ou contract_types precisar ser autorada em vez de derivada.",
+  "A instrucao precisar carregar credencial, conteudo classificado, conteudo de outro Project ou mensagem de outra sessao.",
+]
+
+[impact]
+capability = "additive"
+persisted_contract = "none"
+normative = "none"
+notes = [
+  "O Lab Agent passa a receber instrucao de sistema composta; nenhuma capability do Execution Plane nasce aqui.",
+  "A composicao le apenas forma de sessao, catalogo efetivo e tetos do turno. Nao recebe transcript, documento nem id, e o teste prova isso pela propria assinatura.",
+  "O digest e computado e testado, mas ainda nao persistido: nao existe coluna por turno e alembic esta fora do escopo. A persistencia e a issue sucessora declarada abaixo.",
+]
+
+[scope]
+expected = [
+  "changes/134.toml",
+  "src/evidrun/lab/instructions/__init__.py",
+  "src/evidrun/lab/instructions/base.py",
+  "src/evidrun/lab/instructions/compose.py",
+  "src/evidrun/lab/instructions/derived.py",
+  "src/evidrun/lab/instructions/scope_blocks.py",
+  "src/evidrun/lab/session.py",
+  "tests/unit/test_lab_agent_instructions.py",
+  "tests/integration/test_lab_api_turns.py",
+  "docs/_generated/manifest.json",
+  "docs/_generated/claims.json",
+]
+forbidden = [
+  "AGENTS.md",
+  "CONTEXT.md",
+  "alembic/**",
+  "apps/**",
+  "docs/adr/**",
+  "docs/contracts/**",
+  "src/evidrun/contracts/**",
+  "src/evidrun/entrypoints/**",
+  "src/evidrun/lab/loop.py",
+  "src/evidrun/lab/serving.py",
+  "src/evidrun/lab/tools/**",
+]
+preexisting = []
+
+[[scope.generated]]
+patterns = ["docs/_generated/manifest.json", "docs/_generated/claims.json"]
+source_patterns = ["docs/**", "changes/**"]
+
+[preserve]
+interfaces = [
+  "LabAgentLoop preserva assinatura; a composicao apenas passa a preencher instructions.",
+  "build_catalog, offered_tools, build_read_tools e build_proposal_tools permanecem inalterados.",
+  "LabAgentSessionService.run_turn preserva assinatura publica; a montagem do turno saiu para _prepare.",
+]
+errors = [
+  "Secao da base sem conteudo levanta ValueError no render, em vez de entregar instrucao sem fronteira.",
+  "Forma de sessao sem bloco de escopo levanta ValueError, em vez de deixar o modelo assumir o escopo mais amplo.",
+  "Bloco de escopo que conceda verbo de autoridade da base e recusado na composicao.",
+  "Bloco de escopo que nomeie tool fora do catalogo efetivo e recusado na composicao.",
+  "Documento de tetos incompleto levanta ValueError, em vez de anunciar budget que o runtime nao verifica.",
+]
+invariants = [
+  "A composicao contem exatamente uma base, um bloco de escopo e um bloco de capabilities, nessa ordem.",
+  "As seis secoes obrigatorias aparecem na ordem normativa declarada.",
+  "Nenhum bloco de escopo contradiz uma proibicao da base.",
+  "O bloco de General chat nao anuncia tool que o catalogo nao oferece naquela forma.",
+  "O bloco derivado lista exatamente as tools do catalogo efetivo, sem divergencia.",
+  "O bloco derivado inclui as rejeicoes ativas com os codigos reais.",
+  "A instrucao composta nao carrega credencial, conteudo classificado nem conteudo de sessao.",
+  "O digest e estavel para mesma forma e catalogo, e muda quando o catalogo efetivo muda.",
+  "A instrucao descreve a fronteira; o enforcement permanece no executor de tool.",
+]
+
+[verification]
+focused = [
+  "uv run pytest tests/unit/test_lab_agent_instructions.py",
+  "uv run pytest tests/integration/test_lab_api_turns.py",
+  "uv run ruff check src/evidrun/lab/instructions tests/unit/test_lab_agent_instructions.py",
+]
+full_gates = [
+  "uv run pytest",
+  "uv run ruff check .",
+  "uv run python scripts/check_code_budget.py",
+  "uv run python scripts/check_import_directions.py",
+  "uv run pyright",
+  "pnpm typecheck:web",
+  "pnpm typecheck:desktop",
+  "pnpm test",
+  "pnpm build",
+  "uv run python scripts/validate_docs.py",
+]
+
+[[questions]]
+text = "Os tetos do turno e a lista de contract_type deviam ser escritos na base autorada?"
+affects_semantics = true
+status = "resolved"
+resolution = "Nao. Ambos mudam com o runtime, e numero escrito a mao mente no primeiro patch. Foram para o bloco derivado, junto de tools, capabilities e rejeicoes, porque derivacao torna a divergencia impossivel por construcao em vez de depender de revisao."
+
+[[questions]]
+text = "A base devia nomear request_human_approval no caminho substituto de autoridade?"
+affects_semantics = true
+status = "resolved"
+resolution = "Nao. General chat nao oferece essa tool, e a base e identica em toda sessao: nomea-la ali anunciaria tool ausente do catalogo efetivo, que o contrato lista como prova minima a evitar. A base declara o principio e cada bloco de escopo nomeia a tool quando ela existe."
+
+[[questions]]
+text = "O digest devia ser persistido nesta issue?"
+affects_semantics = true
+status = "resolved"
+resolution = "Nao nesta issue, por decisao registrada do humano. Persistir exige coluna por turno e portanto alembic, que e fronteira fora deste escopo. O digest e computado, exposto em ComposedInstruction e testado; a persistencia e a issue sucessora."
+
+[merge_gate]
+review = "orthogonal"
+ci_commit = "e6eaa2b"
+
+[merge_gate.spec]
+conclusion = "passed"
+evidence = [
+  "test:tests/unit/test_lab_agent_instructions.py",
+  "test:tests/integration/test_lab_api_turns.py",
+  "diff:src/evidrun/lab/instructions/compose.py",
+  "diff:src/evidrun/lab/instructions/derived.py",
+  "review:SpecAxis134",
+]
+
+[merge_gate.standards]
+conclusion = "passed"
+evidence = [
+  "log:scripts/check_import_directions.py",
+  "log:scripts/check_code_budget.py",
+  "diff:src/evidrun/lab/instructions/base.py",
+  "diff:src/evidrun/lab/instructions/scope_blocks.py",
+  "review:StandardsAxis134",
+]
+
+[merge_gate.verification]
+conclusion = "passed"
+evidence = [
+  "test:tests/unit/test_lab_agent_instructions.py",
+  "log:scripts/validate_docs.py",
+]
+
+[merge_gate.ci]
+conclusion = "passed"
+evidence = ["run:local/full-verification"]
