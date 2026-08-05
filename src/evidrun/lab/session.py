@@ -93,7 +93,7 @@ class LabAgentSessionService:
             session_id=session_id,
             workspace_id=workspace_id,
         )
-        self._repository.lab.append_message(
+        human_message = self._repository.lab.append_message(
             session_id=session_id,
             workspace_id=workspace_id,
             role="human",
@@ -101,6 +101,12 @@ class LabAgentSessionService:
         )
         setup = self._prepare(session_id=session_id, workspace_id=workspace_id, session=session)
         catalog, envelope, instruction = setup.catalog, setup.envelope, setup.instruction
+        self._repository.lab.append_turn_instruction(
+            session_id=session_id,
+            workspace_id=workspace_id,
+            turn_sequence=human_message.sequence,
+            instruction_digest=instruction.digest,
+        )
         queue: asyncio.Queue[LabUiEvent] = asyncio.Queue()
 
         async def execute_turn() -> None:

@@ -1,0 +1,113 @@
+schema_version = "1"
+change_id = "GH-150"
+issue = 150
+title = "Persistir o digest da instrucao de sistema por turno"
+classification = "breaking"
+base_ref = "origin/main"
+branch_pattern = "*issue-150-digest-turno"
+expected_outcome = "Cada turno do Lab Agent registra append-only o digest da instrucao efetivamente enviada ao provider, inclusive quando termina sem mensagem do agente."
+confirmed_facts = [
+  "ComposedInstruction ja expoe text, form e digest deterministico.",
+  "ChatMessageRow nao representa terminais incompletos sem fala do agente.",
+  "LabToolTraceRow representa somente tool calls executadas e nao pode receber linha sintetica de turno.",
+]
+stop_conditions = [
+  "O digest precisar ser recomputado depois de invocar o provider.",
+  "O texto integral da instrucao precisar ser persistido junto do digest.",
+  "O registro do digest precisar virar Event de Run ou entrar no event ledger.",
+]
+
+[impact]
+capability = "additive"
+persisted_contract = "breaking"
+normative = "none"
+notes = [
+  "A tabela lab_turn_instructions e uma superficie persistida nova, separada de mensagens e rastros de tool.",
+  "Nao ha unicidade por turno: uma correcao e outro fato append-only, sem update do registro anterior.",
+]
+
+[scope]
+expected = [
+  "alembic/versions/0009_lab_turn_instruction_digest.py",
+  "changes/150.toml",
+  "src/evidrun/infrastructure/database/lab.py",
+  "src/evidrun/infrastructure/database/lab_records.py",
+  "src/evidrun/infrastructure/database/models.py",
+  "src/evidrun/lab/session.py",
+  "tests/fixtures/lab_turn_instruction_digest_v0008.sql",
+  "tests/integration/test_lab_agent_session_migration.py",
+  "tests/integration/test_lab_api_turns.py",
+  "tests/integration/test_contract_migration.py",
+  "tests/integration/test_execution_trust_migration.py",
+  "docs/_generated/manifest.json",
+  "docs/_generated/claims.json",
+]
+forbidden = [
+  "AGENTS.md",
+  "CONTEXT.md",
+  "apps/**",
+  "docs/adr/**",
+  "docs/contracts/**",
+  "src/evidrun/contracts/**",
+]
+preexisting = []
+
+[[scope.generated]]
+patterns = ["docs/_generated/manifest.json", "docs/_generated/claims.json"]
+source_patterns = ["docs/**", "changes/**"]
+
+[[scope.expansions]]
+patterns = [
+  "tests/integration/test_contract_migration.py",
+  "tests/integration/test_execution_trust_migration.py",
+]
+rationale = "Os dois arquivos afirmam o head do alembic por literal. Uma migration nova torna a asserção obsoleta por construção, e o gate reprovava sete testes com 'table already exists' mais duas comparações contra 0008. Atualizar o literal é consequência direta da migration, não escopo novo."
+
+[preserve]
+interfaces = [
+  "LabAgentSessionService.run_turn preserva sua assinatura publica.",
+  "ChatMessageRow continua contendo somente mensagens; terminais incompletos nao viram fala do agente.",
+  "LabToolTraceRow continua registrando somente tool calls efetivamente executadas.",
+]
+errors = [
+  "Digest malformado ou turn_sequence nao positivo e recusado como rastro invalido.",
+]
+invariants = [
+  "O digest persistido e o da ComposedInstruction enviada ao provider no mesmo turno.",
+  "Todo registro de digest e append-only; correcao cria novo registro.",
+  "Nenhum texto de instrucao, Event de Run ou entrada no event ledger e criado.",
+]
+
+[verification]
+focused = [
+  "uv run pytest tests/integration/test_lab_agent_session_migration.py tests/integration/test_lab_api_turns.py tests/unit/test_lab_agent_instructions.py -q",
+  "uv run pytest tests/integration/test_lab_agent_session_migration.py -q",
+  "uv run ruff check .",
+  "uv run python scripts/check_code_budget.py",
+  "uv run python scripts/check_change_contract.py",
+]
+full_gates = [
+  "uv run pytest",
+  "uv run ruff check .",
+  "uv run python scripts/check_code_budget.py",
+  "uv run pyright",
+  "pnpm typecheck:web",
+  "pnpm typecheck:desktop",
+  "pnpm test",
+  "pnpm build",
+  "uv run python scripts/validate_docs.py",
+]
+
+[breaking]
+justification = "O banco persistido precisa receber a tabela nova antes de um runtime atualizado poder registrar o digest de cada turno. O checker classifica a operacao Alembic como breaking, e a entrega declara a migracao explicita em vez de assumir compatibilidade silenciosa."
+strategy = "migration"
+versioning = "A migration 0009 adiciona lab_turn_instructions sem reescrever sessoes, mensagens ou rastros existentes; o runtime novo passa a gravar somente apos o banco estar em head."
+adr_successors = []
+previous_artifact_tests = ["uv run pytest tests/integration/test_lab_agent_session_migration.py -q"]
+previous_artifact_fixtures = ["tests/fixtures/lab_turn_instruction_digest_v0008.sql"]
+
+[[questions]]
+text = "O digest deve ficar na mensagem do agente, no rastro de tool ou em tabela propria de turno?"
+affects_semantics = true
+status = "resolved"
+resolution = "Em tabela propria. O turno pode terminar sem mensagem do agente, e uma linha sintetica no rastro declararia tool call que nao ocorreu. A tabela append-only registra o fato do turno sem alterar o significado de mensagens ou tools."
