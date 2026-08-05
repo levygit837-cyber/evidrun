@@ -42,6 +42,16 @@ forbidden = [
 ]
 preexisting = []
 
+[[scope.generated]]
+patterns = [
+  "docs/_generated/manifest.json",
+  "docs/_generated/claims.json",
+]
+source_patterns = [
+  "README.md",
+  "changes/151.toml",
+]
+
 [preserve]
 interfaces = [
   "CLI, API, contratos, eventos e formatos persistidos permanecem inalterados.",
