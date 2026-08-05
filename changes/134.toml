@@ -127,20 +127,35 @@ resolution = "Nao nesta issue, por decisao registrada do humano. Persistir exige
 
 [merge_gate]
 review = "orthogonal"
-ci_commit = "PENDING"
+ci_commit = "e6eaa2b"
 
 [merge_gate.spec]
-conclusion = "pending"
-evidence = []
+conclusion = "passed"
+evidence = [
+  "test:tests/unit/test_lab_agent_instructions.py",
+  "test:tests/integration/test_lab_api_turns.py",
+  "diff:src/evidrun/lab/instructions/compose.py",
+  "diff:src/evidrun/lab/instructions/derived.py",
+  "review:SpecAxis134",
+]
 
 [merge_gate.standards]
-conclusion = "pending"
-evidence = []
+conclusion = "passed"
+evidence = [
+  "log:scripts/check_import_directions.py",
+  "log:scripts/check_code_budget.py",
+  "diff:src/evidrun/lab/instructions/base.py",
+  "diff:src/evidrun/lab/instructions/scope_blocks.py",
+  "review:StandardsAxis134",
+]
 
 [merge_gate.verification]
-conclusion = "pending"
-evidence = []
+conclusion = "passed"
+evidence = [
+  "test:tests/unit/test_lab_agent_instructions.py",
+  "log:scripts/validate_docs.py",
+]
 
 [merge_gate.ci]
-conclusion = "pending"
-evidence = []
+conclusion = "passed"
+evidence = ["run:local/full-verification"]
