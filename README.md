@@ -1,12 +1,21 @@
+<div align="center">
+
 # Evidrun
+
+**Laboratório local-first e auditável para avaliar agentes de IA.**
 
 [![CI](https://github.com/levygit837-cyber/evidrun/actions/workflows/ci.yml/badge.svg)](https://github.com/levygit837-cyber/evidrun/actions/workflows/ci.yml)
 [![Python 3.14](https://img.shields.io/badge/Python-3.14-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Node 24](https://img.shields.io/badge/Node-24-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
 [![License: Proprietary](https://img.shields.io/badge/license-proprietary-6b7280)](LICENSE)
 
-Laboratório local-first e auditável para testar como contexto, ferramentas, policies e ambientes
-afetam agentes de IA.
+</div>
+
+## Navegação rápida
+
+[Estado](#estado-atual) · [Execução](#começar) · [Documentação](#navegação-documental) · [Licença](#licença)
+
+O Evidrun testa como contexto, ferramentas, policies e ambientes afetam agentes de IA.
 
 O Evidrun não trata uma resposta isolada como prova. Cada comparação registra a variável alterada,
 o contexto efetivamente entregue, a trilha de eventos, os graders, os ganhos, as perdas e os limites
@@ -14,8 +23,8 @@ da conclusão.
 
 ## Estado atual
 
-A espinha canonica atravessa o pipeline completo de ponta a ponta, exercitada por superficies
-publicas:
+A espinha canônica atravessa o pipeline completo de ponta a ponta, exercitada por superfícies
+públicas:
 
 ```text
 contract register → authority accept → study compile → run admit → run enqueue
