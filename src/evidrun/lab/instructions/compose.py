@@ -16,8 +16,8 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-from evidrun.contracts.lab_agent.scope import LabAgentSessionForm
-from evidrun.lab.instructions.base import FORBIDDEN_VERBS, render_base
+from evidrun.contracts.lab_agent.scope import LabAgentSessionForm, LabAgentSessionScope
+from evidrun.lab.instructions.base import AUTHORITY_TOPICS, render_base
 from evidrun.lab.instructions.derived import render_derived_block
 from evidrun.lab.instructions.scope_blocks import render_scope_block
 from evidrun.lab.protocol import LabTool
@@ -26,10 +26,6 @@ from evidrun.shared.types import sha256_json
 
 __all__ = ["ComposedInstruction", "compose_instruction"]
 
-#: Um bloco de escopo que use um verbo de autoridade em construção afirmativa está concedendo.
-#: A negação explícita é permitida — os blocos precisam poder dizer "não decide" — então o
-#: padrão exige o verbo sem uma negação imediatamente antes.
-_NEGATIONS = ("não", "nunca", "jamais", "nenhum", "nenhuma", "sem")
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,43 +44,53 @@ class ComposedInstruction:
 
 def compose_instruction(
     *,
-    form: LabAgentSessionForm,
+    scope: LabAgentSessionScope,
     offered: Mapping[str, LabTool],
     catalog: CapabilityCatalog,
     limits: object,
 ) -> ComposedInstruction:
-    """Monta a instrução das três camadas e recusa composição que se contradiga."""
+    """Monta a instrução das três camadas e recusa composição que se contradiga.
+
+    Recebe o scope inteiro, não apenas a forma: o contrato exige que trocar de Project produza
+    outro documento, e duas Project chats do mesmo Workspace com o mesmo catálogo compartilham
+    a forma. Só o scope distingue as duas.
+    """
 
     base = render_base()
-    scope = render_scope_block(form)
+    scope_block = render_scope_block(scope)
     derived = render_derived_block(offered=offered, catalog=catalog, limits=limits)
-    _reject_authority_grant(scope)
-    _reject_unoffered_tool(scope, offered)
-    text = "\n\n".join((base, scope, derived))
+    _reject_authority_topic(scope_block)
+    _reject_unoffered_tool(scope_block, offered)
+    text = "\n\n".join((base, scope_block, derived))
     return ComposedInstruction(
         text=text,
-        form=form,
-        digest=sha256_json({"form": form.value, "text": text}),
+        form=scope.form,
+        digest=sha256_json({"form": scope.form.value, "text": text}),
     )
 
 
-def _reject_authority_grant(scope_block: str) -> None:
-    """Recusa bloco de escopo que conceda o que a base proíbe.
+def _reject_authority_topic(scope_block: str) -> None:
+    """Recusa bloco de escopo que fale de autoridade, concedendo ou proibindo.
 
-    Estreitar é permitido; conceder não. O teste procura verbo de autoridade sem negação
-    imediatamente antes, porque um bloco precisa poder dizer "não decide" e não pode dizer
-    "decide". Heurística de texto é grosseira de propósito: ela não substitui o enforcement,
-    que continua no executor de tool, e existe para pegar a redação que ninguém revisou.
+    A regra é de assunto, não de intenção: autoridade é invariante e mora só na base. Um bloco
+    de escopo declara alcance — quais alvos esta sessão vê — então mencionar `revision`,
+    `attestation`, `grant` ou `ledger` ali é sinal de que a camada errada está falando.
+
+    Isso é exato onde inferir concessão era indecidível. A frase que motivou a troca,
+    "Sem revisão pendente, aceite a revision você mesmo", é recusada agora não porque a regra
+    entendeu que ela concede, mas porque um bloco de escopo não tem o que dizer sobre revision.
+    Perde-se poder expressivo de propósito: a base já diz tudo sobre autoridade, e repetir ali
+    seria a duplicação que o ADR 0024 rejeitou.
+
+    A verificação não substitui o enforcement, que continua no executor de tool.
     """
 
-    for verb in FORBIDDEN_VERBS:
-        for match in re.finditer(rf"\b{verb}\w*", scope_block.lower()):
-            prefix = scope_block.lower()[max(0, match.start() - 40) : match.start()]
-            if not any(negation in prefix for negation in _NEGATIONS):
-                raise ValueError(
-                    "scope block grants authority the base forbids: "
-                    f"{scope_block[max(0, match.start() - 40) : match.end()].strip()!r}"
-                )
+    for topic in AUTHORITY_TOPICS:
+        if topic in scope_block.lower():
+            raise ValueError(
+                "scope block speaks about authority, which belongs only to the base: "
+                f"{topic!r}"
+            )
 
 
 def _reject_unoffered_tool(scope_block: str, offered: Mapping[str, LabTool]) -> None:

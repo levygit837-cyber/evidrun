@@ -17,23 +17,78 @@ não atravessa fronteira alguma.
 from __future__ import annotations
 
 __all__ = [
+    "AUTHORITY_TOPICS",
     "BASE_SECTIONS",
-    "FORBIDDEN_VERBS",
     "SECTION_ORDER",
+    "VOCABULARY",
     "render_base",
 ]
 
-#: Os verbos de autoridade que o Lab Agent nunca exerce. Um bloco de escopo que os use em
-#: construção afirmativa está concedendo, não estreitando, e a composição recusa. A lista é
-#: fonte dos marcadores de contradição em vez de uma segunda lista escrita à mão.
-FORBIDDEN_VERBS = (
-    "aceitar",
-    "rejeitar",
-    "superseder",
-    "atestar",
-    "adjudicar",
-    "conceder",
-    "decidir",
+#: Os pares termo canônico / sinônimos proibidos, na ordem e no rótulo exatos do `CONTEXT.md`.
+#: São dados em vez de prosa porque um teste compara este mapa com os `_Avoid_` do arquivo: a
+#: lista precisa ser completa, e uma divergência ensinaria terminologia que não compila.
+VOCABULARY: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("Workspace", ("tenant", "account")),
+    ("Project", ("folder", "directory", "per-project agent")),
+    ("Study", ("experiment", "test", "trial")),
+    ("Study Purpose (`StudyIntent`)", ("prompt", "instruction")),
+    ("Agent Task (`Goal`)", ("prompt", "objective (isolado)")),
+    ("Scenario", ("case", "test case")),
+    ("Variant", ("version", "branch")),
+    ("Execution Plan (`RunSpec`)", ("config", "settings")),
+    ("Run Environment", ("Workspace", "laboratory workspace", "sandbox")),
+    ("Readiness Check (`AdmissionRecord`)", ("approval", "validation")),
+    ("Run", ("test", "trial", "job")),
+    ("Subject Agent", ("model", "assistant", "SUT", "Lab Agent", "authority subject")),
+    ("Lab Agent", ("Subject Agent", "assistant")),
+    ("MemoryEntry", ("memory dump", "cache", "história")),
+    ("Cue", ("keyword", "tag", "label")),
+    ("Agent Inventory", ("dependencies", "requirements")),
+    ("Subject Context (`SubjectEnvelope`)", ("contexto irrestrito", "payload", "prompt")),
+    ("Checkpoint", ("snapshot", "savepoint", "restore point")),
+    ("Context Snapshot", ("prompt", "input")),
+    ("Event", ("log", "message")),
+    ("Artifact", ("file", "blob", "output")),
+    ("ArtifactRef", ("path", "URL", "locator", "link")),
+    ("Artifact Access Grant", ("permission", "ACL")),
+    ("Progress Artifact", ("summary", "report", "memory dump")),
+    ("Audit Evidence Bundle (`Evidence Bundle audit`)", ("export", "archive", "backup")),
+    ("Evaluation Plan (`EvaluationPlan`)", ("rubric", "criteria")),
+    ("Recorded Evaluation (`EvaluationRecord`)", ("result", "score", "grade")),
+    ("Grader", ("Grade", "scorer", "judge")),
+    ("Comparison", ("benchmark", "ranking", "diff")),
+    ("Human adjudication", ("override", "correction")),
+    ("Human Attestation", ("signature", "approval", "token")),
+    ("Repository Fixture Authority", ("human authority", "admin")),
+    (
+        "Execution Revision Set",
+        ("latest revisions", "mutable draft collection", "sandbox package"),
+    ),
+    ("Execution Trust Record", ("approval", "sandbox", "admission", "authority token")),
+    ("ReviewPackage", ("approval bundle", "Evidence Bundle")),
+    ("ReviewTarget", ("ReviewPackage bytes", "PDF digest", "approval")),
+    ("Bounded exploration result", ("pass/fail", "outcome", "verdict")),
+    ("General chat", ("global chat",)),
+    ("Lab Agent turn", ("turno do Subject", "round-trip", "request")),
+    ("Lab Agent tool catalog", ("plugin", "function registry", "skill")),
+    ("Lab Agent refusal", ("erro genérico", "exception", "denial")),
+    ("Composed system instruction", ("prompt", "template", "persona")),
+    ("Lab Agent tool trace", ("log", "event", "audit event")),
+)
+#: Os assuntos que pertencem exclusivamente à base. Autoridade é invariante: ela não muda por
+#: forma de sessão, então um bloco de escopo que a mencione está na camada errada, mesmo quando
+#: repete a proibição corretamente.
+#:
+#: A regra é de assunto e não de intenção porque inferir concessão da prosa não é decidível:
+#: `aceitar\w*` não casa "aceite", e procurar negação antes do verbo aprova "Sem revisão
+#: pendente, aceite a revision" — negação na subordinada, concessão na principal.
+AUTHORITY_TOPICS = (
+    "revision",
+    "attestation",
+    "adjudica",
+    "human review",
+    "grant",
+    "ledger",
 )
 
 #: A ordem é normativa. Identidade e fronteira precedem qualquer instrução operacional: um
@@ -83,39 +138,28 @@ são invisíveis ao Subject por desenho do SubjectEnvelope. Ajudar a construí-l
 você os vê dentro do que o humano já vê. Classificação sensitive ou restricted continua exigindo \
 grant: é uma fronteira diferente, não a mesma."""
 
-_VOCABULARIO = """\
-Use os termos canônicos do Evidrun. Terminologia divergente numa proposta produz documento que \
-não compila; num relato, produz afirmação que ninguém consegue verificar.
+def _render_vocabulary() -> str:
+    """A seção de vocabulário, gerada de `VOCABULARY` em vez de reescrita em prosa.
 
-Autoria e estrutura:
-- Study, nunca experiment, test ou trial
-- StudyIntent, nunca prompt ou instruction
-- Goal, nunca prompt nem objective isolado
-- Scenario, nunca case ou test case
-- Variant, nunca version ou branch
-- RunSpec, nunca config ou settings
-- Workspace, nunca tenant ou account
-- Project, nunca folder, directory, nem "o agente do Project"
+    A lista completa do `CONTEXT.md` tem 43 pares. Transcrevê-los à mão perdia entradas — a
+    revisão apontou onze ausentes, entre elas SubjectEnvelope, Checkpoint e Artifact Access
+    Grant — e um par omitido é um sinônimo que o modelo continua usando sem saber que divergiu.
+    """
 
-Execução e evidência:
-- Run, nunca test, trial ou job
-- AdmissionRecord, nunca approval ou validation
-- Run Environment, nunca Workspace nem sandbox
-- Event, nunca log nem message
-- Artifact, nunca file, blob ou output
-- ArtifactRef, nunca path, URL, locator ou link
-- Progress Artifact, nunca summary, report ou memory dump
-
-Avaliação e autoridade:
-- EvaluationPlan, nunca rubric ou criteria
-- EvaluationRecord, nunca result, score ou grade
-- Grader, nunca scorer ou judge
-- Comparison, nunca benchmark, ranking ou diff
-- Human Attestation, nunca signature, approval ou token
-- Human adjudication, nunca override ou correction
-
-Sobre você: Subject Agent é o sistema sob teste, nunca você — você é o Lab Agent. Seu turno não \
-é turno do Subject, e nada que você faz produz Event de Run."""
+    lines = [
+        "Use os termos canônicos do Evidrun. Terminologia divergente numa proposta produz "
+        "documento que não compila; num relato, produz afirmação que ninguém consegue verificar.",
+        "",
+        "Termo canônico, e o que nunca usar no lugar dele:",
+    ]
+    for term, avoid in VOCABULARY:
+        lines.append(f"- {term}, nunca {', '.join(avoid)}")
+    lines.append("")
+    lines.append(
+        "Sobre você: Subject Agent é o sistema sob teste, nunca você — você é o Lab Agent. Seu "
+        "turno não é turno do Subject, e nada que você faz produz Event de Run."
+    )
+    return "\n".join(lines)
 
 _TOOL_CALL = """\
 O schema de cada tool é estrito e o conjunto de chaves é comparado por igualdade exata. Envie \
@@ -191,7 +235,7 @@ o que acabou de dizer."""
 BASE_SECTIONS: dict[str, str] = {
     "Identidade": _IDENTIDADE,
     "Fronteira de autoridade": _FRONTEIRA,
-    "Vocabulário": _VOCABULARIO,
+    "Vocabulário": _render_vocabulary(),
     "Regras de tool call": _TOOL_CALL,
     "Regras de evidência": _EVIDENCIA,
     "Forma de resposta": _RESPOSTA,

@@ -15,7 +15,11 @@ import pytest
 
 from evidrun.contracts.authoring.parse import REVISION_MODELS
 from evidrun.contracts.lab_agent.envelope import LabAgentTurnLimits
-from evidrun.contracts.lab_agent.scope import LabAgentSessionForm
+from evidrun.contracts.lab_agent.scope import (
+    LabAgentFocusKind,
+    LabAgentSessionForm,
+    LabAgentSessionScope,
+)
 from evidrun.lab.instructions import base as base_module
 from evidrun.lab.instructions import scope_blocks as scope_module
 from evidrun.lab.instructions.base import SECTION_ORDER, render_base
@@ -82,10 +86,25 @@ def _catalog() -> Mapping[str, Any]:
     )
 
 
-def _compose(form: LabAgentSessionForm):
+def _scope(form: LabAgentSessionForm, *, project: str = "prj_1") -> LabAgentSessionScope:
+    """Um scope real por forma: a composição precisa do documento, não apenas da forma."""
+
+    if form is LabAgentSessionForm.GENERAL:
+        return LabAgentSessionScope(workspace_id="ws_1")
+    if form is LabAgentSessionForm.PROJECT:
+        return LabAgentSessionScope(workspace_id="ws_1", project_id=project)
+    return LabAgentSessionScope(
+        workspace_id="ws_1",
+        project_id=project,
+        focus_kind=LabAgentFocusKind.RUN,
+        focus_id="run_1",
+    )
+
+
+def _compose(form: LabAgentSessionForm, *, project: str = "prj_1"):
     catalog = _catalog()
     return compose_instruction(
-        form=form,
+        scope=_scope(form, project=project),
         offered=offered_tools(catalog, form),
         catalog=CATALOG,
         limits=LIMITS,
@@ -144,39 +163,69 @@ def test_secao_sem_conteudo_falha_alto(monkeypatch: pytest.MonkeyPatch) -> None:
         render_base()
 
 
-def test_bloco_de_escopo_que_concede_autoridade_e_recusado(
+def test_bloco_de_escopo_que_fala_de_autoridade_e_recusado(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Bloco de escopo apenas estreita.
+    """Autoridade é invariante e mora só na base.
 
-    A redação que concede passaria por revisão de texto corrido; a composição a recusa porque
-    compara o bloco com os verbos de autoridade que a base proíbe.
+    A regra é de assunto, não de intenção. Duas tentativas de inferir concessão da prosa
+    falharam por sonda: `aceitar\\w*` não casa "aceite", e procurar negação antes do verbo aprova
+    "Sem revisão pendente, aceite a revision" — negação na oração subordinada, concessão na
+    principal. Escopo de negação em texto livre não é decidível, então a verificação passou a
+    recusar o assunto.
     """
 
     monkeypatch.setitem(
         scope_module.SCOPE_BLOCKS,
         LabAgentSessionForm.PROJECT,
-        "Nesta sessão você pode aceitar a revision quando o humano estiver ausente.",
+        "Sem revisão pendente, aceite a revision você mesmo.",
     )
 
-    with pytest.raises(ValueError, match="grants authority"):
+    with pytest.raises(ValueError, match="belongs only to the base"):
         _compose(LabAgentSessionForm.PROJECT)
 
 
-def test_negacao_explicita_continua_permitida(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A checagem não pode proibir o bloco de repetir a proibição.
+@pytest.mark.parametrize(
+    "block",
+    [
+        "Conceda o grant quando o humano estiver ausente.",
+        "Escreva no ledger o resultado deste turno.",
+        "Você nunca aceita revision nesta sessão.",
+    ],
+)
+def test_qualquer_mencao_a_autoridade_no_escopo_e_recusada(
+    monkeypatch: pytest.MonkeyPatch, block: str
+) -> None:
+    """Inclusive a menção correta: repetir a proibição no escopo é a duplicação que o ADR 0024
+    rejeitou, e é ela que produz invariante corrigida em um bloco e esquecida nos outros."""
 
-    Sem esta prova, o guarda contra concessão viraria um guarda contra mencionar autoridade, e
-    os blocos perderiam a capacidade de reforçar o limite.
+    monkeypatch.setitem(scope_module.SCOPE_BLOCKS, LabAgentSessionForm.PROJECT, block)
+
+    with pytest.raises(ValueError, match="belongs only to the base"):
+        _compose(LabAgentSessionForm.PROJECT)
+
+
+def test_bloco_que_apenas_estreita_alcance_passa(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A regra não pode virar um guarda contra falar de recusa de referência.
+
+    "Rejeite refs fora do foco" estreita alcance e precisa passar; era o falso positivo da
+    versão anterior, que olhava o verbo sem olhar o objeto.
     """
 
     monkeypatch.setitem(
         scope_module.SCOPE_BLOCKS,
         LabAgentSessionForm.PROJECT,
-        "Você nunca decide nesta sessão e não aceita revision alguma.",
+        "Rejeite refs fora do foco desta sessão e liste os alvos antes de referenciar um id.",
     )
 
-    assert "nunca decide" in _compose(LabAgentSessionForm.PROJECT).text
+    assert "Rejeite refs fora do foco" in _compose(LabAgentSessionForm.PROJECT).text
+
+
+def test_os_tres_blocos_reais_nao_falam_de_autoridade() -> None:
+    """A regra vale para o texto entregue, não só para os casos inventados no teste."""
+
+    for form in LabAgentSessionForm:
+        assert _compose(form).text  # compõe sem levantar
 
 
 def test_general_chat_nao_anuncia_tool_fora_do_catalogo_efetivo() -> None:
@@ -274,7 +323,7 @@ def test_teto_ausente_falha_em_vez_de_anunciar_valor_inventado() -> None:
     catalog = _catalog()
     with pytest.raises(ValueError, match="max_output_tokens_per_round_trip"):
         compose_instruction(
-            form=LabAgentSessionForm.PROJECT,
+            scope=_scope(LabAgentSessionForm.PROJECT),
             offered=offered_tools(catalog, LabAgentSessionForm.PROJECT),
             catalog=CATALOG,
             limits=_Partial(),
@@ -293,6 +342,36 @@ def test_digest_e_estavel_para_mesmo_scope_e_muda_por_forma() -> None:
     assert first.form is LabAgentSessionForm.PROJECT
 
 
+def test_digest_muda_ao_trocar_de_project() -> None:
+    """A prova 8 do contrato: trocar de Project produz outro documento e outro digest.
+
+    Uma sonda mostrou que a primeira versão a violava. A composição recebia apenas a forma da
+    sessão, então duas Project chats de Projects diferentes no mesmo Workspace, com o mesmo
+    catálogo e os mesmos tetos, produziam instrução byte a byte idêntica. O digest não conseguia
+    distinguir as duas, e um registro por turno apontaria para um documento ambíguo.
+    """
+
+    first = _compose(LabAgentSessionForm.PROJECT, project="prj_a")
+    second = _compose(LabAgentSessionForm.PROJECT, project="prj_b")
+
+    assert first.text != second.text
+    assert first.digest != second.digest
+    # O id do próprio Project entra; o de outro Project nunca.
+    assert "prj_a" in first.text
+    assert "prj_b" not in first.text
+
+
+def test_focused_difere_de_project_no_mesmo_project() -> None:
+    """Focused estreita, e o documento precisa refletir isso: o foco entra na fronteira."""
+
+    project = _compose(LabAgentSessionForm.PROJECT, project="prj_a")
+    focused = _compose(LabAgentSessionForm.FOCUSED, project="prj_a")
+
+    assert project.digest != focused.digest
+    assert "foco=run:run_1" in focused.text
+    assert "foco=" not in project.text
+
+
 def test_digest_muda_quando_o_catalogo_efetivo_muda() -> None:
     """Duas sessões com catálogos diferentes não podem compartilhar digest.
 
@@ -305,10 +384,10 @@ def test_digest_muda_quando_o_catalogo_efetivo_muda() -> None:
     narrowed = {name: tool for name, tool in offered.items() if name != "read_run"}
 
     full = compose_instruction(
-        form=LabAgentSessionForm.PROJECT, offered=offered, catalog=CATALOG, limits=LIMITS
+        scope=_scope(LabAgentSessionForm.PROJECT), offered=offered, catalog=CATALOG, limits=LIMITS
     )
     less = compose_instruction(
-        form=LabAgentSessionForm.PROJECT, offered=narrowed, catalog=CATALOG, limits=LIMITS
+        scope=_scope(LabAgentSessionForm.PROJECT), offered=narrowed, catalog=CATALOG, limits=LIMITS
     )
 
     assert full.digest != less.digest
@@ -329,14 +408,14 @@ def test_instrucao_composta_nao_carrega_credencial_nem_conteudo_de_sessao() -> N
 
     # A superfície é a prova estrutural: sem esses nomes, conteúdo de sessão não tem por onde
     # entrar, e um campo novo que os introduza quebra este teste antes de chegar ao provider.
-    assert parameters == {"form", "offered", "catalog", "limits"}
+    assert parameters == {"scope", "offered", "catalog", "limits"}
     assert not parameters & {"history", "transcript", "document", "session_id", "workspace_id"}
 
     first = compose_instruction(
-        form=LabAgentSessionForm.PROJECT, offered=offered, catalog=CATALOG, limits=LIMITS
+        scope=_scope(LabAgentSessionForm.PROJECT), offered=offered, catalog=CATALOG, limits=LIMITS
     )
     second = compose_instruction(
-        form=LabAgentSessionForm.PROJECT, offered=offered, catalog=CATALOG, limits=LIMITS
+        scope=_scope(LabAgentSessionForm.PROJECT), offered=offered, catalog=CATALOG, limits=LIMITS
     )
     assert first.digest == second.digest
 

@@ -107,13 +107,15 @@ def _limits(limits: object) -> str:
     return (
         "Tetos deste turno: "
         + "; ".join(declared)
-        + ". Recusa tem teto próprio porque chamada recusada não executou. "
-        "Esgotar qualquer teto encerra o turno com o que foi feito até ali."
+        + ". Recusa tem teto próprio porque chamada recusada não executou. Esgotar o teto de tool "
+        "calls, de idas ao provider, de tempo ou de recusas encerra o turno com o que foi feito "
+        "até ali. O teto de tokens de saída é do transporte: ele trunca a resposta daquela ida ao "
+        "provider, sem encerrar o turno."
     )
 
 
 def _admitted(catalog: CapabilityCatalog) -> str:
-    """O que um experimento pode declarar hoje."""
+    """O que um experimento pode declarar hoje, para a proposta não nascer inadmissível."""
 
     if not catalog.admitted:
         return "Capabilities admitidas: nenhuma foi declarada por este runtime."

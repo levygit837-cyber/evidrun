@@ -214,7 +214,7 @@ class LabAgentSessionService:
                 limits=self._limits,
             ),
             instruction=compose_instruction(
-                form=scope.form,
+                scope=scope,
                 offered=effective,
                 catalog=self._capability_source.capability_catalog(),
                 limits=self._limits,

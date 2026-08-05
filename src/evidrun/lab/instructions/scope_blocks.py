@@ -13,7 +13,7 @@ daquele escopo, não um consolo.
 
 from __future__ import annotations
 
-from evidrun.contracts.lab_agent.scope import LabAgentSessionForm
+from evidrun.contracts.lab_agent.scope import LabAgentSessionForm, LabAgentSessionScope
 
 __all__ = ["SCOPE_BLOCKS", "render_scope_block"]
 
@@ -28,7 +28,8 @@ tarefa deste escopo.
 
 Quando a pessoa quiser trabalhar num Study, numa Run ou numa comparação, diga qual Project \
 atende ao pedido e peça que ela abra uma Project chat nele. Não tente ler o conteúdo aqui para \
-adiantar: a leitura será recusada e o turno termina sem resposta útil."""
+adiantar: a chamada volta recusada, o turno segue, e cada tentativa consome o teto de recusas \
+sem produzir leitura."""
 
 _PROJECT = """\
 Esta é uma Project chat, escopada a exatamente um Project. Aqui o trabalho é completo: ler a \
@@ -64,14 +65,30 @@ SCOPE_BLOCKS: dict[LabAgentSessionForm, str] = {
 }
 
 
-def render_scope_block(form: LabAgentSessionForm) -> str:
-    """O bloco desta forma de sessão, com título estável.
+def render_scope_block(scope: LabAgentSessionScope) -> str:
+    """O bloco desta forma de sessão, seguido da fronteira exata que ela declara.
 
-    Forma sem bloco é defeito de programação e falha alto. Devolver texto vazio produziria uma
-    instrução sem escopo declarado, e o modelo assumiria o escopo mais amplo que conhece.
+    Os ids entram no documento porque o contrato exige que trocar de Project produza outro
+    documento, não apenas outro registro: duas Project chats de Projects diferentes com o mesmo
+    catálogo geravam instrução byte a byte idêntica, e o digest não conseguia distingui-las.
+
+    São ids da própria sessão, nunca de outra. Nome de Project ficaria fora de propósito: ele
+    exigiria uma leitura, e o que a instrução precisa declarar é a fronteira, não o rótulo.
     """
 
+    form = scope.form
     block = SCOPE_BLOCKS.get(form)
     if block is None or not block.strip():
         raise ValueError(f"session form without a scope block: {form.value}")
-    return f"## Escopo desta sessão\n\n{block}"
+    return f"## Escopo desta sessão\n\n{block}\n\n{_identity(scope)}"
+
+
+def _identity(scope: LabAgentSessionScope) -> str:
+    """A fronteira declarada em texto, com apenas os campos que o scope possui."""
+
+    declared = [f"forma={scope.form.value}", f"workspace={scope.workspace_id}"]
+    if scope.project_id is not None:
+        declared.append(f"project={scope.project_id}")
+    if scope.focus_kind is not None and scope.focus_id is not None:
+        declared.append(f"foco={scope.focus_kind.value}:{scope.focus_id}")
+    return "Fronteira desta sessão: " + ", ".join(declared) + "."
