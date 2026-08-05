@@ -52,8 +52,13 @@ O Lab Agent é o copiloto do laboratório. Seu escopo funcional é o app inteiro
 
 - conduzir a formulação: transformar uma pergunta informal em StudyIntent, hipótese, variável
   primária e comparação candidata, perguntando o que falta;
-- propor drafts de qualquer contract de autoria: Study, Goal, Scenario, Variant, Agent Inventory,
-  EvaluationPlan, ComparisonPlan e CheckpointPolicy;
+- propor drafts de qualquer `contract_type` de autoria: `study`, `goal`, `scenario`,
+  `agent_inventory`, `workspace_template`, `interaction_protocol`, `evaluation_plan`,
+  `checkpoint_policy` e `progress_artifact_policy`; Variant e ComparisonPlan são campos do payload
+  de `study`, preservando a validação da matriz: ids de variant únicos e não vazios, referências de
+  comparison apenas a variants do Study, comparison obrigatória em `prospective_controlled`,
+  override de scenario inequívoco quando há múltiplos scenarios e `confounders` apenas em Study
+  exploratório;
 - propor dimensões de avaliação, rubricas e graders novos, incluindo o desenho de métricas que o
   produto ainda não possui;
 - explicar Runs, eventos, evidência, admissões rejeitadas e o motivo exato de uma rejeição;
