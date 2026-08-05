@@ -7,8 +7,9 @@ pertencimento, transcript, catálogo e persistência cercam uma execução ao vi
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from contextlib import suppress
+from dataclasses import dataclass
 
 from evidrun.contracts.lab_agent.envelope import (
     LabAgentEnvelope,
@@ -18,7 +19,10 @@ from evidrun.contracts.lab_agent.envelope import (
 )
 from evidrun.contracts.lab_agent.scope import LabAgentSessionScope
 from evidrun.infrastructure.database import Repository
+from evidrun.infrastructure.database.lab_records import LabSession
+from evidrun.lab.instructions.compose import ComposedInstruction, compose_instruction
 from evidrun.lab.loop import LabAgentLoop
+from evidrun.lab.protocol import LabTool
 from evidrun.lab.tools import build_catalog, build_proposal_tools, build_read_tools, offered_tools
 from evidrun.lab.tools.read_repository import SqlAlchemyLabReadRepository
 from evidrun.lab.tools.registry import CapabilityCatalogSource
@@ -38,6 +42,15 @@ DEFAULT_TURN_LIMITS = LabAgentTurnLimits(
     max_refusals_per_turn=4,
     max_output_tokens_per_round_trip=2_048,
 )
+
+@dataclass(frozen=True, slots=True)
+class _TurnSetup:
+    """O que o turno recebe: catálogo, envelope e instrução do mesmo catálogo efetivo."""
+
+    catalog: Mapping[str, LabTool]
+    envelope: LabAgentEnvelope
+    instruction: ComposedInstruction
+
 
 
 class LabAgentSessionService:
@@ -86,46 +99,18 @@ class LabAgentSessionService:
             role="human",
             content=content,
         )
-        scope = LabAgentSessionScope.model_validate(session.scope_document())
-        read_repository = SqlAlchemyLabReadRepository(
-            self._repository.unit_of_work,
-            self._capability_source,
-        )
-        catalog = build_catalog(
-            (
-                *build_read_tools(read_repository),
-                *build_proposal_tools(self._repository),
-            )
-        )
-        effective = offered_tools(catalog, scope.form)
-        history = tuple(
-            LabAgentMessage(
-                role=LabAgentMessageRole(message.role),
-                content=message.content,
-                sequence=message.sequence,
-            )
-            for message in self._repository.lab.list_messages(
-                session_id=session_id,
-                workspace_id=workspace_id,
-            )
-        )
-        envelope = LabAgentEnvelope(
-            session_id=session_id,
-            scope=scope,
-            history=history,
-            offered_tools=tuple(effective),
-            limits=self._limits,
-        )
+        setup = self._prepare(session_id=session_id, workspace_id=workspace_id, session=session)
+        catalog, envelope, instruction = setup.catalog, setup.envelope, setup.instruction
         queue: asyncio.Queue[LabUiEvent] = asyncio.Queue()
 
         async def execute_turn() -> None:
-            # A issue #134 compõe a instrução de sistema. Criar texto aqui divergiria do
-            # contrato lab-agent-instructions-v1 antes de ele ter uma composição aprovada.
+            # A instrução é composta do mesmo catálogo efetivo que o envelope anuncia e o
+            # executor impõe, então prompt e enforcement não podem divergir.
             terminal = await LabAgentLoop(
                 self._provider,
                 catalog,
                 profile=self._profile,
-                instructions="",
+                instructions=instruction.text,
             ).execute(
                 envelope,
                 trace_sink=self._repository.lab,
@@ -182,3 +167,56 @@ class LabAgentSessionService:
             # órfão continuando a trabalhar depois que já não existe consumidor do turno.
             with suppress(asyncio.CancelledError):
                 await execution
+
+    def _prepare(
+        self, *, session_id: str, workspace_id: str, session: LabSession
+    ) -> _TurnSetup:
+        """Monta o que o turno recebe, separado de como o turno é conduzido.
+
+        Catálogo, envelope e instrução mudam quando muda o que é divulgado ao modelo. O laço
+        abaixo muda quando muda a condução — ponte de eventos, cancelamento, persistência do
+        terminal. Manter as duas coisas numa função só obrigaria quem lê a ponte a atravessar a
+        montagem do envelope, que não a afeta.
+
+        O catálogo é montado uma vez e serve os três: o envelope anuncia seus nomes, a instrução
+        os descreve e o executor os impõe. Três montagens divergiriam no primeiro patch.
+        """
+
+        scope = LabAgentSessionScope.model_validate(session.scope_document())
+        catalog = build_catalog(
+            (
+                *build_read_tools(
+                    SqlAlchemyLabReadRepository(
+                        self._repository.unit_of_work, self._capability_source
+                    )
+                ),
+                *build_proposal_tools(self._repository),
+            )
+        )
+        effective = offered_tools(catalog, scope.form)
+        history = tuple(
+            LabAgentMessage(
+                role=LabAgentMessageRole(message.role),
+                content=message.content,
+                sequence=message.sequence,
+            )
+            for message in self._repository.lab.list_messages(
+                session_id=session_id, workspace_id=workspace_id
+            )
+        )
+        return _TurnSetup(
+            catalog=catalog,
+            envelope=LabAgentEnvelope(
+                session_id=session_id,
+                scope=scope,
+                history=history,
+                offered_tools=tuple(effective),
+                limits=self._limits,
+            ),
+            instruction=compose_instruction(
+                form=scope.form,
+                offered=effective,
+                catalog=self._capability_source.capability_catalog(),
+                limits=self._limits,
+            ),
+        )
