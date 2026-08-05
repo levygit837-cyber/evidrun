@@ -1,6 +1,11 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import type { LabScopeSelection, LabSession, LaboratorySessionAdapter } from "../../data/contracts";
+import type {
+  LabScopeSelection,
+  LabSession,
+  LaboratoryAdapter,
+  LaboratorySessionAdapter,
+} from "../../data/contracts";
 import { LaboratoryPage } from "./LaboratoryPage";
 
 afterEach(cleanup);
@@ -59,5 +64,128 @@ describe("LaboratoryPage", () => {
     fireEvent.change(screen.getByLabelText("Mensagem para o Laboratory"), { target: { value: "Pare" } }); fireEvent.click(screen.getByLabelText("Enviar mensagem"));
     await waitFor(() => expect(container.querySelector(".laboratory")).toHaveAttribute("data-state", "cancelled"));
     expect(screen.getByText("Turno cancelado", { selector: "strong" })).toBeInTheDocument();
+  });
+
+  it("recusa enviar antes de a pessoa escolher o escopo", async () => {
+    render(<LaboratoryPage adapter={adapter()} />);
+
+    await screen.findByLabelText("Workspace");
+
+    // General oferece duas tools e Project treze. Sem escopo declarado, um composer habilitado
+    // convidaria a pessoa a conversar num escopo que ela não escolheu.
+    expect(screen.queryByLabelText("Mensagem para o Laboratory")).not.toBeInTheDocument();
+  });
+
+  it("mantém Shift+Enter como quebra de linha em vez de enviar", async () => {
+    const sent: string[] = [];
+    const tracked = adapter();
+    const original = tracked.send.bind(tracked);
+    tracked.send = (input, signal) => {
+      sent.push(input);
+      return original(input, signal);
+    };
+    render(<LaboratoryPage adapter={tracked} />);
+    await open("general");
+    const input = screen.getByLabelText("Mensagem para o Laboratory");
+
+    fireEvent.change(input, { target: { value: "primeira linha" } });
+    fireEvent.keyDown(input, { key: "Enter", shiftKey: true });
+
+    expect(sent).toEqual([]);
+
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() => expect(sent).toEqual(["primeira linha"]));
+  });
+
+  it("trava o envio contra duplo clique de forma sincrona", async () => {
+    let calls = 0;
+    const tracked = adapter();
+    tracked.send = async function* (_input, signal) {
+      calls += 1;
+      if (!signal.aborted) yield { type: "message", source: "live", content: "uma vez" };
+      if (!signal.aborted) yield { type: "done", source: "live" };
+    };
+    render(<LaboratoryPage adapter={tracked} />);
+    await open("general");
+    fireEvent.change(screen.getByLabelText("Mensagem para o Laboratory"), {
+      target: { value: "Envie" },
+    });
+    const button = screen.getByLabelText("Enviar mensagem");
+
+    // Dois cliques na mesma task: a trava é sincrona de propósito, antes do primeiro await.
+    fireEvent.click(button);
+    fireEvent.click(button);
+
+    await screen.findByText("uma vez");
+    expect(calls).toBe(1);
+  });
+
+  it("vira cancelar durante o turno e alcança o estado cancelado", async () => {
+    const slow = adapter();
+    slow.send = async function* (_input, signal) {
+      yield { type: "status", source: "live", label: "Lendo evidência" };
+      // Só avança quando o humano aborta: um timer fixo terminaria o turno antes do clique e o
+      // botão voltaria a "Enviar mensagem" sem provar nada.
+      // `Promise.withResolvers` exigiria lib ES2024, e o web compila em ES2023. O executor aqui
+      // segue a convenção que `DemoLaboratoryAdapter.wait` já usa neste pacote.
+      await new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve()));
+      if (signal.aborted) return;
+      yield { type: "done", source: "live" };
+    };
+    const { container } = render(<LaboratoryPage adapter={slow} />);
+    await open("general");
+    fireEvent.change(screen.getByLabelText("Mensagem para o Laboratory"), {
+      target: { value: "Comece" },
+    });
+    fireEvent.click(screen.getByLabelText("Enviar mensagem"));
+
+    const cancel = await screen.findByLabelText("Cancelar turno");
+    fireEvent.click(cancel);
+
+    // `stopping` antes de `cancelled`: o abort precisa alcançar o gerador e ele encerrar. Aceitar
+    // só o estado final esconderia a fase em que o botão ainda está desabilitado.
+    await waitFor(() =>
+      expect(container.querySelector(".laboratory")).toHaveAttribute("data-state", "cancelled"),
+      { timeout: 3000 },
+    );
+  });
+
+  it("expõe recusa com sua remediação sem apresentar o turno como concluído", async () => {
+    const refused = adapter();
+    refused.send = async function* () {
+      yield {
+        type: "error",
+        source: "live",
+        message: "A referência solicitada não está disponível nesta sessão.",
+        code: "scope.target_not_visible",
+        remediation: "Liste os alvos deste Project antes de referenciar um id.",
+      };
+    };
+    const { container } = render(<LaboratoryPage adapter={refused} />);
+    await open("project");
+    fireEvent.change(screen.getByLabelText("Mensagem para o Laboratory"), {
+      target: { value: "Leia run:404" },
+    });
+    fireEvent.click(screen.getByLabelText("Enviar mensagem"));
+
+    // A remediação nomeia a próxima ação válida; exibir só a mensagem deixaria a pessoa sem saída.
+    await screen.findByText(/Liste os alvos deste Project/);
+    expect(container.querySelector(".laboratory")).not.toHaveAttribute("data-state", "completed");
+  });
+
+  it("falha fechado em indisponível quando o adapter não tem capacidade", async () => {
+    const unavailable: LaboratoryAdapter = {
+      mode: "integration_pending",
+      async *send() {
+        throw new Error("send não deve ser alcançado sem capacidade");
+      },
+    };
+
+    render(<LaboratoryPage adapter={unavailable} />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Laboratory indisponível" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("Mensagem para o Laboratory")).not.toBeInTheDocument();
   });
 });

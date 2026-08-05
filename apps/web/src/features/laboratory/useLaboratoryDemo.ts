@@ -141,6 +141,11 @@ export function useLaboratoryDemo(laboratoryAdapter: LaboratoryAdapter) {
         }
       } finally {
         if (abortControllerRef.current === controller) {
+          // Saída limpa depois do abort fecha o ciclo aqui. O adapter retorna sem lançar e sem
+          // fabricar terminal, de propósito, então nem o `catch` nem o ramo de `done` são
+          // alcançados: sem esta linha a fase fica presa em `stopping`, onde o composer está
+          // desabilitado, e o humano que cancela um turno perde a sessão.
+          if (controller.signal.aborted && !terminalEventSeen) setPhase("cancelled");
           abortControllerRef.current = null;
           submitLockRef.current = false;
         }
