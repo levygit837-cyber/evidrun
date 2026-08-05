@@ -1,0 +1,99 @@
+schema_version = "1"
+change_id = "GH-151"
+issue = 151
+title = "Alinhar o README com a evidencia publica do portfolio"
+classification = "docs-only"
+base_ref = "origin/main"
+branch_pattern = "agent/readme-portfolio-*"
+expected_outcome = "O README apresenta o Evidrun com navegacao clara e linguagem consistente com o portfolio, sem alterar comportamento, contratos ou capabilities."
+confirmed_facts = [
+  "O diff de entrega altera somente README.md.",
+  "Os comandos, limites e contagens tecnicas ja existiam no README da branch principal; esta mudanca reorganiza a entrada visual e corrige acentuacao.",
+  "Nenhum contrato, ADR, schema, runtime, teste ou codigo de aplicacao e alterado.",
+]
+stop_conditions = [
+  "A edicao exigir promover capability, mudar contrato normativo ou afirmar resultado nao sustentado pelo repositorio.",
+  "O diff incluir qualquer arquivo de codigo, schema, migration, workflow ou contrato persistido.",
+]
+
+[impact]
+capability = "none"
+persisted_contract = "none"
+normative = "none"
+notes = [
+  "README.md e documentacao de entrada, nao uma superficie normativa do Evidrun.",
+]
+
+[scope]
+expected = [
+  "changes/151.toml",
+  "README.md",
+]
+forbidden = [
+  ".github/**",
+  "alembic/**",
+  "apps/**",
+  "docs/adr/**",
+  "docs/contracts/**",
+  "schemas/**",
+  "scripts/**",
+  "src/**",
+  "tests/**",
+]
+preexisting = []
+
+[preserve]
+interfaces = [
+  "CLI, API, contratos, eventos e formatos persistidos permanecem inalterados.",
+]
+errors = [
+  "Nenhum codigo, categoria, status HTTP ou exit code e alterado.",
+]
+invariants = [
+  "Roadmap nao e descrito como comportamento implementado.",
+  "Resultados de runs nao viram fatos sem referencia verificavel.",
+  "O README preserva os limites declarados do runtime atual.",
+]
+
+[verification]
+focused = [
+  "git diff --check",
+  "uv run python scripts/check_change_contract.py --contract changes/151.toml --strict-warnings",
+]
+full_gates = [
+  "uv run pytest",
+  "uv run ruff check .",
+  "uv run python scripts/check_code_budget.py",
+  "uv run pyright",
+  "pnpm typecheck:web",
+  "pnpm typecheck:desktop",
+  "pnpm test",
+  "pnpm build",
+  "uv run python scripts/validate_docs.py",
+]
+
+[merge_gate]
+review = "proportional"
+ci_commit = "f380cde"
+
+[merge_gate.spec]
+conclusion = "passed"
+evidence = ["diff:README.md"]
+
+[merge_gate.standards]
+conclusion = "passed"
+evidence = ["review:PR#151"]
+
+[merge_gate.verification]
+conclusion = "passed"
+evidence = ["log:git-diff-check"]
+
+[merge_gate.ci]
+conclusion = "passed"
+evidence = ["run:actions/0"]
+
+[[questions]]
+text = "A reorganizacao do README altera alguma capability ou contrato do Evidrun?"
+affects_semantics = false
+status = "resolved"
+resolution = "Nao. A mudanca e somente editorial e preserva a descricao dos limites existentes."
