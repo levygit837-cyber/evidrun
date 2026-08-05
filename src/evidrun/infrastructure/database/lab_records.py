@@ -14,6 +14,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
+from evidrun.contracts.lab_agent.scope import LabAgentSessionScope
+
 __all__ = [
     "LabMessage",
     "LabSession",
@@ -62,18 +64,15 @@ class LabSession:
 
     @property
     def form(self) -> str:
-        """Derivada do scope, nunca declarada ao lado dele.
+        """Derivada pelo contrato, nunca por uma segunda cascata aqui.
 
-        O par `focus_kind`/`focus_id` e a presença de `project_id` já determinam a forma. Um
-        campo autoral em paralelo poderia contradizê-los, e o consumidor não teria como saber
-        qual dos dois vale.
+        `LabAgentSessionScope.form` já decide a forma a partir de `focus_kind` e `project_id`.
+        Repetir a cascata neste record criaria duas regras para o mesmo vocabulário fechado, e
+        a primeira divergência apareceria como a CLI e a API classificando a mesma sessão de
+        formas diferentes — exatamente o que a projeção única existe para impedir.
         """
 
-        if self.focus_kind is not None:
-            return "focused"
-        if self.project_id is not None:
-            return "project"
-        return "general"
+        return LabAgentSessionScope.model_validate(self.scope_document()).form.value
 
 
 @dataclass(frozen=True, slots=True)

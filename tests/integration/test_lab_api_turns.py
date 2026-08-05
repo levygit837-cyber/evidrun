@@ -273,3 +273,140 @@ def test_cancelamento_preserva_draft_registrado_sem_completar_turno(tmp_path: Pa
         "cancelled",
     ]
     assert not any(event["type"] == "message" for event in events)
+
+
+def test_terminal_incompleto_nao_entra_no_transcript_como_fala_do_agente(
+    tmp_path: Path,
+) -> None:
+    """Texto de terminal incompleto é do runtime, não do modelo.
+
+    `provider_failed` e `cancelled` carregam frases que o próprio laço escreveu. Persisti-las
+    como `role="agent"` colocaria aviso de infraestrutura na boca do modelo — e, porque o
+    transcript é reenviado a cada round-trip, no turno seguinte o modelo leria aquilo como
+    algo que ele mesmo disse e responderia sobre isso.
+    """
+
+    app = create_app(data_dir=tmp_path)
+    provider = FakeProvider([ProviderRequestError("falha de transporte")])
+    _install_provider(app, provider)
+
+    with TestClient(app) as client:
+        workspace = client.post("/api/v1/workspaces", json={"name": "Workspace"}).json()
+        session_id = _session(client, workspace_id=workspace["id"])
+        stream = client.post(
+            f"/api/v1/lab/sessions/{session_id}/turns",
+            json={"workspace_id": workspace["id"], "content": "Pergunta que falha."},
+        )
+        assert stream.status_code == 200
+        frames = _frames(stream)
+        transcript = client.get(
+            f"/api/v1/lab/sessions/{session_id}/messages",
+            params={"workspace_id": workspace["id"]},
+        ).json()
+
+    assert [frame.get("label") for frame in frames if frame["type"] == "status"] == [
+        "working",
+        "provider_failed",
+    ]
+    # A mensagem do humano é fato registrado e permanece; nenhuma fala de agente foi inventada.
+    assert [item["role"] for item in transcript] == ["human"]
+    assert all("provider" not in item["content"] for item in transcript)
+
+
+async def _drive_until_disconnect(
+    app: Any, *, session_id: str, workspace_id: str, content: str
+) -> list[dict[str, Any]]:
+    """Fala ASGI direto para desconectar no meio do stream.
+
+    O `TestClient` não serve aqui: fechar o iterador dele não emite `http.disconnect`, então o
+    turno roda até o fim e o poller de `Request.is_disconnected` nunca é exercitado. Uma sonda
+    confirmou isso — com `TestClient` a resposta do agente era persistida mesmo após fechar a
+    conexão. O cancelamento real do produto é o abort do fetch, que é este evento.
+    """
+
+    body = json.dumps({"workspace_id": workspace_id, "content": content}).encode()
+    path = f"/api/v1/lab/sessions/{session_id}/turns"
+    requested: list[int] = []
+    disconnect_now = asyncio.Event()
+    frames: list[dict[str, Any]] = []
+
+    async def receive() -> dict[str, Any]:
+        if not requested:
+            requested.append(1)
+            return {"type": "http.request", "body": body, "more_body": False}
+        await disconnect_now.wait()
+        return {"type": "http.disconnect"}
+
+    async def send(message: Mapping[str, Any]) -> None:
+        if message["type"] != "http.response.body" or not message.get("body"):
+            return
+        for block in bytes(message["body"]).decode().strip().split("\n\n"):
+            for line in block.splitlines():
+                if line.startswith("data: "):
+                    frames.append(json.loads(line.removeprefix("data: ")))
+        # Desconecta assim que o primeiro frame chega: o turno está em voo.
+        disconnect_now.set()
+
+    scope: dict[str, Any] = {
+        "type": "http",
+        "asgi": {"version": "3.0"},
+        "http_version": "1.1",
+        "method": "POST",
+        "path": path,
+        "raw_path": path.encode(),
+        "query_string": b"",
+        "root_path": "",
+        "scheme": "http",
+        "headers": [
+            (b"host", b"testserver"),
+            (b"content-type", b"application/json"),
+            (b"content-length", str(len(body)).encode()),
+        ],
+        "client": ("testclient", 123),
+        "server": ("testserver", 80),
+        "app": app,
+    }
+    await app(scope, receive, send)
+    return frames
+
+
+def test_desconexao_cancela_o_turno_em_fronteira_segura(tmp_path: Path) -> None:
+    """O abort do fetch precisa alcançar a sonda de cancelamento do laço.
+
+    Sem isso o humano fecha a aba e o provider continua trabalhando, e a resposta de um turno
+    que ninguém está esperando entraria no transcript.
+    """
+
+    app = create_app(data_dir=tmp_path)
+
+    class SlowProvider:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def invoke(self, request: Mapping[str, Any]) -> Mapping[str, Any]:
+            del request
+            self.calls += 1
+            await asyncio.sleep(0.5)
+            return _answer("Resposta que ninguém pediu mais.")
+
+    provider = SlowProvider()
+    _install_provider(app, provider)
+    repository = app.state.repository
+    workspace = repository.catalog.create_workspace("Workspace")
+    session = repository.lab.create_session(workspace_id=workspace.id, title="Turno")
+
+    frames = asyncio.run(
+        _drive_until_disconnect(
+            app,
+            session_id=session.id,
+            workspace_id=workspace.id,
+            content="Vou desconectar no meio.",
+        )
+    )
+    transcript = repository.lab.list_messages(
+        session_id=session.id, workspace_id=workspace.id
+    )
+
+    assert [frame.get("label") for frame in frames if frame["type"] == "status"] == ["working"]
+    # A mensagem do humano é fato registrado; a resposta tardia não entra no transcript.
+    assert [item.role for item in transcript] == ["human"]

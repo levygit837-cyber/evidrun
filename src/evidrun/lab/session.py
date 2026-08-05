@@ -132,7 +132,15 @@ class LabAgentSessionService:
                 emit=queue.put_nowait,
                 cancelled=cancelled,
             )
-            if terminal.content:
+            if terminal.complete and terminal.content:
+                # Só terminal completo carrega fala do modelo. Os demais trazem texto do
+                # próprio runtime — "Turno cancelado", "O provider não devolveu uma resposta
+                # utilizável" — e gravá-lo como `agent` colocaria aviso de infraestrutura na
+                # boca do modelo. Pior: o transcript é reenviado a cada round-trip, então na
+                # mensagem seguinte o modelo leria aquilo como algo que ele mesmo disse.
+                #
+                # O humano não perde o fato: o terminal incompleto chega pelos eventos `status`
+                # e `error`, e é assim que o laço já o apresenta.
                 self._repository.lab.append_message(
                     session_id=session_id,
                     workspace_id=workspace_id,

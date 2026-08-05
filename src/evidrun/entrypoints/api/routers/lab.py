@@ -17,7 +17,7 @@ from evidrun.entrypoints.api.lab_errors import (
     storage_http_error,
 )
 from evidrun.entrypoints.api.schemas import LabMessageCreate, LabSessionCreate
-from evidrun.infrastructure.database.lab import LabMessage, LabSession
+from evidrun.infrastructure.database.lab import LabMessage
 from evidrun.infrastructure.database.lab_errors import LabStoreRejected
 from evidrun.infrastructure.database.scope_errors import ScopeStorageUnavailable
 
@@ -32,12 +32,6 @@ def _http_error(
     if isinstance(exc, ValidationError):
         return lab_http_error(invalid_session_scope())
     return lab_http_error(lab_store_error(exc))
-
-
-def _session_document(row: LabSession) -> dict[str, Any]:
-    """A projeção é do store, para que CLI e API nunca divirjam (ADR 0025)."""
-
-    return row.document()
 
 
 def _message_document(row: LabMessage) -> dict[str, Any]:
@@ -82,7 +76,7 @@ def create_lab_router(*, context: ApiContext, authorize: Callable[..., Any]) -> 
             )
         except (LabStoreRejected, ValidationError) as exc:
             raise _http_error(exc) from exc
-        return _session_document(row)
+        return row.document()
 
     @router.get("/lab/sessions")
     async def list_sessions(
@@ -92,7 +86,7 @@ def create_lab_router(*, context: ApiContext, authorize: Callable[..., Any]) -> 
             rows = store.list_sessions(workspace_id=workspace_id)
         except (LabStoreRejected, ScopeStorageUnavailable) as exc:
             raise _http_error(exc) from exc
-        return [_session_document(row) for row in rows]
+        return [row.document() for row in rows]
 
     @router.get("/lab/sessions/{session_id}")
     async def get_session(
@@ -102,7 +96,7 @@ def create_lab_router(*, context: ApiContext, authorize: Callable[..., Any]) -> 
             row = store.get_session(session_id=session_id, workspace_id=workspace_id)
         except LabStoreRejected as exc:
             raise _http_error(exc) from exc
-        return _session_document(row)
+        return row.document()
 
     @router.get("/lab/sessions/{session_id}/messages")
     async def list_messages(
