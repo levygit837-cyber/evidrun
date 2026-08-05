@@ -148,20 +148,37 @@ resolution = "Nao. O aborto do fetch fecha a conexao e ja identifica exatamente 
 
 [merge_gate]
 review = "orthogonal"
-ci_commit = "PENDING"
+ci_commit = "8f6b50c"
 
 [merge_gate.spec]
-conclusion = "pending"
-evidence = []
+conclusion = "passed"
+evidence = [
+  "test:tests/integration/test_lab_api_sessions.py",
+  "test:tests/integration/test_lab_api_turns.py",
+  "test:tests/integration/test_chat_workspace_scope.py",
+  "diff:src/evidrun/lab/session.py",
+  "diff:src/evidrun/entrypoints/api/routers/lab_turns.py",
+  "review:SpecAxis135",
+]
 
 [merge_gate.standards]
-conclusion = "pending"
-evidence = []
+conclusion = "passed"
+evidence = [
+  "log:scripts/check_import_directions.py",
+  "log:scripts/check_code_budget.py",
+  "diff:src/evidrun/entrypoints/api/lab_errors.py",
+  "diff:src/evidrun/infrastructure/database/lab_records.py",
+  "review:StandardsAxis135",
+]
 
 [merge_gate.verification]
-conclusion = "pending"
-evidence = []
+conclusion = "passed"
+evidence = [
+  "test:tests/integration/test_lab_api_turns.py",
+  "test:tests/unit/test_lab_agent_loop.py",
+  "log:scripts/validate_docs.py",
+]
 
 [merge_gate.ci]
-conclusion = "pending"
-evidence = []
+conclusion = "passed"
+evidence = ["run:local/full-verification"]
