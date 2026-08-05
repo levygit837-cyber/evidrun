@@ -2,7 +2,7 @@ schema_version = "1"
 change_id = "GH-135"
 issue = 135
 title = "Endpoints de sessao, mensagem e streaming do Lab Agent"
-classification = "feature"
+classification = "breaking"
 base_ref = "origin/main"
 branch_pattern = "levygit837-cyber/issue-135-lab-agent-endpoints"
 expected_outcome = "A superficie publica do Lab Agent existe e e testada: sessao com scope tipado, mensagem, turno por streaming SSE, cancelamento em fronteira segura e traducao de recusa por codigo nas duas bordas. O frontend deixa de receber integration_pending."
@@ -21,14 +21,26 @@ stop_conditions = [
 ]
 
 [impact]
-capability = "additive"
-persisted_contract = "none"
+capability = "breaking"
+persisted_contract = "changed"
 normative = "none"
 notes = [
-  "Adiciona a superficie HTTP do runtime que as issues 131, 132 e 133 entregaram; nenhuma capability do Execution Plane nasce aqui.",
-  "As colunas legadas scope_type e scope_id permanecem na tabela e deixam de ser expostas; LabAgentStore.create_session ja gravava None nas duas, portanto nao existe migration.",
-  "O ADR 0025 nao muda: seus invariantes migraram de /chat/sessions para /lab/sessions com as mesmas provas.",
+  "As rotas /api/v1/chat/sessions e /api/v1/chat/sessions/{id}/messages foram removidas; /api/v1/lab/sessions* as substitui com scope tipado.",
+  "Os schemas ChatSessionCreate e ChatMessageCreate sairam do OpenAPI; LabSessionCreate, LabMessageCreate e LabTurnRequest entraram.",
+  "create_chat_router, CatalogStore.create_chat_session, CatalogStore.add_chat_message, ReadModel.list_chat_sessions e projections.chat_document foram removidos sem alias.",
+  "DraftToolRejected deixou de existir e LabToolRejected mudou de modulo: de lab/tools/read_port.py para lab/protocol.py, que e a costura entre laco e tools.",
+  "schemas/generated/openapi-v1.json muda de forma breaking ao remover os paths e schemas de chat.",
+  "Nenhuma decisao normativa muda: o ADR 0025 continua valendo e seus invariantes migraram de rota com as mesmas provas.",
+  "As colunas scope_type e scope_id permanecem na tabela e deixam de ser expostas; LabAgentStore.create_session ja gravava None nas duas, portanto nao existe migration de dados.",
 ]
+
+[breaking]
+justification = "As rotas /chat/* aceitavam scope_type e scope_id como texto livre, sem teste algum, e escreviam por um store que nao revalidava pertencimento. Manter compatibilidade preservaria uma superficie que contradiz o escopo tipado do ADR 0021 e duplicaria a projecao que o ADR 0025 exige unica."
+strategy = "migration"
+versioning = "Corte limpo na API v1 e na CLI: nenhum alias, nenhum re-export, nenhum caminho depreciado. O unico consumidor das rotas antigas era o proprio repositorio, e a CLI chat list passou a projetar o mesmo documento da API."
+adr_successors = []
+previous_artifact_tests = ["uv run pytest tests/integration/test_chat_workspace_scope.py"]
+previous_artifact_fixtures = ["tests/integration/fixtures/chat-sessions-unscoped-openapi-v1.json"]
 
 [scope]
 expected = [
@@ -111,8 +123,9 @@ invariants = [
 
 [verification]
 focused = [
+  "uv run pytest tests/integration/test_chat_workspace_scope.py",
   "uv run pytest tests/integration/test_lab_api_sessions.py tests/integration/test_lab_api_turns.py",
-  "uv run pytest tests/integration/test_chat_workspace_scope.py tests/integration/test_lab_agent_store.py",
+  "uv run pytest tests/integration/test_lab_agent_store.py",
   "uv run pytest tests/unit/test_lab_agent_loop.py tests/unit/test_lab_read_tools.py",
 ]
 full_gates = [
