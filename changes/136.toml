@@ -60,7 +60,7 @@ full_gates = ["uv run python scripts/check_change_contract.py", "uv run python s
 
 [merge_gate]
 review = "proportional"
-ci_commit = "08ec035"
+ci_commit = "ec6808a"
 
 [merge_gate.spec]
 conclusion = "passed"
