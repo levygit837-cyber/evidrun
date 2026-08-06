@@ -96,6 +96,8 @@ export function LaboratoryPage({ adapter }: { adapter?: LaboratoryAdapter }) {
           {hook.isRunning ? <div className="laboratory-live-activity"><LoaderCircle aria-hidden="true" size={15} /><span>{hook.statusLog.at(-1) ?? "Executando turno"}</span></div> : null}
           {hook.agentMessage ? <p className="laboratory-agent-draft">{hook.agentMessage}</p> : null}
           {hook.phase === "cancelled" ? <InlineNotice tone="warning" title="Turno cancelado">O trabalho parcial foi preservado como parcial; ele não é uma resposta completa.</InlineNotice> : null}
+          {hook.phase === "exhausted" ? <InlineNotice tone="warning" title="Turno encerrado por teto">O turno alcançou um teto declarado e entregou apenas o trabalho feito até ali. Isto não é uma resposta completa.</InlineNotice> : null}
+          {hook.phase === "proposed" ? <InlineNotice tone="warning" title="Draft proposto">O agente registrou um draft, não um fato. A decisão é humana: revise o contrato no painel de tools e aceite pela superfície de aceitação.</InlineNotice> : null}
           {hook.phase === "failed" ? <InlineNotice tone="danger" title="Recusa ou falha do turno"><span>{hook.error}</span></InlineNotice> : null}
         </article> : null}</> : <div className="laboratory-fresh-state"><TriangleAlert aria-hidden="true" size={22} /><h1>Escolha o escopo da conversa</h1><p>O Lab Agent só inicia depois de uma sessão General, Project ou Focused explícita.</p></div>}
       {hook.phase === "unavailable" ? <div className="laboratory-unavailable"><h1>Laboratory indisponível</h1><p>O adapter informado não oferece uma integração executável.</p></div> : null}

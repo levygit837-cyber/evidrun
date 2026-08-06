@@ -117,7 +117,7 @@ export function AuditActivity({
                     <div>
                       <dt>Resultado</dt>
                       <dd>
-                        {safeResult(tool.resultSummary)}
+                        {safeResult(tool.resultSummary, tool.name)}
                       </dd>
                     </div>
                     <div>
@@ -128,7 +128,7 @@ export function AuditActivity({
                       <div>
                         <dt>Draft — aguarda humano</dt>
                         <dd>
-                          Contrato que seria registrado: {safeResult(tool.resultSummary)}. Revise o documento e registre a decisão humana na superfície de aceitação; este draft não é fato nem produz efeito externo.
+                          Contrato que seria registrado: {safeResult(tool.resultSummary, tool.name)}. Revise o documento e registre a decisão humana na superfície de aceitação; este draft não é fato nem produz efeito externo.
                         </dd>
                       </div>
                     ) : null}
@@ -143,10 +143,19 @@ export function AuditActivity({
   );
 }
 
-function safeResult(resultSummary: string | undefined) {
+/** Qual tool produz número agregado: fato do catálogo, não palpite sobre o texto.
+ *
+ * A versão anterior procurava "agregad|média|average|metric|valor" no resumo. O backend devolve
+ * JSON — `{"groups":[{"value":0.8,"sample_size":2}]}` — então `{"mean":0.8}` passava sem amostra,
+ * exatamente o caso que a regra existe para bloquear. O nome da tool é decidível; o texto não.
+ */
+const AGGREGATE_TOOLS: Record<string, true> = { aggregate_metrics: true };
+
+function safeResult(resultSummary: string | undefined, toolName?: string) {
   if (!resultSummary) return "Aguardando resultado.";
-  const looksAggregate = /agregad|média|media|average|metric|valor/i.test(resultSummary);
-  if (looksAggregate && !/sample_size/i.test(resultSummary)) {
+  if (toolName !== undefined && AGGREGATE_TOOLS[toolName] && !/sample_size/i.test(resultSummary)) {
+    // Valor agregado sem amostra não é resultado: o contrato trata `sample_size` como validade do
+    // grupo, e exibir a média sozinha afirmaria evidência que não existe.
     return "Resultado agregado oculto: a amostra (sample_size) não foi informada.";
   }
   return resultSummary;

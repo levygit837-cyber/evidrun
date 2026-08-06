@@ -10,6 +10,7 @@ import {
   CONTEXT_ITEMS,
   type ContextItem,
   type LaboratoryPhase,
+  PHASE_BY_TERMINAL,
   TEXTAREA_MAX_HEIGHT_PX,
   TEXTAREA_MIN_HEIGHT_PX,
   type ToolEvent,
@@ -17,8 +18,11 @@ import {
 } from "./laboratoryModel";
 
 /**
- * Phase machine for the Laboratory: `empty → ready → submitting → active → stopping →
- * completed | cancelled | failed | unavailable`.
+ * Máquina de fases do Laboratory: `empty → ready → submitting → active → stopping →
+ * completed | proposed | exhausted | cancelled | failed | unavailable`.
+ *
+ * A fase terminal vem de `PHASE_BY_TERMINAL`, um mapa dos seis terminais do laço. Derivar por
+ * substring do rótulo classificava `budget_exhausted` e `repeated_refusal` como conclusão.
  *
  * `submitLockRef` is a synchronous guard: it is set before the first `await` so two clicks
  * dispatched inside one task can never both reach `adapter.send`.
@@ -117,7 +121,18 @@ export function useLaboratoryDemo(laboratoryAdapter: LaboratoryAdapter) {
             setPhase("failed");
           } else if (event.type === "done") {
             terminalEventSeen = true;
-            setPhase(terminalStatus?.includes("cancel") ? "cancelled" : terminalStatus?.includes("failed") || terminalStatus?.includes("falh") ? "failed" : "completed");
+            // O rótulo do último `status` é o nome do terminal, e o mapa o traduz um a um. Buscar
+            // "cancel"/"fail" no texto classificava `budget_exhausted` e `repeated_refusal` como
+            // conclusão, apresentando turno parcial como completo.
+            const phase = terminalStatus ? PHASE_BY_TERMINAL[terminalStatus] : undefined;
+            if (phase === undefined) {
+              setError(
+                `O backend emitiu um terminal que esta interface não conhece: ${terminalStatus ?? "ausente"}.`,
+              );
+              setPhase("failed");
+            } else {
+              setPhase(phase);
+            }
           }
         }
 

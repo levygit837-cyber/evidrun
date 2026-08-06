@@ -66,6 +66,80 @@ describe("LaboratoryPage", () => {
     expect(screen.getByText("Turno cancelado", { selector: "strong" })).toBeInTheDocument();
   });
 
+  it.each([
+    ["budget_exhausted", "exhausted"],
+    ["repeated_refusal", "exhausted"],
+    ["provider_failed", "failed"],
+    ["proposed", "proposed"],
+    ["answered", "completed"],
+  ])("mapeia o terminal %s para a fase %s", async (terminal, expected) => {
+    const named = adapter();
+    named.send = async function* () {
+      yield { type: "status", source: "live", label: terminal };
+      yield { type: "done", source: "live" };
+    };
+    const { container } = render(<LaboratoryPage adapter={named} />);
+    await open("general");
+    fireEvent.change(screen.getByLabelText("Mensagem para o Laboratory"), {
+      target: { value: "Vai" },
+    });
+    fireEvent.click(screen.getByLabelText("Enviar mensagem"));
+
+    // `budget_exhausted` e `repeated_refusal` não contêm "cancel" nem "fail": a heurística de
+    // substring anterior os apresentava como conclusão, violando o invariante de turno parcial.
+    await waitFor(() =>
+      expect(container.querySelector(".laboratory")).toHaveAttribute("data-state", expected),
+    );
+  });
+
+  it("falha explícito quando o backend emite um terminal desconhecido", async () => {
+    const unknown = adapter();
+    unknown.send = async function* () {
+      yield { type: "status", source: "live", label: "terminal_que_nao_existe" };
+      yield { type: "done", source: "live" };
+    };
+    const { container } = render(<LaboratoryPage adapter={unknown} />);
+    await open("general");
+    fireEvent.change(screen.getByLabelText("Mensagem para o Laboratory"), {
+      target: { value: "Vai" },
+    });
+    fireEvent.click(screen.getByLabelText("Enviar mensagem"));
+
+    // Terminal novo no backend não pode virar conclusão silenciosa; falhar alto é o caminho honesto.
+    await waitFor(() =>
+      expect(container.querySelector(".laboratory")).toHaveAttribute("data-state", "failed"),
+    );
+    expect(screen.getByText(/terminal que esta interface não conhece/)).toBeInTheDocument();
+  });
+
+  it("oculta número agregado que chega sem sample_size", async () => {
+    const aggregate = adapter();
+    aggregate.send = async function* () {
+      yield {
+        type: "tool",
+        source: "live",
+        id: "tool:agg",
+        name: "aggregate_metrics",
+        status: "completed",
+        argumentsSummary: '{"metric":"grade_score"}',
+        resultSummary: '{"groups":[{"group":"succeeded","value":0.8}]}',
+      };
+      yield { type: "status", source: "live", label: "answered" };
+      yield { type: "done", source: "live" };
+    };
+    render(<LaboratoryPage adapter={aggregate} />);
+    await open("project");
+    fireEvent.change(screen.getByLabelText("Mensagem para o Laboratory"), {
+      target: { value: "Agregue" },
+    });
+    fireEvent.click(screen.getByLabelText("Enviar mensagem"));
+
+    // Valor sem amostra não é resultado. A decisão vem do nome da tool, não de palavra no texto:
+    // um resumo JSON como este não contém "média" nem "agregado".
+    expect(await screen.findByText(/amostra \(sample_size\) não foi informada/)).toBeInTheDocument();
+    expect(screen.queryByText(/0\.8/)).not.toBeInTheDocument();
+  });
+
   it("recusa enviar antes de a pessoa escolher o escopo", async () => {
     render(<LaboratoryPage adapter={adapter()} />);
 
