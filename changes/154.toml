@@ -1,0 +1,115 @@
+schema_version = "1"
+change_id = "GH-154"
+issue = 154
+title = "Gate de despacho recusa o null que o schema da tool anuncia como valido"
+classification = "behavior-compatible"
+base_ref = "origin/main"
+branch_pattern = "*"
+expected_outcome = "Um argumento nulo declarado nullable no provider_schema passa pelo gate de despacho, e o turno do Lab Agent deixa de morrer em repeated_refusal quando o modelo obedece o schema anunciado."
+confirmed_facts = [
+  "validate_schema em src/evidrun/lab/turn.py roda antes de LabToolCatalog despachar e recusa por conta propria.",
+  "_base.validate_arguments, que roda dentro da tool, honra nullable desde antes desta mudanca.",
+  "Somente list_runs declara nullable hoje, no campo status.",
+  "O gateway CLIProxyAPI aceita parameters com nullable e responde 200; o 400 observado no corredor ao vivo e independente deste defeito.",
+]
+stop_conditions = [
+  "O correto ser remover nullable dos schemas em vez de honra-lo no gate.",
+  "A divergencia exigir unificar os dois validadores num unico modulo.",
+]
+
+[impact]
+capability = "additive"
+persisted_contract = "none"
+normative = "none"
+notes = [
+  "Nenhum contrato persistido muda: o gate passa a aceitar um argumento que o schema anunciado ja declarava valido.",
+  "A superficie de recusa nao encolhe para nenhum outro caso; null onde nao ha nullable continua recusado.",
+]
+
+[scope]
+expected = [
+  "changes/154.toml",
+  "src/evidrun/lab/turn.py",
+  "tests/unit/test_lab_read_tools.py",
+  "docs/_generated/manifest.json",
+  "docs/_generated/claims.json",
+]
+forbidden = [
+  "AGENTS.md",
+  "CONTEXT.md",
+  "alembic/**",
+  "apps/**",
+  "docs/adr/**",
+  "src/evidrun/contracts/**",
+]
+preexisting = []
+
+[[scope.generated]]
+patterns = ["docs/_generated/manifest.json", "docs/_generated/claims.json"]
+source_patterns = ["docs/**", "changes/**"]
+
+[preserve]
+interfaces = [
+  "validate_schema preserva assinatura e tipo de retorno.",
+  "LabAgentErrorCode nao recebe codigo novo nem perde codigo existente.",
+]
+errors = [
+  "null em campo sem nullable continua recusado com schema.argument_type_invalid e field_path do campo.",
+  "Argumento de tipo divergente, fora de limites ou fora do enum continua recusado como antes.",
+]
+invariants = [
+  "O gate de despacho e o validador interno da tool concordam sobre o que e argumento valido.",
+  "Recusa continua voltando ao modelo como function_call_output, sem interromper o turno.",
+]
+
+[verification]
+focused = [
+  "uv run pytest tests/unit/test_lab_read_tools.py tests/unit/test_lab_agent_loop.py -q",
+  "uv run ruff check .",
+  "uv run python scripts/check_code_budget.py",
+  "uv run python scripts/check_change_contract.py",
+]
+full_gates = [
+  "uv run pytest",
+  "uv run ruff check .",
+  "uv run python scripts/check_code_budget.py",
+  "uv run pyright",
+  "pnpm typecheck:web",
+  "pnpm typecheck:desktop",
+  "pnpm test",
+  "pnpm build",
+  "uv run python scripts/validate_docs.py",
+]
+
+[[questions]]
+text = "Honrar nullable no gate ou remove-lo dos schemas para eliminar a divergencia?"
+affects_semantics = true
+status = "resolved"
+resolution = "Honrar no gate. O schema e o contrato que o modelo recebe; remover nullable de list_runs.status obrigaria o modelo a omitir um campo declarado required, ou a inventar sentinela de string para 'qualquer status'. O gate estava divergindo do contrato que ele mesmo publica."
+
+[merge_gate]
+review = "proportional"
+ci_commit = "9b61e95"
+
+[merge_gate.spec]
+conclusion = "passed"
+evidence = [
+  "test:tests/unit/test_lab_read_tools.py::test_dispatch_gate_accepts_every_null_the_tool_schema_declares_nullable",
+  "diff:src/evidrun/lab/turn.py",
+]
+
+[merge_gate.standards]
+conclusion = "passed"
+evidence = ["log:scripts/check_code_budget.py", "log:scripts/check_import_directions.py"]
+
+[merge_gate.verification]
+conclusion = "passed"
+evidence = [
+  "test:uv run pytest",
+  "test:tests/unit/test_lab_read_tools.py::test_dispatch_gate_still_refuses_null_where_the_schema_forbids_it",
+  "log:uv run pyright",
+]
+
+[merge_gate.ci]
+conclusion = "passed"
+evidence = ["run:local/lab-live-corridor"]

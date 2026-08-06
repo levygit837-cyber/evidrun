@@ -13,6 +13,7 @@ from evidrun.lab.protocol import LabToolContext, LabToolRejected
 from evidrun.lab.tools import build_catalog, build_read_tools, offered_tools
 from evidrun.lab.tools.read_port import LabReadRepository
 from evidrun.lab.tools.registry import AdmissionCapabilityCatalog, CapabilityCatalog
+from evidrun.lab.turn import validate_schema
 
 
 class FakeReadRepository:
@@ -263,3 +264,63 @@ def test_no_read_tool_can_reach_a_write_surface() -> None:
         module = sys.modules[type(tool).__module__]
         reachable = tuple(vars(module))
         assert not [name for name in reachable if name in forbidden], type(tool).__name__
+
+
+def test_dispatch_gate_accepts_every_null_the_tool_schema_declares_nullable() -> None:
+    """O gate de despacho e a tool precisam concordar sobre o que é argumento válido.
+
+    O gate roda antes da tool e recusa por conta própria. Enquanto ele ignorava
+    `nullable`, `status=None` — anunciado como aceitável no schema que o modelo recebe —
+    era recusado com `schema.argument_type_invalid`. O modelo obedecia o schema, levava
+    recusa, tentava de novo igual, e o turno morria em `repeated_refusal`. Este teste
+    varre o catálogo real para que qualquer tool nova com campo anulável fique coberta.
+    """
+
+    catalog = build_catalog(build_read_tools(FakeReadRepository()))
+    checked: list[tuple[str, str]] = []
+
+    for name, tool in catalog.items():
+        schema = tool.provider_schema()
+        properties = schema["properties"]
+        nullable_fields = [
+            field for field, rule in properties.items() if rule.get("nullable") is True
+        ]
+        if not nullable_fields:
+            continue
+        arguments = {field: _sample_for(rule) for field, rule in properties.items()}
+        for field in nullable_fields:
+            candidate = {**arguments, field: None}
+            assert validate_schema(schema, candidate, name) is None, (name, field)
+            checked.append((name, field))
+
+    assert ("list_runs", "status") in checked, checked
+
+
+def test_dispatch_gate_still_refuses_null_where_the_schema_forbids_it() -> None:
+    """Aceitar `nullable` não pode virar aceitar qualquer null."""
+
+    catalog = build_catalog(build_read_tools(FakeReadRepository()))
+    schema = catalog["list_runs"].provider_schema()
+
+    error = validate_schema(schema, {"limit": None, "status": None}, "list_runs")
+
+    assert error is not None
+    assert error.code is LabAgentErrorCode.SCHEMA_ARGUMENT_TYPE_INVALID
+    assert error.field_path == ("limit",)
+
+
+def _sample_for(rule: Mapping[str, Any]) -> Any:
+    """Valor mínimo que satisfaz a regra, para isolar o campo sob teste."""
+
+    match rule.get("type"):
+        case "integer" | "number":
+            return rule.get("minimum", 1)
+        case "boolean":
+            return False
+        case "array":
+            return []
+        case "object":
+            return {}
+        case _:
+            choices = rule.get("enum")
+            return choices[0] if choices else "x"

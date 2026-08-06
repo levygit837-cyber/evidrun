@@ -135,6 +135,11 @@ def _validate_value(
     value: Any, rule: Mapping[str, Any], tool_name: str, path: tuple[str, ...]
 ) -> LabAgentError | None:
     expected = cast(str | None, rule.get("type"))
+    if value is None and rule.get("nullable") is True:
+        # O gate de despacho precisa aceitar o mesmo null que o schema anuncia à tool.
+        # Divergir aqui recusa argumento válido, e duas recusas queimam o turno em
+        # repeated_refusal sem que o modelo tenha errado.
+        return None
     validators: dict[str, bool] = {
         "string": isinstance(value, str),
         "integer": isinstance(value, int) and not isinstance(value, bool),
