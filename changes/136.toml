@@ -34,6 +34,7 @@ expected = [
   "apps/web/src/features/laboratory/AuditActivity.tsx",
   "apps/web/src/features/laboratory/laboratory.css",
   "apps/web/src/features/laboratory/useLaboratoryDemo.ts",
+  "apps/web/src/features/laboratory/laboratoryModel.ts",
   "docs/planning/mvp-capability-map.md",
   "docs/_generated/manifest.json",
   "docs/_generated/claims.json",
@@ -60,7 +61,7 @@ full_gates = ["uv run python scripts/check_change_contract.py", "uv run python s
 
 [merge_gate]
 review = "proportional"
-ci_commit = "ec6808a"
+ci_commit = "b3734c4"
 
 [merge_gate.spec]
 conclusion = "passed"
