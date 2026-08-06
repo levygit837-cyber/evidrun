@@ -10,6 +10,7 @@ import {
   CONTEXT_ITEMS,
   type ContextItem,
   type LaboratoryPhase,
+  PHASE_BY_TERMINAL,
   TEXTAREA_MAX_HEIGHT_PX,
   TEXTAREA_MIN_HEIGHT_PX,
   type ToolEvent,
@@ -17,14 +18,17 @@ import {
 } from "./laboratoryModel";
 
 /**
- * Phase machine for the Laboratory demo: `empty → ready → submitting → active → stopping →
- * completed | cancelled | failed | unavailable`.
+ * Máquina de fases do Laboratory: `empty → ready → submitting → active → stopping →
+ * completed | proposed | exhausted | cancelled | failed | unavailable`.
+ *
+ * A fase terminal vem de `PHASE_BY_TERMINAL`, um mapa dos seis terminais do laço. Derivar por
+ * substring do rótulo classificava `budget_exhausted` e `repeated_refusal` como conclusão.
  *
  * `submitLockRef` is a synchronous guard: it is set before the first `await` so two clicks
  * dispatched inside one task can never both reach `adapter.send`.
  */
 export function useLaboratoryDemo(laboratoryAdapter: LaboratoryAdapter) {
-  const initiallyUnavailable = laboratoryAdapter.mode !== "demo";
+  const initiallyUnavailable = laboratoryAdapter.mode === "integration_pending" || laboratoryAdapter.mode === "unavailable";
   const [phase, setPhase] = useState<LaboratoryPhase>(
     initiallyUnavailable ? "unavailable" : "empty",
   );
@@ -79,6 +83,7 @@ export function useLaboratoryDemo(laboratoryAdapter: LaboratoryAdapter) {
       setPhase("submitting");
 
       let terminalEventSeen = false;
+      let terminalStatus: string | null = null;
       try {
         for await (const event of laboratoryAdapter.send(
           exactInput,
@@ -95,6 +100,7 @@ export function useLaboratoryDemo(laboratoryAdapter: LaboratoryAdapter) {
           if (event.type === "status") {
             setPhase("active");
             setStatusLog((current) => [...current, event.label]);
+            terminalStatus = event.label.toLowerCase();
           } else if (event.type === "tool") {
             setPhase("active");
             setTools((current) => {
@@ -111,11 +117,22 @@ export function useLaboratoryDemo(laboratoryAdapter: LaboratoryAdapter) {
             setAgentMessage(event.content);
           } else if (event.type === "error") {
             terminalEventSeen = true;
-            setError(event.message);
-            setPhase(event.source === "demo" ? "failed" : "unavailable");
+            setError([event.code, event.message, event.remediation].filter(Boolean).join("\n"));
+            setPhase("failed");
           } else if (event.type === "done") {
             terminalEventSeen = true;
-            setPhase("completed");
+            // O rótulo do último `status` é o nome do terminal, e o mapa o traduz um a um. Buscar
+            // "cancel"/"fail" no texto classificava `budget_exhausted` e `repeated_refusal` como
+            // conclusão, apresentando turno parcial como completo.
+            const phase = terminalStatus ? PHASE_BY_TERMINAL[terminalStatus] : undefined;
+            if (phase === undefined) {
+              setError(
+                `O backend emitiu um terminal que esta interface não conhece: ${terminalStatus ?? "ausente"}.`,
+              );
+              setPhase("failed");
+            } else {
+              setPhase(phase);
+            }
           }
         }
 
@@ -139,6 +156,11 @@ export function useLaboratoryDemo(laboratoryAdapter: LaboratoryAdapter) {
         }
       } finally {
         if (abortControllerRef.current === controller) {
+          // Saída limpa depois do abort fecha o ciclo aqui. O adapter retorna sem lançar e sem
+          // fabricar terminal, de propósito, então nem o `catch` nem o ramo de `done` são
+          // alcançados: sem esta linha a fase fica presa em `stopping`, onde o composer está
+          // desabilitado, e o humano que cancela um turno perde a sessão.
+          if (controller.signal.aborted && !terminalEventSeen) setPhase("cancelled");
           abortControllerRef.current = null;
           submitLockRef.current = false;
         }

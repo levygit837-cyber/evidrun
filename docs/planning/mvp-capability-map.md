@@ -92,7 +92,7 @@ A limitacao nao esta na espinha, e sim no acesso a ela e na largura do que ela a
 | Tools/skills genericas | `accepted_only` | Inventario e eventos sao representaveis; fora da read tool, coordinators continuam ausentes e os event types permanecem reservados no ledger. |
 | Interaction graph/nested agents | `accepted_only` | Contratos sao tipaveis e a admissao rejeita honestamente. |
 | Portable bundle/replay/fork | `accepted_only` | Audit bundles existem; blobs, grants, restore e lineage executavel nao. |
-| Console desktop de operacao | `partial` | Shell multipagina existe em `main` e as tres paginas foram fatiadas por WS-13. Observability consome endpoints reais. Create ainda executa a fixture e Laboratory e mock; nao existem Workspace switcher, Project Room ou sessoes escopadas integradas. WS-51 documenta a integracao futura sem promove-la. |
+| Console desktop de operacao | `partial` | Shell multipagina existe em `main`; Observability consome endpoints reais e Laboratory usa o corredor real do Lab Agent com selecao explicita de sessoes General, Project e Focused. O painel mostra tools, recusas e drafts como drafts; Create ainda executa a fixture e nao existe Workspace switcher global. Verificacao: `apps/web/src/features/laboratory/LaboratoryPage.test.tsx` e `pnpm test:web`. |
 | Contratos tipados de HTTP no frontend | `partial` | O pipeline Pydantic -> JSON Schema -> TypeScript existe e e verificado no CI, mas cobre o catalogo de dominio. Os DTOs de resposta consumidos pelas paginas sao escritos a mao, fora do gate de drift. |
 | Canvas | `incubating` | Conceitos existem; nao e requisito do MVP operacional. |
 

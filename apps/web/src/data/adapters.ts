@@ -4,6 +4,8 @@ import type {
   LabSession,
   LabUiEvent,
   LaboratoryAdapter,
+  LaboratorySessionAdapter,
+  LabScopeSelection,
   ObservabilityAdapter,
 } from "./contracts";
 
@@ -32,32 +34,49 @@ export const observabilityAdapter: ObservabilityAdapter = {
   stream: runEventStream,
 };
 
-export class LiveLaboratoryAdapter implements LaboratoryAdapter {
+export class LiveLaboratoryAdapter implements LaboratorySessionAdapter {
   readonly mode = "live" as const;
-  private session: Promise<LabSession> | null = null;
+  private session: LabSession | null = null;
 
-  private resolveSession(): Promise<LabSession> {
-    if (this.session) return this.session;
-    this.session = (async () => {
-      const dashboard = await api.dashboard();
-      const workspace = dashboard.workspaces[0];
-      if (!workspace) throw new Error("Nenhum Workspace está disponível para o Laboratory.");
-      return api.createLabSession({
-        workspace_id: workspace.id,
-        title: "Laboratory",
-      });
-    })();
-    this.session.catch(() => {
-      // Uma falha transitória não deve inutilizar o adapter por todo o restante da sessão da UI.
-      this.session = null;
-    });
+  async scopeOptions() {
+    const dashboard = await api.dashboard();
+    return { workspaces: dashboard.workspaces, projects: dashboard.projects };
+  }
+
+  activeSession() {
     return this.session;
+  }
+
+  async selectScope(selection: LabScopeSelection): Promise<LabSession> {
+    const sessions = await api.labSessions(selection.workspaceId);
+    const session = sessions.find(
+      (candidate) =>
+        candidate.project_id === (selection.projectId ?? null) &&
+        candidate.focus_kind === (selection.focusKind ?? null) &&
+        candidate.focus_id === (selection.focusId ?? null),
+    );
+    this.session =
+      session ??
+      (await api.createLabSession({
+        workspace_id: selection.workspaceId,
+        title: "Laboratory",
+        ...(selection.projectId ? { project_id: selection.projectId } : {}),
+        ...(selection.focusKind ? { focus_kind: selection.focusKind } : {}),
+        ...(selection.focusId ? { focus_id: selection.focusId } : {}),
+      }));
+    return this.session;
+  }
+
+  async messages() {
+    if (!this.session) return [];
+    return api.labMessages(this.session.id, this.session.workspace_id);
   }
 
   async *send(input: string, signal: AbortSignal): AsyncGenerator<LabUiEvent> {
     let sawDone = false;
     try {
-      const session = await this.resolveSession();
+      const session = this.session;
+      if (!session) throw new Error("Escolha um escopo antes de enviar uma mensagem.");
       if (signal.aborted) return;
       for await (const event of api.streamLabTurn(
         session.id,
