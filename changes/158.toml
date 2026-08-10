@@ -8,11 +8,11 @@ branch_pattern = "chore/public-project-presentation"
 expected_outcome = "O README e um guia curto permitem que avaliadores entendam rapidamente a tese, a arquitetura, as evidencias e os limites reais do Evidrun sem alterar comportamento executavel."
 confirmed_facts = [
   "O repositório já possui documentação normativa e técnica extensa; a lacuna é uma rota de entrada para revisão externa.",
-  "A mudança toca apenas README.md, docs/reviewer-guide.md e este contrato de mudança.",
+  "A mudança toca apenas README.md, REVIEWER_GUIDE.md e este contrato de mudança.",
   "Nenhuma capability, schema persistido, API, CLI, runtime, teste ou decisão normativa é alterada.",
 ]
 stop_conditions = [
-  "A entrega exigir alterar código, contratos, schemas, migrations, apps ou workflows.",
+  "A entrega exigir alterar código, contracts, schemas, migrations, apps ou workflows.",
   "A documentação precisar afirmar uma capability não comprovada pelo repositório.",
   "A mudança exigir trocar a licença proprietária ou publicar informação sensível.",
 ]
@@ -29,22 +29,21 @@ notes = [
 [scope]
 expected = [
   "README.md",
-  "docs/reviewer-guide.md",
+  "REVIEWER_GUIDE.md",
 ]
 forbidden = [
   "src/**",
   "apps/**",
   "alembic/**",
   "schemas/**",
-  "docs/adr/**",
-  "docs/contracts/**",
+  "docs/**",
   ".github/**",
 ]
 preexisting = []
 
 [preserve]
 interfaces = [
-  "Todos os comandos, APIs, contratos, bundles e fluxos executáveis permanecem inalterados.",
+  "Todos os comandos, APIs, contracts, bundles e fluxos executáveis permanecem inalterados.",
 ]
 errors = [
   "Nenhuma semântica de erro ou admissão é alterada.",
@@ -52,6 +51,7 @@ errors = [
 invariants = [
   "O guia distingue implementação presente, limitações e trabalho futuro.",
   "O README não apresenta o Evidrun como produto SaaS concluído.",
+  "O guia não apresenta single_turn como long-horizon nem bundles references_only como replay portátil.",
   "Links e paths citados correspondem à árvore atual do repositório.",
 ]
 
@@ -75,20 +75,20 @@ full_gates = [
 
 [merge_gate]
 review = "proportional"
-ci_commit = "b125ccc500e3816cdf74815327ef566532a03471"
+ci_commit = "6eebd6e53a07dcdfc5e8f66906f93f0c2246c46b"
 
 [merge_gate.spec]
 conclusion = "passed"
 evidence = [
   "diff:README.md",
-  "diff:docs/reviewer-guide.md",
+  "diff:REVIEWER_GUIDE.md",
 ]
 
 [merge_gate.standards]
 conclusion = "passed"
 evidence = [
   "review:portfolio-audit-2026-08-10",
-  "log:secret-scan-31391823089",
+  "review:codex-review-claims-and-doc-policy",
 ]
 
 [merge_gate.verification]
@@ -101,5 +101,5 @@ evidence = [
 [merge_gate.ci]
 conclusion = "passed"
 evidence = [
-  "run:31391823089",
+  "run:candidate-6eebd6e",
 ]
