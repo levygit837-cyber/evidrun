@@ -4,6 +4,8 @@
 
 **Laboratório local-first e auditável para avaliar agentes de IA.**
 
+*Local-first, evidence-driven infrastructure for evaluating AI-agent runs, context, tools and execution environments.*
+
 [![CI](https://github.com/levygit837-cyber/evidrun/actions/workflows/ci.yml/badge.svg)](https://github.com/levygit837-cyber/evidrun/actions/workflows/ci.yml)
 [![Python 3.14](https://img.shields.io/badge/Python-3.14-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Node 24](https://img.shields.io/badge/Node-24-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
@@ -13,7 +15,7 @@
 
 ## Navegação rápida
 
-[Estado](#estado-atual) · [Execução](#começar) · [Documentação](#navegação-documental) · [Licença](#licença)
+[Estado](#estado-atual) · [Execução](#começar) · [Documentação](#navegação-documental) · [Guia para avaliadores](REVIEWER_GUIDE.md) · [Licença](#licença)
 
 O Evidrun testa como contexto, ferramentas, policies e ambientes afetam agentes de IA.
 
@@ -58,13 +60,13 @@ avaliação. Tools genéricas, skills, nested agents, protocolo em grafo, checkp
 Progress Artifacts, bounded exploration e restore/replay são representáveis, mas a admissão os
 rejeita explicitamente em vez de fingir suportá-los.
 
-Duas lacunas afetam o uso do aplicativo instalado:
+A tela Create ainda mantém rascunho local e faz bootstrap da fixture, em vez de usar o corredor de
+autoria já disponível na API e na CLI.
 
-- a tela Create ainda mantém rascunho local e faz bootstrap da fixture, em vez de usar o corredor de
-  autoria já disponível na API e na CLI;
-- o runtime do Lab Agent já existe em `src/evidrun/lab/`, com loop limitado, catálogo fechado de
-  tools, leitura escopada e drafts sujeitos a revisão humana, mas o backend ainda não oferece o
-  adapter `send/stream/cancel`; por isso a página Laboratory continua em modo de integração.
+O runtime do Lab Agent existe em `src/evidrun/lab/`, com loop limitado, catálogo fechado de tools,
+leitura escopada e drafts sujeitos a revisão humana. A página Laboratory já usa o adapter de produção
+e o endpoint de turnos do backend, embora o runtime continue intencionalmente limitado pelas
+fronteiras documentadas.
 
 Criar Workspace e Project já possui superfície pública em API e CLI, o app desktop supervisiona API e
 worker separados, e o backend compila e admite uma Run explicitamente não verificada com
@@ -129,6 +131,9 @@ estruturais, geração de contracts, builds e validação documental também pas
 Comece por [docs/index.md](docs/index.md). O repositório é a única fonte normativa: `docs/adr` para
 decisões aceitas, `docs/contracts` para contratos, `docs/planning` para intenção temporal. Resultados
 de runs permanecem no data store ou em bundles exportados.
+
+Para uma leitura rápida voltada a programas, parceiros ou revisão de portfólio, consulte o
+[guia para avaliadores](REVIEWER_GUIDE.md).
 
 ## Licença
 
