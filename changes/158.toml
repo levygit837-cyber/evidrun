@@ -1,0 +1,105 @@
+schema_version = "1"
+change_id = "GH-158"
+issue = 158
+title = "Criar entrada de projeto orientada a avaliadores"
+classification = "docs-only"
+base_ref = "origin/main"
+branch_pattern = "chore/public-project-presentation"
+expected_outcome = "O README e um guia curto permitem que avaliadores entendam rapidamente a tese, a arquitetura, as evidencias e os limites reais do Evidrun sem alterar comportamento executavel."
+confirmed_facts = [
+  "O repositório já possui documentação normativa e técnica extensa; a lacuna é uma rota de entrada para revisão externa.",
+  "A mudança toca apenas README.md, docs/reviewer-guide.md e este contrato de mudança.",
+  "Nenhuma capability, schema persistido, API, CLI, runtime, teste ou decisão normativa é alterada.",
+]
+stop_conditions = [
+  "A entrega exigir alterar código, contratos, schemas, migrations, apps ou workflows.",
+  "A documentação precisar afirmar uma capability não comprovada pelo repositório.",
+  "A mudança exigir trocar a licença proprietária ou publicar informação sensível.",
+]
+
+[impact]
+capability = "none"
+persisted_contract = "none"
+normative = "none"
+notes = [
+  "A mudança melhora somente descoberta, navegação e interpretação de portfólio.",
+  "Limitações existentes permanecem explícitas no README e no guia.",
+]
+
+[scope]
+expected = [
+  "README.md",
+  "docs/reviewer-guide.md",
+]
+forbidden = [
+  "src/**",
+  "apps/**",
+  "alembic/**",
+  "schemas/**",
+  "docs/adr/**",
+  "docs/contracts/**",
+  ".github/**",
+]
+preexisting = []
+
+[preserve]
+interfaces = [
+  "Todos os comandos, APIs, contratos, bundles e fluxos executáveis permanecem inalterados.",
+]
+errors = [
+  "Nenhuma semântica de erro ou admissão é alterada.",
+]
+invariants = [
+  "O guia distingue implementação presente, limitações e trabalho futuro.",
+  "O README não apresenta o Evidrun como produto SaaS concluído.",
+  "Links e paths citados correspondem à árvore atual do repositório.",
+]
+
+[verification]
+focused = [
+  "uv run python scripts/check_change_contract.py --discover --base-ref origin/main --strict-warnings",
+  "uv run python scripts/validate_docs.py",
+]
+full_gates = [
+  "uv run python scripts/check_secrets.py",
+  "uv run ruff check .",
+  "uv run pyright",
+  "uv run pytest",
+  "pnpm typecheck:web",
+  "pnpm typecheck:desktop",
+  "pnpm test",
+  "pnpm build",
+  "uv run python scripts/validate_docs.py",
+  "uv run python scripts/generate_schemas.py --check",
+]
+
+[merge_gate]
+review = "proportional"
+ci_commit = "b125ccc500e3816cdf74815327ef566532a03471"
+
+[merge_gate.spec]
+conclusion = "passed"
+evidence = [
+  "diff:README.md",
+  "diff:docs/reviewer-guide.md",
+]
+
+[merge_gate.standards]
+conclusion = "passed"
+evidence = [
+  "review:portfolio-audit-2026-08-10",
+  "log:secret-scan-31391823089",
+]
+
+[merge_gate.verification]
+conclusion = "passed"
+evidence = [
+  "log:ruff-check-31391823089",
+  "test:node-job-93465121139",
+]
+
+[merge_gate.ci]
+conclusion = "passed"
+evidence = [
+  "run:31391823089",
+]
